@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "clips": [
+    {
+      "id": "offer_react",
+      "type": "shake",
+      "target": "yokai",
+      "duration": 0.32,
+      "intensityX": 12,
+      "intensityY": 8,
+      "steps": 8
+    },
+    {
+      "id": "evolve_flash",
+      "type": "color_flash",
+      "target": "yokai",
+      "flashes": 6,
+      "interval": 0.12,
+      "colorA": "#FFFFFF",
+      "colorB": "#8CD9FF"
+    },
+    {
+      "id": "energy_warning_pulse",
+      "type": "color_pulse",
+      "target": "energy_bar",
+      "speed": 2.0,
+      "colorA": "#4DCC8C",
+      "colorB": "#FFFF00",
+      "loop": true
+    },
+    {
+      "id": "blacken",
+      "type": "color_to",
+      "target": "yokai",
+      "duration": 0.45,
+      "color": "#262633"
+    },
+    {
+      "id": "restore_white",
+      "type": "color_to",
+      "target": "yokai",
+      "duration": 0.35,
+      "color": "#F2F2E6"
+    },
+    {
+      "id": "glitch_on",
+      "type": "overlay",
+      "target": "glitch",
+      "visible": true
+    },
+    {
+      "id": "glitch_off",
+      "type": "overlay",
+      "target": "glitch",
+      "visible": false
+    },
+    {
+      "id": "dialogue_typewriter",
+      "type": "typewriter",
+      "charsPerSecond": 36,
+      "punctuationHold": 0.07
+    }
+  ]
+}

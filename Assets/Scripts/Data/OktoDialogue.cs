@@ -1,0 +1,164 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace KSpirits.Data
+{
+    [Serializable]
+    public class DialogueLine
+    {
+        public string speaker;
+        public string text;
+        public bool narration;
+
+        public string Speaker => string.IsNullOrEmpty(speaker) ? null : speaker;
+        public string Text => text;
+        public bool IsNarration => narration;
+
+        public DialogueLine() { }
+
+        public DialogueLine(string text, string speaker = null, bool narration = false)
+        {
+            this.text = text;
+            this.speaker = speaker ?? "";
+            this.narration = narration;
+        }
+
+        public static DialogueLine Say(string speaker, string text) => new(text, speaker);
+        public static DialogueLine Narrate(string text) => new(text, "", true);
+        public static DialogueLine Okto(string text) => new(text, "옥토끼");
+        public static DialogueLine Imugi(string text) => new(text, "이무기");
+    }
+
+    [Serializable]
+    public class ChoiceOption
+    {
+        public string id;
+        public string label;
+
+        public string Id => id;
+        public string Label => label;
+
+        public ChoiceOption() { }
+
+        public ChoiceOption(string id, string label)
+        {
+            this.id = id;
+            this.label = label;
+        }
+    }
+
+    [Serializable]
+    public class DialogueSection
+    {
+        public string id;
+        public DialogueLine[] lines;
+    }
+
+    [Serializable]
+    public class ChoiceSection
+    {
+        public string id;
+        public ChoiceOption[] options;
+    }
+
+    [Serializable]
+    public class DialogueFile
+    {
+        public string version;
+        public string character;
+        public DialogueSection[] sections;
+        public ChoiceSection[] choices;
+    }
+
+    /// <summary>
+    /// Resources/Dialogue/okto_tutorial.json 로드.
+    /// 대사 수정은 JSON만 고치면 된다.
+    /// </summary>
+    public static class OktoDialogue
+    {
+        const string ResourcePath = "Dialogue/okto_tutorial";
+
+        static Dictionary<string, DialogueLine[]> _sections;
+        static Dictionary<string, ChoiceOption[]> _choices;
+        static bool _loaded;
+
+        public static IReadOnlyList<DialogueLine> AfterFirstOffering => Lines("after_first_offering");
+        public static IReadOnlyList<DialogueLine> AfterApparitionEvolve => Lines("after_apparition_evolve");
+        public static IReadOnlyList<DialogueLine> Petting => Lines("petting");
+        public static IReadOnlyList<DialogueLine> TrainingIntro => Lines("training_intro");
+        public static IReadOnlyList<DialogueLine> AfterBaekdo => Lines("after_baekdo");
+        public static IReadOnlyList<DialogueLine> AfterGoal => Lines("after_goal");
+        public static IReadOnlyList<DialogueLine> EnergyWarning => Lines("energy_warning");
+        public static IReadOnlyList<DialogueLine> NeedMoreEnergy => Lines("need_more_energy");
+        public static IReadOnlyList<DialogueLine> AfterManifestEvolve => Lines("after_manifest_evolve");
+        public static IReadOnlyList<DialogueLine> MemoryMoon => Lines("memory_moon");
+        public static IReadOnlyList<DialogueLine> MemoryEarth => Lines("memory_earth");
+        public static IReadOnlyList<DialogueLine> MemoryShop => Lines("memory_shop");
+        public static IReadOnlyList<DialogueLine> BeforeBlackeningChoices => Lines("before_blackening_choices");
+        public static IReadOnlyList<DialogueLine> Blackening => Lines("blackening");
+        public static IReadOnlyList<DialogueLine> ImugiRestore => Lines("imugi_restore");
+        public static IReadOnlyList<DialogueLine> WishPrompt => Lines("wish_prompt");
+        public static IReadOnlyList<DialogueLine> Doppelganger => Lines("doppelganger");
+        public static IReadOnlyList<DialogueLine> HiddenConfirm => Lines("hidden_confirm");
+        public static IReadOnlyList<DialogueLine> HiddenEnding => Lines("hidden_ending");
+        public static IReadOnlyList<DialogueLine> CardAndIncense => Lines("card_and_incense");
+        public static IReadOnlyList<DialogueLine> FirstMeeting => Lines("first_meeting");
+
+        public static IReadOnlyList<ChoiceOption> BlackeningChoices => Choices("blackening");
+        public static IReadOnlyList<ChoiceOption> WishChoices => Choices("wish");
+        public static IReadOnlyList<ChoiceOption> HiddenConfirmChoices => Choices("hidden_confirm");
+
+        public static void EnsureLoaded()
+        {
+            if (_loaded) return;
+
+            var asset = Resources.Load<TextAsset>(ResourcePath);
+            if (asset == null)
+            {
+                Debug.LogError($"[OktoDialogue] Missing Resources/{ResourcePath}.json");
+                _sections = new Dictionary<string, DialogueLine[]>();
+                _choices = new Dictionary<string, ChoiceOption[]>();
+                _loaded = true;
+                return;
+            }
+
+            var file = JsonUtility.FromJson<DialogueFile>(asset.text);
+            _sections = new Dictionary<string, DialogueLine[]>();
+            _choices = new Dictionary<string, ChoiceOption[]>();
+
+            if (file.sections != null)
+            {
+                foreach (var s in file.sections)
+                {
+                    if (s == null || string.IsNullOrEmpty(s.id)) continue;
+                    _sections[s.id] = s.lines ?? Array.Empty<DialogueLine>();
+                }
+            }
+
+            if (file.choices != null)
+            {
+                foreach (var c in file.choices)
+                {
+                    if (c == null || string.IsNullOrEmpty(c.id)) continue;
+                    _choices[c.id] = c.options ?? Array.Empty<ChoiceOption>();
+                }
+            }
+
+            _loaded = true;
+            Debug.Log($"[OktoDialogue] Loaded v{file.version}: {_sections.Count} sections, {_choices.Count} choice sets");
+        }
+
+        static DialogueLine[] Lines(string id)
+        {
+            EnsureLoaded();
+            return _sections.TryGetValue(id, out var lines) ? lines : Array.Empty<DialogueLine>();
+        }
+
+        static ChoiceOption[] Choices(string id)
+        {
+            EnsureLoaded();
+            return _choices.TryGetValue(id, out var opts) ? opts : Array.Empty<ChoiceOption>();
+        }
+    }
+}
