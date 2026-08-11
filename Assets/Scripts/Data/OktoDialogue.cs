@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using KSpirits.Core;
 
 namespace KSpirits.Data
 {
@@ -67,21 +68,23 @@ namespace KSpirits.Data
     {
         public string version;
         public string character;
+        public string locale;
         public DialogueSection[] sections;
         public ChoiceSection[] choices;
     }
 
     /// <summary>
-    /// Resources/Dialogue/okto_tutorial.json 로드.
-    /// 대사 수정은 JSON만 고치면 된다.
+    /// Resources/Dialogue/okto_tutorial.{locale}.json 로드.
+    /// 대사 수정은 시트 → npm run dialogue.
     /// </summary>
     public static class OktoDialogue
     {
-        const string ResourcePath = "Dialogue/okto_tutorial";
+        const string ResourcePathPrefix = "Dialogue/okto_tutorial";
 
         static Dictionary<string, DialogueLine[]> _sections;
         static Dictionary<string, ChoiceOption[]> _choices;
         static bool _loaded;
+        static string _loadedLocale;
 
         public static IReadOnlyList<DialogueLine> AfterFirstOffering => Lines("after_first_offering");
         public static IReadOnlyList<DialogueLine> AfterApparitionEvolve => Lines("after_apparition_evolve");
@@ -109,23 +112,39 @@ namespace KSpirits.Data
         public static IReadOnlyList<ChoiceOption> WishChoices => Choices("wish");
         public static IReadOnlyList<ChoiceOption> HiddenConfirmChoices => Choices("hidden_confirm");
 
+        public static void Invalidate()
+        {
+            _loaded = false;
+            _loadedLocale = null;
+            _sections = null;
+            _choices = null;
+        }
+
         public static void EnsureLoaded()
         {
-            if (_loaded) return;
+            var locale = GameLocale.Current;
+            if (_loaded && _loadedLocale == locale) return;
 
-            var asset = Resources.Load<TextAsset>(ResourcePath);
+            _sections = new Dictionary<string, DialogueLine[]>();
+            _choices = new Dictionary<string, ChoiceOption[]>();
+
+            var asset = LoadLocaleAsset(locale);
+            if (asset == null && locale != GameLocale.Fallback)
+            {
+                Debug.LogWarning($"[OktoDialogue] Missing locale '{locale}', fallback to '{GameLocale.Fallback}'");
+                asset = LoadLocaleAsset(GameLocale.Fallback);
+                locale = GameLocale.Fallback;
+            }
+
             if (asset == null)
             {
-                Debug.LogError($"[OktoDialogue] Missing Resources/{ResourcePath}.json");
-                _sections = new Dictionary<string, DialogueLine[]>();
-                _choices = new Dictionary<string, ChoiceOption[]>();
+                Debug.LogError($"[OktoDialogue] Missing Resources/{ResourcePathPrefix}.{GameLocale.Fallback}.json");
                 _loaded = true;
+                _loadedLocale = locale;
                 return;
             }
 
             var file = JsonUtility.FromJson<DialogueFile>(asset.text);
-            _sections = new Dictionary<string, DialogueLine[]>();
-            _choices = new Dictionary<string, ChoiceOption[]>();
 
             if (file.sections != null)
             {
@@ -146,7 +165,18 @@ namespace KSpirits.Data
             }
 
             _loaded = true;
-            Debug.Log($"[OktoDialogue] Loaded v{file.version}: {_sections.Count} sections, {_choices.Count} choice sets");
+            _loadedLocale = locale;
+            Debug.Log($"[OktoDialogue] Loaded v{file.version} ({locale}): {_sections.Count} sections, {_choices.Count} choice sets");
+        }
+
+        static TextAsset LoadLocaleAsset(string locale)
+        {
+            var primary = Resources.Load<TextAsset>($"{ResourcePathPrefix}.{locale}");
+            if (primary != null) return primary;
+            // 구버전 호환: Dialogue/okto_tutorial.json
+            if (locale == GameLocale.Fallback)
+                return Resources.Load<TextAsset>(ResourcePathPrefix);
+            return null;
         }
 
         static DialogueLine[] Lines(string id)

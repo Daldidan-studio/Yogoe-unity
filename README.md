@@ -54,20 +54,40 @@ Assets/
     Tutorial/      옥토끼 14스텝 머신
     UI/            족자 화면·드래그 공양
   Resources/
-    Dialogue/okto_tutorial.json   튜토리얼 대사·선택지
+    Dialogue/okto_tutorial.ko.json  튜토리얼 대사·선택지 (언어별)
     Animation/ui_anims.json       shake / flash / typewriter 등
 Docs/
   00_기획정리.md
   01_큰구조.md
   02_개발진행.md
+  03_대사시트규약.md   Google Sheet id·탭·export 규약
 ```
 
 ## 데이터 수정
 
 | 내용 | 파일 |
 |------|------|
-| 대사·선택지 | `Assets/Resources/Dialogue/okto_tutorial.json` |
+| 대사·선택지 | `Assets/Resources/Dialogue/okto_tutorial.{ko|en|zh}.json` |
 | 연출 수치 (흔들림, 타이핑 속도 등) | `Assets/Resources/Animation/ui_anims.json` |
+
+### 대사 시트 → JSON
+
+Google Sheet에서 수정한 뒤 프로젝트로 반영:
+
+```bash
+npm run dialogue
+```
+
+- 설정: `Tools/dialogue_sheets.config.json` (`sheet_id`, `characters`, `locales`)
+- 시트 탭 = 캐릭터명 (예: `okto`)
+- 출력: `Assets/Resources/Dialogue/{character}_tutorial.{locale}.json`
+- 시트 공유: **링크 있는 사용자 · 뷰어**
+- id/탭 규약: `Docs/03_대사시트규약.md`
+- 언어 전환: `GameLocale.Current = "en"` (없으면 `ko` 폴백)
+
+시트 컬럼에 `text_en` / `text_zh`를 채운 뒤 `npm run dialogue` 하면 해당 언어 JSON이 추가로 생깁니다.
+
+로컬 CSV만 쓸 때: `npm run dialogue:csv`
 
 코드 재컴파일 없이 JSON만 고쳐도 내용/속도 조절이 가능합니다. (Play 모드 재시작 필요)
 

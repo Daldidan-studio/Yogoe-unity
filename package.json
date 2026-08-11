@@ -1,0 +1,9 @@
+{
+  "name": "yogoe-unity-tools",
+  "private": true,
+  "description": "Local tooling for Yogoe Unity (dialogue sheet export, etc.)",
+  "scripts": {
+    "dialogue": "python3 Tools/export_dialogue.py",
+    "dialogue:csv": "python3 Tools/export_dialogue.py --csv Tools/sheets/okto.csv --character okto"
+  }
+}
