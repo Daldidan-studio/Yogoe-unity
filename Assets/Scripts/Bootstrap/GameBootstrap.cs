@@ -1,4 +1,5 @@
 using KSpirits.Model;
+using KSpirits.Systems;
 using KSpirits.Tutorial;
 using KSpirits.UI;
 using UnityEngine;
@@ -22,7 +23,9 @@ namespace KSpirits.Bootstrap
             DontDestroyOnLoad(gameObject);
             EnsureEventSystem();
             var canvas = CreateCanvas();
-            var state = GameState.CreateNewGame();
+            var state = SaveService.TryLoad(out var loaded) ? loaded : GameState.CreateNewGame();
+            var saveHost = gameObject.AddComponent<SaveHost>();
+            saveHost.Bind(state);
             var ui = ScrollScreenUI.Create(canvas.transform);
             var tutorial = gameObject.AddComponent<TutorialController>();
             tutorial.Bind(state, ui);

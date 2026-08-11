@@ -10,6 +10,7 @@
 - [x] 옥토끼 튜토리얼 STEP 1~14 **로직 골격**
 - [x] 대사 JSON + 타이핑/스킵
 - [x] UI 연출 클립 JSON
+- [x] 세이브 (slot0 JSON, 스텝 재개)
 - [ ] 아트 스프라이트 적용
 - [ ] 윷판 29밭 실구현
 - [ ] 소환 화면 실구현
@@ -51,6 +52,7 @@ Assets/
     Data/          대사 JSON 로더
     Animation/     연출 카탈로그·타이핑·플레이어
     Model/         게임 상태 (기력·친밀도·재화)
+    Systems/       세이브 (JSON slot0)
     Tutorial/      옥토끼 14스텝 머신
     UI/            족자 화면·드래그 공양
   Resources/
@@ -62,6 +64,13 @@ Docs/
   02_개발진행.md
   03_대사시트규약.md   Google Sheet id·탭·export 규약
 ```
+
+## 세이브
+
+- 경로: 기기 `persistentDataPath/save_slot0.json`
+- 튜토리얼 **스텝 경계**에서 저장 → 재실행 시 그 스텝부터
+- 앱 백그라운드/종료 시에도 저장
+- 스키마 v1: 튜토리얼·지갑·포커스 요괴·옥토끼 카드 (+ 슬롯/도감 예비 배열)
 
 ## 데이터 수정
 

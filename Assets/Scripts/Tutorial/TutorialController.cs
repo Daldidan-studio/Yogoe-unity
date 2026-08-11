@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Model;
+using KSpirits.Systems;
 using KSpirits.UI;
 using UnityEngine;
 
@@ -40,6 +41,7 @@ namespace KSpirits.Tutorial
         IEnumerator RunStep(TutorialStepId step)
         {
             _state.TutorialStep = step;
+            SaveService.Save(_state);
             _ui.SetStepLabel($"튜토리얼 STEP {(int)step}");
             _ui.RefreshAll(_state);
 
