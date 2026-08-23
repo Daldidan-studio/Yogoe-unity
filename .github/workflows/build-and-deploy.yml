@@ -46,7 +46,7 @@ jobs:
         with:
           unityVersion: ${{ env.UNITY_VERSION }}
           targetPlatform: WebGL
-          buildName: webgl
+          buildName: WebGL
 
       - name: Fix paths for GitHub Pages
         run: |
