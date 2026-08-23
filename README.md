@@ -22,10 +22,18 @@
 - URP 모바일 템플릿 기반
 - 플랫폼 목표: Android / iOS
 
-## 실행 방법
+## 웹 데모 (GitHub Pages)
+
+`main` push 시 WebGL 자동 빌드·배포.
+
+**플레이:** https://daldidan-studio.github.io/Yogoe-unity/
+
+최초 1회 [CI Secrets·Pages 설정](Docs/04_CI_배포.md) 필요.
+
+## 실행 방법 (로컬)
 
 1. Unity Hub에서 이 폴더를 연다.
-2. `Assets/Scenes/SampleScene`을 연다.
+2. `Assets/Scenes/Boot`을 연다.
 3. Play를 누른다.
 
 씬에 오브젝트를 배치할 필요 없이, `GameBootstrap`이 런타임에 족자 UI와 튜토리얼을 띄웁니다.

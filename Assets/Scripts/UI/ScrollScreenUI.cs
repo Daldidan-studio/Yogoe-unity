@@ -7,8 +7,13 @@ using KSpirits.Data;
 using KSpirits.Model;
 using UnityEngine;
 using UnityEngine.UI;
+
 namespace KSpirits.UI
 {
+    /// <summary>
+    /// Boot 씬 Canvas 아래에 배치된 UI. Hierarchy에서 드래그로 배치·수정 가능.
+    /// 최초 생성: 메뉴 KSpirits → Setup Boot Scene UI
+    /// </summary>
     public class ScrollScreenUI : MonoBehaviour
     {
         public event Action OnYokaiTapped;
@@ -19,236 +24,302 @@ namespace KSpirits.UI
         public event Action<string> OnChoiceSelected;
         public event Action OnDialogueContinue;
 
-        Text _coinText;
-        Text _heartText;
-        Text _incenseText;
-        Text _energyText;
-        Text _intimacyText;
-        Text _stageText;
-        Text _statusText;
-        Text _stepText;
-        Text _dialogueSpeaker;
-        Text _dialogueBody;
-        Text _dialogueContinueHint;
-        Text _yutResultText;
-        Text _yokaiLabel;
-        Image _yokaiImage;
-        Image _energyFill;
-        Image _intimacyFill;
-        Image _bg;
-        GameObject _dialogueRoot;
-        GameObject _choiceRoot;
-        GameObject _offerHighlight;
-        GameObject _trainingPanel;
-        GameObject _cardPanel;
-        GameObject _summonPanel;
-        GameObject _glitchOverlay;
-        GameObject _waterSlotRoot;
+        [SerializeField] Text _coinText;
+        [SerializeField] Text _heartText;
+        [SerializeField] Text _incenseText;
+        [SerializeField] Text _statusText;
+        [SerializeField] Text _stepText;
+        [SerializeField] Text _dialogueSpeaker;
+        [SerializeField] Text _dialogueBody;
+        [SerializeField] Text _dialogueContinueHint;
+        [SerializeField] Text _yutResultText;
+        [SerializeField] Text _yokaiNameText;
+        [SerializeField] Text _yokaiLabel;
+        [SerializeField] Text[] _itemCountLabels;
+        [SerializeField] Image _yokaiImage;
+        [SerializeField] Image _energyPulseBar;
+        [SerializeField] Image _skyBg;
+        [SerializeField] Image _moonGround;
+        [SerializeField] Image[] _energySegments;
+        [SerializeField] Image[] _intimacySegments;
+        [SerializeField] GameObject _dialogueRoot;
+        [SerializeField] GameObject _choiceRoot;
+        [SerializeField] GameObject _offerHighlight;
+        [SerializeField] GameObject _trainingPanel;
+        [SerializeField] GameObject _cardPanel;
+        [SerializeField] GameObject _summonPanel;
+        [SerializeField] GameObject _glitchOverlay;
+        [SerializeField] GameObject _waterSlotRoot;
+        [SerializeField] Button _trainingButton;
+        [SerializeField] Button _throwButton;
+        [SerializeField] Button _leaveTrainingButton;
+        [SerializeField] Button _yokaiButton;
+        [SerializeField] RectTransform _yokaiDropZone;
+        [SerializeField] Transform _choiceContainer;
+
         DraggableOfferItem _waterDrag;
         DialogueTypewriter _typewriter;
+        DialogueLayoutManager _dialogueLayout;
         UiAnimPlayer _anims;
-        Button _trainingButton;
-        Button _throwButton;
-        Button _leaveTrainingButton;
-        Button _yokaiButton;
-        RectTransform _yokaiDropZone;
-        Transform _choiceContainer;
         bool _blackened;
         bool _offerEnabled;
+        bool _wired;
 
-        static readonly Color SpiritColor = new(0.55f, 0.85f, 1f);
         static readonly Color ApparitionColor = new(1f, 0.85f, 0.7f);
         static readonly Color ManifestColor = new(0.95f, 0.95f, 0.9f);
         static readonly Color BlackColor = new(0.15f, 0.15f, 0.2f);
-        static readonly Color BgSpirit = new(0.05f, 0.05f, 0.08f);
-        static readonly Color BgApparition = new(0.18f, 0.18f, 0.2f);
-        static readonly Color BgManifest = new(0.35f, 0.32f, 0.28f);
-        static readonly Color BgTraining = new(0.22f, 0.28f, 0.22f);
+        static readonly Color SkyApparition = new(0.06f, 0.1f, 0.22f);
+        static readonly Color SkyManifest = new(0.08f, 0.12f, 0.28f);
+        static readonly Color SkyTraining = new(0.05f, 0.12f, 0.14f);
 
-        public static ScrollScreenUI Create(Transform parent)
+        void Awake()
         {
-            var root = new GameObject("ScrollScreenUI", typeof(RectTransform));
-            root.transform.SetParent(parent, false);
-            var ui = root.AddComponent<ScrollScreenUI>();
-            ui.Build();
-            return ui;
+            EnsureWired();
         }
 
-        void Build()
+        void OnValidate()
         {
-            var rt = (RectTransform)transform;
-            Stretch(rt);
+            if (!Application.isPlaying)
+                return;
+            EnsureWired();
+        }
 
-            _bg = CreateImage(transform, "Background", BgSpirit);
-            Stretch(_bg.rectTransform);
+        internal void BindHierarchy(
+            Text coinText, Text heartText, Text incenseText, Text statusText, Text stepText,
+            Text dialogueSpeaker, Text dialogueBody, Text dialogueContinueHint, Text yutResultText,
+            Text yokaiNameText, Text yokaiLabel, Text[] itemCountLabels,
+            Image yokaiImage, Image energyPulseBar, Image skyBg, Image moonGround,
+            Image[] energySegments, Image[] intimacySegments,
+            GameObject dialogueRoot, GameObject choiceRoot, GameObject offerHighlight,
+            GameObject trainingPanel, GameObject cardPanel, GameObject summonPanel,
+            GameObject glitchOverlay, GameObject waterSlotRoot, RectTransform yokaiDropZone,
+            Transform choiceContainer,
+            Button trainingButton, Button throwButton, Button leaveTrainingButton, Button yokaiButton)
+        {
+            _coinText = coinText;
+            _heartText = heartText;
+            _incenseText = incenseText;
+            _statusText = statusText;
+            _stepText = stepText;
+            _dialogueSpeaker = dialogueSpeaker;
+            _dialogueBody = dialogueBody;
+            _dialogueContinueHint = dialogueContinueHint;
+            _yutResultText = yutResultText;
+            _yokaiNameText = yokaiNameText;
+            _yokaiLabel = yokaiLabel;
+            _itemCountLabels = itemCountLabels;
+            _yokaiImage = yokaiImage;
+            _energyPulseBar = energyPulseBar;
+            _skyBg = skyBg;
+            _moonGround = moonGround;
+            _energySegments = energySegments;
+            _intimacySegments = intimacySegments;
+            _dialogueRoot = dialogueRoot;
+            _choiceRoot = choiceRoot;
+            _offerHighlight = offerHighlight;
+            _trainingPanel = trainingPanel;
+            _cardPanel = cardPanel;
+            _summonPanel = summonPanel;
+            _glitchOverlay = glitchOverlay;
+            _waterSlotRoot = waterSlotRoot;
+            _yokaiDropZone = yokaiDropZone;
+            _choiceContainer = choiceContainer;
+            _trainingButton = trainingButton;
+            _throwButton = throwButton;
+            _leaveTrainingButton = leaveTrainingButton;
+            _yokaiButton = yokaiButton;
+        }
 
-            // Top bar
-            var top = CreatePanel(transform, "TopBar", new Color(0, 0, 0, 0.55f));
-            var topRt = top.GetComponent<RectTransform>();
-            SetAnchor(topRt, 0, 1, 1, 1, 0, -100, 0, 0);
+        public void EnsureWired()
+        {
+            if (_coinText == null)
+                TryAutoBindFromHierarchy();
 
-            _coinText = CreateText(top.transform, "Coins", "엽전 0", 28, TextAnchor.MiddleLeft);
-            SetAnchor(_coinText.rectTransform, 0, 0, 0.33f, 1, 24, 0, 0, 0);
-
-            _heartText = CreateText(top.transform, "Hearts", "하트 5", 28, TextAnchor.MiddleCenter);
-            SetAnchor(_heartText.rectTransform, 0.33f, 0, 0.66f, 1, 0, 0, 0, 0);
-
-            _incenseText = CreateText(top.transform, "Incense", "향 0", 28, TextAnchor.MiddleRight);
-            SetAnchor(_incenseText.rectTransform, 0.66f, 0, 1, 1, 0, 0, -24, 0);
-
-            _stepText = CreateText(transform, "Step", "STEP", 22, TextAnchor.UpperCenter);
-            SetAnchor(_stepText.rectTransform, 0, 1, 1, 1, 0, -140, 0, -100);
-            _stepText.color = new Color(1, 1, 1, 0.7f);
-
-            // Yokai area
-            var yokaiArea = CreatePanel(transform, "YokaiArea", new Color(0, 0, 0, 0.15f));
-            SetAnchor(yokaiArea.GetComponent<RectTransform>(), 0.1f, 0.28f, 0.9f, 0.78f, 0, 0, 0, 0);
-            _yokaiDropZone = yokaiArea.GetComponent<RectTransform>();
-
-            _yokaiButton = CreateButton(yokaiArea.transform, "YokaiButton", "", () => OnYokaiTapped?.Invoke());
-            Stretch(_yokaiButton.GetComponent<RectTransform>());
-            _yokaiImage = _yokaiButton.GetComponent<Image>();
-            _yokaiImage.color = SpiritColor;
-
-            _yokaiLabel = CreateText(yokaiArea.transform, "YokaiLabel", "넋 · 도깨비불", 32, TextAnchor.LowerCenter);
-            SetAnchor(_yokaiLabel.rectTransform, 0, 0, 1, 0.2f, 0, 8, 0, 0);
-            _yokaiLabel.raycastTarget = false;
-
-            _glitchOverlay = CreatePanel(yokaiArea.transform, "Glitch", new Color(1, 1, 1, 0.15f)).gameObject;
-            Stretch(_glitchOverlay.GetComponent<RectTransform>());
-            _glitchOverlay.SetActive(false);
-            var glitchText = CreateText(_glitchOverlay.transform, "GlitchText", "지직… 괴 / 혼", 36, TextAnchor.MiddleCenter);
-            Stretch(glitchText.rectTransform);
-            glitchText.color = Color.white;
-
-            // Bars
-            var bars = CreatePanel(transform, "Bars", new Color(0, 0, 0, 0.4f));
-            SetAnchor(bars.GetComponent<RectTransform>(), 0.08f, 0.18f, 0.92f, 0.27f, 0, 0, 0, 0);
-
-            _energyFill = CreateBar(bars.transform, "Energy", new Color(0.3f, 0.8f, 0.55f), out _energyText, "기력");
-            SetAnchor(_energyFill.transform.parent.GetComponent<RectTransform>(), 0.02f, 0.55f, 0.98f, 0.95f, 0, 0, 0, 0);
-
-            _intimacyFill = CreateBar(bars.transform, "Intimacy", new Color(0.95f, 0.45f, 0.55f), out _intimacyText, "친밀도");
-            SetAnchor(_intimacyFill.transform.parent.GetComponent<RectTransform>(), 0.02f, 0.05f, 0.98f, 0.45f, 0, 0, 0, 0);
-
-            _stageText = CreateText(transform, "Stage", "", 24, TextAnchor.MiddleCenter);
-            SetAnchor(_stageText.rectTransform, 0, 0.27f, 1, 0.31f, 0, 0, 0, 0);
-
-            // Status
-            _statusText = CreateText(transform, "Status", "", 26, TextAnchor.MiddleCenter);
-            SetAnchor(_statusText.rectTransform, 0.05f, 0.12f, 0.95f, 0.17f, 0, 0, 0, 0);
-            _statusText.color = new Color(1f, 0.92f, 0.7f);
-
-            // Bottom item bar
-            var itemBar = CreatePanel(transform, "ItemBar", new Color(0.1f, 0.08f, 0.06f, 0.9f));
-            SetAnchor(itemBar.GetComponent<RectTransform>(), 0, 0, 1, 0, 0, 0, 0, 110);
-
-            _offerHighlight = CreatePanel(itemBar.transform, "OfferHighlight", new Color(1f, 0.85f, 0.2f, 0.45f)).gameObject;
-            SetAnchor(_offerHighlight.GetComponent<RectTransform>(), 0.04f, 0.08f, 0.36f, 0.92f, -8, -8, 8, 8);
-            _offerHighlight.SetActive(false);
-
-            _waterSlotRoot = CreatePanel(itemBar.transform, "WaterSlot", new Color(0.35f, 0.65f, 0.95f, 1f));
-            SetAnchor(_waterSlotRoot.GetComponent<RectTransform>(), 0.05f, 0.12f, 0.35f, 0.88f, 0, 0, 0, 0);
-            var waterLabel = CreateText(_waterSlotRoot.transform, "Label", "정화수 ×0\n(드래그)", 22, TextAnchor.MiddleCenter);
-            Stretch(waterLabel.rectTransform);
-            waterLabel.raycastTarget = false;
-
-            var canvas = GetComponentInParent<Canvas>();
-            _waterDrag = _waterSlotRoot.AddComponent<DraggableOfferItem>();
-            _waterDrag.Setup(canvas, _yokaiDropZone);
-            _waterDrag.OnDroppedOnYokai += () =>
+            if (_coinText == null)
             {
-                if (_offerEnabled)
-                    OnOfferPurifiedWater?.Invoke();
-            };
-            _waterSlotRoot.SetActive(false);
+                Debug.LogError("[ScrollScreenUI] UI 참조가 비어 있습니다. KSpirits → Setup Boot Scene UI 를 실행하세요.");
+                return;
+            }
 
-            _trainingButton = CreateButton(itemBar.transform, "Training", "수련장", () => OnTrainingPressed?.Invoke());
-            SetAnchor(_trainingButton.GetComponent<RectTransform>(), 0.55f, 0.15f, 0.95f, 0.85f, 0, 0, 0, 0);
-            _trainingButton.gameObject.SetActive(false);
+            if (_wired) return;
 
-            // Training panel
-            _trainingPanel = CreatePanel(transform, "TrainingPanel", new Color(0, 0, 0, 0.25f)).gameObject;
-            SetAnchor(_trainingPanel.GetComponent<RectTransform>(), 0.1f, 0.32f, 0.9f, 0.72f, 0, 0, 0, 0);
-            var trainTitle = CreateText(_trainingPanel.transform, "Title", "수련장 · 윷놀이", 34, TextAnchor.UpperCenter);
-            SetAnchor(trainTitle.rectTransform, 0, 0.75f, 1, 1, 0, 0, 0, 0);
-            _yutResultText = CreateText(_trainingPanel.transform, "YutResult", "", 40, TextAnchor.MiddleCenter);
-            SetAnchor(_yutResultText.rectTransform, 0.1f, 0.35f, 0.9f, 0.75f, 0, 0, 0, 0);
-            _throwButton = CreateButton(_trainingPanel.transform, "Throw", "윷 던지기", () => OnThrowYutPressed?.Invoke());
-            SetAnchor(_throwButton.GetComponent<RectTransform>(), 0.15f, 0.08f, 0.5f, 0.28f, 0, 0, 0, 0);
-            _leaveTrainingButton = CreateButton(_trainingPanel.transform, "Leave", "수련장 나가기", () => OnLeaveTrainingPressed?.Invoke());
-            SetAnchor(_leaveTrainingButton.GetComponent<RectTransform>(), 0.52f, 0.08f, 0.85f, 0.28f, 0, 0, 0, 0);
-            _trainingPanel.SetActive(false);
-            _throwButton.gameObject.SetActive(false);
-            _leaveTrainingButton.gameObject.SetActive(false);
+            EnsureRuntimeComponents();
+            WireEvents();
+            ApplyFonts();
+            _wired = true;
+        }
 
-            // Dialogue
-            _dialogueRoot = CreatePanel(transform, "Dialogue", new Color(0.05f, 0.04f, 0.03f, 0.92f)).gameObject;
-            SetAnchor(_dialogueRoot.GetComponent<RectTransform>(), 0.04f, 0.2f, 0.96f, 0.42f, 0, 0, 0, 0);
-            _dialogueSpeaker = CreateText(_dialogueRoot.transform, "Speaker", "", 24, TextAnchor.UpperLeft);
-            SetAnchor(_dialogueSpeaker.rectTransform, 0, 0.7f, 1, 1, 20, -8, -20, 0);
-            _dialogueSpeaker.color = new Color(1f, 0.85f, 0.45f);
-            _dialogueBody = CreateText(_dialogueRoot.transform, "Body", "", 28, TextAnchor.UpperLeft);
-            SetAnchor(_dialogueBody.rectTransform, 0, 0.05f, 1, 0.7f, 20, 10, -20, 0);
-            _dialogueBody.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _dialogueBody.verticalOverflow = VerticalWrapMode.Overflow;
-            _dialogueContinueHint = CreateText(_dialogueRoot.transform, "ContinueHint", "▼", 22, TextAnchor.LowerRight);
-            SetAnchor(_dialogueContinueHint.rectTransform, 0.7f, 0, 1, 0.25f, 0, 8, -16, 0);
-            _dialogueContinueHint.color = new Color(1f, 1f, 1f, 0.55f);
-            _dialogueContinueHint.gameObject.SetActive(false);
-            _dialogueContinueHint.raycastTarget = false;
+        void ApplyFonts()
+        {
+            UIFont.Apply(_dialogueSpeaker, UIFontRole.Dialogue);
+            UIFont.Apply(_dialogueBody, UIFontRole.Dialogue);
+            UIFont.Apply(_dialogueContinueHint, UIFontRole.Dialogue);
 
-            _typewriter = gameObject.AddComponent<DialogueTypewriter>();
-            _typewriter.Bind(_dialogueBody);
-            AnimCatalog.EnsureLoaded();
-            var tw = AnimCatalog.Get("dialogue_typewriter");
-            if (tw != null)
-                _typewriter.Configure(tw.charsPerSecond, tw.punctuationHold);
+            UIFont.Apply(_yokaiNameText, UIFontRole.UserInfo);
+            UIFont.Apply(_yokaiLabel, UIFontRole.UserInfo);
 
-            var dialogueBtn = _dialogueRoot.AddComponent<Button>();
-            dialogueBtn.targetGraphic = _dialogueRoot.GetComponent<Image>();
-            dialogueBtn.onClick.AddListener(HandleDialogueTap);
-            _dialogueRoot.SetActive(false);
+            UIFont.Apply(_coinText, UIFontRole.HudNumeric);
+            if (_itemCountLabels != null)
+            {
+                foreach (var label in _itemCountLabels)
+                    UIFont.Apply(label, UIFontRole.HudNumeric);
+            }
+        }
 
-            // Choices
-            _choiceRoot = CreatePanel(transform, "Choices", new Color(0, 0, 0, 0.55f)).gameObject;
-            Stretch(_choiceRoot.GetComponent<RectTransform>());
-            _choiceContainer = _choiceRoot.transform;
-            _choiceRoot.SetActive(false);
+        void TryAutoBindFromHierarchy()
+        {
+            _coinText = FindText("Header/CoinRow/Coins");
+            _yokaiNameText = FindText("Header/YokaiName");
+            _stepText = FindText("Step");
+            _statusText = FindText("Status");
+            _yokaiLabel = FindText("Scene/YokaiArea/YokaiLabel");
+            _yutResultText = FindText("TrainingPanel/YutResult");
+            _dialogueSpeaker = FindText("Dialogue/Speaker");
+            _dialogueBody = FindText("Dialogue/Body");
+            _dialogueContinueHint = FindText("Dialogue/ContinueHint");
+            _heartText = FindText("Header/HeartsHidden");
+            _incenseText = FindText("Header/IncenseHidden");
 
-            // Card panel
-            _cardPanel = CreatePanel(transform, "CardPanel", new Color(0.08f, 0.07f, 0.1f, 0.95f)).gameObject;
-            SetAnchor(_cardPanel.GetComponent<RectTransform>(), 0.15f, 0.35f, 0.85f, 0.75f, 0, 0, 0, 0);
-            CreateText(_cardPanel.transform, "CardTitle", "옥토끼 요괴패", 36, TextAnchor.UpperCenter);
-            _cardPanel.SetActive(false);
+            _skyBg = FindImage("Sky");
+            _moonGround = FindImage("MoonGround");
+            _energyPulseBar = FindImage("Header/EnergyBar");
+            _yokaiImage = FindImage("Scene/YokaiArea/YokaiButton");
 
-            // Summon placeholder
-            _summonPanel = CreatePanel(transform, "Summon", new Color(0.12f, 0.1f, 0.08f, 0.96f)).gameObject;
-            SetAnchor(_summonPanel.GetComponent<RectTransform>(), 0.1f, 0.3f, 0.9f, 0.7f, 0, 0, 0, 0);
-            CreateText(_summonPanel.transform, "SummonText",
-                "소환 화면\n(향 3개로 첫 요괴 소환)\n\n튜토리얼 클리어!",
-                34, TextAnchor.MiddleCenter);
-            _summonPanel.SetActive(false);
+            _energySegments = CollectSegments("Header/EnergyBar");
+            _intimacySegments = CollectSegments("Header/IntimacyBar");
 
-            _anims = gameObject.AddComponent<UiAnimPlayer>();
-            _anims.YokaiRoot = _yokaiButton.GetComponent<RectTransform>();
-            _anims.YokaiImage = _yokaiImage;
-            _anims.EnergyFill = _energyFill;
-            _anims.GlitchOverlay = _glitchOverlay;
-            AnimCatalog.EnsureLoaded();
+            _dialogueRoot = transform.Find("Dialogue")?.gameObject;
+            _choiceRoot = transform.Find("Choices")?.gameObject;
+            _offerHighlight = transform.Find("BottomDock/ItemBar/OfferHighlight")?.gameObject;
+            _trainingPanel = transform.Find("TrainingPanel")?.gameObject;
+            _cardPanel = transform.Find("CardPanel")?.gameObject;
+            _summonPanel = transform.Find("Summon")?.gameObject;
+            _glitchOverlay = transform.Find("Scene/YokaiArea/Glitch")?.gameObject;
+            _waterSlotRoot = transform.Find("BottomDock/ItemBar/ItemSlot0")?.gameObject;
+            _yokaiDropZone = transform.Find("Scene/YokaiArea") as RectTransform;
+            _choiceContainer = transform.Find("Choices");
+
+            _yokaiButton = transform.Find("Scene/YokaiArea/YokaiButton")?.GetComponent<Button>();
+            _trainingButton = transform.Find("BottomDock/TrainingDock")?.GetComponent<Button>();
+            _throwButton = transform.Find("TrainingPanel/Throw")?.GetComponent<Button>();
+            _leaveTrainingButton = transform.Find("TrainingPanel/Leave")?.GetComponent<Button>();
+
+            _itemCountLabels = new Text[4];
+            for (int i = 0; i < 4; i++)
+                _itemCountLabels[i] = FindText($"BottomDock/ItemBar/ItemSlot{i}/Badge/Count");
+        }
+
+        Text FindText(string path) => transform.Find(path)?.GetComponent<Text>();
+
+        Image FindImage(string path) => transform.Find(path)?.GetComponent<Image>();
+
+        Image[] CollectSegments(string barPath)
+        {
+            var bar = transform.Find(barPath);
+            if (bar == null) return null;
+            var list = new List<Image>();
+            for (int i = 0; i < ScrollScreenUIBuilder.StatSegmentCount; i++)
+            {
+                var seg = bar.Find($"Seg{i}")?.GetComponent<Image>();
+                if (seg != null) list.Add(seg);
+            }
+            return list.Count > 0 ? list.ToArray() : null;
+        }
+
+        void EnsureRuntimeComponents()
+        {
+            if (_typewriter == null)
+            {
+                _typewriter = GetComponent<DialogueTypewriter>() ?? gameObject.AddComponent<DialogueTypewriter>();
+                _typewriter.Bind(_dialogueBody);
+                AnimCatalog.EnsureLoaded();
+                var tw = AnimCatalog.Get("dialogue_typewriter");
+                if (tw != null)
+                    _typewriter.Configure(tw.charsPerSecond, tw.punctuationHold);
+            }
+
+            if (_anims == null)
+            {
+                _anims = GetComponent<UiAnimPlayer>() ?? gameObject.AddComponent<UiAnimPlayer>();
+                _anims.YokaiRoot = _yokaiButton.GetComponent<RectTransform>();
+                _anims.YokaiImage = _yokaiImage;
+                _anims.EnergyFill = _energyPulseBar;
+                _anims.GlitchOverlay = _glitchOverlay;
+            }
+
+            if (_dialogueLayout == null)
+            {
+                _dialogueLayout = GetComponent<DialogueLayoutManager>();
+                if (_dialogueLayout == null)
+                    _dialogueLayout = gameObject.AddComponent<DialogueLayoutManager>();
+
+                var catalog = Resources.Load<DialogueLayoutCatalog>("Settings/DialogueLayoutCatalog");
+                if (catalog != null)
+                    _dialogueLayout.SetCatalog(catalog);
+                _dialogueLayout.CacheAnchors();
+            }
+
+            if (_waterSlotRoot != null && _waterDrag == null)
+            {
+                _waterDrag = _waterSlotRoot.GetComponent<DraggableOfferItem>();
+                if (_waterDrag == null)
+                    _waterDrag = _waterSlotRoot.AddComponent<DraggableOfferItem>();
+                var canvas = GetComponentInParent<Canvas>();
+                _waterDrag.Setup(canvas, _yokaiDropZone);
+            }
+        }
+
+        void WireEvents()
+        {
+            WireButton(_yokaiButton, () => OnYokaiTapped?.Invoke());
+            WireButton(_trainingButton, () => OnTrainingPressed?.Invoke());
+            WireButton(_throwButton, () => OnThrowYutPressed?.Invoke());
+            WireButton(_leaveTrainingButton, () => OnLeaveTrainingPressed?.Invoke());
+
+            if (_dialogueRoot != null)
+            {
+                var dialogueBtn = _dialogueRoot.GetComponent<Button>();
+                if (dialogueBtn == null)
+                {
+                    dialogueBtn = _dialogueRoot.AddComponent<Button>();
+                    dialogueBtn.targetGraphic = _dialogueRoot.GetComponent<Image>();
+                }
+                dialogueBtn.onClick.RemoveAllListeners();
+                dialogueBtn.onClick.AddListener(HandleDialogueTap);
+            }
+
+            if (_waterDrag != null)
+            {
+                _waterDrag.OnDroppedOnYokai -= HandleWaterDropped;
+                _waterDrag.OnDroppedOnYokai += HandleWaterDropped;
+            }
+        }
+
+        void HandleWaterDropped()
+        {
+            if (_offerEnabled)
+                OnOfferPurifiedWater?.Invoke();
+        }
+
+        static void WireButton(Button btn, Action action)
+        {
+            if (btn == null) return;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => action?.Invoke());
         }
 
         public void RefreshAll(GameState state)
         {
-            _coinText.text = $"엽전 {state.Wallet.Coins}";
-            _heartText.text = $"하트 {state.Wallet.Hearts}/{GameConstants.HeartMax}";
-            _incenseText.text = $"향 {state.Wallet.Incense}";
+            EnsureWired();
+            _coinText.text = state.Wallet.Coins.ToString("N0");
+            _heartText.text = state.Wallet.Hearts.ToString();
+            _incenseText.text = state.Wallet.Incense.ToString();
 
             var y = state.FocusYokai;
-            _energyText.text = $"기력 {y.Energy}/{GameConstants.EnergyMax}";
-            _intimacyText.text = $"친밀도 {y.Intimacy}/{GameConstants.IntimacyMax}";
-            _energyFill.rectTransform.anchorMax = new Vector2(y.Energy / (float)GameConstants.EnergyMax, 1);
-            _intimacyFill.rectTransform.anchorMax = new Vector2(y.Intimacy / (float)GameConstants.IntimacyMax, 1);
+            UpdateSegmentBar(_energySegments, y.Energy, GameConstants.EnergyMax,
+                ScrollScreenUIBuilder.EnergyOn, ScrollScreenUIBuilder.EnergyOff);
+            UpdateSegmentBar(_intimacySegments, y.Intimacy, GameConstants.IntimacyMax,
+                ScrollScreenUIBuilder.IntimacyOn, ScrollScreenUIBuilder.IntimacyOff);
 
             string stageName = y.Stage switch
             {
@@ -257,7 +328,7 @@ namespace KSpirits.UI
                 YokaiStage.Manifest => "혼",
                 _ => "?"
             };
-            _stageText.text = $"{y.DisplayName} · {stageName}";
+            _yokaiNameText.text = $"{y.DisplayName} | {stageName}";
             _yokaiLabel.text = y.Stage == YokaiStage.Spirit ? "넋 · 도깨비불" :
                 y.Stage == YokaiStage.Apparition ? "괴 · 어린 토끼" : "혼 · 옥토끼";
 
@@ -266,30 +337,37 @@ namespace KSpirits.UI
             else
                 _yokaiImage.color = y.Stage switch
                 {
-                    YokaiStage.Spirit => SpiritColor,
+                    YokaiStage.Spirit => ScrollScreenUIBuilder.SpiritColor,
                     YokaiStage.Apparition => ApparitionColor,
                     _ => ManifestColor
                 };
 
             if (state.ScrollMode == ScrollMode.Training)
-                _bg.color = BgTraining;
+                _skyBg.color = SkyTraining;
             else
-                _bg.color = y.Stage switch
+                _skyBg.color = y.Stage switch
                 {
-                    YokaiStage.Spirit => BgSpirit,
-                    YokaiStage.Apparition => BgApparition,
-                    _ => BgManifest
+                    YokaiStage.Spirit => ScrollScreenUIBuilder.SkySpirit,
+                    YokaiStage.Apparition => SkyApparition,
+                    _ => SkyManifest
                 };
 
-            _waterDrag?.SetCountLabel($"정화수 ×{state.Wallet.PurifiedWater}\n(드래그)");
+            if (_itemCountLabels != null && _itemCountLabels.Length > 0)
+                _itemCountLabels[0].text = $"×{state.Wallet.PurifiedWater}";
+
+            _waterDrag?.SetCountLabel($"×{state.Wallet.PurifiedWater}");
             _waterDrag?.SetInteractable(_offerEnabled && state.Wallet.PurifiedWater > 0);
         }
 
         public void SetStepLabel(string text) => _stepText.text = text;
         public void ShowStatus(string text) => _statusText.text = text;
 
-        public void ShowDialogue(DialogueLine line, int index, int total)
+        public void ShowDialogue(DialogueLine line, int index, int total, string sectionId = null)
         {
+            if (_dialogueRoot == null) return;
+
+            _dialogueLayout?.ApplyForLine(line, sectionId, _dialogueRoot.transform as RectTransform);
+
             _dialogueRoot.SetActive(true);
             _choiceRoot.SetActive(false);
             _dialogueContinueHint.gameObject.SetActive(false);
@@ -313,7 +391,6 @@ namespace KSpirits.UI
 
         void HandleDialogueTap()
         {
-            // 타이핑 중: 전체 표시만. 이미 전체면 다음 대사.
             if (_typewriter != null && _typewriter.HandleTap())
             {
                 _dialogueContinueHint.gameObject.SetActive(true);
@@ -360,7 +437,6 @@ namespace KSpirits.UI
         public void SetOfferButtonVisible(bool on)
         {
             _offerEnabled = on;
-            _waterSlotRoot.SetActive(on);
             _waterDrag?.SetInteractable(on);
         }
 
@@ -369,6 +445,7 @@ namespace KSpirits.UI
             _offerHighlight.SetActive(on);
             _waterDrag?.SetHighlight(on);
         }
+
         public void SetTrainingButtonVisible(bool on) => _trainingButton.gameObject.SetActive(on);
         public void SetThrowYutVisible(bool on) => _throwButton.gameObject.SetActive(on);
         public void SetLeaveTrainingVisible(bool on) => _leaveTrainingButton.gameObject.SetActive(on);
@@ -401,27 +478,19 @@ namespace KSpirits.UI
         }
 
         public void SetSummonPlaceholderVisible(bool on) => _summonPanel.SetActive(on);
-
         public void PlayShakeYokai() => _anims.PlayFireAndForget("offer_react");
-
         public IEnumerator PlayEvolutionFlash() => _anims.Play("evolve_flash");
-
         public void PulseEnergyBar(bool on) => _anims.SetLoop("energy_warning_pulse", on);
-
         public IEnumerator PlayAnim(string clipId) => _anims.Play(clipId);
 
-        // --- UI helpers ---
-
-        static Image CreateBar(Transform parent, string name, Color fill, out Text label, string title)
+        static void UpdateSegmentBar(Image[] segments, int value, int max, Color on, Color off)
         {
-            var root = CreatePanel(parent, name, new Color(1, 1, 1, 0.15f));
-            var fillImg = CreateImage(root.transform, "Fill", fill);
-            SetAnchor(fillImg.rectTransform, 0, 0, 0.5f, 1, 2, 2, -2, -2);
-            fillImg.rectTransform.pivot = new Vector2(0, 0.5f);
-            label = CreateText(root.transform, "Label", title, 20, TextAnchor.MiddleLeft);
-            SetAnchor(label.rectTransform, 0, 0, 1, 1, 12, 0, 0, 0);
-            label.raycastTarget = false;
-            return fillImg;
+            if (segments == null) return;
+            int filled = Mathf.Clamp(
+                Mathf.CeilToInt(value / (max / (float)ScrollScreenUIBuilder.StatSegmentCount)),
+                0, ScrollScreenUIBuilder.StatSegmentCount);
+            for (int i = 0; i < segments.Length; i++)
+                segments[i].color = i < filled ? on : off;
         }
 
         static GameObject CreatePanel(Transform parent, string name, Color color)
@@ -432,29 +501,16 @@ namespace KSpirits.UI
             return go;
         }
 
-        static Image CreateImage(Transform parent, string name, Color color)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            var img = go.GetComponent<Image>();
-            img.color = color;
-            return img;
-        }
-
         static Text CreateText(Transform parent, string name, string content, int size, TextAnchor anchor)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.text = content;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (text.font == null)
-                text.font = Font.CreateDynamicFontFromOSFont("AppleSDGothicNeo-Regular", size);
+            text.font = UIFont.Default;
             text.fontSize = size;
             text.color = Color.white;
             text.alignment = anchor;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Truncate;
             return text;
         }
 
@@ -463,26 +519,17 @@ namespace KSpirits.UI
             var go = CreatePanel(parent, name, new Color(0.25f, 0.22f, 0.18f, 0.95f));
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = go.GetComponent<Image>();
-            var colors = btn.colors;
-            colors.highlightedColor = new Color(0.4f, 0.35f, 0.28f);
-            colors.pressedColor = new Color(0.18f, 0.16f, 0.12f);
-            btn.colors = colors;
             btn.onClick.AddListener(() => onClick?.Invoke());
             if (!string.IsNullOrEmpty(label))
             {
                 var t = CreateText(go.transform, "Label", label, 26, TextAnchor.MiddleCenter);
-                Stretch(t.rectTransform);
+                var rt = t.rectTransform;
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = rt.offsetMax = Vector2.zero;
                 t.raycastTarget = false;
             }
             return btn;
-        }
-
-        static void Stretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
         }
 
         static void SetAnchor(RectTransform rt, float xmin, float ymin, float xmax, float ymax,

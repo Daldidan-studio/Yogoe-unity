@@ -96,7 +96,7 @@ namespace KSpirits.UI
             labelGo.transform.SetParent(go.transform, false);
             var t = labelGo.GetComponent<Text>();
             t.text = _label != null ? _label.text : "정화수";
-            t.font = _label != null ? _label.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            t.font = _label != null && _label.font != null ? _label.font : UIFont.Default;
             t.fontSize = 24;
             t.alignment = TextAnchor.MiddleCenter;
             t.color = Color.white;

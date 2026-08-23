@@ -1,0 +1,90 @@
+name: Build & Deploy WebGL
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: webgl-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  UNITY_VERSION: 6000.3.11f1
+  BASE_PATH: /${{ github.event.repository.name }}/
+
+jobs:
+  build-webgl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-WebGL-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-WebGL-
+            Library-
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Build WebGL
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: WebGL
+          buildName: webgl
+
+      - name: Fix paths for GitHub Pages
+        run: |
+          INDEX="build/WebGL/index.html"
+          if [ ! -f "$INDEX" ]; then
+            echo "index.html not found at $INDEX"
+            ls -la build/WebGL/ || ls -la build/ || true
+            exit 1
+          fi
+          sed -i "s|<head>|<head>\n    <base href=\"${{ env.BASE_PATH }}\">|" "$INDEX"
+
+      - name: Upload WebGL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebGL
+          path: build/WebGL
+
+  deploy-pages:
+    needs: build-webgl
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download WebGL artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WebGL
+          path: webgl
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: webgl
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

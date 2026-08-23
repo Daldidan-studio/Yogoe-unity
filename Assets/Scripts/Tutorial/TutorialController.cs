@@ -107,7 +107,7 @@ namespace KSpirits.Tutorial
             _ui.ShowStatus("도깨비불을 탭해 보세요");
             yield return WaitInput();
 
-            yield return PlayLines(OktoDialogue.FirstMeeting);
+            yield return PlayLines(OktoDialogue.FirstMeeting, OktoDialogueSection.FirstMeeting);
 
             yield return Advance(TutorialStepId.FirstOffering);
         }
@@ -124,7 +124,7 @@ namespace KSpirits.Tutorial
             _ui.SetOfferingHighlight(false);
             _ui.SetOfferButtonVisible(false);
             _ui.PlayShakeYokai();
-            yield return PlayLines(OktoDialogue.AfterFirstOffering);
+            yield return PlayLines(OktoDialogue.AfterFirstOffering, OktoDialogueSection.AfterFirstOffering);
             yield return Advance(TutorialStepId.EvolveToApparition);
         }
 
@@ -135,7 +135,7 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.SetStage(YokaiStage.Apparition);
             _state.FocusYokai.AddEnergy(40);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.AfterApparitionEvolve);
+            yield return PlayLines(OktoDialogue.AfterApparitionEvolve, OktoDialogueSection.AfterApparitionEvolve);
             yield return Advance(TutorialStepId.Petting);
         }
 
@@ -147,7 +147,7 @@ namespace KSpirits.Tutorial
 
             _state.Wallet.PurifiedWater += 1;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.Petting);
+            yield return PlayLines(OktoDialogue.Petting, OktoDialogueSection.Petting);
             yield return Advance(TutorialStepId.Training);
         }
 
@@ -161,7 +161,7 @@ namespace KSpirits.Tutorial
             _ui.SetTrainingButtonVisible(false);
             _ui.EnterTrainingMode(true);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.TrainingIntro);
+            yield return PlayLines(OktoDialogue.TrainingIntro, OktoDialogueSection.TrainingIntro);
 
             _ui.SetThrowYutVisible(true);
             _ui.ShowStatus("윷을 던져보세요");
@@ -171,7 +171,7 @@ namespace KSpirits.Tutorial
             _ui.ShowYutResult("빽도");
             _state.Wallet.Coins += 1;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.AfterBaekdo);
+            yield return PlayLines(OktoDialogue.AfterBaekdo, OktoDialogueSection.AfterBaekdo);
 
             _ui.SetThrowYutVisible(true);
             _ui.ShowStatus("다시 윷을 던져주세요");
@@ -183,7 +183,7 @@ namespace KSpirits.Tutorial
             _state.Wallet.PurifiedWater += 1;
             _ui.ShowYutResult("도 → 골인!");
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.AfterGoal);
+            yield return PlayLines(OktoDialogue.AfterGoal, OktoDialogueSection.AfterGoal);
 
             _ui.SetLeaveTrainingVisible(true);
             yield return WaitInput();
@@ -200,7 +200,7 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.Energy = 50;
             _ui.RefreshAll(_state);
             _ui.PulseEnergyBar(true);
-            yield return PlayLines(OktoDialogue.EnergyWarning);
+            yield return PlayLines(OktoDialogue.EnergyWarning, OktoDialogueSection.EnergyWarning);
             _ui.PulseEnergyBar(false);
 
             _state.FocusYokai.Energy = GameConstants.OktoPreEvolveEnergy;
@@ -227,7 +227,7 @@ namespace KSpirits.Tutorial
             yield return _ui.PlayAnim("evolve_flash");
             _state.FocusYokai.SetStage(YokaiStage.Manifest);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.AfterManifestEvolve);
+            yield return PlayLines(OktoDialogue.AfterManifestEvolve, OktoDialogueSection.AfterManifestEvolve);
             yield return Advance(TutorialStepId.MemoryView);
         }
 
@@ -235,33 +235,33 @@ namespace KSpirits.Tutorial
         {
             _state.FocusYokai.Intimacy = GameConstants.OktoMemory1;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.MemoryMoon);
+            yield return PlayLines(OktoDialogue.MemoryMoon, OktoDialogueSection.MemoryMoon);
 
             _state.FocusYokai.Intimacy = GameConstants.OktoMemory2;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.MemoryEarth);
+            yield return PlayLines(OktoDialogue.MemoryEarth, OktoDialogueSection.MemoryEarth);
 
             _state.FocusYokai.Intimacy = GameConstants.OktoMemory3;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.MemoryShop);
+            yield return PlayLines(OktoDialogue.MemoryShop, OktoDialogueSection.MemoryShop);
 
             yield return Advance(TutorialStepId.BlackeningChoice);
         }
 
         IEnumerator StepBlackening()
         {
-            yield return PlayLines(OktoDialogue.BeforeBlackeningChoices);
+            yield return PlayLines(OktoDialogue.BeforeBlackeningChoices, OktoDialogueSection.BeforeBlackeningChoices);
             yield return WaitChoice(OktoDialogue.BlackeningChoices);
 
             _state.OktoCard.BackUnlocked = true;
             _ui.SetYokaiBlackened(true);
-            yield return PlayLines(OktoDialogue.Blackening);
+            yield return PlayLines(OktoDialogue.Blackening, OktoDialogueSection.Blackening);
             yield return Advance(TutorialStepId.BlackRabbitFlee);
         }
 
         IEnumerator StepImugiRestore()
         {
-            yield return PlayLines(OktoDialogue.ImugiRestore);
+            yield return PlayLines(OktoDialogue.ImugiRestore, OktoDialogueSection.ImugiRestore);
             _ui.SetYokaiBlackened(false);
             _ui.RefreshAll(_state);
             yield return Advance(TutorialStepId.WishBranch);
@@ -269,19 +269,19 @@ namespace KSpirits.Tutorial
 
         IEnumerator StepWish()
         {
-            yield return PlayLines(OktoDialogue.WishPrompt);
+            yield return PlayLines(OktoDialogue.WishPrompt, OktoDialogueSection.WishPrompt);
             yield return WaitChoice(OktoDialogue.WishChoices);
             var choice = _lastChoiceId;
 
             if (choice == "cancel_contract")
             {
-                yield return PlayLines(OktoDialogue.HiddenConfirm);
+                yield return PlayLines(OktoDialogue.HiddenConfirm, OktoDialogueSection.HiddenConfirm);
                 yield return WaitChoice(OktoDialogue.HiddenConfirmChoices);
 
                 if (_lastChoiceId == "confirm_cancel")
                 {
                     _state.LastEnding = EndingType.HiddenEndingZero;
-                    yield return PlayLines(OktoDialogue.HiddenEnding);
+                    yield return PlayLines(OktoDialogue.HiddenEnding, OktoDialogueSection.HiddenEnding);
                     _ui.ShowStatus("히든 엔딩 0 — 타이틀로 복귀(세이브 유지)");
                     _state.TutorialFinished = true;
                     _state.TutorialStep = TutorialStepId.Done;
@@ -289,7 +289,7 @@ namespace KSpirits.Tutorial
                 }
             }
 
-            yield return PlayLines(OktoDialogue.Doppelganger);
+            yield return PlayLines(OktoDialogue.Doppelganger, OktoDialogueSection.Doppelganger);
             _state.OktoCard.FrontUnlocked = true;
             _state.LastEnding = EndingType.TutorialComplete;
             yield return Advance(TutorialStepId.CardComplete);
@@ -299,18 +299,18 @@ namespace KSpirits.Tutorial
         {
             _ui.ShowCardComplete(_state.OktoCard);
             yield return WaitInput();
-            yield return PlayLines(OktoDialogue.CardAndIncense);
+            yield return PlayLines(OktoDialogue.CardAndIncense, OktoDialogueSection.CardAndIncense);
             _state.Wallet.Incense += GameConstants.IncensePerSummon;
             _state.TutorialFinished = true;
             _ui.RefreshAll(_state);
             yield return Advance(TutorialStepId.Done);
         }
 
-        IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines)
+        IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines, string sectionId)
         {
             for (int i = 0; i < lines.Count; i++)
             {
-                _ui.ShowDialogue(lines[i], i + 1, lines.Count);
+                _ui.ShowDialogue(lines[i], i + 1, lines.Count, sectionId);
                 yield return WaitInput();
             }
             _ui.HideDialogue();

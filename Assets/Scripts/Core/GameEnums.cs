@@ -52,4 +52,13 @@ namespace KSpirits.Core
         Incense = 3,
         Coin = 4
     }
+
+    /// <summary>말풍선 배치 슬롯. Scene의 DialogueAnchors/{이름} 과 1:1.</summary>
+    public enum DialogueLayoutId
+    {
+        BottomWide = 0,
+        NearYokai = 1,
+        AboveMortar = 2,
+        TopNarration = 3
+    }
 }

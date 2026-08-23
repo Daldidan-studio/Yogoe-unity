@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using KSpirits.Core;
+using UnityEngine;
 
 namespace KSpirits.Data
 {
@@ -11,10 +11,46 @@ namespace KSpirits.Data
         public string speaker;
         public string text;
         public bool narration;
+        public string layout;
 
         public string Speaker => string.IsNullOrEmpty(speaker) ? null : speaker;
         public string Text => text;
         public bool IsNarration => narration;
+
+        public bool TryGetLayout(out DialogueLayoutId layoutId)
+        {
+            layoutId = default;
+            if (string.IsNullOrWhiteSpace(layout))
+                return false;
+
+            var key = layout.Trim();
+            if (System.Enum.TryParse(key, true, out DialogueLayoutId parsed))
+            {
+                layoutId = parsed;
+                return true;
+            }
+
+            switch (key.ToLowerInvariant())
+            {
+                case "bottom_wide":
+                case "bottom":
+                    layoutId = DialogueLayoutId.BottomWide;
+                    return true;
+                case "near_yokai":
+                case "near_okto":
+                    layoutId = DialogueLayoutId.NearYokai;
+                    return true;
+                case "above_mortar":
+                    layoutId = DialogueLayoutId.AboveMortar;
+                    return true;
+                case "top_narration":
+                case "narration":
+                    layoutId = DialogueLayoutId.TopNarration;
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
         public DialogueLine() { }
 
@@ -190,5 +226,30 @@ namespace KSpirits.Data
             EnsureLoaded();
             return _choices.TryGetValue(id, out var opts) ? opts : Array.Empty<ChoiceOption>();
         }
+    }
+
+    /// <summary>okto_tutorial JSON section id.</summary>
+    public static class OktoDialogueSection
+    {
+        public const string FirstMeeting = "first_meeting";
+        public const string AfterFirstOffering = "after_first_offering";
+        public const string AfterApparitionEvolve = "after_apparition_evolve";
+        public const string Petting = "petting";
+        public const string TrainingIntro = "training_intro";
+        public const string AfterBaekdo = "after_baekdo";
+        public const string AfterGoal = "after_goal";
+        public const string EnergyWarning = "energy_warning";
+        public const string AfterManifestEvolve = "after_manifest_evolve";
+        public const string MemoryMoon = "memory_moon";
+        public const string MemoryEarth = "memory_earth";
+        public const string MemoryShop = "memory_shop";
+        public const string BeforeBlackeningChoices = "before_blackening_choices";
+        public const string Blackening = "blackening";
+        public const string ImugiRestore = "imugi_restore";
+        public const string WishPrompt = "wish_prompt";
+        public const string HiddenConfirm = "hidden_confirm";
+        public const string HiddenEnding = "hidden_ending";
+        public const string Doppelganger = "doppelganger";
+        public const string CardAndIncense = "card_and_incense";
     }
 }
