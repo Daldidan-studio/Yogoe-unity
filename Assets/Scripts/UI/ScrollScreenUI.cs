@@ -458,13 +458,14 @@ namespace KSpirits.UI
             OnDialogueContinue?.Invoke();
         }
 
+        const float DialogueHoldEngageDelay = 0.25f;
+
         void HandleDialoguePointerDown()
         {
             _dialogueHeld = true;
             _holdAdvancedAny = false;
-            _typewriter?.SetFastForward(true);
             if (_dialogueHoldRoutine == null)
-                _dialogueHoldRoutine = StartCoroutine(AutoAdvanceWhileHeld());
+                _dialogueHoldRoutine = StartCoroutine(HoldThenAutoAdvance());
         }
 
         void HandleDialoguePointerUp()
@@ -473,18 +474,38 @@ namespace KSpirits.UI
             _typewriter?.SetFastForward(false);
         }
 
-        /// <summary>꾹 누르고 있는 동안: 타이핑 3배속 + 완료된 줄은 자동으로 다음 대사까지 진행.</summary>
-        IEnumerator AutoAdvanceWhileHeld()
+        /// <summary>
+        /// 짧은 탭은 무시(기존 HandleDialogueTap 경로로 처리)하고,
+        /// DialogueHoldEngageDelay 이상 눌려 있을 때만 3배속 + 완료된 줄 자동 진행을 켠다.
+        /// </summary>
+        IEnumerator HoldThenAutoAdvance()
         {
+            float t = 0f;
+            while (_dialogueHeld && t < DialogueHoldEngageDelay)
+            {
+                t += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (!_dialogueHeld)
+            {
+                _dialogueHoldRoutine = null;
+                yield break;
+            }
+
+            _typewriter?.SetFastForward(true);
             while (_dialogueHeld)
             {
-                yield return null;
                 if (_dialogueRoot != null && _dialogueRoot.activeSelf &&
                     _typewriter != null && _typewriter.IsComplete && !_typewriter.IsTyping)
                 {
                     _holdAdvancedAny = true;
                     OnDialogueContinue?.Invoke();
                     yield return null; // 다음 줄이 Play()로 갱신될 시간을 한 프레임 확보
+                }
+                else
+                {
+                    yield return null;
                 }
             }
             _dialogueHoldRoutine = null;
