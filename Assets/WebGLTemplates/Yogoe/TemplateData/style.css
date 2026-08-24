@@ -1,7 +1,7 @@
 body {
   padding: 0;
   margin: 0;
-  background: #231f20;
+  background: #000000;
 }
 
 #unity-container {
@@ -38,26 +38,34 @@ body {
   text-align: center;
 }
 
-#sapsar-logo {
-  width: 280px;
-  height: 80px;
-  margin: 0 auto 18px;
-  background: url("sapsar_logo.png") center / contain no-repeat;
+#game-title {
+  width: min(86vw, 420px);
+  height: min(38vw, 180px);
+  margin: 0 auto 22px;
+  background: url("game_title.png") center / contain no-repeat;
 }
 
 #unity-progress-bar-empty {
-  width: 280px;
-  height: 8px;
+  width: min(70vw, 280px);
+  height: 10px;
   margin: 0 auto;
-  background: #4a3f3a;
-  border-radius: 4px;
+  background: #1a2430;
+  border: 2px solid #3cb078;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
 #unity-progress-bar-full {
   width: 0%;
   height: 100%;
-  background: #c4a574;
+  background: #f0d58c;
+}
+
+#sapsar-logo {
+  width: 280px;
+  height: 80px;
+  margin: 0 auto;
+  background: url("sapsar_logo.png") center / contain no-repeat;
 }
 
 #unity-warning {
@@ -86,14 +94,14 @@ body {
   align-items: center;
   justify-content: center;
   gap: 20px;
-  background: #231f20;
+  background: #000000;
   color: #f5f0e8;
   font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
 #unity-start .start-logo {
-  width: min(72vw, 320px);
-  height: 90px;
+  width: min(72vw, 360px);
+  height: 120px;
   background: url("sapsar_logo.png") center / contain no-repeat;
 }
 
@@ -105,6 +113,6 @@ body {
 }
 
 @keyframes start-pulse {
-  0%, 100% { opacity: 0.45; }
+  0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
