@@ -64,6 +64,18 @@ namespace KSpirits.UI
         bool _blackened;
         bool _offerEnabled;
         bool _wired;
+        RectTransform _yutBoardRoot;
+        RectTransform _yutPiece;
+        Image[] _yutPads;
+        Color _trainingButtonBaseColor = new(0f, 0f, 0f, 0f);
+        GameObject _storyOverlay;
+        Text _storyOverlayTitle;
+        GameObject _fxOverlay;
+        Text _fxOverlayLabel;
+        GameObject _doppelImage;
+        Vector2 _yokaiHomeAnchored;
+        bool _yokaiHomeCached;
+        bool _cardShowingBack = true;
 
         static readonly Color ApparitionColor = new(1f, 0.85f, 0.7f);
         static readonly Color ManifestColor = new(0.95f, 0.95f, 0.9f);
@@ -377,6 +389,9 @@ namespace KSpirits.UI
             else
                 _dialogueSpeaker.text = $"{line.Speaker ?? ""}  ({index}/{total})";
 
+            if (!string.IsNullOrEmpty(line.Fx))
+                _anims?.PlayFireAndForget(line.Fx);
+
             StopCoroutine(nameof(WatchTypewriterComplete));
             _typewriter.Play(line.Text ?? "");
             StartCoroutine(WatchTypewriterComplete());
@@ -446,42 +461,339 @@ namespace KSpirits.UI
             _waterDrag?.SetHighlight(on);
         }
 
-        public void SetTrainingButtonVisible(bool on) => _trainingButton.gameObject.SetActive(on);
+        public void SetTrainingButtonVisible(bool on)
+        {
+            if (_trainingButton == null) return;
+            _trainingButton.gameObject.SetActive(on);
+        }
+
+        public void SetTrainingHighlight(bool on)
+        {
+            if (_trainingButton == null) return;
+            var img = _trainingButton.GetComponent<Image>();
+            if (img == null) return;
+            if (!on)
+            {
+                img.color = _trainingButtonBaseColor;
+                return;
+            }
+
+            _trainingButtonBaseColor = img.color.a < 0.01f
+                ? new Color(0.2f, 0.18f, 0.14f, 0.55f)
+                : img.color;
+            img.color = new Color(1f, 0.85f, 0.25f, 0.95f);
+        }
+
         public void SetThrowYutVisible(bool on) => _throwButton.gameObject.SetActive(on);
         public void SetLeaveTrainingVisible(bool on) => _leaveTrainingButton.gameObject.SetActive(on);
-        public void EnterTrainingMode(bool on) => _trainingPanel.SetActive(on);
-        public void ShowYutResult(string text) => _yutResultText.text = text;
-        public void SetGlitchVisible(bool on) => _anims.PlayFireAndForget(on ? "glitch_on" : "glitch_off");
+
+        public void EnterTrainingMode(bool on)
+        {
+            if (_trainingPanel == null) return;
+            _trainingPanel.SetActive(on);
+            if (on) EnsureYutBoard();
+        }
+
+        public void ShowYutResult(string text)
+        {
+            if (_yutResultText != null)
+                _yutResultText.text = text;
+        }
+
+        public void SetYutPieceIndex(int index)
+        {
+            EnsureYutBoard();
+            if (_yutPads == null || _yutPads.Length == 0 || _yutPiece == null) return;
+
+            index = Mathf.Clamp(index, 0, _yutPads.Length - 1);
+            for (int i = 0; i < _yutPads.Length; i++)
+            {
+                bool here = i == index;
+                _yutPads[i].color = here
+                    ? new Color(1f, 0.85f, 0.35f, 1f)
+                    : i == 3
+                        ? new Color(0.85f, 0.7f, 0.25f, 0.85f) // 엽전칸
+                        : new Color(0.35f, 0.32f, 0.28f, 0.9f);
+            }
+
+            var pad = _yutPads[index].rectTransform;
+            _yutPiece.SetParent(pad, false);
+            _yutPiece.anchorMin = new Vector2(0.15f, 0.15f);
+            _yutPiece.anchorMax = new Vector2(0.85f, 0.85f);
+            _yutPiece.offsetMin = Vector2.zero;
+            _yutPiece.offsetMax = Vector2.zero;
+        }
+
+        void EnsureYutBoard()
+        {
+            if (_trainingPanel == null) return;
+            if (_yutBoardRoot != null) return;
+
+            var existing = _trainingPanel.transform.Find("YutBoard");
+            if (existing != null)
+            {
+                _yutBoardRoot = existing as RectTransform;
+            }
+            else
+            {
+                var boardGo = new GameObject("YutBoard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                boardGo.transform.SetParent(_trainingPanel.transform, false);
+                _yutBoardRoot = boardGo.GetComponent<RectTransform>();
+                SetAnchor(_yutBoardRoot, 0.08f, 0.32f, 0.92f, 0.78f, 0, 0, 0, 0);
+                boardGo.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
+            }
+
+            if (_yutResultText != null)
+                SetAnchor(_yutResultText.rectTransform, 0.1f, 0.78f, 0.9f, 0.92f, 0, 0, 0, 0);
+
+            _yutPads = new Image[8];
+            string[] labels = { "출", "·", "·", "엽", "·", "·", "·", "골" };
+            for (int i = 0; i < 8; i++)
+            {
+                float t = i / 7f;
+                float x = Mathf.Lerp(0.06f, 0.82f, t);
+                var padGo = new GameObject($"Pad{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                padGo.transform.SetParent(_yutBoardRoot, false);
+                var padRt = padGo.GetComponent<RectTransform>();
+                SetAnchor(padRt, x, 0.28f, x + 0.12f, 0.72f, 0, 0, 0, 0);
+                var padImg = padGo.GetComponent<Image>();
+                padImg.color = i == 3
+                    ? new Color(0.85f, 0.7f, 0.25f, 0.85f)
+                    : new Color(0.35f, 0.32f, 0.28f, 0.9f);
+                _yutPads[i] = padImg;
+
+                var label = CreateText(_yutBoardRoot, $"PadLabel{i}", labels[i], 18, TextAnchor.MiddleCenter);
+                SetAnchor(label.rectTransform, x, 0.05f, x + 0.12f, 0.28f, 0, 0, 0, 0);
+                label.raycastTarget = false;
+                label.color = new Color(1f, 1f, 1f, 0.7f);
+            }
+
+            var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            pieceGo.transform.SetParent(_yutPads[0].transform, false);
+            _yutPiece = pieceGo.GetComponent<RectTransform>();
+            _yutPiece.anchorMin = new Vector2(0.15f, 0.15f);
+            _yutPiece.anchorMax = new Vector2(0.85f, 0.85f);
+            _yutPiece.offsetMin = Vector2.zero;
+            _yutPiece.offsetMax = Vector2.zero;
+            pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
+        }
+        public void SetGlitchVisible(bool on)
+        {
+            _anims.PlayFireAndForget(on ? "glitch_on" : "glitch_off");
+            if (_glitchOverlay != null)
+                _glitchOverlay.SetActive(on);
+        }
 
         public void SetYokaiBlackened(bool on)
         {
             _blackened = on;
             _yokaiLabel.text = on ? "흑토끼" : "혼 · 옥토끼";
             _anims.PlayFireAndForget(on ? "blacken" : "restore_white");
+            if (_yokaiImage != null)
+                _yokaiImage.color = on ? BlackColor : ManifestColor;
+        }
+
+        public void HighlightItemBar(bool on)
+        {
+            if (_waterSlotRoot == null) return;
+            var img = _waterSlotRoot.GetComponent<Image>();
+            if (img == null) return;
+            img.color = on
+                ? new Color(1f, 0.9f, 0.3f, 1f)
+                : new Color(0.35f, 0.65f, 0.95f, 1f);
+        }
+
+        public void ShowStoryOverlay(string title, Color bg)
+        {
+            EnsureStoryOverlay();
+            _storyOverlay.SetActive(true);
+            _storyOverlay.GetComponent<Image>().color = bg;
+            if (_storyOverlayTitle != null)
+                _storyOverlayTitle.text = title;
+        }
+
+        public void HideStoryOverlay()
+        {
+            if (_storyOverlay != null)
+                _storyOverlay.SetActive(false);
+        }
+
+        public IEnumerator PlayYokaiFlee(float duration = 0.85f)
+        {
+            if (_yokaiButton == null) yield break;
+            CacheYokaiHome();
+            var rt = _yokaiButton.GetComponent<RectTransform>();
+            var start = rt.anchoredPosition;
+            var end = start + new Vector2(900f, 120f);
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.SmoothStep(0f, 1f, t / duration);
+                rt.anchoredPosition = Vector2.Lerp(start, end, u);
+                if (_yokaiImage != null)
+                {
+                    var c = _yokaiImage.color;
+                    c.a = 1f - u;
+                    _yokaiImage.color = c;
+                }
+                yield return null;
+            }
+            _yokaiButton.gameObject.SetActive(false);
+            if (_yokaiLabel != null)
+                _yokaiLabel.text = "빈 족자";
+        }
+
+        public void RestoreYokaiOnScroll()
+        {
+            if (_yokaiButton == null) return;
+            CacheYokaiHome();
+            _yokaiButton.gameObject.SetActive(true);
+            var rt = _yokaiButton.GetComponent<RectTransform>();
+            rt.anchoredPosition = _yokaiHomeAnchored;
+            if (_yokaiImage != null)
+            {
+                var c = _yokaiImage.color;
+                c.a = 1f;
+                _yokaiImage.color = c;
+            }
+        }
+
+        public IEnumerator PlayImugiCapture(float duration = 1.1f)
+        {
+            EnsureFxOverlay();
+            _fxOverlay.SetActive(true);
+            _fxOverlay.GetComponent<Image>().color = new Color(0.55f, 0.75f, 0.65f, 0.35f);
+            if (_fxOverlayLabel != null)
+                _fxOverlayLabel.text = "이무기 · 곰방대 연기";
+            yield return new WaitForSecondsRealtime(duration * 0.55f);
+            if (_fxOverlayLabel != null)
+                _fxOverlayLabel.text = "탁기를 삼킨다…";
+            yield return new WaitForSecondsRealtime(duration * 0.45f);
+            _fxOverlay.SetActive(false);
+        }
+
+        public void ShowDoppelganger(bool on)
+        {
+            if (_yokaiImage == null) return;
+            if (!on)
+            {
+                if (_doppelImage != null)
+                    _doppelImage.SetActive(false);
+                return;
+            }
+
+            if (_doppelImage == null)
+            {
+                var go = new GameObject("Doppelganger", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(_yokaiImage.transform.parent, false);
+                var rt = go.GetComponent<RectTransform>();
+                var src = _yokaiImage.rectTransform;
+                rt.anchorMin = src.anchorMin;
+                rt.anchorMax = src.anchorMax;
+                rt.pivot = src.pivot;
+                rt.sizeDelta = src.sizeDelta;
+                rt.anchoredPosition = src.anchoredPosition + new Vector2(140f, 0f);
+                var img = go.GetComponent<Image>();
+                img.color = new Color(0.92f, 0.92f, 0.95f, 0.85f);
+                var label = CreateText(go.transform, "Label", "도플", 20, TextAnchor.LowerCenter);
+                Stretch(label.rectTransform);
+                label.raycastTarget = false;
+                _doppelImage = go;
+            }
+            _doppelImage.SetActive(true);
         }
 
         public void ShowCardComplete(CardFaceState card)
         {
             _cardPanel.SetActive(true);
-            var detail = CreateText(_cardPanel.transform, "Detail",
-                $"뒷면(흑토끼): {(card.BackUnlocked ? "해금" : "-")}\n앞면(백토끼 둘): {(card.FrontUnlocked ? "해금" : "-")}\n\n탭해서 계속",
-                26, TextAnchor.MiddleCenter);
-            SetAnchor(detail.rectTransform, 0.05f, 0.05f, 0.95f, 0.75f, 0, 0, 0, 0);
+            for (int i = _cardPanel.transform.childCount - 1; i >= 0; i--)
+                Destroy(_cardPanel.transform.GetChild(i).gameObject);
+
+            _cardShowingBack = true;
+            var title = CreateText(_cardPanel.transform, "CardTitle", "옥토끼 요괴패", 32, TextAnchor.UpperCenter);
+            SetAnchor(title.rectTransform, 0.05f, 0.82f, 0.95f, 0.98f, 0, 0, 0, 0);
+
+            var face = CreateText(_cardPanel.transform, "Face", "", 26, TextAnchor.MiddleCenter);
+            SetAnchor(face.rectTransform, 0.08f, 0.28f, 0.92f, 0.78f, 0, 0, 0, 0);
+            void RefreshFace()
+            {
+                if (_cardShowingBack)
+                    face.text = card.BackUnlocked
+                        ? "【 뒷면 】\n흑토끼\n\n(탭하여 뒤집기)"
+                        : "【 뒷면 】\n???\n\n(탭하여 뒤집기)";
+                else
+                    face.text = card.FrontUnlocked
+                        ? "【 앞면 】\n백토끼 둘\n\n(탭하여 뒤집기 / 길게 보면 계속)"
+                        : "【 앞면 】\n???\n\n(탭하여 뒤집기)";
+            }
+            RefreshFace();
+
+            var hint = CreateText(_cardPanel.transform, "Hint", "앞뒤를 확인한 뒤 다시 탭하면 계속", 20, TextAnchor.LowerCenter);
+            SetAnchor(hint.rectTransform, 0.05f, 0.04f, 0.95f, 0.22f, 0, 0, 0, 0);
+            hint.color = new Color(1f, 1f, 1f, 0.65f);
+
+            int taps = 0;
             var btn = _cardPanel.GetComponent<Button>() ?? _cardPanel.AddComponent<Button>();
             btn.targetGraphic = _cardPanel.GetComponent<Image>();
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(() =>
             {
+                taps++;
+                if (taps == 1)
+                {
+                    _cardShowingBack = false;
+                    RefreshFace();
+                    return;
+                }
                 _cardPanel.SetActive(false);
                 OnDialogueContinue?.Invoke();
             });
         }
 
-        public void SetSummonPlaceholderVisible(bool on) => _summonPanel.SetActive(on);
+        public void SetSummonPlaceholderVisible(bool on)
+        {
+            if (_summonPanel == null) return;
+            _summonPanel.SetActive(on);
+            if (!on) return;
+            var label = _summonPanel.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "소환 화면\n향 3개로 첫 요괴를 소환할 수 있습니다.\n\n(본편 소환 UI — 다음 작업)";
+        }
+
         public void PlayShakeYokai() => _anims.PlayFireAndForget("offer_react");
         public IEnumerator PlayEvolutionFlash() => _anims.Play("evolve_flash");
         public void PulseEnergyBar(bool on) => _anims.SetLoop("energy_warning_pulse", on);
         public IEnumerator PlayAnim(string clipId) => _anims.Play(clipId);
+
+        void CacheYokaiHome()
+        {
+            if (_yokaiHomeCached || _yokaiButton == null) return;
+            _yokaiHomeAnchored = _yokaiButton.GetComponent<RectTransform>().anchoredPosition;
+            _yokaiHomeCached = true;
+        }
+
+        void EnsureStoryOverlay()
+        {
+            if (_storyOverlay != null) return;
+            _storyOverlay = CreatePanel(transform, "StoryOverlay", new Color(0.02f, 0.04f, 0.1f, 0.92f));
+            Stretch(_storyOverlay.GetComponent<RectTransform>());
+            _storyOverlay.transform.SetAsLastSibling();
+            _storyOverlayTitle = CreateText(_storyOverlay.transform, "Title", "", 40, TextAnchor.MiddleCenter);
+            Stretch(_storyOverlayTitle.rectTransform);
+            _storyOverlay.SetActive(false);
+        }
+
+        void EnsureFxOverlay()
+        {
+            if (_fxOverlay != null) return;
+            _fxOverlay = CreatePanel(transform, "FxOverlay", new Color(0.4f, 0.6f, 0.5f, 0.4f));
+            Stretch(_fxOverlay.GetComponent<RectTransform>());
+            _fxOverlay.transform.SetAsLastSibling();
+            _fxOverlayLabel = CreateText(_fxOverlay.transform, "Label", "", 28, TextAnchor.MiddleCenter);
+            Stretch(_fxOverlayLabel.rectTransform);
+            _fxOverlay.SetActive(false);
+        }
 
         static void UpdateSegmentBar(Image[] segments, int value, int max, Color on, Color off)
         {
@@ -539,6 +851,14 @@ namespace KSpirits.UI
             rt.anchorMax = new Vector2(xmax, ymax);
             rt.offsetMin = new Vector2(left, bottom);
             rt.offsetMax = new Vector2(right, top);
+        }
+
+        static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
         }
     }
 }

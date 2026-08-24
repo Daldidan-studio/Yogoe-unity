@@ -12,10 +12,12 @@ namespace KSpirits.Data
         public string text;
         public bool narration;
         public string layout;
+        public string fx;
 
         public string Speaker => string.IsNullOrEmpty(speaker) ? null : speaker;
         public string Text => text;
         public bool IsNarration => narration;
+        public string Fx => string.IsNullOrWhiteSpace(fx) ? null : fx.Trim();
 
         public bool TryGetLayout(out DialogueLayoutId layoutId)
         {
@@ -128,6 +130,7 @@ namespace KSpirits.Data
         public static IReadOnlyList<DialogueLine> TrainingIntro => Lines("training_intro");
         public static IReadOnlyList<DialogueLine> AfterBaekdo => Lines("after_baekdo");
         public static IReadOnlyList<DialogueLine> AfterGoal => Lines("after_goal");
+        public static IReadOnlyList<DialogueLine> ItemCollect => Lines("item_collect");
         public static IReadOnlyList<DialogueLine> EnergyWarning => Lines("energy_warning");
         public static IReadOnlyList<DialogueLine> NeedMoreEnergy => Lines("need_more_energy");
         public static IReadOnlyList<DialogueLine> AfterManifestEvolve => Lines("after_manifest_evolve");
@@ -136,6 +139,7 @@ namespace KSpirits.Data
         public static IReadOnlyList<DialogueLine> MemoryShop => Lines("memory_shop");
         public static IReadOnlyList<DialogueLine> BeforeBlackeningChoices => Lines("before_blackening_choices");
         public static IReadOnlyList<DialogueLine> Blackening => Lines("blackening");
+        public static IReadOnlyList<DialogueLine> BlackRabbitFlee => Lines("black_rabbit_flee");
         public static IReadOnlyList<DialogueLine> ImugiRestore => Lines("imugi_restore");
         public static IReadOnlyList<DialogueLine> WishPrompt => Lines("wish_prompt");
         public static IReadOnlyList<DialogueLine> Doppelganger => Lines("doppelganger");
@@ -238,13 +242,16 @@ namespace KSpirits.Data
         public const string TrainingIntro = "training_intro";
         public const string AfterBaekdo = "after_baekdo";
         public const string AfterGoal = "after_goal";
+        public const string ItemCollect = "item_collect";
         public const string EnergyWarning = "energy_warning";
+        public const string NeedMoreEnergy = "need_more_energy";
         public const string AfterManifestEvolve = "after_manifest_evolve";
         public const string MemoryMoon = "memory_moon";
         public const string MemoryEarth = "memory_earth";
         public const string MemoryShop = "memory_shop";
         public const string BeforeBlackeningChoices = "before_blackening_choices";
         public const string Blackening = "blackening";
+        public const string BlackRabbitFlee = "black_rabbit_flee";
         public const string ImugiRestore = "imugi_restore";
         public const string WishPrompt = "wish_prompt";
         public const string HiddenConfirm = "hidden_confirm";

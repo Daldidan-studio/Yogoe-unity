@@ -21,8 +21,13 @@
         <div id="unity-build-title">{{{ PRODUCT_NAME }}}</div>
       </div>
     </div>
+    <button id="unity-start" type="button" aria-label="게임 시작">
+      <span class="start-logo"></span>
+      <span class="start-label">탭하여 시작</span>
+    </button>
     <script>
       var canvas = document.querySelector("#unity-canvas");
+      var startBtn = document.querySelector("#unity-start");
 
       function unityShowBanner(msg, type) {
         var warningBanner = document.querySelector("#unity-warning");
@@ -41,6 +46,15 @@
           }, 5000);
         }
         updateBannerVisibility();
+      }
+
+      function resumeWebAudio() {
+        try {
+          if (typeof WEBAudio !== "undefined" && WEBAudio.audioContext &&
+              WEBAudio.audioContext.state === "suspended") {
+            WEBAudio.audioContext.resume();
+          }
+        } catch (e) {}
       }
 
       var buildUrl = "Build";
@@ -69,30 +83,54 @@
         document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
       } else {
-        canvas.style.width = "{{{ WIDTH }}}px";
-        canvas.style.height = "{{{ HEIGHT }}}px";
+        var gameW = {{{ WIDTH }}};
+        var gameH = {{{ HEIGHT }}};
+        var maxH = Math.min(window.innerHeight * 0.92, gameH);
+        var maxW = Math.min(window.innerWidth * 0.95, gameW);
+        var scale = Math.min(maxW / gameW, maxH / gameH);
+        canvas.style.width = Math.floor(gameW * scale) + "px";
+        canvas.style.height = Math.floor(gameH * scale) + "px";
       }
 
-      document.querySelector("#unity-loading-bar").style.display = "block";
+      var unityStarted = false;
+      function startUnity() {
+        if (unityStarted) return;
+        unityStarted = true;
+        startBtn.style.display = "none";
+        document.querySelector("#unity-loading-bar").style.display = "block";
+        resumeWebAudio();
 
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = function () {
-        createUnityInstance(canvas, config, function (progress) {
-          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-        }).then(function (unityInstance) {
-          document.querySelector("#unity-loading-bar").style.display = "none";
-          document.querySelector("#unity-fullscreen-button").onclick = function () {
-            unityInstance.SetFullscreen(1);
-          };
-        }).catch(function (message) {
-          unityShowBanner(message, "error");
-        });
-      };
-      script.onerror = function () {
-        unityShowBanner("게임을 불러오지 못했습니다.", "error");
-      };
-      document.body.appendChild(script);
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = function () {
+          createUnityInstance(canvas, config, function (progress) {
+            document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+          }).then(function (unityInstance) {
+            document.querySelector("#unity-loading-bar").style.display = "none";
+            resumeWebAudio();
+            document.addEventListener("pointerdown", resumeWebAudio);
+            document.addEventListener("keydown", resumeWebAudio);
+            var fs = document.querySelector("#unity-fullscreen-button");
+            if (fs) {
+              fs.onclick = function () {
+                unityInstance.SetFullscreen(1);
+              };
+            }
+          }).catch(function (message) {
+            unityShowBanner(message, "error");
+          });
+        };
+        script.onerror = function () {
+          unityShowBanner("게임을 불러오지 못했습니다.", "error");
+        };
+        document.body.appendChild(script);
+      }
+
+      startBtn.addEventListener("click", startUnity, { once: true });
+      startBtn.addEventListener("touchend", function (e) {
+        e.preventDefault();
+        startUnity();
+      }, { once: true });
     </script>
   </body>
 </html>

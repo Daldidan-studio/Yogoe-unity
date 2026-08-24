@@ -16,6 +16,7 @@ namespace KSpirits.Tutorial
         ScrollScreenUI _ui;
         bool _waitingInput;
         string _lastChoiceId;
+        bool _trainingButtonPressed;
 
         public GameState State => _state;
 
@@ -63,7 +64,7 @@ namespace KSpirits.Tutorial
                     yield return StepTraining();
                     break;
                 case TutorialStepId.ItemCollect:
-                    yield return Advance(TutorialStepId.EnergyWarning);
+                    yield return StepItemCollect();
                     break;
                 case TutorialStepId.EnergyWarning:
                     yield return StepEnergyWarning();
@@ -78,7 +79,7 @@ namespace KSpirits.Tutorial
                     yield return StepBlackening();
                     break;
                 case TutorialStepId.BlackRabbitFlee:
-                    yield return Advance(TutorialStepId.ImugiRestore);
+                    yield return StepBlackRabbitFlee();
                     break;
                 case TutorialStepId.ImugiRestore:
                     yield return StepImugiRestore();
@@ -90,7 +91,7 @@ namespace KSpirits.Tutorial
                     yield return StepCardComplete();
                     break;
                 case TutorialStepId.Done:
-                    _ui.ShowStatus("본편 진입 — 소환 화면(플레이스홀더)");
+                    _ui.ShowStatus("튜토리얼 클리어 — 소환으로 본편 시작");
                     _ui.SetSummonPlaceholderVisible(true);
                     break;
             }
@@ -109,6 +110,8 @@ namespace KSpirits.Tutorial
 
             yield return PlayLines(OktoDialogue.FirstMeeting, OktoDialogueSection.FirstMeeting);
 
+            _ui.PulseEnergyBar(true);
+            _ui.SetOfferingHighlight(true);
             yield return Advance(TutorialStepId.FirstOffering);
         }
 
@@ -116,11 +119,13 @@ namespace KSpirits.Tutorial
         {
             _state.Wallet.PurifiedWater = 1;
             _ui.RefreshAll(_state);
+            _ui.PulseEnergyBar(true);
             _ui.SetOfferingHighlight(true);
             _ui.ShowStatus("아래 정화수를 도깨비불 위로 드래그하세요");
             _ui.SetOfferButtonVisible(true);
             yield return WaitInput();
 
+            _ui.PulseEnergyBar(false);
             _ui.SetOfferingHighlight(false);
             _ui.SetOfferButtonVisible(false);
             _ui.PlayShakeYokai();
@@ -145,32 +150,60 @@ namespace KSpirits.Tutorial
             _ui.SetYokaiInteractable(true);
             yield return WaitInput();
 
+            _ui.PlayShakeYokai();
             _state.Wallet.PurifiedWater += 1;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.Petting, OktoDialogueSection.Petting);
+            _ui.HighlightItemBar(true);
+            _ui.ShowStatus("정화수 +1");
+
+            var lines = OktoDialogue.Petting;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (i == lines.Count - 1)
+                {
+                    _trainingButtonPressed = false;
+                    _ui.HighlightItemBar(false);
+                    _ui.SetTrainingButtonVisible(true);
+                    _ui.SetTrainingHighlight(true);
+                    _ui.ShowStatus("왼쪽 아래 수련장을 눌러주세요");
+                }
+
+                _ui.ShowDialogue(lines[i], i + 1, lines.Count, OktoDialogueSection.Petting);
+                yield return WaitInput();
+            }
+
+            _ui.HideDialogue();
+            if (!_trainingButtonPressed)
+            {
+                _ui.SetTrainingButtonVisible(true);
+                _ui.SetTrainingHighlight(true);
+                _ui.ShowStatus("왼쪽 아래 수련장을 눌러주세요");
+                yield return WaitInput();
+            }
+
             yield return Advance(TutorialStepId.Training);
         }
 
         IEnumerator StepTraining()
         {
-            _ui.SetTrainingButtonVisible(true);
-            _ui.ShowStatus("수련장을 눌러주세요");
-            yield return WaitInput();
-
+            _ui.SetTrainingHighlight(false);
             _state.ScrollMode = ScrollMode.Training;
             _ui.SetTrainingButtonVisible(false);
             _ui.EnterTrainingMode(true);
+            _ui.SetYutPieceIndex(0);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.TrainingIntro, OktoDialogueSection.TrainingIntro);
 
             _ui.SetThrowYutVisible(true);
-            _ui.ShowStatus("윷을 던져보세요");
+            _ui.ShowStatus("하트 1개를 쓰고 윷을 던져보세요");
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
-            _ui.ShowYutResult("빽도");
+            _ui.ShowYutResult("빽도!");
+            yield return MoveYutPiece(0, 1, 0.35f);
             _state.Wallet.Coins += 1;
             _ui.RefreshAll(_state);
+            _ui.ShowStatus("엽전 +1");
             yield return PlayLines(OktoDialogue.AfterBaekdo, OktoDialogueSection.AfterBaekdo);
 
             _ui.SetThrowYutVisible(true);
@@ -182,10 +215,12 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
             _state.Wallet.PurifiedWater += 1;
             _ui.ShowYutResult("도 → 골인!");
+            yield return MoveYutPiece(1, 7, 0.55f);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.AfterGoal, OktoDialogueSection.AfterGoal);
 
             _ui.SetLeaveTrainingVisible(true);
+            _ui.ShowStatus("수련장을 나가주세요");
             yield return WaitInput();
 
             _state.ScrollMode = ScrollMode.Nurture;
@@ -193,6 +228,15 @@ namespace KSpirits.Tutorial
             _ui.SetLeaveTrainingVisible(false);
             _ui.SetThrowYutVisible(false);
             yield return Advance(TutorialStepId.ItemCollect);
+        }
+
+        IEnumerator StepItemCollect()
+        {
+            _ui.HighlightItemBar(true);
+            _ui.ShowStatus("정화수를 회수했습니다");
+            yield return PlayLines(OktoDialogue.ItemCollect, OktoDialogueSection.ItemCollect);
+            _ui.HighlightItemBar(false);
+            yield return Advance(TutorialStepId.EnergyWarning);
         }
 
         IEnumerator StepEnergyWarning()
@@ -203,6 +247,7 @@ namespace KSpirits.Tutorial
             yield return PlayLines(OktoDialogue.EnergyWarning, OktoDialogueSection.EnergyWarning);
             _ui.PulseEnergyBar(false);
 
+            // 기획: 진화 직전 기력 80, 정화수 1회로 100
             _state.FocusYokai.Energy = GameConstants.OktoPreEvolveEnergy;
             _state.FocusYokai.Intimacy = Math.Max(_state.FocusYokai.Intimacy, GameConstants.OktoMemoryStartIntimacy);
             _state.Wallet.PurifiedWater = Math.Max(_state.Wallet.PurifiedWater, 1);
@@ -233,18 +278,22 @@ namespace KSpirits.Tutorial
 
         IEnumerator StepMemory()
         {
+            _ui.ShowStoryOverlay("— 달 —", new Color(0.05f, 0.08f, 0.2f, 0.88f));
             _state.FocusYokai.Intimacy = GameConstants.OktoMemory1;
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.MemoryMoon, OktoDialogueSection.MemoryMoon);
 
+            _ui.ShowStoryOverlay("— 지구 —", new Color(0.02f, 0.02f, 0.02f, 0.94f));
             _state.FocusYokai.Intimacy = GameConstants.OktoMemory2;
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.MemoryEarth, OktoDialogueSection.MemoryEarth);
 
+            _ui.ShowStoryOverlay("— 고가구점 —", new Color(0.12f, 0.08f, 0.05f, 0.9f));
             _state.FocusYokai.Intimacy = GameConstants.OktoMemory3;
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.MemoryShop, OktoDialogueSection.MemoryShop);
 
+            _ui.HideStoryOverlay();
             yield return Advance(TutorialStepId.BlackeningChoice);
         }
 
@@ -259,8 +308,19 @@ namespace KSpirits.Tutorial
             yield return Advance(TutorialStepId.BlackRabbitFlee);
         }
 
+        IEnumerator StepBlackRabbitFlee()
+        {
+            yield return PlayLines(OktoDialogue.BlackRabbitFlee, OktoDialogueSection.BlackRabbitFlee);
+            yield return _ui.PlayYokaiFlee();
+            _ui.ShowStatus("빈 족자…");
+            yield return new WaitForSecondsRealtime(0.6f);
+            yield return Advance(TutorialStepId.ImugiRestore);
+        }
+
         IEnumerator StepImugiRestore()
         {
+            yield return _ui.PlayImugiCapture();
+            _ui.RestoreYokaiOnScroll();
             yield return PlayLines(OktoDialogue.ImugiRestore, OktoDialogueSection.ImugiRestore);
             _ui.SetYokaiBlackened(false);
             _ui.RefreshAll(_state);
@@ -285,11 +345,14 @@ namespace KSpirits.Tutorial
                     _ui.ShowStatus("히든 엔딩 0 — 타이틀로 복귀(세이브 유지)");
                     _state.TutorialFinished = true;
                     _state.TutorialStep = TutorialStepId.Done;
+                    SaveService.Save(_state);
                     yield break;
                 }
             }
 
+            _ui.ShowDoppelganger(true);
             yield return PlayLines(OktoDialogue.Doppelganger, OktoDialogueSection.Doppelganger);
+            _ui.ShowDoppelganger(false);
             _state.OktoCard.FrontUnlocked = true;
             _state.LastEnding = EndingType.TutorialComplete;
             yield return Advance(TutorialStepId.CardComplete);
@@ -303,7 +366,28 @@ namespace KSpirits.Tutorial
             _state.Wallet.Incense += GameConstants.IncensePerSummon;
             _state.TutorialFinished = true;
             _ui.RefreshAll(_state);
+            _ui.ShowStatus($"향 +{GameConstants.IncensePerSummon}");
+            yield return new WaitForSecondsRealtime(0.8f);
             yield return Advance(TutorialStepId.Done);
+        }
+
+        IEnumerator MoveYutPiece(int from, int to, float duration)
+        {
+            if (from == to)
+            {
+                _ui.SetYutPieceIndex(to);
+                yield break;
+            }
+
+            int step = to > from ? 1 : -1;
+            int cur = from;
+            float per = duration / Mathf.Max(1, Mathf.Abs(to - from));
+            while (cur != to)
+            {
+                cur += step;
+                _ui.SetYutPieceIndex(cur);
+                yield return new WaitForSecondsRealtime(per);
+            }
         }
 
         IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines, string sectionId)
@@ -334,7 +418,11 @@ namespace KSpirits.Tutorial
             if (_state.TutorialStep == TutorialStepId.EvolveToManifest &&
                 _state.FocusYokai.Energy < GameConstants.EnergyMax)
             {
-                _ui.ShowStatus("기력이 모자라요");
+                var lines = OktoDialogue.NeedMoreEnergy;
+                if (lines.Count > 0)
+                    _ui.ShowDialogue(lines[0], 1, 1, OktoDialogueSection.NeedMoreEnergy);
+                else
+                    _ui.ShowStatus("기력이 모자라요");
                 return;
             }
 
@@ -356,14 +444,20 @@ namespace KSpirits.Tutorial
                 _state.Wallet.PurifiedWater -= 1;
                 _state.FocusYokai.AddEnergy(GameConstants.OfferingEnergyGain);
                 _ui.RefreshAll(_state);
+                _ui.PlayShakeYokai();
                 if (_waitingInput) _waitingInput = false;
             }
         }
 
         void HandleTrainingPressed()
         {
-            if (_state.TutorialStep == TutorialStepId.Training && _waitingInput)
+            if (!_waitingInput) return;
+            if (_state.TutorialStep == TutorialStepId.Training ||
+                _state.TutorialStep == TutorialStepId.Petting)
+            {
+                _trainingButtonPressed = true;
                 _waitingInput = false;
+            }
         }
 
         void HandleThrowYut()

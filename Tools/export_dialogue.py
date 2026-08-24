@@ -180,17 +180,24 @@ def build_json(character: str, rows: list[dict], locale: str, fallback: str) -> 
     for sid in section_order:
         section_map[sid].sort(key=lambda r: (to_order(r.get("order")), r["_row"]))
 
+    def build_line(r: dict) -> dict:
+        line = {
+            "speaker": r.get("speaker") or "",
+            "text": pick_text(r, locale, fallback),
+            "narration": to_bool(r.get("narration")),
+        }
+        layout = cell(r, "layout")
+        if layout:
+            line["layout"] = layout
+        fx = cell(r, "fx")
+        if fx:
+            line["fx"] = fx
+        return line
+
     sections = [
         {
             "id": sid,
-            "lines": [
-                {
-                    "speaker": r.get("speaker") or "",
-                    "text": pick_text(r, locale, fallback),
-                    "narration": to_bool(r.get("narration")),
-                }
-                for r in section_map[sid]
-            ],
+            "lines": [build_line(r) for r in section_map[sid]],
         }
         for sid in section_order
     ]
