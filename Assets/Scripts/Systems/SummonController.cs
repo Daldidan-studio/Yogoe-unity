@@ -1,3 +1,4 @@
+using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Model;
 using KSpirits.UI;
@@ -33,8 +34,8 @@ namespace KSpirits.Systems
         void HandleSummonConfirmed(YokaiInstance yokai, SummonEntry entry)
         {
             _state.FocusYokai = yokai;
-            _state.ScrollMode = Core.ScrollMode.Nurture;
-            _state.TutorialStep = Core.TutorialStepId.Done;
+            _state.ScrollMode = ScrollMode.Nurture;
+            _state.TutorialStep = TutorialStepId.Done;
             SaveService.Save(_state);
             _ui.RefreshAll(_state);
             _ui.ShowStatus($"{entry.DisplayName} 육성을 시작합니다");
