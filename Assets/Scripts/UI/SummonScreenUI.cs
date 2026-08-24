@@ -218,7 +218,7 @@ namespace KSpirits.UI
             _altarGlow = CreatePanel(altarOuter.transform, "AltarInner", AltarIdle).GetComponent<Image>();
             StretchRect(_altarGlow.rectTransform);
 
-            _yokaiPreview = CreatePanel(_altarOuter.transform, "YokaiPreview", Color.white).GetComponent<Image>();
+            _yokaiPreview = CreatePanel(altarOuter.transform, "YokaiPreview", Color.white).GetComponent<Image>();
             SetAnchor(_yokaiPreview.rectTransform, 0.18f, 0.15f, 0.82f, 0.88f, 0, 0, 0, 0);
             _yokaiPreview.color = new Color(1, 1, 1, 0);
 
