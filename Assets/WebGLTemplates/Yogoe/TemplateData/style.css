@@ -1,0 +1,95 @@
+body {
+  padding: 0;
+  margin: 0;
+  background: #231f20;
+}
+
+#unity-container {
+  position: absolute;
+}
+
+#unity-container.unity-desktop {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#unity-container.unity-mobile {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+#unity-canvas {
+  background: {{{ BACKGROUND_COLOR }}};
+}
+
+.unity-mobile #unity-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+#unity-loading-bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  text-align: center;
+}
+
+#sapsar-logo {
+  width: 280px;
+  height: 80px;
+  margin: 0 auto 18px;
+  background: url("sapsar_logo.png") center / contain no-repeat;
+}
+
+#unity-progress-bar-empty {
+  width: 280px;
+  height: 8px;
+  margin: 0 auto;
+  background: #4a3f3a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#unity-progress-bar-full {
+  width: 0%;
+  height: 100%;
+  background: #c4a574;
+}
+
+#unity-warning {
+  position: absolute;
+  left: 50%;
+  top: 5%;
+  transform: translate(-50%);
+  width: min(90vw, 640px);
+  display: none;
+}
+
+#unity-footer {
+  position: relative;
+}
+
+.unity-mobile #unity-footer {
+  display: none;
+}
+
+#unity-build-title {
+  float: right;
+  margin-right: 10px;
+  line-height: 38px;
+  font-family: arial;
+  font-size: 18px;
+  color: #eee;
+}
+
+#unity-fullscreen-button {
+  float: right;
+  width: 38px;
+  height: 38px;
+  background: #4a3f3a;
+  cursor: pointer;
+}
