@@ -66,6 +66,9 @@ namespace KSpirits.UI
         bool _blackened;
         bool _offerEnabled;
         bool _wired;
+        bool _dialogueHeld;
+        bool _holdAdvancedAny;
+        Coroutine _dialogueHoldRoutine;
         RectTransform _yutBoardRoot;
         RectTransform _yutPiece;
         Image[] _yutPads;
@@ -306,9 +309,9 @@ namespace KSpirits.UI
                 if (trigger == null)
                     trigger = _dialogueRoot.AddComponent<EventTrigger>();
                 trigger.triggers.Clear();
-                AddTrigger(trigger, EventTriggerType.PointerDown, () => _typewriter?.SetFastForward(true));
-                AddTrigger(trigger, EventTriggerType.PointerUp, () => _typewriter?.SetFastForward(false));
-                AddTrigger(trigger, EventTriggerType.PointerExit, () => _typewriter?.SetFastForward(false));
+                AddTrigger(trigger, EventTriggerType.PointerDown, HandleDialoguePointerDown);
+                AddTrigger(trigger, EventTriggerType.PointerUp, HandleDialoguePointerUp);
+                AddTrigger(trigger, EventTriggerType.PointerExit, HandleDialoguePointerUp);
             }
 
             if (_waterDrag != null)
@@ -428,6 +431,12 @@ namespace KSpirits.UI
 
         void HandleDialogueTap()
         {
+            if (_holdAdvancedAny)
+            {
+                _holdAdvancedAny = false;
+                return;
+            }
+
             if (_typewriter != null && _typewriter.HandleTap())
             {
                 _dialogueContinueHint.gameObject.SetActive(true);
@@ -435,6 +444,38 @@ namespace KSpirits.UI
             }
 
             OnDialogueContinue?.Invoke();
+        }
+
+        void HandleDialoguePointerDown()
+        {
+            _dialogueHeld = true;
+            _holdAdvancedAny = false;
+            _typewriter?.SetFastForward(true);
+            if (_dialogueHoldRoutine == null)
+                _dialogueHoldRoutine = StartCoroutine(AutoAdvanceWhileHeld());
+        }
+
+        void HandleDialoguePointerUp()
+        {
+            _dialogueHeld = false;
+            _typewriter?.SetFastForward(false);
+        }
+
+        /// <summary>꾹 누르고 있는 동안: 타이핑 3배속 + 완료된 줄은 자동으로 다음 대사까지 진행.</summary>
+        IEnumerator AutoAdvanceWhileHeld()
+        {
+            while (_dialogueHeld)
+            {
+                yield return null;
+                if (_dialogueRoot != null && _dialogueRoot.activeSelf &&
+                    _typewriter != null && _typewriter.IsComplete && !_typewriter.IsTyping)
+                {
+                    _holdAdvancedAny = true;
+                    OnDialogueContinue?.Invoke();
+                    yield return null; // 다음 줄이 Play()로 갱신될 시간을 한 프레임 확보
+                }
+            }
+            _dialogueHoldRoutine = null;
         }
 
         IEnumerator WatchTypewriterComplete()
