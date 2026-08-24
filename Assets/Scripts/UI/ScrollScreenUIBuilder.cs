@@ -338,11 +338,9 @@ namespace KSpirits.UI
             CreateText(cardPanel.transform, "CardTitle", "옥토끼 요괴패", 36, TextAnchor.UpperCenter);
             cardPanel.SetActive(false);
 
-            summonPanel = CreatePanel(root, "Summon", new Color(0.12f, 0.1f, 0.08f, 0.96f)).gameObject;
-            SetAnchor(summonPanel.GetComponent<RectTransform>(), 0.1f, 0.3f, 0.9f, 0.7f, 0, 0, 0, 0);
-            CreateText(summonPanel.transform, "SummonText",
-                "소환 화면\n(향 3개로 첫 요괴 소환)\n\n튜토리얼 클리어!",
-                34, TextAnchor.MiddleCenter);
+            summonPanel = CreatePanel(root, "Summon", new Color(0, 0, 0, 0)).gameObject;
+            Stretch(summonPanel.GetComponent<RectTransform>());
+            summonPanel.AddComponent<SummonScreenUI>();
             summonPanel.SetActive(false);
         }
 

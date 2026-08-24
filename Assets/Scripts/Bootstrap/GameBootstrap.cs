@@ -32,8 +32,11 @@ namespace KSpirits.Bootstrap
             var saveHost = gameObject.GetComponent<SaveHost>() ?? gameObject.AddComponent<SaveHost>();
             saveHost.Bind(state);
 
+            var summon = gameObject.GetComponent<SummonController>() ?? gameObject.AddComponent<SummonController>();
+            summon.Bind(state, _ui);
+
             var tutorial = gameObject.GetComponent<TutorialController>() ?? gameObject.AddComponent<TutorialController>();
-            tutorial.Bind(state, _ui);
+            tutorial.Bind(state, _ui, summon);
             tutorial.Begin();
         }
     }

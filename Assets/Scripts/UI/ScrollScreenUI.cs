@@ -61,6 +61,7 @@ namespace KSpirits.UI
         DialogueTypewriter _typewriter;
         DialogueLayoutManager _dialogueLayout;
         UiAnimPlayer _anims;
+        SummonScreenUI _summonScreen;
         bool _blackened;
         bool _offerEnabled;
         bool _wired;
@@ -169,6 +170,7 @@ namespace KSpirits.UI
 
             UIFont.Apply(_yokaiNameText, UIFontRole.UserInfo);
             UIFont.Apply(_yokaiLabel, UIFontRole.UserInfo);
+            UIFont.Apply(_statusText, UIFontRole.Default);
 
             UIFont.Apply(_coinText, UIFontRole.HudNumeric);
             if (_itemCountLabels != null)
@@ -813,15 +815,31 @@ namespace KSpirits.UI
             });
         }
 
-        public void SetSummonPlaceholderVisible(bool on)
+        public SummonScreenUI EnsureSummonScreen()
         {
-            if (_summonPanel == null) return;
-            _summonPanel.SetActive(on);
-            if (!on) return;
-            var label = _summonPanel.GetComponentInChildren<Text>();
-            if (label != null)
-                label.text = "소환 화면\n향 3개로 첫 요괴를 소환할 수 있습니다.\n\n(본편 소환 UI — 다음 작업)";
+            EnsureWired();
+            if (_summonScreen != null) return _summonScreen;
+
+            if (_summonPanel == null)
+            {
+                _summonPanel = CreatePanel(transform, "Summon", new Color(0, 0, 0, 0));
+                Stretch(_summonPanel.GetComponent<RectTransform>());
+            }
+
+            Stretch(_summonPanel.GetComponent<RectTransform>());
+            _summonScreen = _summonPanel.GetComponent<SummonScreenUI>();
+            if (_summonScreen == null)
+                _summonScreen = _summonPanel.AddComponent<SummonScreenUI>();
+            _summonScreen.EnsureBuilt();
+            return _summonScreen;
         }
+
+        public void ShowSummonScreen(GameState state)
+        {
+            EnsureSummonScreen().Show(state);
+        }
+
+        public void HideSummonScreen() => _summonScreen?.Hide();
 
         public void PlayShakeYokai() => _anims.PlayFireAndForget("offer_react");
         public IEnumerator PlayEvolutionFlash() => _anims.Play("evolve_flash");

@@ -14,16 +14,18 @@ namespace KSpirits.Tutorial
     {
         GameState _state;
         ScrollScreenUI _ui;
+        SummonController _summonController;
         bool _waitingInput;
         string _lastChoiceId;
         bool _trainingButtonPressed;
 
         public GameState State => _state;
 
-        public void Bind(GameState state, ScrollScreenUI ui)
+        public void Bind(GameState state, ScrollScreenUI ui, SummonController summonController = null)
         {
             _state = state;
             _ui = ui;
+            _summonController = summonController;
             _ui.OnYokaiTapped += HandleYokaiTap;
             _ui.OnOfferPurifiedWater += HandleOffer;
             _ui.OnTrainingPressed += HandleTrainingPressed;
@@ -91,8 +93,15 @@ namespace KSpirits.Tutorial
                     yield return StepCardComplete();
                     break;
                 case TutorialStepId.Done:
-                    _ui.ShowStatus("튜토리얼 클리어 — 소환으로 본편 시작");
-                    _ui.SetSummonPlaceholderVisible(true);
+                    if (_state.TotalSummons == 0 && SummonService.CanSummon(_state))
+                    {
+                        _ui.ShowStatus("튜토리얼 클리어 — 향으로 첫 요괴를 소환하세요");
+                        _summonController?.Open();
+                    }
+                    else if (_state.TotalSummons == 0)
+                        _ui.ShowStatus("향을 모으면 요괴를 소환할 수 있습니다");
+                    else
+                        _ui.ShowStatus($"{_state.FocusYokai?.DisplayName ?? "요괴"} 육성 중");
                     break;
             }
         }

@@ -21,6 +21,7 @@ namespace KSpirits.Systems
         public bool tutorialFinished;
         public int lastEnding;
         public int unlockedSlots;
+        public int totalSummons;
         public int scrollMode;
 
         public WalletSave wallet = new();
@@ -84,6 +85,7 @@ namespace KSpirits.Systems
                 tutorialFinished = state.TutorialFinished,
                 lastEnding = (int)state.LastEnding,
                 unlockedSlots = state.UnlockedSlots,
+                totalSummons = state.TotalSummons,
                 scrollMode = (int)state.ScrollMode,
                 wallet = new WalletSave
                 {
@@ -117,6 +119,7 @@ namespace KSpirits.Systems
                 TutorialFinished = data.tutorialFinished,
                 LastEnding = (EndingType)data.lastEnding,
                 UnlockedSlots = data.unlockedSlots > 0 ? data.unlockedSlots : GameConstants.BaseSlots,
+                TotalSummons = data.totalSummons,
                 ScrollMode = (ScrollMode)data.scrollMode,
                 Wallet = new PlayerWallet
                 {

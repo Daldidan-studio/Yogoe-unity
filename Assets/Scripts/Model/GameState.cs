@@ -79,6 +79,7 @@ namespace KSpirits.Model
         public YokaiInstance FocusYokai;
         public CardFaceState OktoCard = new();
         public int UnlockedSlots = GameConstants.BaseSlots;
+        public int TotalSummons;
         public ScrollMode ScrollMode = ScrollMode.Nurture;
 
         public static GameState CreateNewGame()
