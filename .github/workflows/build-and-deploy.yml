@@ -50,10 +50,10 @@ jobs:
 
       - name: Fix paths for GitHub Pages
         run: |
-          INDEX="build/WebGL/index.html"
+          INDEX="build/webgl/index.html"
           if [ ! -f "$INDEX" ]; then
             echo "index.html not found at $INDEX"
-            ls -la build/WebGL/ || ls -la build/ || true
+            ls -la build/webgl/ || ls -la build/ || true
             exit 1
           fi
           sed -i "s|<head>|<head>\n    <base href=\"${{ env.BASE_PATH }}\">|" "$INDEX"
@@ -62,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WebGL
-          path: build/WebGL
+          path: build/webgl
 
   deploy-pages:
     needs: build-webgl
