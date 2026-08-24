@@ -101,6 +101,18 @@ namespace KSpirits.UI
             EnsureWired();
         }
 
+        void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus)
+                HandleDialoguePointerUp();
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if (paused)
+                HandleDialoguePointerUp();
+        }
+
         internal void BindHierarchy(
             Text coinText, Text heartText, Text incenseText, Text statusText, Text stepText,
             Text dialogueSpeaker, Text dialogueBody, Text dialogueContinueHint, Text yutResultText,
