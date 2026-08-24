@@ -6,6 +6,7 @@ using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Model;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace KSpirits.UI
@@ -300,6 +301,14 @@ namespace KSpirits.UI
                 }
                 dialogueBtn.onClick.RemoveAllListeners();
                 dialogueBtn.onClick.AddListener(HandleDialogueTap);
+
+                var trigger = _dialogueRoot.GetComponent<EventTrigger>();
+                if (trigger == null)
+                    trigger = _dialogueRoot.AddComponent<EventTrigger>();
+                trigger.triggers.Clear();
+                AddTrigger(trigger, EventTriggerType.PointerDown, () => _typewriter?.SetFastForward(true));
+                AddTrigger(trigger, EventTriggerType.PointerUp, () => _typewriter?.SetFastForward(false));
+                AddTrigger(trigger, EventTriggerType.PointerExit, () => _typewriter?.SetFastForward(false));
             }
 
             if (_waterDrag != null)
@@ -313,6 +322,13 @@ namespace KSpirits.UI
         {
             if (_offerEnabled)
                 OnOfferPurifiedWater?.Invoke();
+        }
+
+        static void AddTrigger(EventTrigger trigger, EventTriggerType type, Action action)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(_ => action());
+            trigger.triggers.Add(entry);
         }
 
         static void WireButton(Button btn, Action action)

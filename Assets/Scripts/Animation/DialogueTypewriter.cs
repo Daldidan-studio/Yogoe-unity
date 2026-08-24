@@ -14,9 +14,13 @@ namespace KSpirits.Animation
         Coroutine _routine;
         float _charsPerSecond = 40f;
         float _punctuationHold = 0.06f;
+        float _speedMultiplier = 1f;
 
         public bool IsTyping { get; private set; }
         public bool IsComplete { get; private set; }
+
+        /// <summary>꾹 누르고 있는 동안 타이핑 속도를 배속(on=3배)으로 전환.</summary>
+        public void SetFastForward(bool on) => _speedMultiplier = on ? 3f : 1f;
 
         public void Bind(Text body) => _body = body;
 
@@ -74,13 +78,13 @@ namespace KSpirits.Animation
                 yield break;
             }
 
-            float delay = 1f / _charsPerSecond;
             for (int i = 0; i < _fullText.Length; i++)
             {
                 _body.text = _fullText.Substring(0, i + 1);
                 char c = _fullText[i];
+                float delay = 1f / _charsPerSecond / _speedMultiplier;
                 if (c is '.' or '!' or '?' or '…' or ',' or '，' or '。')
-                    yield return new WaitForSeconds(delay + _punctuationHold);
+                    yield return new WaitForSeconds(delay + _punctuationHold / _speedMultiplier);
                 else
                     yield return new WaitForSeconds(delay);
             }
