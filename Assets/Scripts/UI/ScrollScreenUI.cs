@@ -380,6 +380,10 @@ namespace KSpirits.UI
 
             _dialogueLayout?.ApplyForLine(line, sectionId, _dialogueRoot.transform as RectTransform);
 
+            // 스토리 오버레이보다 대사를 위에 두고 클릭 가능하게
+            if (_storyOverlay != null && _storyOverlay.activeSelf)
+                _dialogueRoot.transform.SetAsLastSibling();
+
             _dialogueRoot.SetActive(true);
             _choiceRoot.SetActive(false);
             _dialogueContinueHint.gameObject.SetActive(false);
@@ -465,11 +469,13 @@ namespace KSpirits.UI
         {
             if (_trainingButton == null) return;
             _trainingButton.gameObject.SetActive(on);
+            if (on) EnsureTrainingDockLabel();
         }
 
         public void SetTrainingHighlight(bool on)
         {
             if (_trainingButton == null) return;
+            EnsureTrainingDockLabel();
             var img = _trainingButton.GetComponent<Image>();
             if (img == null) return;
             if (!on)
@@ -479,13 +485,61 @@ namespace KSpirits.UI
             }
 
             _trainingButtonBaseColor = img.color.a < 0.01f
-                ? new Color(0.2f, 0.18f, 0.14f, 0.55f)
+                ? new Color(0.2f, 0.18f, 0.14f, 0.85f)
                 : img.color;
             img.color = new Color(1f, 0.85f, 0.25f, 0.95f);
         }
 
-        public void SetThrowYutVisible(bool on) => _throwButton.gameObject.SetActive(on);
-        public void SetLeaveTrainingVisible(bool on) => _leaveTrainingButton.gameObject.SetActive(on);
+        void EnsureTrainingDockLabel()
+        {
+            if (_trainingButton == null) return;
+
+            // 아이콘 숨기고 라벨을 「수련장」으로 크게 표시 (폰트 미적용 시 박스만 보이던 문제 방지)
+            var icon = _trainingButton.transform.Find("Icon");
+            if (icon != null)
+                icon.gameObject.SetActive(false);
+
+            var labelTf = _trainingButton.transform.Find("Label");
+            Text label = labelTf != null ? labelTf.GetComponent<Text>() : null;
+            if (label == null)
+                label = _trainingButton.GetComponentInChildren<Text>(true);
+
+            if (label == null)
+            {
+                label = CreateText(_trainingButton.transform, "Label", "수련장", 26, TextAnchor.MiddleCenter);
+                Stretch(label.rectTransform);
+                label.raycastTarget = false;
+            }
+            else
+            {
+                var rt = label.rectTransform;
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+
+            label.text = "수련장";
+            UIFont.Apply(label, UIFontRole.Default);
+            label.fontSize = 26;
+            label.color = Color.white;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.gameObject.SetActive(true);
+        }
+
+        public void SetThrowYutVisible(bool on)
+        {
+            if (_throwButton == null) return;
+            _throwButton.gameObject.SetActive(on);
+            if (on) EnsureButtonLabel(_throwButton, "윷 던지기");
+        }
+
+        public void SetLeaveTrainingVisible(bool on)
+        {
+            if (_leaveTrainingButton == null) return;
+            _leaveTrainingButton.gameObject.SetActive(on);
+            if (on) EnsureButtonLabel(_leaveTrainingButton, "나가기");
+        }
 
         public void EnterTrainingMode(bool on)
         {
@@ -607,9 +661,17 @@ namespace KSpirits.UI
         {
             EnsureStoryOverlay();
             _storyOverlay.SetActive(true);
-            _storyOverlay.GetComponent<Image>().color = bg;
+            var img = _storyOverlay.GetComponent<Image>();
+            img.color = bg;
+            img.raycastTarget = false; // 대사 클릭이 막히지 않게
             if (_storyOverlayTitle != null)
+            {
                 _storyOverlayTitle.text = title;
+                _storyOverlayTitle.raycastTarget = false;
+            }
+            // 배경은 대사 뒤에 두고, 제목만 상단에
+            if (_dialogueRoot != null)
+                _storyOverlay.transform.SetSiblingIndex(_dialogueRoot.transform.GetSiblingIndex());
         }
 
         public void HideStoryOverlay()
@@ -778,10 +840,28 @@ namespace KSpirits.UI
             if (_storyOverlay != null) return;
             _storyOverlay = CreatePanel(transform, "StoryOverlay", new Color(0.02f, 0.04f, 0.1f, 0.92f));
             Stretch(_storyOverlay.GetComponent<RectTransform>());
-            _storyOverlay.transform.SetAsLastSibling();
-            _storyOverlayTitle = CreateText(_storyOverlay.transform, "Title", "", 40, TextAnchor.MiddleCenter);
-            Stretch(_storyOverlayTitle.rectTransform);
+            _storyOverlay.GetComponent<Image>().raycastTarget = false;
+            _storyOverlayTitle = CreateText(_storyOverlay.transform, "Title", "", 36, TextAnchor.UpperCenter);
+            SetAnchor(_storyOverlayTitle.rectTransform, 0.05f, 0.78f, 0.95f, 0.92f, 0, 0, 0, 0);
+            _storyOverlayTitle.raycastTarget = false;
             _storyOverlay.SetActive(false);
+        }
+
+        static void EnsureButtonLabel(Button button, string label)
+        {
+            if (button == null) return;
+            var text = button.GetComponentInChildren<Text>(true);
+            if (text == null)
+            {
+                text = CreateText(button.transform, "Label", label, 28, TextAnchor.MiddleCenter);
+                Stretch(text.rectTransform);
+                text.raycastTarget = false;
+            }
+            text.text = label;
+            UIFont.Apply(text, UIFontRole.Default);
+            text.fontSize = 28;
+            text.color = Color.white;
+            text.alignment = TextAnchor.MiddleCenter;
         }
 
         void EnsureFxOverlay()

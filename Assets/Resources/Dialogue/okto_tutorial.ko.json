@@ -154,21 +154,6 @@
       ]
     },
     {
-      "id": "item_collect",
-      "lines": [
-        {
-          "speaker": "",
-          "text": "수련에서 얻은 정화수를 회수했다.",
-          "narration": true
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "아래에 잘 넣어둘게요. 필요할 때 또 공양해 주세요!",
-          "narration": false
-        }
-      ]
-    },
-    {
       "id": "energy_warning",
       "lines": [
         {
@@ -540,16 +525,6 @@
           "speaker": "옥토끼",
           "text": "저를 찾지 마세요오오!",
           "narration": false
-        }
-      ]
-    },
-    {
-      "id": "black_rabbit_flee",
-      "lines": [
-        {
-          "speaker": "",
-          "text": "흑토끼가 족자를 찢고 밖으로 사라진다. 빈 족자만 남았다.",
-          "narration": true
         }
       ]
     },

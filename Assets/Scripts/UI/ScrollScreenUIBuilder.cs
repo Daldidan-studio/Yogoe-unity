@@ -305,7 +305,7 @@ namespace KSpirits.UI
             SetAnchor(yutResultText.rectTransform, 0.1f, 0.35f, 0.9f, 0.75f, 0, 0, 0, 0);
             throwButton = CreateButton(trainingPanel.transform, "Throw", "윷 던지기");
             SetAnchor(throwButton.GetComponent<RectTransform>(), 0.15f, 0.08f, 0.5f, 0.28f, 0, 0, 0, 0);
-            leaveTrainingButton = CreateButton(trainingPanel.transform, "Leave", "수련장 나가기");
+            leaveTrainingButton = CreateButton(trainingPanel.transform, "Leave", "나가기");
             SetAnchor(leaveTrainingButton.GetComponent<RectTransform>(), 0.52f, 0.08f, 0.85f, 0.28f, 0, 0, 0, 0);
             trainingPanel.SetActive(false);
             throwButton.gameObject.SetActive(false);
