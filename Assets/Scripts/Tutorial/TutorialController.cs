@@ -305,8 +305,8 @@ namespace KSpirits.Tutorial
             _state.Wallet.TrySpendHearts(1);
             yield return _ui.YutGame.PlayThrowAnim();
             _ui.YutGame.ShowResult("빽도!");
-            // 말: 참(0) → 우변 첫 칸(1)
-            yield return MoveYutPiece(new[] { 0, 1 }, 0.35f);
+            // 빽도는 뒤로 1칸: 참(0) → 하변 마지막 칸(19)
+            yield return MoveYutPiece(new[] { 0, 19 }, 0.35f);
             _state.Wallet.Coins += 1;
             _ui.RefreshAll(_state);
             _ui.ShowStatus("엽전 +1");
@@ -323,9 +323,8 @@ namespace KSpirits.Tutorial
             _state.Wallet.PurifiedWater += 1;
             yield return _ui.YutGame.PlayThrowAnim();
             _ui.YutGame.ShowResult("도 → 골인!");
-            // 말: 우변(1)→모(5)→대각선A 지름길→찌모(15)→하변→참(0, 골인)
-            yield return MoveYutPiece(
-                new[] { 1, 2, 3, 4, 5, 20, 21, 22, 23, 24, 15, 16, 17, 18, 19, 0 }, 0.09f);
+            // 도는 앞으로 1칸: 하변 마지막 칸(19) → 참(0, 골인)
+            yield return MoveYutPiece(new[] { 19, 0 }, 0.35f);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.AfterGoal, OktoDialogueSection.AfterGoal);
 
