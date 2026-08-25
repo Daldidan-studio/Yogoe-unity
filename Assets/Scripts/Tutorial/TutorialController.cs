@@ -29,8 +29,8 @@ namespace KSpirits.Tutorial
             _ui.OnYokaiTapped += HandleYokaiTap;
             _ui.OnOfferPurifiedWater += HandleOffer;
             _ui.OnTrainingPressed += HandleTrainingPressed;
-            _ui.OnThrowYutPressed += HandleThrowYut;
-            _ui.OnLeaveTrainingPressed += HandleLeaveTraining;
+            _ui.YutGame.OnThrowPressed += HandleThrowYut;
+            _ui.YutGame.OnLeavePressed += HandleLeaveTraining;
             _ui.OnChoiceSelected += HandleChoice;
             _ui.OnDialogueContinue += HandleDialogueContinue;
         }
@@ -198,25 +198,25 @@ namespace KSpirits.Tutorial
             _ui.SetTrainingHighlight(false);
             _state.ScrollMode = ScrollMode.Training;
             _ui.SetTrainingButtonVisible(false);
-            _ui.EnterTrainingMode(true);
-            _ui.SetYutPieceIndex(0);
+            _ui.YutGame.Show();
+            _ui.YutGame.SetPieceIndex(0);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.TrainingIntro, OktoDialogueSection.TrainingIntro);
 
-            _ui.SetThrowYutVisible(true);
+            _ui.YutGame.SetThrowVisible(true);
             _ui.ShowStatus("하트 1개를 쓰고 윷을 던져보세요");
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
-            yield return _ui.PlayYutThrowAnim();
-            _ui.ShowYutResult("빽도!");
+            yield return _ui.YutGame.PlayThrowAnim();
+            _ui.YutGame.ShowResult("빽도!");
             yield return MoveYutPiece(0, 1, 0.35f);
             _state.Wallet.Coins += 1;
             _ui.RefreshAll(_state);
             _ui.ShowStatus("엽전 +1");
             yield return PlayLines(OktoDialogue.AfterBaekdo, OktoDialogueSection.AfterBaekdo);
 
-            _ui.SetThrowYutVisible(true);
+            _ui.YutGame.SetThrowVisible(true);
             _ui.ShowStatus("다시 윷을 던져주세요");
             yield return WaitInput();
 
@@ -224,20 +224,20 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
             _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
             _state.Wallet.PurifiedWater += 1;
-            yield return _ui.PlayYutThrowAnim();
-            _ui.ShowYutResult("도 → 골인!");
+            yield return _ui.YutGame.PlayThrowAnim();
+            _ui.YutGame.ShowResult("도 → 골인!");
             yield return MoveYutPiece(1, 7, 0.55f);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.AfterGoal, OktoDialogueSection.AfterGoal);
 
-            _ui.SetLeaveTrainingVisible(true);
+            _ui.YutGame.SetLeaveVisible(true);
             _ui.ShowStatus("수련장을 나가주세요");
             yield return WaitInput();
 
             _state.ScrollMode = ScrollMode.Nurture;
-            _ui.EnterTrainingMode(false);
-            _ui.SetLeaveTrainingVisible(false);
-            _ui.SetThrowYutVisible(false);
+            _ui.YutGame.Hide();
+            _ui.YutGame.SetLeaveVisible(false);
+            _ui.YutGame.SetThrowVisible(false);
             yield return Advance(TutorialStepId.ItemCollect);
         }
 
@@ -386,7 +386,7 @@ namespace KSpirits.Tutorial
         {
             if (from == to)
             {
-                _ui.SetYutPieceIndex(to);
+                _ui.YutGame.SetPieceIndex(to);
                 yield break;
             }
 
@@ -396,7 +396,7 @@ namespace KSpirits.Tutorial
             while (cur != to)
             {
                 cur += step;
-                _ui.SetYutPieceIndex(cur);
+                _ui.YutGame.SetPieceIndex(cur);
                 yield return new WaitForSecondsRealtime(per);
             }
         }
@@ -475,7 +475,7 @@ namespace KSpirits.Tutorial
         {
             if (_state.TutorialStep == TutorialStepId.Training && _waitingInput)
             {
-                _ui.SetThrowYutVisible(false);
+                _ui.YutGame.SetThrowVisible(false);
                 _waitingInput = false;
             }
         }

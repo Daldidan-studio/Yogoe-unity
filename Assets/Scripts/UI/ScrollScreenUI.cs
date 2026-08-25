@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using KSpirits.Animation;
 using KSpirits.Core;
 using KSpirits.Data;
+using KSpirits.Minigames.Yut;
 using KSpirits.Model;
 using KSpirits.Systems;
 using UnityEngine;
@@ -23,10 +24,10 @@ namespace KSpirits.UI
         public event Action OnYokaiTapped;
         public event Action OnOfferPurifiedWater;
         public event Action OnTrainingPressed;
-        public event Action OnThrowYutPressed;
-        public event Action OnLeaveTrainingPressed;
         public event Action<string> OnChoiceSelected;
         public event Action OnDialogueContinue;
+
+        public YutMiniGame YutGame { get; private set; }
 
         [SerializeField] Text _coinText;
         [SerializeField] Text _heartText;
@@ -36,7 +37,6 @@ namespace KSpirits.UI
         [SerializeField] Text _dialogueSpeaker;
         [SerializeField] Text _dialogueBody;
         [SerializeField] Text _dialogueContinueHint;
-        [SerializeField] Text _yutResultText;
         [SerializeField] Text _yokaiNameText;
         [SerializeField] Text _yokaiLabel;
         [SerializeField] Text[] _itemCountLabels;
@@ -55,8 +55,6 @@ namespace KSpirits.UI
         [SerializeField] GameObject _glitchOverlay;
         [SerializeField] GameObject _waterSlotRoot;
         [SerializeField] Button _trainingButton;
-        [SerializeField] Button _throwButton;
-        [SerializeField] Button _leaveTrainingButton;
         [SerializeField] Button _yokaiButton;
         [SerializeField] Button _shopButton;
         [SerializeField] Button _settingsButton;
@@ -74,9 +72,6 @@ namespace KSpirits.UI
         bool _dialogueHeld;
         bool _holdAdvancedAny;
         Coroutine _dialogueHoldRoutine;
-        RectTransform _yutBoardRoot;
-        RectTransform _yutPiece;
-        Image[] _yutPads;
         Color _trainingButtonBaseColor = new(0f, 0f, 0f, 0f);
         GameObject _storyOverlay;
         Text _storyOverlayTitle;
@@ -85,7 +80,6 @@ namespace KSpirits.UI
         GameObject _doppelImage;
         GameObject _settingsPanel;
         Coroutine _shopToastRoutine;
-        Text _trainingHeartText;
         Vector2 _yokaiHomeAnchored;
         bool _yokaiHomeCached;
         bool _cardShowingBack = true;
@@ -139,7 +133,7 @@ namespace KSpirits.UI
 
         internal void BindHierarchy(
             Text coinText, Text heartText, Text incenseText, Text statusText, Text stepText,
-            Text dialogueSpeaker, Text dialogueBody, Text dialogueContinueHint, Text yutResultText,
+            Text dialogueSpeaker, Text dialogueBody, Text dialogueContinueHint,
             Text yokaiNameText, Text yokaiLabel, Text[] itemCountLabels,
             Image yokaiImage, Image energyPulseBar, Image skyBg, Image moonGround,
             Image[] energySegments, Image[] intimacySegments,
@@ -147,7 +141,7 @@ namespace KSpirits.UI
             GameObject trainingPanel, GameObject cardPanel, GameObject summonPanel,
             GameObject glitchOverlay, GameObject waterSlotRoot, RectTransform yokaiDropZone,
             Transform choiceContainer,
-            Button trainingButton, Button throwButton, Button leaveTrainingButton, Button yokaiButton)
+            Button trainingButton, Button yokaiButton)
         {
             _coinText = coinText;
             _heartText = heartText;
@@ -157,7 +151,6 @@ namespace KSpirits.UI
             _dialogueSpeaker = dialogueSpeaker;
             _dialogueBody = dialogueBody;
             _dialogueContinueHint = dialogueContinueHint;
-            _yutResultText = yutResultText;
             _yokaiNameText = yokaiNameText;
             _yokaiLabel = yokaiLabel;
             _itemCountLabels = itemCountLabels;
@@ -178,8 +171,6 @@ namespace KSpirits.UI
             _yokaiDropZone = yokaiDropZone;
             _choiceContainer = choiceContainer;
             _trainingButton = trainingButton;
-            _throwButton = throwButton;
-            _leaveTrainingButton = leaveTrainingButton;
             _yokaiButton = yokaiButton;
         }
 
@@ -192,6 +183,14 @@ namespace KSpirits.UI
                 _shopButton = transform.Find("Header/Shop")?.GetComponent<Button>();
             if (_settingsButton == null)
                 _settingsButton = transform.Find("Header/Settings")?.GetComponent<Button>();
+
+            if (_trainingPanel == null)
+                _trainingPanel = transform.Find("TrainingPanel")?.gameObject;
+            if (YutGame == null && _trainingPanel != null)
+            {
+                YutGame = _trainingPanel.GetComponent<YutMiniGame>() ?? _trainingPanel.AddComponent<YutMiniGame>();
+                YutGame.BindFromHierarchy();
+            }
 
             if (_coinText == null)
             {
@@ -235,7 +234,6 @@ namespace KSpirits.UI
             _stepText = FindText("Step");
             _statusText = FindText("Status");
             _yokaiLabel = FindText("Scene/YokaiArea/YokaiLabel");
-            _yutResultText = FindText("TrainingPanel/YutResult");
             _dialogueSpeaker = FindText("Dialogue/Speaker");
             _dialogueBody = FindText("Dialogue/Body");
             _dialogueContinueHint = FindText("Dialogue/ContinueHint");
@@ -263,8 +261,6 @@ namespace KSpirits.UI
 
             _yokaiButton = transform.Find("Scene/YokaiArea/YokaiButton")?.GetComponent<Button>();
             _trainingButton = transform.Find("BottomDock/TrainingDock")?.GetComponent<Button>();
-            _throwButton = transform.Find("TrainingPanel/Throw")?.GetComponent<Button>();
-            _leaveTrainingButton = transform.Find("TrainingPanel/Leave")?.GetComponent<Button>();
             _shopButton = transform.Find("Header/Shop")?.GetComponent<Button>();
             _settingsButton = transform.Find("Header/Settings")?.GetComponent<Button>();
 
@@ -337,8 +333,6 @@ namespace KSpirits.UI
         {
             WireButton(_yokaiButton, () => OnYokaiTapped?.Invoke());
             WireButton(_trainingButton, () => OnTrainingPressed?.Invoke());
-            WireButton(_throwButton, () => OnThrowYutPressed?.Invoke());
-            WireButton(_leaveTrainingButton, () => OnLeaveTrainingPressed?.Invoke());
 
             if (_shopButton != null)
                 _shopButton.interactable = true;
@@ -456,8 +450,7 @@ namespace KSpirits.UI
             _coinText.text = state.Wallet.Coins.ToString("N0");
             _heartText.text = state.Wallet.Hearts.ToString();
             _incenseText.text = state.Wallet.Incense.ToString();
-            if (_trainingHeartText != null)
-                _trainingHeartText.text = $"♥ 하트 {state.Wallet.Hearts}";
+            YutGame?.RefreshHearts(state.Wallet.Hearts);
 
             var y = state.FocusYokai;
             UpdateSegmentBar(_energySegments, y.Energy, GameConstants.EnergyMax,
@@ -718,220 +711,6 @@ namespace KSpirits.UI
             label.gameObject.SetActive(true);
         }
 
-        public void SetThrowYutVisible(bool on)
-        {
-            if (_throwButton == null) return;
-            _throwButton.gameObject.SetActive(on);
-            if (on) EnsureButtonLabel(_throwButton, "윷 던지기");
-        }
-
-        public void SetLeaveTrainingVisible(bool on)
-        {
-            if (_leaveTrainingButton == null) return;
-            _leaveTrainingButton.gameObject.SetActive(on);
-            if (on) EnsureButtonLabel(_leaveTrainingButton, "나가기");
-        }
-
-        public void EnterTrainingMode(bool on)
-        {
-            if (_trainingPanel == null) return;
-            _trainingPanel.SetActive(on);
-            if (on) EnsureYutBoard();
-        }
-
-        public void ShowYutResult(string text)
-        {
-            if (_yutResultText != null)
-                _yutResultText.text = text;
-        }
-
-        public void SetYutPieceIndex(int index)
-        {
-            EnsureYutBoard();
-            if (_yutPads == null || _yutPads.Length == 0 || _yutPiece == null) return;
-
-            index = Mathf.Clamp(index, 0, _yutPads.Length - 1);
-            for (int i = 0; i < _yutPads.Length; i++)
-            {
-                bool here = i == index;
-                _yutPads[i].color = here
-                    ? new Color(1f, 0.85f, 0.35f, 1f)
-                    : i == 3
-                        ? new Color(0.85f, 0.7f, 0.25f, 0.85f) // 엽전칸
-                        : new Color(0.35f, 0.32f, 0.28f, 0.9f);
-            }
-
-            var pad = _yutPads[index].rectTransform;
-            _yutPiece.SetParent(pad, false);
-            _yutPiece.anchorMin = new Vector2(0.15f, 0.15f);
-            _yutPiece.anchorMax = new Vector2(0.85f, 0.85f);
-            _yutPiece.offsetMin = Vector2.zero;
-            _yutPiece.offsetMax = Vector2.zero;
-        }
-
-        void EnsureYutBoard()
-        {
-            if (_trainingPanel == null) return;
-            if (_yutBoardRoot != null) return;
-
-            var existing = _trainingPanel.transform.Find("YutBoard");
-            if (existing != null)
-            {
-                _yutBoardRoot = existing as RectTransform;
-            }
-            else
-            {
-                var boardGo = new GameObject("YutBoard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                boardGo.transform.SetParent(_trainingPanel.transform, false);
-                _yutBoardRoot = boardGo.GetComponent<RectTransform>();
-                SetAnchor(_yutBoardRoot, 0.08f, 0.22f, 0.92f, 0.64f, 0, 0, 0, 0);
-                boardGo.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
-            }
-
-            if (_yutResultText != null)
-                SetAnchor(_yutResultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
-
-            if (_trainingHeartText == null)
-            {
-                _trainingHeartText = CreateText(_trainingPanel.transform, "TrainingHearts", "",
-                    26, TextAnchor.MiddleCenter);
-                SetAnchor(_trainingHeartText.rectTransform, 0.25f, 0.82f, 0.75f, 0.88f, 0, 0, 0, 0);
-                _trainingHeartText.color = new Color(1f, 0.4f, 0.45f);
-                UIFont.Apply(_trainingHeartText, UIFontRole.Default);
-            }
-
-            _yutPads = new Image[8];
-            string[] labels = { "출", "·", "·", "엽", "·", "·", "·", "골" };
-            for (int i = 0; i < 8; i++)
-            {
-                float t = i / 7f;
-                float x = Mathf.Lerp(0.06f, 0.82f, t);
-                var padGo = new GameObject($"Pad{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                padGo.transform.SetParent(_yutBoardRoot, false);
-                var padRt = padGo.GetComponent<RectTransform>();
-                SetAnchor(padRt, x, 0.28f, x + 0.12f, 0.72f, 0, 0, 0, 0);
-                var padImg = padGo.GetComponent<Image>();
-                padImg.color = i == 3
-                    ? new Color(0.85f, 0.7f, 0.25f, 0.85f)
-                    : new Color(0.35f, 0.32f, 0.28f, 0.9f);
-                _yutPads[i] = padImg;
-
-                var label = CreateText(_yutBoardRoot, $"PadLabel{i}", labels[i], 18, TextAnchor.MiddleCenter);
-                SetAnchor(label.rectTransform, x, 0.05f, x + 0.12f, 0.28f, 0, 0, 0, 0);
-                label.raycastTarget = false;
-                label.color = new Color(1f, 1f, 1f, 0.7f);
-            }
-
-            var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            pieceGo.transform.SetParent(_yutPads[0].transform, false);
-            _yutPiece = pieceGo.GetComponent<RectTransform>();
-            _yutPiece.anchorMin = new Vector2(0.15f, 0.15f);
-            _yutPiece.anchorMax = new Vector2(0.85f, 0.85f);
-            _yutPiece.offsetMin = Vector2.zero;
-            _yutPiece.offsetMax = Vector2.zero;
-            pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
-        }
-
-        static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
-        static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
-
-        /// <summary>
-        /// 윷가락 4개를 던져서 흩뿌리는 연출. 결과 판정과는 무관한 순수 시각 효과.
-        /// </summary>
-        public IEnumerator PlayYutThrowAnim()
-        {
-            EnsureYutBoard();
-            if (_trainingPanel == null) yield break;
-
-            var panelRect = ((RectTransform)_trainingPanel.transform).rect;
-            Vector2 ToLocal(Vector2 norm) =>
-                new((norm.x - 0.5f) * panelRect.width, (norm.y - 0.5f) * panelRect.height);
-
-            var origin = new Vector2(0.5f, 0.19f);
-            var sticks = new RectTransform[4];
-            for (int i = 0; i < 4; i++)
-            {
-                var go = new GameObject($"YutStick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                go.transform.SetParent(_trainingPanel.transform, false);
-                var rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.sizeDelta = new Vector2(16f, 90f);
-                rt.anchoredPosition = ToLocal(origin);
-                go.GetComponent<Image>().color = YutStickFront;
-                go.transform.SetAsLastSibling();
-                sticks[i] = rt;
-            }
-
-            var routines = new Coroutine[4];
-            for (int i = 0; i < 4; i++)
-                routines[i] = StartCoroutine(ThrowOneYutStick(sticks[i], origin, ToLocal, i * 0.05f));
-            for (int i = 0; i < 4; i++)
-                yield return routines[i];
-
-            yield return new WaitForSecondsRealtime(0.35f);
-
-            foreach (var rt in sticks)
-                if (rt != null) Destroy(rt.gameObject);
-        }
-
-        IEnumerator ThrowOneYutStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay)
-        {
-            if (delay > 0f)
-                yield return new WaitForSecondsRealtime(delay);
-
-            var landNorm = new Vector2(
-                UnityEngine.Random.Range(0.28f, 0.72f),
-                UnityEngine.Random.Range(0.32f, 0.55f));
-            float arcHeight = UnityEngine.Random.Range(160f, 260f);
-            float spin = UnityEngine.Random.Range(720f, 1260f) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
-            float duration = UnityEngine.Random.Range(0.45f, 0.6f);
-
-            Vector2 start = toLocal(originNorm);
-            Vector2 end = toLocal(landNorm);
-            float t = 0f;
-            while (t < duration)
-            {
-                t += Time.unscaledDeltaTime;
-                float u = Mathf.Clamp01(t / duration);
-                float eu = 1f - (1f - u) * (1f - u);
-                var pos = Vector2.Lerp(start, end, eu);
-                pos.y += arcHeight * 4f * u * (1f - u);
-                rt.anchoredPosition = pos;
-                rt.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(0, spin, u));
-                yield return null;
-            }
-            rt.anchoredPosition = end;
-
-            bool front = UnityEngine.Random.value < 0.5f;
-            var img = rt.GetComponent<Image>();
-            const float flipDuration = 0.12f;
-            float flipT = 0f;
-            while (flipT < flipDuration)
-            {
-                flipT += Time.unscaledDeltaTime;
-                float u = Mathf.Clamp01(flipT / flipDuration);
-                rt.localScale = new Vector3(Mathf.Abs(Mathf.Cos(u * Mathf.PI)), 1f, 1f);
-                if (u >= 0.5f)
-                    img.color = front ? YutStickFront : YutStickBack;
-                yield return null;
-            }
-            rt.localScale = Vector3.one;
-
-            const float settleDuration = 0.18f;
-            float settleT = 0f;
-            Vector2 settled = rt.anchoredPosition;
-            while (settleT < settleDuration)
-            {
-                settleT += Time.unscaledDeltaTime;
-                float u = Mathf.Clamp01(settleT / settleDuration);
-                float bounce = Mathf.Sin(u * Mathf.PI) * 10f * (1f - u);
-                rt.anchoredPosition = settled + new Vector2(0, bounce);
-                yield return null;
-            }
-            rt.anchoredPosition = settled;
-        }
-
         public void SetGlitchVisible(bool on)
         {
             _anims.PlayFireAndForget(on ? "glitch_on" : "glitch_off");
@@ -1162,23 +941,6 @@ namespace KSpirits.UI
             SetAnchor(_storyOverlayTitle.rectTransform, 0.05f, 0.78f, 0.95f, 0.92f, 0, 0, 0, 0);
             _storyOverlayTitle.raycastTarget = false;
             _storyOverlay.SetActive(false);
-        }
-
-        static void EnsureButtonLabel(Button button, string label)
-        {
-            if (button == null) return;
-            var text = button.GetComponentInChildren<Text>(true);
-            if (text == null)
-            {
-                text = CreateText(button.transform, "Label", label, 28, TextAnchor.MiddleCenter);
-                Stretch(text.rectTransform);
-                text.raycastTarget = false;
-            }
-            text.text = label;
-            UIFont.Apply(text, UIFontRole.Default);
-            text.fontSize = 28;
-            text.color = Color.white;
-            text.alignment = TextAnchor.MiddleCenter;
         }
 
         void EnsureFxOverlay()

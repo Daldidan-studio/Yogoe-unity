@@ -37,7 +37,6 @@ namespace KSpirits.UI
             Text stepText = null;
             Text yokaiLabel = null;
             Text statusText = null;
-            Text yutResultText = null;
             Text dialogueSpeaker = null;
             Text dialogueBody = null;
             Text dialogueContinueHint = null;
@@ -45,8 +44,6 @@ namespace KSpirits.UI
             Button yokaiButton = null;
             Image yokaiImage = null;
             Button trainingButton = null;
-            Button throwButton = null;
-            Button leaveTrainingButton = null;
             RectTransform yokaiDropZone = null;
             GameObject dialogueRoot = null;
             GameObject choiceRoot = null;
@@ -66,18 +63,17 @@ namespace KSpirits.UI
             BuildBottomDock(ui.transform, ref trainingButton, ref offerHighlight, ref itemCountLabels,
                 ref waterSlotRoot, ref statusText);
             BuildDialogueAnchors(ui.transform);
-            BuildOverlays(ui.transform, ref trainingPanel, ref yutResultText, ref throwButton,
-                ref leaveTrainingButton, ref dialogueRoot, ref dialogueSpeaker, ref dialogueBody,
+            BuildOverlays(ui.transform, ref trainingPanel, ref dialogueRoot, ref dialogueSpeaker, ref dialogueBody,
                 ref dialogueContinueHint, ref choiceRoot, ref choiceContainer, ref cardPanel, ref summonPanel);
 
             ui.BindHierarchy(
                 coinText, heartText, incenseText, statusText, stepText,
-                dialogueSpeaker, dialogueBody, dialogueContinueHint, yutResultText,
+                dialogueSpeaker, dialogueBody, dialogueContinueHint,
                 yokaiNameText, yokaiLabel, itemCountLabels,
                 yokaiImage, energyPulseBar, skyBg, moonGround, energySegments, intimacySegments,
                 dialogueRoot, choiceRoot, offerHighlight, trainingPanel, cardPanel, summonPanel,
                 glitchOverlay, waterSlotRoot, yokaiDropZone, choiceContainer,
-                trainingButton, throwButton, leaveTrainingButton, yokaiButton);
+                trainingButton, yokaiButton);
 
             EnsureDialogueLayoutManager(ui);
         }
@@ -289,8 +285,7 @@ namespace KSpirits.UI
             statusText.color = new Color(1f, 0.92f, 0.7f);
         }
 
-        static void BuildOverlays(Transform root, ref GameObject trainingPanel, ref Text yutResultText,
-            ref Button throwButton, ref Button leaveTrainingButton, ref GameObject dialogueRoot,
+        static void BuildOverlays(Transform root, ref GameObject trainingPanel, ref GameObject dialogueRoot,
             ref Text dialogueSpeaker, ref Text dialogueBody, ref Text dialogueContinueHint,
             ref GameObject choiceRoot, ref Transform choiceContainer, ref GameObject cardPanel,
             ref GameObject summonPanel)
@@ -299,11 +294,11 @@ namespace KSpirits.UI
             Stretch(trainingPanel.GetComponent<RectTransform>());
             var trainTitle = CreateText(trainingPanel.transform, "Title", "수련장 · 윷놀이", 40, TextAnchor.UpperCenter);
             SetAnchor(trainTitle.rectTransform, 0.05f, 0.88f, 0.95f, 0.98f, 0, 0, 0, 0);
-            yutResultText = CreateText(trainingPanel.transform, "YutResult", "", 44, TextAnchor.MiddleCenter);
+            var yutResultText = CreateText(trainingPanel.transform, "YutResult", "", 44, TextAnchor.MiddleCenter);
             SetAnchor(yutResultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
-            throwButton = CreateButton(trainingPanel.transform, "Throw", "윷 던지기");
+            var throwButton = CreateButton(trainingPanel.transform, "Throw", "윷 던지기");
             SetAnchor(throwButton.GetComponent<RectTransform>(), 0.15f, 0.06f, 0.46f, 0.16f, 0, 0, 0, 0);
-            leaveTrainingButton = CreateButton(trainingPanel.transform, "Leave", "나가기");
+            var leaveTrainingButton = CreateButton(trainingPanel.transform, "Leave", "나가기");
             SetAnchor(leaveTrainingButton.GetComponent<RectTransform>(), 0.54f, 0.06f, 0.85f, 0.16f, 0, 0, 0, 0);
             trainingPanel.SetActive(false);
             throwButton.gameObject.SetActive(false);
