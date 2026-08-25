@@ -25,6 +25,7 @@ namespace KSpirits.Minigames.Yut
         RectTransform _boardRoot;
         RectTransform _piece;
         Image[] _pads;
+        RectTransform[] _parkedSticks;
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
@@ -47,7 +48,11 @@ namespace KSpirits.Minigames.Yut
             EnsureBoard();
         }
 
-        public void Hide() => gameObject.SetActive(false);
+        public void Hide()
+        {
+            gameObject.SetActive(false);
+            ClearParkedSticks();
+        }
 
         public void SetThrowVisible(bool on)
         {
@@ -175,6 +180,7 @@ namespace KSpirits.Minigames.Yut
         public IEnumerator PlayThrowAnim()
         {
             EnsureBoard();
+            ClearParkedSticks();
 
             var panelRect = ((RectTransform)transform).rect;
             Vector2 ToLocal(Vector2 norm) =>
@@ -204,8 +210,52 @@ namespace KSpirits.Minigames.Yut
 
             yield return new WaitForSecondsRealtime(0.35f);
 
-            foreach (var rt in sticks)
+            // 다음 던지기 전까지 방금 던진 윷을 보드 상단에 계속 보이게 둔다
+            yield return ParkSticks(sticks, ToLocal);
+            _parkedSticks = sticks;
+        }
+
+        static readonly Vector2[] ParkSpots =
+        {
+            new(0.38f, 0.58f), new(0.46f, 0.6f), new(0.54f, 0.6f), new(0.62f, 0.58f),
+        };
+
+        IEnumerator ParkSticks(RectTransform[] sticks, Func<Vector2, Vector2> toLocal)
+        {
+            var starts = new Vector2[sticks.Length];
+            var startRotations = new Quaternion[sticks.Length];
+            for (int i = 0; i < sticks.Length; i++)
+            {
+                starts[i] = sticks[i].anchoredPosition;
+                startRotations[i] = sticks[i].localRotation;
+            }
+
+            const float duration = 0.3f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                for (int i = 0; i < sticks.Length; i++)
+                {
+                    sticks[i].anchoredPosition = Vector2.Lerp(starts[i], toLocal(ParkSpots[i]), u);
+                    sticks[i].localRotation = Quaternion.Slerp(startRotations[i], Quaternion.identity, u);
+                }
+                yield return null;
+            }
+            for (int i = 0; i < sticks.Length; i++)
+            {
+                sticks[i].anchoredPosition = toLocal(ParkSpots[i]);
+                sticks[i].localRotation = Quaternion.identity;
+            }
+        }
+
+        void ClearParkedSticks()
+        {
+            if (_parkedSticks == null) return;
+            foreach (var rt in _parkedSticks)
                 if (rt != null) Destroy(rt.gameObject);
+            _parkedSticks = null;
         }
 
         IEnumerator ThrowOneStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay)
