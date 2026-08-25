@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using KSpirits.Core;
 using KSpirits.UI;
@@ -8,7 +7,8 @@ using UnityEngine.UI;
 namespace KSpirits.Tutorial
 {
     /// <summary>
-    /// 개발용 튜토리얼 스텝 점프 메뉴. 에디터/개발 빌드에서만 존재한다.
+    /// 개발용 튜토리얼 스텝 점프 메뉴. CI 빌드가 Development Build 옵션 없이 도는 탓에
+    /// UNITY_EDITOR/DEVELOPMENT_BUILD로는 걸러지지 않아, 지금은 모든 빌드에 항상 포함된다.
     /// 화면 구석 🐞 버튼을 누르면 스텝 목록이 펼쳐지고, 하나 고르면
     /// TutorialController.DebugJumpToStep으로 바로 진입한다.
     /// </summary>
@@ -118,4 +118,3 @@ namespace KSpirits.Tutorial
         }
     }
 }
-#endif

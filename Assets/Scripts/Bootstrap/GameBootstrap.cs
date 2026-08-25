@@ -45,10 +45,8 @@ namespace KSpirits.Bootstrap
             tutorial.Bind(state, _ui, summon);
             tutorial.Begin();
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
             var debugMenu = gameObject.GetComponent<TutorialDebugMenu>() ?? gameObject.AddComponent<TutorialDebugMenu>();
             debugMenu.Bind(tutorial, _ui);
-#endif
         }
 
         void Start()

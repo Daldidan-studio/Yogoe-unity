@@ -96,7 +96,6 @@ namespace KSpirits.Tutorial
             StartCoroutine(RunStep(_state.TutorialStep));
         }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         /// <summary>
         /// 개발용: 임의 스텝으로 바로 진입. 그 스텝이 전제하는 최소한의 상태(카드 해금·
         /// 진화 단계 등)만 대충 맞춰준다 — 이전 스텝들의 연출/대사/기력 누적을 전부
@@ -124,7 +123,6 @@ namespace KSpirits.Tutorial
             _ui.RefreshAll(_state);
             StartCoroutine(RunStep(step));
         }
-#endif
 
         /// <summary>
         /// 한 스텝 진입점. 스텝 저장 → UI 라벨 → 해당 Step* 코루틴 실행.
