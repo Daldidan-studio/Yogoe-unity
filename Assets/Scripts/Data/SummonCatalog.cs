@@ -23,7 +23,7 @@ namespace KSpirits.Data
     {
         static readonly SummonEntry[] Guaranteed =
         {
-            new("taejagui", "태자귀", new Color(0.55f, 0.72f, 0.95f), "말 많은 아이 요괴"),
+            new("gorani-wang", "고라니의 왕", new Color(0.6f, 0.5f, 0.32f), "숲을 다스리는 근엄한 임금"),
             new("gumiho", "구미호", new Color(0.95f, 0.55f, 0.72f), "은은한 향을 풍기는 여우"),
             new("samjok-o", "삼족오", new Color(0.72f, 0.88f, 0.45f), "세 갈래 꼬리의 숲 요괴")
         };
