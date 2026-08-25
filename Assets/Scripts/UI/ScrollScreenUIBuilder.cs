@@ -170,7 +170,7 @@ namespace KSpirits.UI
             SetAnchor(settingsBtn.GetComponent<RectTransform>(), 0.84f, 0.58f, 0.96f, 0.88f, 0, 0, 0, 0);
 
             var coinRow = CreatePanel(header.transform, "CoinRow", new Color(0, 0, 0, 0));
-            SetAnchor(coinRow.GetComponent<RectTransform>(), 0.58f, 0.08f, 0.98f, 0.52f, 0, 0, 0, 0);
+            SetAnchor(coinRow.GetComponent<RectTransform>(), 0.62f, 0.08f, 0.96f, 0.52f, 0, 0, 0, 0);
             var coinIcon = CreateImage(coinRow.transform, "CoinIcon", new Color(1f, 0.82f, 0.2f));
             SetAnchor(coinIcon.rectTransform, 0, 0.15f, 0.12f, 0.85f, 0, 0, 0, 0);
             coinText = CreateText(coinRow.transform, "Coins", "0", 26, TextAnchor.MiddleLeft, UIFontRole.HudNumeric);
@@ -295,16 +295,16 @@ namespace KSpirits.UI
             ref GameObject choiceRoot, ref Transform choiceContainer, ref GameObject cardPanel,
             ref GameObject summonPanel)
         {
-            trainingPanel = CreatePanel(root, "TrainingPanel", new Color(0, 0, 0, 0.35f)).gameObject;
-            SetAnchor(trainingPanel.GetComponent<RectTransform>(), 0.08f, 0.28f, 0.92f, 0.78f, 0, 0, 0, 0);
-            var trainTitle = CreateText(trainingPanel.transform, "Title", "수련장 · 윷놀이", 34, TextAnchor.UpperCenter);
-            SetAnchor(trainTitle.rectTransform, 0, 0.75f, 1, 1, 0, 0, 0, 0);
-            yutResultText = CreateText(trainingPanel.transform, "YutResult", "", 40, TextAnchor.MiddleCenter);
-            SetAnchor(yutResultText.rectTransform, 0.1f, 0.35f, 0.9f, 0.75f, 0, 0, 0, 0);
+            trainingPanel = CreatePanel(root, "TrainingPanel", new Color(0.05f, 0.1f, 0.08f, 1f)).gameObject;
+            Stretch(trainingPanel.GetComponent<RectTransform>());
+            var trainTitle = CreateText(trainingPanel.transform, "Title", "수련장 · 윷놀이", 40, TextAnchor.UpperCenter);
+            SetAnchor(trainTitle.rectTransform, 0.05f, 0.88f, 0.95f, 0.98f, 0, 0, 0, 0);
+            yutResultText = CreateText(trainingPanel.transform, "YutResult", "", 44, TextAnchor.MiddleCenter);
+            SetAnchor(yutResultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
             throwButton = CreateButton(trainingPanel.transform, "Throw", "윷 던지기");
-            SetAnchor(throwButton.GetComponent<RectTransform>(), 0.15f, 0.08f, 0.5f, 0.28f, 0, 0, 0, 0);
+            SetAnchor(throwButton.GetComponent<RectTransform>(), 0.15f, 0.06f, 0.46f, 0.16f, 0, 0, 0, 0);
             leaveTrainingButton = CreateButton(trainingPanel.transform, "Leave", "나가기");
-            SetAnchor(leaveTrainingButton.GetComponent<RectTransform>(), 0.52f, 0.08f, 0.85f, 0.28f, 0, 0, 0, 0);
+            SetAnchor(leaveTrainingButton.GetComponent<RectTransform>(), 0.54f, 0.06f, 0.85f, 0.16f, 0, 0, 0, 0);
             trainingPanel.SetActive(false);
             throwButton.gameObject.SetActive(false);
             leaveTrainingButton.gameObject.SetActive(false);

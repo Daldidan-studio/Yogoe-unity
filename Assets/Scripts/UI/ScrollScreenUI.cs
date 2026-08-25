@@ -8,6 +8,7 @@ using KSpirits.Model;
 using KSpirits.Systems;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -83,6 +84,7 @@ namespace KSpirits.UI
         Text _fxOverlayLabel;
         GameObject _doppelImage;
         GameObject _settingsPanel;
+        Coroutine _shopToastRoutine;
         Vector2 _yokaiHomeAnchored;
         bool _yokaiHomeCached;
         bool _cardShowingBack = true;
@@ -104,6 +106,22 @@ namespace KSpirits.UI
             if (!Application.isPlaying)
                 return;
             EnsureWired();
+        }
+
+        void Update()
+        {
+            // PointerUp/Exit 이벤트가 캔버스 밖 릴리즈 등으로 누락되는 경우를 대비한 안전장치.
+            if (_dialogueHeld && !IsPointerDown())
+                HandleDialoguePointerUp();
+        }
+
+        static bool IsPointerDown()
+        {
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.isPressed) return true;
+            var touch = Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.isPressed) return true;
+            return false;
         }
 
         void OnApplicationFocus(bool hasFocus)
@@ -358,7 +376,17 @@ namespace KSpirits.UI
 
         void HandleShopTapped()
         {
+            if (_shopToastRoutine != null)
+                StopCoroutine(_shopToastRoutine);
+            _shopToastRoutine = StartCoroutine(ShowShopToast(_statusText.text));
+        }
+
+        IEnumerator ShowShopToast(string previousStatus)
+        {
             ShowStatus("상점은 준비 중이에요");
+            yield return new WaitForSeconds(1.5f);
+            _statusText.text = previousStatus;
+            _shopToastRoutine = null;
         }
 
         void HandleSettingsTapped()
@@ -753,12 +781,12 @@ namespace KSpirits.UI
                 var boardGo = new GameObject("YutBoard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 boardGo.transform.SetParent(_trainingPanel.transform, false);
                 _yutBoardRoot = boardGo.GetComponent<RectTransform>();
-                SetAnchor(_yutBoardRoot, 0.08f, 0.32f, 0.92f, 0.78f, 0, 0, 0, 0);
+                SetAnchor(_yutBoardRoot, 0.08f, 0.22f, 0.92f, 0.64f, 0, 0, 0, 0);
                 boardGo.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
             }
 
             if (_yutResultText != null)
-                SetAnchor(_yutResultText.rectTransform, 0.1f, 0.78f, 0.9f, 0.92f, 0, 0, 0, 0);
+                SetAnchor(_yutResultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
 
             _yutPads = new Image[8];
             string[] labels = { "출", "·", "·", "엽", "·", "·", "·", "골" };
@@ -791,6 +819,107 @@ namespace KSpirits.UI
             _yutPiece.offsetMax = Vector2.zero;
             pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
         }
+
+        static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
+        static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
+
+        /// <summary>
+        /// 윷가락 4개를 던져서 흩뿌리는 연출. 결과 판정과는 무관한 순수 시각 효과.
+        /// </summary>
+        public IEnumerator PlayYutThrowAnim()
+        {
+            EnsureYutBoard();
+            if (_trainingPanel == null) yield break;
+
+            var panelRect = ((RectTransform)_trainingPanel.transform).rect;
+            Vector2 ToLocal(Vector2 norm) =>
+                new((norm.x - 0.5f) * panelRect.width, (norm.y - 0.5f) * panelRect.height);
+
+            var origin = new Vector2(0.5f, 0.19f);
+            var sticks = new RectTransform[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var go = new GameObject($"YutStick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(_trainingPanel.transform, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(16f, 90f);
+                rt.anchoredPosition = ToLocal(origin);
+                go.GetComponent<Image>().color = YutStickFront;
+                go.transform.SetAsLastSibling();
+                sticks[i] = rt;
+            }
+
+            var routines = new Coroutine[4];
+            for (int i = 0; i < 4; i++)
+                routines[i] = StartCoroutine(ThrowOneYutStick(sticks[i], origin, ToLocal, i * 0.05f));
+            for (int i = 0; i < 4; i++)
+                yield return routines[i];
+
+            yield return new WaitForSecondsRealtime(0.35f);
+
+            foreach (var rt in sticks)
+                if (rt != null) Destroy(rt.gameObject);
+        }
+
+        IEnumerator ThrowOneYutStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay)
+        {
+            if (delay > 0f)
+                yield return new WaitForSecondsRealtime(delay);
+
+            var landNorm = new Vector2(
+                UnityEngine.Random.Range(0.28f, 0.72f),
+                UnityEngine.Random.Range(0.32f, 0.55f));
+            float arcHeight = UnityEngine.Random.Range(160f, 260f);
+            float spin = UnityEngine.Random.Range(720f, 1260f) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+            float duration = UnityEngine.Random.Range(0.45f, 0.6f);
+
+            Vector2 start = toLocal(originNorm);
+            Vector2 end = toLocal(landNorm);
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                float eu = 1f - (1f - u) * (1f - u);
+                var pos = Vector2.Lerp(start, end, eu);
+                pos.y += arcHeight * 4f * u * (1f - u);
+                rt.anchoredPosition = pos;
+                rt.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(0, spin, u));
+                yield return null;
+            }
+            rt.anchoredPosition = end;
+
+            bool front = UnityEngine.Random.value < 0.5f;
+            var img = rt.GetComponent<Image>();
+            const float flipDuration = 0.12f;
+            float flipT = 0f;
+            while (flipT < flipDuration)
+            {
+                flipT += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(flipT / flipDuration);
+                rt.localScale = new Vector3(Mathf.Abs(Mathf.Cos(u * Mathf.PI)), 1f, 1f);
+                if (u >= 0.5f)
+                    img.color = front ? YutStickFront : YutStickBack;
+                yield return null;
+            }
+            rt.localScale = Vector3.one;
+
+            const float settleDuration = 0.18f;
+            float settleT = 0f;
+            Vector2 settled = rt.anchoredPosition;
+            while (settleT < settleDuration)
+            {
+                settleT += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(settleT / settleDuration);
+                float bounce = Mathf.Sin(u * Mathf.PI) * 10f * (1f - u);
+                rt.anchoredPosition = settled + new Vector2(0, bounce);
+                yield return null;
+            }
+            rt.anchoredPosition = settled;
+        }
+
         public void SetGlitchVisible(bool on)
         {
             _anims.PlayFireAndForget(on ? "glitch_on" : "glitch_off");
