@@ -84,8 +84,8 @@ namespace KSpirits.Cards
             var closeBtn = CreateButton(transform, "Close", "X", HandleClosePressed);
             SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.86f, 0.88f, 0.98f, 0.98f, 0, 0, 0, 0);
 
-            var replayBtn = CreateButton(transform, "Replay", "▶", HandleReplayPressed);
-            SetAnchor(replayBtn.GetComponent<RectTransform>(), 0.4f, 0.04f, 0.6f, 0.15f, 0, 0, 0, 0);
+            var replayBtn = CreateButton(transform, "Replay", "다시보기", HandleReplayPressed);
+            SetAnchor(replayBtn.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.15f, 0, 0, 0, 0);
         }
 
         void RefreshFace()

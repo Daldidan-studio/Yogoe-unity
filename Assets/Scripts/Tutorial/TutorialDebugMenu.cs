@@ -28,7 +28,7 @@ namespace KSpirits.Tutorial
 
         void BuildToggle()
         {
-            var toggle = CreateButton(_ui.transform, "DebugToggle", "🐞", TogglePanel);
+            var toggle = CreateButton(_ui.transform, "DebugToggle", "DEV", TogglePanel);
             toggle.transform.SetAsLastSibling();
             SetAnchor(toggle.GetComponent<RectTransform>(), 0.02f, 0.965f, 0.14f, 0.998f, 0, 0, 0, 0);
         }
