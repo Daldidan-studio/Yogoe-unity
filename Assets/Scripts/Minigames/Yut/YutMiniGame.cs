@@ -187,7 +187,7 @@ namespace KSpirits.Minigames.Yut
 
             _quadrants = new RectTransform[4];
             _quadrants[(int)YutBoardQuadrant.ThrownSticks] =
-                CreateQuadrantContainer("Quadrant_ThrownSticks", 0.3f, 0.52f, 0.7f, 0.63f);
+                CreateQuadrantContainer("Quadrant_ThrownSticks", 0.42f, 0.49f, 0.63f, 0.575f);
             _quadrants[(int)YutBoardQuadrant.SpecialAbility] =
                 CreateQuadrantContainer("Quadrant_SpecialAbility", 0.13f, 0.32f, 0.33f, 0.53f);
             _quadrants[(int)YutBoardQuadrant.WaitingPieces] =
@@ -257,19 +257,23 @@ namespace KSpirits.Minigames.Yut
             _parkedSticks = sticks;
         }
 
+        // ThrownSticks 구역(0.42~0.63, 0.49~0.575) 안쪽에만 딱 맞게, 보드 노드와 겹치지 않게 촘촘히 배치
         static readonly Vector2[] ParkSpots =
         {
-            new(0.38f, 0.58f), new(0.46f, 0.6f), new(0.54f, 0.6f), new(0.62f, 0.58f),
+            new(0.455f, 0.5325f), new(0.505f, 0.5325f), new(0.545f, 0.5325f), new(0.595f, 0.5325f),
         };
+        static readonly Vector2 ParkedStickSize = new(7f, 34f);
 
         IEnumerator ParkSticks(RectTransform[] sticks, Func<Vector2, Vector2> toLocal)
         {
             var starts = new Vector2[sticks.Length];
             var startRotations = new Quaternion[sticks.Length];
+            var startSizes = new Vector2[sticks.Length];
             for (int i = 0; i < sticks.Length; i++)
             {
                 starts[i] = sticks[i].anchoredPosition;
                 startRotations[i] = sticks[i].localRotation;
+                startSizes[i] = sticks[i].sizeDelta;
             }
 
             const float duration = 0.3f;
@@ -282,11 +286,13 @@ namespace KSpirits.Minigames.Yut
                 {
                     sticks[i].anchoredPosition = Vector2.Lerp(starts[i], toLocal(ParkSpots[i]), u);
                     sticks[i].localRotation = Quaternion.Slerp(startRotations[i], Quaternion.identity, u);
+                    sticks[i].sizeDelta = Vector2.Lerp(startSizes[i], ParkedStickSize, u);
                 }
                 yield return null;
             }
             for (int i = 0; i < sticks.Length; i++)
             {
+                sticks[i].sizeDelta = ParkedStickSize;
                 sticks[i].anchoredPosition = toLocal(ParkSpots[i]);
                 sticks[i].localRotation = Quaternion.identity;
             }
