@@ -76,23 +76,28 @@ namespace KSpirits.Minigames.Yut
                 _heartIcons[i].color = i < hearts ? HeartOn : HeartOff;
         }
 
-        public void SetPieceIndex(int index)
+        static bool IsWaypoint(int nodeId) =>
+            nodeId == YutBoardLayout.Start || nodeId == YutBoardLayout.Mo ||
+            nodeId == YutBoardLayout.DwitMo || nodeId == YutBoardLayout.JjiMo ||
+            nodeId == YutBoardLayout.Bang;
+
+        public void SetPieceIndex(int nodeId)
         {
             EnsureBoard();
             if (_pads == null || _pads.Length == 0 || _piece == null) return;
 
-            index = Mathf.Clamp(index, 0, _pads.Length - 1);
+            nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             for (int i = 0; i < _pads.Length; i++)
             {
-                bool here = i == index;
+                bool here = i == nodeId;
                 _pads[i].color = here
                     ? new Color(1f, 0.85f, 0.35f, 1f)
-                    : i == 3
-                        ? new Color(0.85f, 0.7f, 0.25f, 0.85f) // 엽전칸
+                    : IsWaypoint(i)
+                        ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
                         : new Color(0.35f, 0.32f, 0.28f, 0.9f);
             }
 
-            var pad = _pads[index].rectTransform;
+            var pad = _pads[nodeId].rectTransform;
             _piece.SetParent(pad, false);
             _piece.anchorMin = new Vector2(0.15f, 0.15f);
             _piece.anchorMax = new Vector2(0.85f, 0.85f);
@@ -114,7 +119,7 @@ namespace KSpirits.Minigames.Yut
                 var boardGo = new GameObject("YutBoard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 boardGo.transform.SetParent(transform, false);
                 _boardRoot = boardGo.GetComponent<RectTransform>();
-                SetAnchor(_boardRoot, 0.08f, 0.22f, 0.92f, 0.64f, 0, 0, 0, 0);
+                SetAnchor(_boardRoot, 0.1f, 0.2f, 0.9f, 0.65f, 0, 0, 0, 0);
                 boardGo.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
             }
 
@@ -138,26 +143,20 @@ namespace KSpirits.Minigames.Yut
                 }
             }
 
-            _pads = new Image[8];
-            string[] labels = { "출", "·", "·", "엽", "·", "·", "·", "골" };
-            for (int i = 0; i < 8; i++)
+            _pads = new Image[YutBoardLayout.NodeCount];
+            for (int i = 0; i < YutBoardLayout.NodeCount; i++)
             {
-                float t = i / 7f;
-                float x = Mathf.Lerp(0.06f, 0.82f, t);
-                var padGo = new GameObject($"Pad{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                var pos = YutBoardLayout.Normalized(i);
+                float half = IsWaypoint(i) ? 0.05f : 0.032f;
+                var padGo = new GameObject($"Node{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 padGo.transform.SetParent(_boardRoot, false);
                 var padRt = padGo.GetComponent<RectTransform>();
-                SetAnchor(padRt, x, 0.28f, x + 0.12f, 0.72f, 0, 0, 0, 0);
+                SetAnchor(padRt, pos.x - half, pos.y - half, pos.x + half, pos.y + half, 0, 0, 0, 0);
                 var padImg = padGo.GetComponent<Image>();
-                padImg.color = i == 3
-                    ? new Color(0.85f, 0.7f, 0.25f, 0.85f)
+                padImg.color = IsWaypoint(i)
+                    ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);
                 _pads[i] = padImg;
-
-                var label = CreateText(_boardRoot, $"PadLabel{i}", labels[i], 18, TextAnchor.MiddleCenter);
-                SetAnchor(label.rectTransform, x, 0.05f, x + 0.12f, 0.28f, 0, 0, 0, 0);
-                label.raycastTarget = false;
-                label.color = new Color(1f, 1f, 1f, 0.7f);
             }
 
             var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
