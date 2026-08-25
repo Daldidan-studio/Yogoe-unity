@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7107f31f67bd14aebbd41225719058a8, type: 3}
   m_Name: UIFontSettings
   m_EditorClassIdentifier: 
-  defaultFont: {fileID: 12800000, guid: 7c9e4a12b8d04f1e9a6c3d5b2e8f0a14, type: 3}
-  dialogueFont: {fileID: 12800000, guid: 7c9e4a12b8d04f1e9a6c3d5b2e8f0a14, type: 3}
-  userInfoFont: {fileID: 12800000, guid: 7c9e4a12b8d04f1e9a6c3d5b2e8f0a14, type: 3}
-  hudNumericFont: {fileID: 12800000, guid: 7c9e4a12b8d04f1e9a6c3d5b2e8f0a14, type: 3}
+  defaultFont: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
+  dialogueFont: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
+  userInfoFont: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
+  hudNumericFont: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}

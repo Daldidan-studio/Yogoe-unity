@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: 8e00f09198e0495f8df7aa7fe5acd23d
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: DOSGothic
+  fontNames:
+  - DOSGothic
+  fallbackFontReferences: []
+  customCharacters:
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundLastValue: 1
+  userData:
+  assetBundleName:
+  assetBundleVariant:

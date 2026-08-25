@@ -209,13 +209,18 @@ namespace KSpirits.UI
 
         void ApplyFonts()
         {
+            // 씬에 미리 구워진 텍스트는 개별적으로 챙기지 않으면 기본 폰트로 남는다 —
+            // 화면에 있는 모든 Text에 우선 기본 폰트를 깔아서 빠짐없이 적용한다.
+            foreach (var text in GetComponentsInChildren<Text>(true))
+                UIFont.Apply(text, UIFontRole.Default);
+
+            // 기본과 다른 역할 폰트를 쓰는 것만 개별 재적용
             UIFont.Apply(_dialogueSpeaker, UIFontRole.Dialogue);
             UIFont.Apply(_dialogueBody, UIFontRole.Dialogue);
             UIFont.Apply(_dialogueContinueHint, UIFontRole.Dialogue);
 
             UIFont.Apply(_yokaiNameText, UIFontRole.UserInfo);
             UIFont.Apply(_yokaiLabel, UIFontRole.UserInfo);
-            UIFont.Apply(_statusText, UIFontRole.Default);
 
             UIFont.Apply(_coinText, UIFontRole.HudNumeric);
             if (_itemCountLabels != null)
@@ -223,9 +228,6 @@ namespace KSpirits.UI
                 foreach (var label in _itemCountLabels)
                     UIFont.Apply(label, UIFontRole.HudNumeric);
             }
-
-            UIFont.Apply(_shopButton?.GetComponentInChildren<Text>(true), UIFontRole.Default);
-            UIFont.Apply(_settingsButton?.GetComponentInChildren<Text>(true), UIFontRole.Default);
         }
 
         void TryAutoBindFromHierarchy()

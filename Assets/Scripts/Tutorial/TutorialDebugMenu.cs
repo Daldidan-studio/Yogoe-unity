@@ -1,5 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
+using KSpirits.Core;
 using KSpirits.UI;
 using UnityEngine;
 using UnityEngine.UI;
