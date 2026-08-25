@@ -708,7 +708,7 @@ namespace KSpirits.UI
 
             label.text = "수련장";
             UIFont.Apply(label, UIFontRole.Default);
-            label.fontSize = 26;
+            label.fontSize = 27;
             label.color = Color.white;
             label.alignment = TextAnchor.MiddleCenter;
             label.gameObject.SetActive(true);
@@ -945,8 +945,8 @@ namespace KSpirits.UI
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.text = content;
-            text.font = UIFont.Default;
-            text.fontSize = size;
+            UIFont.Apply(text, UIFontRole.Default);
+            text.fontSize = size + 1;
             text.color = Color.white;
             text.alignment = anchor;
             return text;

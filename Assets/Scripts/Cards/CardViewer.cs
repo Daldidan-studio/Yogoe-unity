@@ -179,8 +179,8 @@ namespace KSpirits.Cards
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.text = content;
-            text.font = UIFont.Default;
-            text.fontSize = size;
+            UIFont.Apply(text, UIFontRole.Default);
+            text.fontSize = size + 1;
             text.color = Color.white;
             text.alignment = anchor;
             return text;

@@ -66,7 +66,7 @@ namespace KSpirits.Tutorial
                     col * cellW + 0.015f, 1f - (row + 1) * cellH + 0.01f,
                     (col + 1) * cellW - 0.015f, 1f - row * cellH - 0.01f, 0, 0, 0, 0);
                 var label = btn.GetComponentInChildren<Text>();
-                if (label != null) label.fontSize = 14;
+                if (label != null) label.fontSize = 15;
             }
         }
 
@@ -92,7 +92,7 @@ namespace KSpirits.Tutorial
             var text = textGo.GetComponent<Text>();
             text.text = label;
             text.font = UIFont.Default;
-            text.fontSize = 20;
+            text.fontSize = 21;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
             text.raycastTarget = false;

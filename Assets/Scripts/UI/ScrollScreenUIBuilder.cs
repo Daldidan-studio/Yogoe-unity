@@ -393,7 +393,7 @@ namespace KSpirits.UI
             var text = go.GetComponent<Text>();
             text.text = content;
             UIFont.Apply(text, role);
-            text.fontSize = size;
+            text.fontSize = size + 1;
             text.color = Color.white;
             text.alignment = anchor;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;

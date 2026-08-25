@@ -258,7 +258,7 @@ namespace KSpirits.UI
             var label = btn.GetComponentInChildren<Text>();
             if (label != null)
             {
-                label.fontSize = 28;
+                label.fontSize = 29;
                 UIFont.Apply(label, UIFontRole.Default);
             }
         }
@@ -277,7 +277,7 @@ namespace KSpirits.UI
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.text = content;
-            text.fontSize = size;
+            text.fontSize = size + 1;
             text.color = Color.white;
             text.alignment = anchor;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
