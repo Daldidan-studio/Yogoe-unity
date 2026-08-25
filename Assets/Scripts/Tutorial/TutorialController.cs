@@ -96,6 +96,36 @@ namespace KSpirits.Tutorial
             StartCoroutine(RunStep(_state.TutorialStep));
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>
+        /// 개발용: 임의 스텝으로 바로 진입. 그 스텝이 전제하는 최소한의 상태(카드 해금·
+        /// 진화 단계 등)만 대충 맞춰준다 — 이전 스텝들의 연출/대사/기력 누적을 전부
+        /// 재현하진 않으므로, 에너지바 등 세부 수치는 실제 플레이와 다를 수 있다.
+        /// </summary>
+        public void DebugJumpToStep(TutorialStepId step)
+        {
+            StopAllCoroutines();
+            _waitingInput = false;
+            _cardReplayRequested = false;
+            _trainingButtonPressed = false;
+
+            if (step >= TutorialStepId.EvolveToApparition)
+                _state.FocusYokai.SetStage(YokaiStage.Apparition);
+            if (step >= TutorialStepId.EvolveToManifest)
+                _state.FocusYokai.SetStage(YokaiStage.Manifest);
+            if (step > TutorialStepId.BlackeningChoice)
+                _state.OktoCard.BackUnlocked = true;
+            _ui.SetYokaiBlackened(step > TutorialStepId.BlackeningChoice && step <= TutorialStepId.ImugiRestore);
+            if (step > TutorialStepId.WishBranch)
+                _state.OktoCard.FrontUnlocked = true;
+            if (step >= TutorialStepId.Done)
+                _state.TutorialFinished = true;
+
+            _ui.RefreshAll(_state);
+            StartCoroutine(RunStep(step));
+        }
+#endif
+
         /// <summary>
         /// 한 스텝 진입점. 스텝 저장 → UI 라벨 → 해당 Step* 코루틴 실행.
         /// </summary>
