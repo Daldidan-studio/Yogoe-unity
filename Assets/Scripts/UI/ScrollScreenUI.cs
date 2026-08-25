@@ -85,6 +85,7 @@ namespace KSpirits.UI
         GameObject _doppelImage;
         GameObject _settingsPanel;
         Coroutine _shopToastRoutine;
+        Text _trainingHeartText;
         Vector2 _yokaiHomeAnchored;
         bool _yokaiHomeCached;
         bool _cardShowingBack = true;
@@ -455,6 +456,8 @@ namespace KSpirits.UI
             _coinText.text = state.Wallet.Coins.ToString("N0");
             _heartText.text = state.Wallet.Hearts.ToString();
             _incenseText.text = state.Wallet.Incense.ToString();
+            if (_trainingHeartText != null)
+                _trainingHeartText.text = $"♥ 하트 {state.Wallet.Hearts}";
 
             var y = state.FocusYokai;
             UpdateSegmentBar(_energySegments, y.Energy, GameConstants.EnergyMax,
@@ -787,6 +790,15 @@ namespace KSpirits.UI
 
             if (_yutResultText != null)
                 SetAnchor(_yutResultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
+
+            if (_trainingHeartText == null)
+            {
+                _trainingHeartText = CreateText(_trainingPanel.transform, "TrainingHearts", "",
+                    26, TextAnchor.MiddleCenter);
+                SetAnchor(_trainingHeartText.rectTransform, 0.25f, 0.82f, 0.75f, 0.88f, 0, 0, 0, 0);
+                _trainingHeartText.color = new Color(1f, 0.4f, 0.45f);
+                UIFont.Apply(_trainingHeartText, UIFontRole.Default);
+            }
 
             _yutPads = new Image[8];
             string[] labels = { "출", "·", "·", "엽", "·", "·", "·", "골" };
