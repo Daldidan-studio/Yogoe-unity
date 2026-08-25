@@ -169,6 +169,11 @@ namespace KSpirits.UI
             if (_coinText == null)
                 TryAutoBindFromHierarchy();
 
+            if (_shopButton == null)
+                _shopButton = transform.Find("Header/Shop")?.GetComponent<Button>();
+            if (_settingsButton == null)
+                _settingsButton = transform.Find("Header/Settings")?.GetComponent<Button>();
+
             if (_coinText == null)
             {
                 Debug.LogError("[ScrollScreenUI] UI 참조가 비어 있습니다. KSpirits → Setup Boot Scene UI 를 실행하세요.");
