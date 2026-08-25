@@ -26,6 +26,7 @@ namespace KSpirits.Minigames.Yut
         RectTransform _piece;
         Image[] _pads;
         RectTransform[] _parkedSticks;
+        RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
@@ -172,6 +173,44 @@ namespace KSpirits.Minigames.Yut
             _piece.offsetMin = Vector2.zero;
             _piece.offsetMax = Vector2.zero;
             pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
+
+            EnsureQuadrants();
+        }
+
+        /// <summary>
+        /// 두 대각선이 나누는 4개 삼각형 구역의 컨테이너를 만든다. 아직 내용은 비어 있고,
+        /// 각 구역을 담당할 기능이 GetQuadrant()로 받아서 자기 UI를 채워 넣는 자리(베이스)다.
+        /// </summary>
+        void EnsureQuadrants()
+        {
+            if (_quadrants != null) return;
+
+            _quadrants = new RectTransform[4];
+            _quadrants[(int)YutBoardQuadrant.ThrownSticks] =
+                CreateQuadrantContainer("Quadrant_ThrownSticks", 0.3f, 0.52f, 0.7f, 0.63f);
+            _quadrants[(int)YutBoardQuadrant.SpecialAbility] =
+                CreateQuadrantContainer("Quadrant_SpecialAbility", 0.13f, 0.32f, 0.33f, 0.53f);
+            _quadrants[(int)YutBoardQuadrant.WaitingPieces] =
+                CreateQuadrantContainer("Quadrant_WaitingPieces", 0.67f, 0.32f, 0.87f, 0.53f);
+            _quadrants[(int)YutBoardQuadrant.FinishedAndLoot] =
+                CreateQuadrantContainer("Quadrant_FinishedAndLoot", 0.3f, 0.22f, 0.7f, 0.33f);
+        }
+
+        RectTransform CreateQuadrantContainer(string name, float xmin, float ymin, float xmax, float ymax)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            SetAnchor(rt, xmin, ymin, xmax, ymax, 0, 0, 0, 0);
+            go.GetComponent<Image>().color = new Color(0, 0, 0, 0);
+            return rt;
+        }
+
+        /// <summary>다른 기능(대기말/특수능력/완주말+보물 등)이 자기 UI를 붙일 구역 컨테이너.</summary>
+        public RectTransform GetQuadrant(YutBoardQuadrant quadrant)
+        {
+            EnsureBoard();
+            return _quadrants[(int)quadrant];
         }
 
         /// <summary>
@@ -210,8 +249,11 @@ namespace KSpirits.Minigames.Yut
 
             yield return new WaitForSecondsRealtime(0.35f);
 
-            // 다음 던지기 전까지 방금 던진 윷을 보드 상단에 계속 보이게 둔다
+            // 다음 던지기 전까지 방금 던진 윷을 보드 상단(ThrownSticks 구역)에 계속 보이게 둔다
             yield return ParkSticks(sticks, ToLocal);
+            var thrownZone = GetQuadrant(YutBoardQuadrant.ThrownSticks);
+            foreach (var rt in sticks)
+                rt.SetParent(thrownZone, true);
             _parkedSticks = sticks;
         }
 
