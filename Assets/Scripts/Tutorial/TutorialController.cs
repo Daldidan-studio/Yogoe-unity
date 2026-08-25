@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using KSpirits.Cards;
 using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Minigames.Yut;
@@ -49,6 +50,9 @@ namespace KSpirits.Tutorial
         string _lastChoiceId;
         // 쓰다듬기 대사 중에 이미 수련장 버튼을 눌렀는지
         bool _trainingButtonPressed;
+        // 카드 뷰어에서 재생 버튼을 눌렀는지 (WaitInput 공유 플래그라 StepCardComplete가 직접 분기)
+        bool _cardReplayRequested;
+        bool _cardReplayShowingBack;
 
         // 외부에서 현재 상태 읽을 때 사용
         public GameState State => _state;
@@ -72,6 +76,9 @@ namespace KSpirits.Tutorial
             _ui.YutGame.OnThrowPressed += HandleThrowYut;
             // 수련장 나가기 버튼
             _ui.YutGame.OnLeavePressed += HandleLeaveTraining;
+            // 요괴패 카드 뷰어(X로 닫기 / 재생 버튼)
+            _ui.EnsureCardViewer().OnClosed += HandleCardClosed;
+            _ui.CardUI.OnReplayRequested += HandleCardReplayRequested;
             // 선택지 클릭
             _ui.OnChoiceSelected += HandleChoice;
             // 대사 다음으로(탭/자동진행)
@@ -514,9 +521,20 @@ namespace KSpirits.Tutorial
         // ─────────────────────────────────────────────
         IEnumerator StepCardComplete()
         {
-            // 완성 카드 UI 표시 → 탭하면 닫힘
-            _ui.ShowCardComplete(_state.OktoCard);
-            yield return WaitInput();
+            // 완성 카드 UI 표시 → X로 닫으면 계속, 재생 버튼이면 스토리 다시 보여주고 카드로 복귀
+            _ui.CardUI.Show(_state.OktoCard, BuildOktoCardContent());
+            while (true)
+            {
+                yield return WaitInput();
+                if (!_cardReplayRequested) break;
+
+                _cardReplayRequested = false;
+                _ui.CardUI.Hide();
+                yield return PlayLines(
+                    _cardReplayShowingBack ? OktoDialogue.Blackening : OktoDialogue.Doppelganger,
+                    _cardReplayShowingBack ? OktoDialogueSection.Blackening : OktoDialogueSection.Doppelganger);
+                _ui.CardUI.Show(_state.OktoCard, BuildOktoCardContent());
+            }
             yield return PlayLines(OktoDialogue.CardAndIncense, OktoDialogueSection.CardAndIncense);
             // 소환용 향 지급
             _state.Wallet.Incense += GameConstants.IncensePerSummon;
@@ -643,6 +661,24 @@ namespace KSpirits.Tutorial
         {
             if (_state.TutorialStep == TutorialStepId.Training && _waitingInput)
                 _waitingInput = false;
+        }
+
+        static CardContent BuildOktoCardContent() => new("옥토끼 요괴패", "흑토끼", "백토끼 둘");
+
+        // 카드 뷰어 X로 닫힘 → 대기 해제
+        void HandleCardClosed()
+        {
+            if (_waitingInput) _waitingInput = false;
+        }
+
+        // 카드 뷰어 재생 버튼 → StepCardComplete의 대기 루프가 직접 재생을 이어서 처리
+        // (WaitInput은 전역 플래그 하나뿐이라, 재생 중 별도 코루틴에서 또 WaitInput을 걸면
+        // 바깥쪽 대기까지 같이 풀려버리는 경합이 생김 — 그래서 여기선 플래그만 세우고 넘김)
+        void HandleCardReplayRequested(bool showingBack)
+        {
+            _cardReplayRequested = true;
+            _cardReplayShowingBack = showingBack;
+            if (_waitingInput) _waitingInput = false;
         }
 
         // 선택지 클릭 → id 저장 후 대기 해제

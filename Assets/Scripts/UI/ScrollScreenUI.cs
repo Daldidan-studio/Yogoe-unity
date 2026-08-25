@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using KSpirits.Animation;
+using KSpirits.Cards;
 using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Minigames.Yut;
@@ -28,6 +29,7 @@ namespace KSpirits.UI
         public event Action OnDialogueContinue;
 
         public YutMiniGame YutGame { get; private set; }
+        public CardViewer CardUI { get; private set; }
 
         [SerializeField] Text _coinText;
         [SerializeField] Text _heartText;
@@ -82,7 +84,6 @@ namespace KSpirits.UI
         Coroutine _shopToastRoutine;
         Vector2 _yokaiHomeAnchored;
         bool _yokaiHomeCached;
-        bool _cardShowingBack = true;
 
         static readonly Color ApparitionColor = new(1f, 0.85f, 0.7f);
         static readonly Color ManifestColor = new(0.95f, 0.95f, 0.9f);
@@ -846,51 +847,15 @@ namespace KSpirits.UI
             _doppelImage.SetActive(true);
         }
 
-        public void ShowCardComplete(CardFaceState card)
+        public CardViewer EnsureCardViewer()
         {
-            _cardPanel.SetActive(true);
-            for (int i = _cardPanel.transform.childCount - 1; i >= 0; i--)
-                Destroy(_cardPanel.transform.GetChild(i).gameObject);
+            EnsureWired();
+            if (CardUI != null) return CardUI;
 
-            _cardShowingBack = true;
-            var title = CreateText(_cardPanel.transform, "CardTitle", "옥토끼 요괴패", 32, TextAnchor.UpperCenter);
-            SetAnchor(title.rectTransform, 0.05f, 0.82f, 0.95f, 0.98f, 0, 0, 0, 0);
-
-            var face = CreateText(_cardPanel.transform, "Face", "", 26, TextAnchor.MiddleCenter);
-            SetAnchor(face.rectTransform, 0.08f, 0.28f, 0.92f, 0.78f, 0, 0, 0, 0);
-            void RefreshFace()
-            {
-                if (_cardShowingBack)
-                    face.text = card.BackUnlocked
-                        ? "【 뒷면 】\n흑토끼\n\n(탭하여 뒤집기)"
-                        : "【 뒷면 】\n???\n\n(탭하여 뒤집기)";
-                else
-                    face.text = card.FrontUnlocked
-                        ? "【 앞면 】\n백토끼 둘\n\n(탭하여 뒤집기 / 길게 보면 계속)"
-                        : "【 앞면 】\n???\n\n(탭하여 뒤집기)";
-            }
-            RefreshFace();
-
-            var hint = CreateText(_cardPanel.transform, "Hint", "앞뒤를 확인한 뒤 다시 탭하면 계속", 20, TextAnchor.LowerCenter);
-            SetAnchor(hint.rectTransform, 0.05f, 0.04f, 0.95f, 0.22f, 0, 0, 0, 0);
-            hint.color = new Color(1f, 1f, 1f, 0.65f);
-
-            int taps = 0;
-            var btn = _cardPanel.GetComponent<Button>() ?? _cardPanel.AddComponent<Button>();
-            btn.targetGraphic = _cardPanel.GetComponent<Image>();
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() =>
-            {
-                taps++;
-                if (taps == 1)
-                {
-                    _cardShowingBack = false;
-                    RefreshFace();
-                    return;
-                }
-                _cardPanel.SetActive(false);
-                OnDialogueContinue?.Invoke();
-            });
+            CardUI = _cardPanel.GetComponent<CardViewer>();
+            if (CardUI == null)
+                CardUI = _cardPanel.AddComponent<CardViewer>();
+            return CardUI;
         }
 
         public SummonScreenUI EnsureSummonScreen()
