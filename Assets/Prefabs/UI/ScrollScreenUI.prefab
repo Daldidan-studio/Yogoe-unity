@@ -3392,7 +3392,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 0
+  m_Interactable: 1
   m_TargetGraphic: {fileID: 5338468070981485134}
   m_OnClick:
     m_PersistentCalls:
@@ -5874,7 +5874,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 0
+  m_Interactable: 1
   m_TargetGraphic: {fileID: 443096700682413758}
   m_OnClick:
     m_PersistentCalls:
@@ -6568,7 +6568,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\u2699"
+  m_Text: "\uc124\uc815"
 --- !u!1 &6519552930254551005
 GameObject:
   m_ObjectHideFlags: 0

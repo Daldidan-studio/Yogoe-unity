@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using KSpirits.Model;
 using KSpirits.Systems;
 using KSpirits.Tutorial;
@@ -13,6 +14,11 @@ namespace KSpirits.Bootstrap
     public class GameBootstrap : MonoBehaviour
     {
         [SerializeField] ScrollScreenUI _ui;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        static extern void YogoeHideLoadingOverlay();
+#endif
 
         void Awake()
         {
@@ -38,6 +44,14 @@ namespace KSpirits.Bootstrap
             var tutorial = gameObject.GetComponent<TutorialController>() ?? gameObject.AddComponent<TutorialController>();
             tutorial.Bind(state, _ui, summon);
             tutorial.Begin();
+        }
+
+        void Start()
+        {
+            // HTML 타이틀+progress는 Boot가 뜬 뒤에만 내린다 (Unity Splash/빈 화면 노출 방지)
+#if UNITY_WEBGL && !UNITY_EDITOR
+            YogoeHideLoadingOverlay();
+#endif
         }
     }
 }

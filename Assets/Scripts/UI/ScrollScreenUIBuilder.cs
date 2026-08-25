@@ -165,11 +165,9 @@ namespace KSpirits.UI
 
             var shopBtn = CreateButton(header.transform, "Shop", "상점");
             SetAnchor(shopBtn.GetComponent<RectTransform>(), 0.62f, 0.58f, 0.82f, 0.88f, 0, 0, 0, 0);
-            shopBtn.interactable = false;
 
-            var settingsBtn = CreateButton(header.transform, "Settings", "⚙");
+            var settingsBtn = CreateButton(header.transform, "Settings", "설정");
             SetAnchor(settingsBtn.GetComponent<RectTransform>(), 0.84f, 0.58f, 0.96f, 0.88f, 0, 0, 0, 0);
-            settingsBtn.interactable = false;
 
             var coinRow = CreatePanel(header.transform, "CoinRow", new Color(0, 0, 0, 0));
             SetAnchor(coinRow.GetComponent<RectTransform>(), 0.58f, 0.08f, 0.98f, 0.52f, 0, 0, 0, 0);

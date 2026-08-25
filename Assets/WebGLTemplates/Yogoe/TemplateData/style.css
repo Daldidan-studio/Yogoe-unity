@@ -21,7 +21,7 @@ body {
 }
 
 #unity-canvas {
-  background: {{{ BACKGROUND_COLOR }}};
+  background: #000000;
 }
 
 .unity-mobile #unity-canvas {
@@ -30,19 +30,27 @@ body {
 }
 
 #unity-loading-bar {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: none;
+  background: #000000;
+  text-align: center;
+}
+
+#unity-loading-bar .loading-inner {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  display: none;
-  text-align: center;
+  width: 100%;
 }
 
 #game-title {
   width: min(86vw, 420px);
   height: min(38vw, 180px);
   margin: 0 auto 22px;
-  background: url("game_title.png") center / contain no-repeat;
+  background: #000000 url("game_title.png") center / contain no-repeat;
 }
 
 #unity-progress-bar-empty {

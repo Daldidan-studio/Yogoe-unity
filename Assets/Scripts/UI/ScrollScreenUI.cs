@@ -5,8 +5,10 @@ using KSpirits.Animation;
 using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Model;
+using KSpirits.Systems;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace KSpirits.UI
@@ -55,6 +57,8 @@ namespace KSpirits.UI
         [SerializeField] Button _throwButton;
         [SerializeField] Button _leaveTrainingButton;
         [SerializeField] Button _yokaiButton;
+        [SerializeField] Button _shopButton;
+        [SerializeField] Button _settingsButton;
         [SerializeField] RectTransform _yokaiDropZone;
         [SerializeField] Transform _choiceContainer;
 
@@ -78,6 +82,7 @@ namespace KSpirits.UI
         GameObject _fxOverlay;
         Text _fxOverlayLabel;
         GameObject _doppelImage;
+        GameObject _settingsPanel;
         Vector2 _yokaiHomeAnchored;
         bool _yokaiHomeCached;
         bool _cardShowingBack = true;
@@ -194,6 +199,9 @@ namespace KSpirits.UI
                 foreach (var label in _itemCountLabels)
                     UIFont.Apply(label, UIFontRole.HudNumeric);
             }
+
+            UIFont.Apply(_shopButton?.GetComponentInChildren<Text>(true), UIFontRole.Default);
+            UIFont.Apply(_settingsButton?.GetComponentInChildren<Text>(true), UIFontRole.Default);
         }
 
         void TryAutoBindFromHierarchy()
@@ -233,6 +241,8 @@ namespace KSpirits.UI
             _trainingButton = transform.Find("BottomDock/TrainingDock")?.GetComponent<Button>();
             _throwButton = transform.Find("TrainingPanel/Throw")?.GetComponent<Button>();
             _leaveTrainingButton = transform.Find("TrainingPanel/Leave")?.GetComponent<Button>();
+            _shopButton = transform.Find("Header/Shop")?.GetComponent<Button>();
+            _settingsButton = transform.Find("Header/Settings")?.GetComponent<Button>();
 
             _itemCountLabels = new Text[4];
             for (int i = 0; i < 4; i++)
@@ -306,6 +316,14 @@ namespace KSpirits.UI
             WireButton(_throwButton, () => OnThrowYutPressed?.Invoke());
             WireButton(_leaveTrainingButton, () => OnLeaveTrainingPressed?.Invoke());
 
+            if (_shopButton != null)
+                _shopButton.interactable = true;
+            WireButton(_shopButton, HandleShopTapped);
+
+            if (_settingsButton != null)
+                _settingsButton.interactable = true;
+            WireButton(_settingsButton, HandleSettingsTapped);
+
             if (_dialogueRoot != null)
             {
                 var dialogueBtn = _dialogueRoot.GetComponent<Button>();
@@ -331,6 +349,51 @@ namespace KSpirits.UI
                 _waterDrag.OnDroppedOnYokai -= HandleWaterDropped;
                 _waterDrag.OnDroppedOnYokai += HandleWaterDropped;
             }
+        }
+
+        void HandleShopTapped()
+        {
+            ShowStatus("상점은 준비 중이에요");
+        }
+
+        void HandleSettingsTapped()
+        {
+            if (_settingsPanel == null)
+            {
+                _settingsPanel = CreatePanel(transform, "SettingsPanel", new Color(0.02f, 0.04f, 0.08f, 0.85f));
+                Stretch(_settingsPanel.GetComponent<RectTransform>());
+            }
+            _settingsPanel.transform.SetAsLastSibling();
+            _settingsPanel.SetActive(true);
+
+            for (int i = _settingsPanel.transform.childCount - 1; i >= 0; i--)
+                Destroy(_settingsPanel.transform.GetChild(i).gameObject);
+
+            var box = CreatePanel(_settingsPanel.transform, "Box", new Color(0.14f, 0.12f, 0.1f, 0.98f));
+            SetAnchor(box.GetComponent<RectTransform>(), 0.12f, 0.3f, 0.88f, 0.7f, 0, 0, 0, 0);
+
+            var title = CreateText(box.transform, "Title", "설정", 32, TextAnchor.UpperCenter);
+            SetAnchor(title.rectTransform, 0.05f, 0.78f, 0.95f, 0.94f, 0, 0, 0, 0);
+
+            var resetBtn = CreateButton(box.transform, "ResetButton", "게임 초기화", null);
+            SetAnchor(resetBtn.GetComponent<RectTransform>(), 0.12f, 0.42f, 0.88f, 0.64f, 0, 0, 0, 0);
+            var resetLabel = resetBtn.GetComponentInChildren<Text>(true);
+
+            bool confirmingReset = false;
+            resetBtn.onClick.AddListener(() =>
+            {
+                if (!confirmingReset)
+                {
+                    confirmingReset = true;
+                    resetLabel.text = "다시 누르면 초기화돼요";
+                    return;
+                }
+                SaveService.Delete();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            });
+
+            var closeBtn = CreateButton(box.transform, "CloseButton", "닫기", () => _settingsPanel.SetActive(false));
+            SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.12f, 0.08f, 0.88f, 0.3f, 0, 0, 0, 0);
         }
 
         void HandleWaterDropped()
