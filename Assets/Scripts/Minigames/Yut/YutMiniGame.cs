@@ -213,10 +213,15 @@ namespace KSpirits.Minigames.Yut
             return _quadrants[(int)quadrant];
         }
 
+        static readonly Color BaekdoMarkColor = new(0.85f, 0.25f, 0.3f);
+
         /// <summary>
-        /// 윷가락 4개를 던져서 흩뿌리는 연출. 결과 판정과는 무관한 순수 시각 효과.
+        /// 윷가락 4개를 던져서 흩뿌리는 연출. 결과(result)에 맞는 앞/뒤 패턴으로 착지한다 —
+        /// 0번 가락이 빨간 점으로 표시된 "빽도 가락"이고, 그 가락만 뒤집히면 빽도, 나머지
+        /// 가락 중 하나만 뒤집히면 도(기획서 7-4 "빽도 가락만 엎어진 경우" 기준). 개/걸/윷/모의
+        /// 정확한 개수 규칙은 아직 확정 전이라 그 외 결과는 랜덤 패턴을 유지한다.
         /// </summary>
-        public IEnumerator PlayThrowAnim()
+        public IEnumerator PlayThrowAnim(YutThrowResult result)
         {
             EnsureBoard();
             ClearParkedSticks();
@@ -224,6 +229,8 @@ namespace KSpirits.Minigames.Yut
             var panelRect = ((RectTransform)transform).rect;
             Vector2 ToLocal(Vector2 norm) =>
                 new((norm.x - 0.5f) * panelRect.width, (norm.y - 0.5f) * panelRect.height);
+
+            var frontStates = DetermineFrontStates(result);
 
             var origin = new Vector2(0.5f, 0.19f);
             var sticks = new RectTransform[4];
@@ -239,11 +246,22 @@ namespace KSpirits.Minigames.Yut
                 go.GetComponent<Image>().color = YutStickFront;
                 go.transform.SetAsLastSibling();
                 sticks[i] = rt;
+
+                if (i == 0)
+                {
+                    var markGo = new GameObject("BaekdoMark", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    markGo.transform.SetParent(rt, false);
+                    var markRt = markGo.GetComponent<RectTransform>();
+                    markRt.anchorMin = new Vector2(0.5f, 0.85f);
+                    markRt.anchorMax = new Vector2(0.5f, 0.85f);
+                    markRt.sizeDelta = new Vector2(8f, 8f);
+                    markGo.GetComponent<Image>().color = BaekdoMarkColor;
+                }
             }
 
             var routines = new Coroutine[4];
             for (int i = 0; i < 4; i++)
-                routines[i] = StartCoroutine(ThrowOneStick(sticks[i], origin, ToLocal, i * 0.05f));
+                routines[i] = StartCoroutine(ThrowOneStick(sticks[i], origin, ToLocal, i * 0.05f, frontStates[i]));
             for (int i = 0; i < 4; i++)
                 yield return routines[i];
 
@@ -306,7 +324,27 @@ namespace KSpirits.Minigames.Yut
             _parkedSticks = null;
         }
 
-        IEnumerator ThrowOneStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay)
+        static bool[] DetermineFrontStates(YutThrowResult result)
+        {
+            var front = new[] { true, true, true, true }; // 기본: 4개 다 정상면(뒤집히지 않음)
+            switch (result)
+            {
+                case YutThrowResult.Baekdo:
+                    front[0] = false; // 빽도 가락(0번)만 뒤집힘
+                    break;
+                case YutThrowResult.Do:
+                    front[1] = false; // 빽도 가락은 그대로, 일반 가락 하나만 뒤집힘
+                    break;
+                default:
+                    for (int i = 0; i < front.Length; i++)
+                        front[i] = UnityEngine.Random.value < 0.5f;
+                    break;
+            }
+            return front;
+        }
+
+        IEnumerator ThrowOneStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay,
+            bool targetFront)
         {
             if (delay > 0f)
                 yield return new WaitForSecondsRealtime(delay);
@@ -334,7 +372,7 @@ namespace KSpirits.Minigames.Yut
             }
             rt.anchoredPosition = end;
 
-            bool front = UnityEngine.Random.value < 0.5f;
+            bool front = targetFront;
             var img = rt.GetComponent<Image>();
             const float flipDuration = 0.12f;
             float flipT = 0f;

@@ -304,7 +304,7 @@ namespace KSpirits.Tutorial
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
-            yield return _ui.YutGame.PlayThrowAnim();
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Baekdo);
             _ui.YutGame.ShowResult("빽도!");
             yield return MoveYutPiece(YutMoveResolver.GetPath(0, YutThrowResult.Baekdo), 0.35f);
             _state.Wallet.Coins += 1;
@@ -321,7 +321,7 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
             _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
             _state.Wallet.PurifiedWater += 1;
-            yield return _ui.YutGame.PlayThrowAnim();
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Do);
             _ui.YutGame.ShowResult("도 → 골인!");
             yield return MoveYutPiece(YutMoveResolver.GetPath(19, YutThrowResult.Do), 0.35f);
             _ui.RefreshAll(_state);
