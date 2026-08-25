@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using KSpirits.Core;
 using KSpirits.UI;
 using UnityEngine;
@@ -217,9 +218,10 @@ namespace KSpirits.Minigames.Yut
 
         /// <summary>
         /// 윷가락 4개를 던져서 흩뿌리는 연출. 결과(result)에 맞는 앞/뒤 패턴으로 착지한다 —
-        /// 0번 가락이 빨간 점으로 표시된 "빽도 가락"이고, 그 가락만 뒤집히면 빽도, 나머지
-        /// 가락 중 하나만 뒤집히면 도(기획서 7-4 "빽도 가락만 엎어진 경우" 기준). 개/걸/윷/모의
-        /// 정확한 개수 규칙은 아직 확정 전이라 그 외 결과는 랜덤 패턴을 유지한다.
+        /// 뒤집힌 가락 개수 = 0(모)/1(도·빽도)/2(개)/3(걸)/4(윷). 0번 가락은 빨간 점으로
+        /// 표시된 "빽도 가락"이라, 1개만 뒤집혔을 때 그게 0번이면 빽도, 다른 가락이면 도로
+        /// 갈린다(기획서 7-4 "빽도 가락만 엎어진 경우" 기준). 어느 가락이 뒤집힐지는 개/걸에서만
+        /// 랜덤이고 개수는 항상 결과와 일치한다.
         /// </summary>
         public IEnumerator PlayThrowAnim(YutThrowResult result)
         {
@@ -324,23 +326,43 @@ namespace KSpirits.Minigames.Yut
             _parkedSticks = null;
         }
 
+        // 뒤집힌(등 보임) 가락 개수 = 0(모)/1(도·빽도)/2(개)/3(걸)/4(윷) — 확률표(1/4/6/4/1)와 일치.
+        // 1개만 뒤집혔을 때, 그게 0번 "빽도 가락"이면 빽도, 다른 가락이면 도로 갈린다.
         static bool[] DetermineFrontStates(YutThrowResult result)
         {
             var front = new[] { true, true, true, true }; // 기본: 4개 다 정상면(뒤집히지 않음)
             switch (result)
             {
+                case YutThrowResult.Mo:
+                    break; // 0개 뒤집힘
                 case YutThrowResult.Baekdo:
                     front[0] = false; // 빽도 가락(0번)만 뒤집힘
                     break;
                 case YutThrowResult.Do:
-                    front[1] = false; // 빽도 가락은 그대로, 일반 가락 하나만 뒤집힘
+                    front[1 + UnityEngine.Random.Range(0, 3)] = false; // 빽도 가락 제외, 나머지 중 1개만
                     break;
-                default:
-                    for (int i = 0; i < front.Length; i++)
-                        front[i] = UnityEngine.Random.value < 0.5f;
+                case YutThrowResult.Gae:
+                    FlipRandom(front, 2);
+                    break;
+                case YutThrowResult.Geol:
+                    FlipRandom(front, 3);
+                    break;
+                case YutThrowResult.Yut:
+                    for (int i = 0; i < front.Length; i++) front[i] = false; // 4개 다 뒤집힘
                     break;
             }
             return front;
+        }
+
+        static void FlipRandom(bool[] front, int count)
+        {
+            var indices = new List<int> { 0, 1, 2, 3 };
+            for (int i = 0; i < count; i++)
+            {
+                int pick = UnityEngine.Random.Range(0, indices.Count);
+                front[indices[pick]] = false;
+                indices.RemoveAt(pick);
+            }
         }
 
         IEnumerator ThrowOneStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay,
