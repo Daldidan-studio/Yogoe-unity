@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using KSpirits.Core;
 using KSpirits.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,7 +19,7 @@ namespace KSpirits.Minigames.Yut
         public event Action OnLeavePressed;
 
         Text _resultText;
-        Text _heartText;
+        Image[] _heartIcons;
         Button _throwButton;
         Button _leaveButton;
         RectTransform _boardRoot;
@@ -27,6 +28,8 @@ namespace KSpirits.Minigames.Yut
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
+        static readonly Color HeartOn = new(0.95f, 0.25f, 0.35f);
+        static readonly Color HeartOff = new(0.3f, 0.15f, 0.18f, 0.6f);
 
         public void BindFromHierarchy()
         {
@@ -68,8 +71,9 @@ namespace KSpirits.Minigames.Yut
 
         public void RefreshHearts(int hearts)
         {
-            if (_heartText != null)
-                _heartText.text = $"♥ 하트 {hearts}";
+            if (_heartIcons == null) return;
+            for (int i = 0; i < _heartIcons.Length; i++)
+                _heartIcons[i].color = i < hearts ? HeartOn : HeartOff;
         }
 
         public void SetPieceIndex(int index)
@@ -117,12 +121,21 @@ namespace KSpirits.Minigames.Yut
             if (_resultText != null)
                 SetAnchor(_resultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
 
-            if (_heartText == null)
+            if (_heartIcons == null)
             {
-                _heartText = CreateText(transform, "TrainingHearts", "", 26, TextAnchor.MiddleCenter);
-                SetAnchor(_heartText.rectTransform, 0.25f, 0.82f, 0.75f, 0.88f, 0, 0, 0, 0);
-                _heartText.color = new Color(1f, 0.4f, 0.45f);
-                UIFont.Apply(_heartText, UIFontRole.Default);
+                _heartIcons = new Image[GameConstants.HeartMax];
+                const float iconW = 0.035f;
+                const float gap = 0.008f;
+                float totalW = _heartIcons.Length * iconW + (_heartIcons.Length - 1) * gap;
+                float startX = 0.95f - totalW;
+                for (int i = 0; i < _heartIcons.Length; i++)
+                {
+                    var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    heartGo.transform.SetParent(transform, false);
+                    float x = startX + i * (iconW + gap);
+                    SetAnchor(heartGo.GetComponent<RectTransform>(), x, 0.9f, x + iconW, 0.97f, 0, 0, 0, 0);
+                    _heartIcons[i] = heartGo.GetComponent<Image>();
+                }
             }
 
             _pads = new Image[8];
