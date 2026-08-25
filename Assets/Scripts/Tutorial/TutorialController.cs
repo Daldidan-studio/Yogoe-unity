@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using KSpirits.Core;
 using KSpirits.Data;
+using KSpirits.Minigames.Yut;
 using KSpirits.Model;
 using KSpirits.Systems;
 using KSpirits.UI;
@@ -305,8 +306,7 @@ namespace KSpirits.Tutorial
             _state.Wallet.TrySpendHearts(1);
             yield return _ui.YutGame.PlayThrowAnim();
             _ui.YutGame.ShowResult("빽도!");
-            // 빽도는 뒤로 1칸: 참(0) → 하변 마지막 칸(19)
-            yield return MoveYutPiece(new[] { 0, 19 }, 0.35f);
+            yield return MoveYutPiece(YutMoveResolver.GetPath(0, YutThrowResult.Baekdo), 0.35f);
             _state.Wallet.Coins += 1;
             _ui.RefreshAll(_state);
             _ui.ShowStatus("엽전 +1");
@@ -323,8 +323,7 @@ namespace KSpirits.Tutorial
             _state.Wallet.PurifiedWater += 1;
             yield return _ui.YutGame.PlayThrowAnim();
             _ui.YutGame.ShowResult("도 → 골인!");
-            // 도는 앞으로 1칸: 하변 마지막 칸(19) → 참(0, 골인)
-            yield return MoveYutPiece(new[] { 19, 0 }, 0.35f);
+            yield return MoveYutPiece(YutMoveResolver.GetPath(19, YutThrowResult.Do), 0.35f);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.AfterGoal, OktoDialogueSection.AfterGoal);
 
