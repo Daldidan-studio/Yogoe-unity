@@ -41,8 +41,6 @@ namespace KSpirits.Tutorial
             var yutJump = CreateButton(_ui.transform, "GoraniYutJump", "고라니왕 수련장", JumpToGoraniTraining);
             yutJump.transform.SetAsLastSibling();
             SetAnchor(yutJump.GetComponent<RectTransform>(), 0.15f, 0.965f, 0.4f, 0.998f, 0, 0, 0, 0);
-            var jumpLabel = yutJump.GetComponentInChildren<Text>();
-            if (jumpLabel != null) jumpLabel.fontSize = 15;
         }
 
         /// <summary>
@@ -104,8 +102,6 @@ namespace KSpirits.Tutorial
                 SetAnchor(btn.GetComponent<RectTransform>(),
                     col * cellW + 0.015f, 1f - (row + 1) * cellH + 0.01f,
                     (col + 1) * cellW - 0.015f, 1f - row * cellH - 0.01f, 0, 0, 0, 0);
-                var label = btn.GetComponentInChildren<Text>();
-                if (label != null) label.fontSize = 15;
             }
         }
 
@@ -131,7 +127,10 @@ namespace KSpirits.Tutorial
             var text = textGo.GetComponent<Text>();
             text.text = label;
             text.font = UIFont.Default;
-            text.fontSize = 21;
+            // 고정 크기 대신 Best Fit — 셀 크기·글자 수에 맞춰 최대한 크게, 넘치면 자동으로 줄어듦
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 14;
+            text.resizeTextMaxSize = 30;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
             text.raycastTarget = false;
