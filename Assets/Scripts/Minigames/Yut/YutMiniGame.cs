@@ -19,6 +19,8 @@ namespace KSpirits.Minigames.Yut
         public event Action OnThrowPressed;
         public event Action OnLeavePressed;
         public event Action OnRulesClosed;
+        /// <summary>족보 패널이 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑 등을 같이 멈춘다.</summary>
+        public event Action<bool> OnRulesPanelToggled;
 
         Text _resultText;
         Image[] _heartIcons;
@@ -138,6 +140,8 @@ namespace KSpirits.Minigames.Yut
                 _rulesPanel.transform.SetAsLastSibling();
             }
 
+            OnRulesPanelToggled?.Invoke(on);
+
             if (wasOpen && !on)
                 OnRulesClosed?.Invoke();
         }
@@ -255,16 +259,21 @@ namespace KSpirits.Minigames.Yut
             _rulesButton = CreateButton(transform, "RulesToggle", "?", () => ShowRulesPanel(!_rulesPanel.activeSelf));
             SetAnchor(_rulesButton.GetComponent<RectTransform>(), 0.9f, 0.68f, 0.98f, 0.775f, 0, 0, 0, 0);
 
+            // 블로커·패널은 TrainingPanel 안이 아니라 캔버스 루트에 둔다 — 대사창(Dialogue)도
+            // TrainingPanel과 형제 관계라, 여기 안에서만 맨 위로 올려봐야 대사창보다 아래에
+            // 깔릴 수 있다. 캔버스 루트 기준으로 맨 위에 둬야 대사·선택지까지 전부 가린다.
+            var modalRoot = GetComponentInParent<Canvas>()?.transform ?? transform;
+
             // 던지기/나가기 버튼 등 뒤쪽 입력을 막는 전체화면 블로커. 패널보다 한 칸 아래(먼저 생성)에 둬서
             // 패널·닫기 버튼 클릭은 그대로 받고, 그 바깥은 다 막는다.
             _rulesBlocker = new GameObject("RulesBlocker", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _rulesBlocker.transform.SetParent(transform, false);
+            _rulesBlocker.transform.SetParent(modalRoot, false);
             Stretch((RectTransform)_rulesBlocker.transform);
             _rulesBlocker.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.4f);
             _rulesBlocker.SetActive(false);
 
             _rulesPanel = new GameObject("RulesPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _rulesPanel.transform.SetParent(transform, false);
+            _rulesPanel.transform.SetParent(modalRoot, false);
             SetAnchor((RectTransform)_rulesPanel.transform, 0.14f, 0.3f, 0.86f, 0.66f, 0, 0, 0, 0);
             _rulesPanel.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.95f);
 

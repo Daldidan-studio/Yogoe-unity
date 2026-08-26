@@ -16,11 +16,18 @@ namespace KSpirits.Animation
         float _punctuationHold = 0.06f;
         float _speedMultiplier = 1f;
 
+        bool _paused;
+
         public bool IsTyping { get; private set; }
         public bool IsComplete { get; private set; }
 
         /// <summary>꾹 누르고 있는 동안 타이핑 속도를 배속(on=3배)으로 전환.</summary>
         public void SetFastForward(bool on) => _speedMultiplier = on ? 3f : 1f;
+
+        /// <summary>타이핑 중이면 그 자리에서 멈추고, Resume() 전까지 한 글자도 더 안 나간다.</summary>
+        public void Pause() => _paused = true;
+
+        public void Resume() => _paused = false;
 
         public void Bind(Text body) => _body = body;
 
@@ -33,6 +40,7 @@ namespace KSpirits.Animation
         public void Play(string fullText)
         {
             Stop();
+            _paused = false;
             _fullText = fullText ?? "";
             IsTyping = true;
             IsComplete = false;
@@ -80,13 +88,21 @@ namespace KSpirits.Animation
 
             for (int i = 0; i < _fullText.Length; i++)
             {
+                while (_paused) yield return null;
+
                 _body.text = _fullText.Substring(0, i + 1);
                 char c = _fullText[i];
                 float delay = 1f / _charsPerSecond / _speedMultiplier;
-                if (c is '.' or '!' or '?' or '…' or ',' or '，' or '。')
-                    yield return new WaitForSeconds(delay + _punctuationHold / _speedMultiplier);
-                else
-                    yield return new WaitForSeconds(delay);
+                float total = c is '.' or '!' or '?' or '…' or ',' or '，' or '。'
+                    ? delay + _punctuationHold / _speedMultiplier
+                    : delay;
+
+                float t = 0f;
+                while (t < total)
+                {
+                    if (!_paused) t += Time.deltaTime;
+                    yield return null;
+                }
             }
 
             IsTyping = false;

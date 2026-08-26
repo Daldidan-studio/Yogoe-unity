@@ -191,6 +191,7 @@ namespace KSpirits.UI
             {
                 YutGame = _trainingPanel.GetComponent<YutMiniGame>() ?? _trainingPanel.AddComponent<YutMiniGame>();
                 YutGame.BindFromHierarchy();
+                YutGame.OnRulesPanelToggled += HandleRulesPanelToggled;
             }
 
             if (_coinText == null)
@@ -385,6 +386,13 @@ namespace KSpirits.UI
             yield return new WaitForSeconds(1.5f);
             _statusText.text = previousStatus;
             _shopToastRoutine = null;
+        }
+
+        // 윷놀이 족보 패널이 열리고 닫힐 때 — 열려있는 동안엔 타이핑 중인 대사도 그 자리서 멈춘다
+        void HandleRulesPanelToggled(bool open)
+        {
+            if (open) _typewriter?.Pause();
+            else _typewriter?.Resume();
         }
 
         void HandleSettingsTapped()

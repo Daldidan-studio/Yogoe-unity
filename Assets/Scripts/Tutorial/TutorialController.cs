@@ -132,6 +132,7 @@ namespace KSpirits.Tutorial
             _ui.YutGame.Hide();
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
+            _ui.YutGame.ShowRulesPanel(false); // 열어둔 채로 점프하면 타이핑이 계속 paused로 남기 때문
             _ui.RestoreYokaiOnScroll();
             _ui.SetYokaiInteractable(false);
 
