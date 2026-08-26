@@ -113,6 +113,27 @@ namespace KSpirits.Tutorial
             _waitingInput = false;
             _cardReplayRequested = false;
             _trainingButtonPressed = false;
+            _inFreePlay = false;
+
+            // 어느 스텝에서 점프해오든, 그 스텝이 켜뒀을 수 있는 일시적 연출/오버레이를
+            // 전부 꺼서 깨끗한 상태에서 시작한다 — 원래는 각 스텝이 끝나면서 스스로 정리하는데,
+            // StopAllCoroutines()로 중간에 끊기면 그 정리가 안 돌기 때문.
+            _state.ScrollMode = ScrollMode.Nurture;
+            _ui.HideStoryOverlay();
+            _ui.SetGlitchVisible(false);
+            _ui.ShowDoppelganger(false);
+            _ui.HideDialogue();
+            _ui.SetTrainingButtonVisible(false);
+            _ui.SetTrainingHighlight(false);
+            _ui.SetOfferButtonVisible(false);
+            _ui.SetOfferingHighlight(false);
+            _ui.HighlightItemBar(false);
+            _ui.PulseEnergyBar(false);
+            _ui.YutGame.Hide();
+            _ui.YutGame.SetThrowVisible(false);
+            _ui.YutGame.SetLeaveVisible(false);
+            _ui.RestoreYokaiOnScroll();
+            _ui.SetYokaiInteractable(false);
 
             if (step >= TutorialStepId.EvolveToApparition)
                 _state.FocusYokai.SetStage(YokaiStage.Apparition);
