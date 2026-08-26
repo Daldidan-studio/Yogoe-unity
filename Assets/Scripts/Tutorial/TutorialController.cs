@@ -80,6 +80,8 @@ namespace KSpirits.Tutorial
             _ui.YutGame.OnThrowPressed += HandleThrowYut;
             // 수련장 나가기 버튼
             _ui.YutGame.OnLeavePressed += HandleLeaveTraining;
+            // 윷놀이 족보 패널 닫기
+            _ui.YutGame.OnRulesClosed += HandleRulesClosed;
             // 요괴패 카드 뷰어(X로 닫기 / 재생 버튼)
             _ui.EnsureCardViewer().OnClosed += HandleCardClosed;
             _ui.CardUI.OnReplayRequested += HandleCardReplayRequested;
@@ -351,8 +353,8 @@ namespace KSpirits.Tutorial
             _ui.YutGame.ShowResult("개!");
 
             _ui.YutGame.ShowRulesPanel(true);
-            yield return new WaitForSecondsRealtime(1.6f);
-            _ui.YutGame.ShowRulesPanel(false);
+            _ui.ShowStatus("족보를 확인하고 닫아주세요");
+            yield return WaitInput();
 
             int playerNode = 0;
             var toTwo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
@@ -881,6 +883,12 @@ namespace KSpirits.Tutorial
 
         // 카드 뷰어 X로 닫힘 → 대기 해제
         void HandleCardClosed()
+        {
+            if (_waitingInput) _waitingInput = false;
+        }
+
+        // 윷놀이 족보 패널을 유저가 직접 닫음 → 대기 해제
+        void HandleRulesClosed()
         {
             if (_waitingInput) _waitingInput = false;
         }

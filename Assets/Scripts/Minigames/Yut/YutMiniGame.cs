@@ -18,6 +18,7 @@ namespace KSpirits.Minigames.Yut
     {
         public event Action OnThrowPressed;
         public event Action OnLeavePressed;
+        public event Action OnRulesClosed;
 
         Text _resultText;
         Image[] _heartIcons;
@@ -115,13 +116,22 @@ namespace KSpirits.Minigames.Yut
             _pads[nodeId].color = new Color(1f, 0.95f, 0.4f, 1f);
         }
 
-        /// <summary>윷놀이 족보(확률표) 참고 패널. "?" 버튼으로도 토글되고, 코드에서 직접 열어줄 수도 있다.</summary>
+        /// <summary>
+        /// 윷놀이 족보(확률표) 참고 패널. "?" 버튼으로도 토글되고, 코드에서 직접 열어줄 수도 있다.
+        /// 유저가 직접 닫기 전까지는(닫기 버튼 or "?" 토글) 안 닫힌다 — 열려 있다가 닫히는 순간에만
+        /// OnRulesClosed를 쏴서, 호출부가 "닫을 때까지 대기"를 걸 수 있게 한다.
+        /// </summary>
         public void ShowRulesPanel(bool on)
         {
             EnsureBoard();
             if (_rulesPanel == null) return;
+
+            bool wasOpen = _rulesPanel.activeSelf;
             _rulesPanel.SetActive(on);
             if (on) _rulesPanel.transform.SetAsLastSibling();
+
+            if (wasOpen && !on)
+                OnRulesClosed?.Invoke();
         }
 
         static bool IsWaypoint(int nodeId) =>
