@@ -32,6 +32,7 @@ namespace KSpirits.Minigames.Yut
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         Button _rulesButton;
         GameObject _rulesPanel;
+        GameObject _rulesBlocker;
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
@@ -120,6 +121,8 @@ namespace KSpirits.Minigames.Yut
         /// 윷놀이 족보(확률표) 참고 패널. "?" 버튼으로도 토글되고, 코드에서 직접 열어줄 수도 있다.
         /// 유저가 직접 닫기 전까지는(닫기 버튼 or "?" 토글) 안 닫힌다 — 열려 있다가 닫히는 순간에만
         /// OnRulesClosed를 쏴서, 호출부가 "닫을 때까지 대기"를 걸 수 있게 한다.
+        /// 전체화면 블로커를 같이 켜서, 보고 있는 동안엔 던지기/나가기 등 다른 입력이 안 먹는다 —
+        /// 게임이 실제로 멈춘 것처럼 보이게 하기 위함.
         /// </summary>
         public void ShowRulesPanel(bool on)
         {
@@ -127,8 +130,13 @@ namespace KSpirits.Minigames.Yut
             if (_rulesPanel == null) return;
 
             bool wasOpen = _rulesPanel.activeSelf;
+            _rulesBlocker.SetActive(on);
             _rulesPanel.SetActive(on);
-            if (on) _rulesPanel.transform.SetAsLastSibling();
+            if (on)
+            {
+                _rulesBlocker.transform.SetAsLastSibling();
+                _rulesPanel.transform.SetAsLastSibling();
+            }
 
             if (wasOpen && !on)
                 OnRulesClosed?.Invoke();
@@ -246,6 +254,14 @@ namespace KSpirits.Minigames.Yut
 
             _rulesButton = CreateButton(transform, "RulesToggle", "?", () => ShowRulesPanel(!_rulesPanel.activeSelf));
             SetAnchor(_rulesButton.GetComponent<RectTransform>(), 0.9f, 0.68f, 0.98f, 0.775f, 0, 0, 0, 0);
+
+            // 던지기/나가기 버튼 등 뒤쪽 입력을 막는 전체화면 블로커. 패널보다 한 칸 아래(먼저 생성)에 둬서
+            // 패널·닫기 버튼 클릭은 그대로 받고, 그 바깥은 다 막는다.
+            _rulesBlocker = new GameObject("RulesBlocker", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _rulesBlocker.transform.SetParent(transform, false);
+            Stretch((RectTransform)_rulesBlocker.transform);
+            _rulesBlocker.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.4f);
+            _rulesBlocker.SetActive(false);
 
             _rulesPanel = new GameObject("RulesPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _rulesPanel.transform.SetParent(transform, false);
