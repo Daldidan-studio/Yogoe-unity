@@ -57,6 +57,8 @@ namespace KSpirits.Tutorial
         bool _inFreePlay;
         bool _freeThrowPressed;
         bool _freeLeavePressed;
+        // 족보 패널 대기 전용 플래그. _waitingInput과 절대 공유하지 않는다(위 HandleRulesClosed 참고).
+        bool _rulesPanelWaiting;
 
         // 외부에서 현재 상태 읽을 때 사용
         public GameState State => _state;
@@ -114,6 +116,7 @@ namespace KSpirits.Tutorial
             _cardReplayRequested = false;
             _trainingButtonPressed = false;
             _inFreePlay = false;
+            _rulesPanelWaiting = false;
 
             // 어느 스텝에서 점프해오든, 그 스텝이 켜뒀을 수 있는 일시적 연출/오버레이를
             // 전부 꺼서 깨끗한 상태에서 시작한다 — 원래는 각 스텝이 끝나면서 스스로 정리하는데,
@@ -376,7 +379,7 @@ namespace KSpirits.Tutorial
 
             _ui.YutGame.ShowRulesPanel(true);
             _ui.ShowStatus("족보를 확인하고 닫아주세요");
-            yield return WaitInput();
+            yield return WaitRulesClosed();
 
             int playerNode = 0;
             var toTwo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
@@ -812,6 +815,14 @@ namespace KSpirits.Tutorial
             yield return WaitInput();
         }
 
+        // 족보 패널을 유저가 닫을 때까지 대기 — _waitingInput과 분리된 전용 플래그를 쓴다
+        // (다른 WaitInput() 대기 중에 "?"를 열었다 닫아도 그 대기가 같이 풀려버리면 안 되므로).
+        IEnumerator WaitRulesClosed()
+        {
+            _rulesPanelWaiting = true;
+            while (_rulesPanelWaiting) yield return null;
+        }
+
         // ─────────────────────────────────────────────
         // 입력 핸들러: WaitInput()을 풀어주는 쪽
         // ─────────────────────────────────────────────
@@ -909,10 +920,13 @@ namespace KSpirits.Tutorial
             if (_waitingInput) _waitingInput = false;
         }
 
-        // 윷놀이 족보 패널을 유저가 직접 닫음 → 대기 해제
+        // 윷놀이 족보 패널을 유저가 직접 닫음 → _waitingInput은 절대 안 건드린다.
+        // 족보는 대사가 이미 WaitInput()으로 대기 중일 때도 "?"로 열어볼 수 있는데,
+        // 그 상태에서 닫았다고 _waitingInput까지 false로 만들면 지금 멈춰있던 그 대사가
+        // "탭해서 다음으로" 취급돼서 그냥 넘어가 버린다 — 그래서 별도 플래그로 뺐다.
         void HandleRulesClosed()
         {
-            if (_waitingInput) _waitingInput = false;
+            _rulesPanelWaiting = false;
         }
 
         // 카드 뷰어 재생 버튼 → StepCardComplete의 대기 루프가 직접 재생을 이어서 처리
