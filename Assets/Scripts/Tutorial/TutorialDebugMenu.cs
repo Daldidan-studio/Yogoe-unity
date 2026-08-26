@@ -1,5 +1,8 @@
 using System;
 using KSpirits.Core;
+using KSpirits.Data;
+using KSpirits.Model;
+using KSpirits.Systems;
 using KSpirits.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,18 +13,21 @@ namespace KSpirits.Tutorial
     /// 개발용 튜토리얼 스텝 점프 메뉴. CI 빌드가 Development Build 옵션 없이 도는 탓에
     /// UNITY_EDITOR/DEVELOPMENT_BUILD로는 걸러지지 않아, 지금은 모든 빌드에 항상 포함된다.
     /// 화면 구석 🐞 버튼을 누르면 스텝 목록이 펼쳐지고, 하나 고르면
-    /// TutorialController.DebugJumpToStep으로 바로 진입한다.
+    /// TutorialController.DebugJumpToStep으로 바로 진입한다. 맨 위 별도 버튼은
+    /// 본게임 수련장(NurtureTrainingController)을 고라니왕 소환 상태로 바로 테스트한다.
     /// </summary>
     public class TutorialDebugMenu : MonoBehaviour
     {
         TutorialController _tutorial;
+        NurtureTrainingController _nurtureTraining;
         ScrollScreenUI _ui;
         GameObject _panel;
         bool _open;
 
-        public void Bind(TutorialController tutorial, ScrollScreenUI ui)
+        public void Bind(TutorialController tutorial, ScrollScreenUI ui, NurtureTrainingController nurtureTraining = null)
         {
             _tutorial = tutorial;
+            _nurtureTraining = nurtureTraining;
             _ui = ui;
             BuildToggle();
         }
@@ -31,6 +37,37 @@ namespace KSpirits.Tutorial
             var toggle = CreateButton(_ui.transform, "DebugToggle", "DEV", TogglePanel);
             toggle.transform.SetAsLastSibling();
             SetAnchor(toggle.GetComponent<RectTransform>(), 0.02f, 0.965f, 0.14f, 0.998f, 0, 0, 0, 0);
+
+            var yutJump = CreateButton(_ui.transform, "GoraniYutJump", "고라니왕 수련장", JumpToGoraniTraining);
+            yutJump.transform.SetAsLastSibling();
+            SetAnchor(yutJump.GetComponent<RectTransform>(), 0.15f, 0.965f, 0.4f, 0.998f, 0, 0, 0, 0);
+            var jumpLabel = yutJump.GetComponentInChildren<Text>();
+            if (jumpLabel != null) jumpLabel.fontSize = 15;
+        }
+
+        /// <summary>
+        /// 튜토리얼을 건너뛰고, 고라니왕이 이미 소환된 본게임 상태로 만든 뒤
+        /// 곧바로 수련장 윷놀이 세션을 시작한다 (본게임 윷놀이 테스트용).
+        /// </summary>
+        void JumpToGoraniTraining()
+        {
+            if (_tutorial == null || _nurtureTraining == null) return;
+
+            var entry = SummonCatalog.Pick(0); // 고라니왕 (첫 보장 소환)
+            var state = _tutorial.State;
+            state.FocusYokai = new YokaiInstance(entry.Id, entry.DisplayName)
+            {
+                Stage = YokaiStage.Manifest,
+                Energy = GameConstants.EnergyMax,
+                Intimacy = 50
+            };
+            state.TotalSummons = Math.Max(state.TotalSummons, 1);
+            state.Wallet.Hearts = GameConstants.HeartMax;
+
+            _tutorial.DebugJumpToStep(TutorialStepId.Done);
+            _nurtureTraining.BeginSessionForDebug();
+
+            if (_open) TogglePanel();
         }
 
         void TogglePanel()

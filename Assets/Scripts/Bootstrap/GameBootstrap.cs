@@ -45,8 +45,11 @@ namespace KSpirits.Bootstrap
             tutorial.Bind(state, _ui, summon);
             tutorial.Begin();
 
+            var nurtureTraining = gameObject.GetComponent<NurtureTrainingController>() ?? gameObject.AddComponent<NurtureTrainingController>();
+            nurtureTraining.Bind(state, _ui);
+
             var debugMenu = gameObject.GetComponent<TutorialDebugMenu>() ?? gameObject.AddComponent<TutorialDebugMenu>();
-            debugMenu.Bind(tutorial, _ui);
+            debugMenu.Bind(tutorial, _ui, nurtureTraining);
         }
 
         void Start()
