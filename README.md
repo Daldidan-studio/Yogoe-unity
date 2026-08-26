@@ -10,8 +10,8 @@
 - [x] 옥토끼 튜토리얼 STEP 1~14 **로직 골격**
 - [x] 대사 JSON + 타이핑/스킵
 - [x] UI 연출 클립 JSON
-- [x] 세이브 (slot0 JSON, 스텝 재개)
-- [x] 윷놀이 미니게임 분리 (`Minigames/Yut/`) — 29밭 보드·지름길 규칙·확률표까지, 본게임 RNG 루프는 미연결
+- [x] 세이브 (slot0 JSON, 원자적 쓰기 + 백업, 스텝/던지기 단위 재개)
+- [x] 윷놀이 미니게임 분리 (`Minigames/Yut/`) — 29밭 보드·지름길 규칙·확률표, 본게임 수련장(`NurtureTrainingController`)에서 실제 RNG 루프로 연결됨
 - [x] 요괴패 카드 뷰어 분리 (`Cards/`) — 확대·드래그 뒤집기·재생, 도감 화면 자체는 아직 없음
 - [ ] 아트 스프라이트 적용
 - [ ] 소환 화면 실구현
@@ -61,13 +61,14 @@ Assets/
     Data/            대사 JSON 로더 (OktoDialogue, SummonCatalog)
     Animation/       연출 카탈로그·타이핑·플레이어
     Model/           게임 상태 (기력·친밀도·재화·카드)
-    Systems/         세이브(JSON slot0), 소환 컨트롤러/서비스
+    Systems/         세이브(JSON slot0), 소환 컨트롤러/서비스, 본게임 수련장 루프(NurtureTrainingController)
     Tutorial/        옥토끼 14스텝 머신 + 개발용 스텝 점프 메뉴
     UI/              족자 화면(ScrollScreenUI)·드래그 공양·폰트 공통 처리
     Minigames/Yut/   윷놀이 미니게임 (독립 모듈, YutMiniGame 아래 참고)
     Cards/           요괴패 카드 뷰어 (독립 모듈, CardViewer 아래 참고)
   Resources/
-    Dialogue/okto_tutorial.ko.json  튜토리얼 대사·선택지 (언어별)
+    Dialogue/okto_tutorial.ko.json      튜토리얼 대사·선택지 (언어별)
+    Dialogue/gorani_wang_story.ko.json  고라니왕 혼1~3 스토리·선택지·엔딩 대사 (기획서에서 이관, 아직 로더/재생 미연결)
     Animation/ui_anims.json       shake / flash / typewriter 등
     Settings/UIFontSettings.asset 역할별(기본/대사/유저정보/HUD숫자) 폰트 지정
   Fonts/DOSGothic.ttf   전체 UI 기본 폰트
@@ -87,8 +88,12 @@ Docs/
 | `YutMiniGame.cs` | 화면(전체화면 보드·윷가락 던지기 연출·하트 표시)과 입력 이벤트만 담당. 결과 판정은 모른다 |
 | `YutBoardLayout.cs` | 전통 윷판 29발(바깥 둘레 20 + 대각선 지름길 8 + 중앙 방 1) 좌표 |
 | `YutMoveResolver.cs` | 던지기 결과(도/개/걸/윷/모/빽도) → 실제 지나가는 노드 경로 계산 (지름길·빽도 규칙 포함) |
-| `YutThrowRoller.cs` | 확률표(모1·빽도1·도3·개6·걸4·윷1, 16분의) 기반 RNG 판정 — 아직 어디서도 호출 안 함, 본게임 던지기 루프용 준비물 |
+| `YutThrowRoller.cs` | 확률표(모1·빽도1·도3·개6·걸4·윷1, 16분의) 기반 RNG 판정 — `NurtureTrainingController`가 실제로 호출 |
 | `YutBoardQuadrant.cs` | 두 대각선이 나누는 4구역(던진 윷 표시/특수능력/대기말/완주말+보물) enum — 첫 구역만 사용 중 |
+
+### 본게임 수련장 (`Systems/NurtureTrainingController.cs`)
+
+튜토리얼이 끝난 뒤(`TutorialStep.Done`) 수련장에서 실제로 도는 윷놀이 루프. 튜토리얼의 `StepTraining()`은 빽도→도 두 번만 재생하는 스크립트고, 이쪽은 `YutThrowRoller`로 진짜 확률표 기반 던지기를 돌려 `YutMoveResolver`로 이동한다. 참으로 돌아오면 완주(엽전 +1), 모/윷은 하트 소모 없이 한 번 더. 아직 말 1개짜리 최소 루프라 업기·잡기·상대 말은 다음 단계.
 
 ### 요괴패 카드 뷰어 (`Cards/`)
 
@@ -96,7 +101,7 @@ Docs/
 
 ### 개발용 디버그 메뉴
 
-화면 좌상단 **DEV** 버튼 → 튜토리얼 15스텝 목록에서 원하는 지점으로 바로 진입 (`TutorialController.DebugJumpToStep`). 이전 스텝들의 연출은 재생하지 않고 최소한의 전제 상태(카드 해금, 진화 단계 등)만 맞춰준다 — 매번 처음부터 플레이하지 않고 특정 단계를 바로 테스트할 때 사용. 별도 빌드 옵션 없이 항상 포함됨.
+화면 좌상단 **DEV** 버튼 → 튜토리얼 15스텝 목록에서 원하는 지점으로 바로 진입 (`TutorialController.DebugJumpToStep`). 이전 스텝들의 연출은 재생하지 않고 최소한의 전제 상태(카드 해금, 진화 단계 등)만 맞춰준다 — 매번 처음부터 플레이하지 않고 특정 단계를 바로 테스트할 때 사용. 옆의 **고라니왕 수련장** 버튼은 튜토리얼을 건너뛰고 고라니왕을 즉석 소환한 상태로 만든 뒤 본게임 수련장(`NurtureTrainingController`) 세션을 바로 시작한다. 별도 빌드 옵션 없이 항상 포함됨.
 
 ### ⚠️ UI 코드 수정 시 주의
 
@@ -104,9 +109,11 @@ Docs/
 
 ## 세이브
 
-- 경로: 기기 `persistentDataPath/save_slot0.json`
-- 튜토리얼 **스텝 경계**에서 저장 → 재실행 시 그 스텝부터
-- 앱 백그라운드/종료 시에도 저장
+- 경로: 기기 `persistentDataPath/save_slot0.json` (+ `.bak` 백업, 쓰는 동안만 `.tmp`)
+- **원자적 쓰기**: `.tmp`에 먼저 쓰고 → 기존 정식 파일을 `.bak`으로 복사 → `.tmp`를 정식 파일로 교체. 저장 도중 앱이 죽어도 정식 파일 또는 백업 중 하나는 항상 온전함
+- **로드 시 백업 폴백**: 정식 파일 파싱이 실패하면 자동으로 `.bak`을 시도, 그것도 실패해야 새 게임으로 시작
+- **WebGL IndexedDB sync**: WebGL의 `persistentDataPath`는 IndexedDB 위에 얹힌 가상 파일시스템(IDBFS)이라 `File.Write`만으로는 새로고침 시 사라질 수 있음 — 저장/삭제할 때마다 `Assets/Plugins/WebGL/YogoeSave.jslib`의 `FS.syncfs()`를 호출해 명시적으로 반영
+- 저장 시점: 튜토리얼 **스텝 경계**, 본게임 수련장 **던지기 1회마다**(`NurtureTrainingController`), 앱 백그라운드/종료 시(`SaveHost`)
 - 스키마 v1: 튜토리얼·지갑·포커스 요괴·옥토끼 카드 (+ 슬롯/도감 예비 배열)
 
 ## 데이터 수정

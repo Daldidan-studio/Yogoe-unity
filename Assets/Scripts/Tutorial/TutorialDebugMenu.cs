@@ -55,12 +55,14 @@ namespace KSpirits.Tutorial
 
             var entry = SummonCatalog.Pick(0); // 고라니왕 (첫 보장 소환)
             var state = _tutorial.State;
-            state.FocusYokai = new YokaiInstance(entry.Id, entry.DisplayName)
+            var gorani = new YokaiInstance(entry.Id, entry.DisplayName)
             {
                 Stage = YokaiStage.Manifest,
                 Energy = GameConstants.EnergyMax,
                 Intimacy = 50
             };
+            state.OwnedYokai.Add(gorani);
+            state.FocusYokai = gorani;
             state.TotalSummons = Math.Max(state.TotalSummons, 1);
             state.Wallet.Hearts = GameConstants.HeartMax;
 

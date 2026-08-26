@@ -116,6 +116,9 @@ namespace KSpirits.Systems
                     _ui.ShowStatus("완주! 엽전 +1");
                 }
                 _ui.RefreshAll(_state);
+                // 던지기마다 하트·엽전·기력이 바뀌므로, 그 자리에서 바로 저장해서
+                // 세션 도중 앱이 강종돼도 이번 던지기까지의 보상은 남게 한다.
+                SaveService.Save(_state);
 
                 if (outcome.GrantsBonusThrow)
                     freeThrow = true;
@@ -127,6 +130,7 @@ namespace KSpirits.Systems
             _ui.YutGame.SetLeaveVisible(false);
             _ui.SetTrainingButtonVisible(true);
             _ui.RefreshAll(_state);
+            SaveService.Save(_state);
             _active = false;
         }
 

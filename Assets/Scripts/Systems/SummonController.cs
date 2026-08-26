@@ -33,6 +33,8 @@ namespace KSpirits.Systems
 
         void HandleSummonConfirmed(YokaiInstance yokai, SummonEntry entry)
         {
+            // 이전에 육성하던 요괴는 버리지 않고 보유 목록에 남겨둔 채, 새로 소환한 애로 포커스만 옮긴다.
+            _state.OwnedYokai.Add(yokai);
             _state.FocusYokai = yokai;
             _state.ScrollMode = ScrollMode.Nurture;
             _state.TutorialStep = TutorialStepId.Done;

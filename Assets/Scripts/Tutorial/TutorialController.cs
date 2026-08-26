@@ -113,10 +113,10 @@ namespace KSpirits.Tutorial
             if (step >= TutorialStepId.EvolveToManifest)
                 _state.FocusYokai.SetStage(YokaiStage.Manifest);
             if (step > TutorialStepId.BlackeningChoice)
-                _state.OktoCard.BackUnlocked = true;
+                _state.FocusYokai.Card.BackUnlocked = true;
             _ui.SetYokaiBlackened(step > TutorialStepId.BlackeningChoice && step <= TutorialStepId.ImugiRestore);
             if (step > TutorialStepId.WishBranch)
-                _state.OktoCard.FrontUnlocked = true;
+                _state.FocusYokai.Card.FrontUnlocked = true;
             if (step >= TutorialStepId.Done)
                 _state.TutorialFinished = true;
 
@@ -473,7 +473,7 @@ namespace KSpirits.Tutorial
             yield return WaitChoice(OktoDialogue.BlackeningChoices);
 
             // 카드 뒷면 해금 + 요괴 흑화 연출
-            _state.OktoCard.BackUnlocked = true;
+            _state.FocusYokai.Card.BackUnlocked = true;
             _ui.SetYokaiBlackened(true);
             yield return PlayLines(OktoDialogue.Blackening, OktoDialogueSection.Blackening);
             yield return Advance(TutorialStepId.BlackRabbitFlee);
@@ -539,7 +539,7 @@ namespace KSpirits.Tutorial
             _ui.ShowDoppelganger(true);
             yield return PlayLines(OktoDialogue.Doppelganger, OktoDialogueSection.Doppelganger);
             _ui.ShowDoppelganger(false);
-            _state.OktoCard.FrontUnlocked = true;
+            _state.FocusYokai.Card.FrontUnlocked = true;
             _state.LastEnding = EndingType.TutorialComplete;
             yield return Advance(TutorialStepId.CardComplete);
         }
@@ -550,7 +550,7 @@ namespace KSpirits.Tutorial
         IEnumerator StepCardComplete()
         {
             // 완성 카드 UI 표시 → X로 닫으면 계속, 재생 버튼이면 스토리 다시 보여주고 카드로 복귀
-            _ui.CardUI.Show(_state.OktoCard, BuildOktoCardContent());
+            _ui.CardUI.Show(_state.FocusYokai.Card, BuildOktoCardContent());
             while (true)
             {
                 yield return WaitInput();
@@ -561,7 +561,7 @@ namespace KSpirits.Tutorial
                 yield return PlayLines(
                     _cardReplayShowingBack ? OktoDialogue.Blackening : OktoDialogue.Doppelganger,
                     _cardReplayShowingBack ? OktoDialogueSection.Blackening : OktoDialogueSection.Doppelganger);
-                _ui.CardUI.Show(_state.OktoCard, BuildOktoCardContent());
+                _ui.CardUI.Show(_state.FocusYokai.Card, BuildOktoCardContent());
             }
             yield return PlayLines(OktoDialogue.CardAndIncense, OktoDialogueSection.CardAndIncense);
             // 소환용 향 지급
