@@ -53,6 +53,10 @@ namespace KSpirits.Tutorial
         // 카드 뷰어에서 재생 버튼을 눌렀는지 (WaitInput 공유 플래그라 StepCardComplete가 직접 분기)
         bool _cardReplayRequested;
         bool _cardReplayShowingBack;
+        // 수련장 각본(이무기 대결)이 끝난 뒤 진짜 RNG로 자유롭게 던지는 구간인지
+        bool _inFreePlay;
+        bool _freeThrowPressed;
+        bool _freeLeavePressed;
 
         // 외부에서 현재 상태 읽을 때 사용
         public GameState State => _state;
@@ -319,60 +323,207 @@ namespace KSpirits.Tutorial
         }
 
         // ─────────────────────────────────────────────
-        // STEP 5: 수련장 윷놀이 (스크립트된 연출)
+        // STEP 5: 수련장 윷놀이
+        // 이무기와의 대결 각본(캡처·보너스 던지기·지름길·엽전 칸을 한 번씩 다 보여줌)을
+        // 재생한 뒤, 진짜 확률표 기반 자유 던지기로 넘어간다. 참(시작점)에서는 절대
+        // 골인 판정이 나지 않는다 — GetPath로 실제 이동 거리를 계산해서만 완주를 확인한다.
         // ─────────────────────────────────────────────
         IEnumerator StepTraining()
         {
             _ui.SetTrainingHighlight(false);
-            // 화면 모드를 수련장으로
             _state.ScrollMode = ScrollMode.Training;
             _ui.SetTrainingButtonVisible(false);
-            // 윷판 표시, 말 위치 시작점
             _ui.YutGame.Show();
             _ui.YutGame.SetPieceIndex(0);
+            _ui.YutGame.ShowOpponentPiece(false);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.TrainingIntro, OktoDialogueSection.TrainingIntro);
 
-            // --- 1번째 던지기: 빽도 (고정 연출) ---
+            // --- 유저 1번째 던지기: 개 (고정 연출) ---
             _ui.YutGame.SetThrowVisible(true);
             _ui.ShowStatus("하트 1개를 쓰고 윷을 던져보세요");
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
-            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Baekdo);
-            _ui.YutGame.ShowResult("빽도!");
-            yield return MoveYutPiece(YutMoveResolver.GetPath(0, YutThrowResult.Baekdo), 0.35f);
-            _state.Wallet.Coins += 1;
+            _ui.YutGame.SetThrowVisible(false);
             _ui.RefreshAll(_state);
-            _ui.ShowStatus("엽전 +1");
-            yield return PlayLines(OktoDialogue.AfterBaekdo, OktoDialogueSection.AfterBaekdo);
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
+            _ui.YutGame.ShowResult("개!");
 
-            // --- 2번째 던지기: 도 → 골인 (고정 연출) ---
+            _ui.YutGame.ShowRulesPanel(true);
+            yield return new WaitForSecondsRealtime(1.6f);
+            _ui.YutGame.ShowRulesPanel(false);
+
+            int playerNode = 0;
+            var toTwo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
+            _ui.YutGame.FlashNode(toTwo[^1]);
+            yield return PlayLines(OktoDialogue.TrainingGaeFirst, OktoDialogueSection.TrainingGaeFirst);
+            yield return MoveYutPiece(toTwo, 0.35f);
+            playerNode = toTwo[^1];
+            _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
+            _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
+            _ui.RefreshAll(_state);
+
+            // --- 턴 넘김: 이무기 등장 ---
+            yield return PlayLines(OktoDialogue.TrainingPassToImugi, OktoDialogueSection.TrainingPassToImugi);
+            _ui.YutGame.ShowOpponentPiece(true);
+            _ui.YutGame.SetOpponentPieceIndex(0);
+            int imugiNode = 0;
+
+            // --- 이무기 1번째 던지기: 개 (고정) → 옥토끼 말과 같은 칸 → 캡처 ---
+            yield return PlayLines(OktoDialogue.TrainingImugiThrow1, OktoDialogueSection.TrainingImugiThrow1);
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
+            var imugiToTwo = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Gae);
+            yield return MoveOpponentPiece(imugiToTwo, 0.35f);
+            imugiNode = imugiToTwo[^1];
+
+            yield return PlayLines(OktoDialogue.TrainingCapture, OktoDialogueSection.TrainingCapture);
+            playerNode = YutBoardLayout.Start;
+            _ui.YutGame.SetPieceIndex(playerNode);
+
+            // --- 이무기 보너스 던지기(캡처 보상): 도 (고정) ---
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Do);
+            var imugiToThree = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Do);
+            yield return MoveOpponentPiece(imugiToThree, 0.35f);
+            imugiNode = imugiToThree[^1];
+            yield return PlayLines(OktoDialogue.TrainingImugiBonus, OktoDialogueSection.TrainingImugiBonus);
+
+            // --- 유저 2번째 던지기: 모 (고정, 참에서 시작이라 모서리에 정확히 도착) ---
             _ui.YutGame.SetThrowVisible(true);
             _ui.ShowStatus("다시 윷을 던져주세요");
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
+            _ui.YutGame.SetThrowVisible(false);
+            _ui.RefreshAll(_state);
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Mo);
+            var toMo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Mo);
+            yield return MoveYutPiece(toMo, 0.35f);
+            playerNode = toMo[^1];
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
             _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
-            _state.Wallet.PurifiedWater += 1;
-            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Do);
-            _ui.YutGame.ShowResult("도 → 골인!");
-            yield return MoveYutPiece(YutMoveResolver.GetPath(19, YutThrowResult.Do), 0.35f);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.AfterGoal, OktoDialogueSection.AfterGoal);
+            yield return PlayLines(OktoDialogue.TrainingMoResult, OktoDialogueSection.TrainingMoResult);
 
-            // 나가기 버튼
-            _ui.YutGame.SetLeaveVisible(true);
-            _ui.ShowStatus("수련장을 나가주세요");
+            // --- 유저 보너스 던지기(모 덕분, 하트 소모 없음): 개 (고정, 지름길 진입) ---
+            _ui.YutGame.SetThrowVisible(true);
             yield return WaitInput();
+
+            _ui.YutGame.SetThrowVisible(false);
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
+            var toShortcut = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
+            yield return MoveYutPiece(toShortcut, 0.35f);
+            playerNode = toShortcut[^1];
+            _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
+            _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
+            _ui.RefreshAll(_state);
+            yield return PlayLines(OktoDialogue.TrainingShortcut, OktoDialogueSection.TrainingShortcut);
+
+            // --- 엽전 칸 ---
+            _state.Wallet.Coins += 1;
+            _ui.RefreshAll(_state);
+            yield return PlayLines(OktoDialogue.TrainingCoinTile, OktoDialogueSection.TrainingCoinTile);
+
+            // --- 이무기 마지막 턴: 걸 (고정) ---
+            _ui.ShowStatus("이무기 님 차례 — 걸!");
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Geol);
+            var imugiToSix = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Geol);
+            yield return MoveOpponentPiece(imugiToSix, 0.35f);
+
+            // --- 컨트롤 이양: 여기서부터는 진짜 확률표 기반 자유 던지기 ---
+            yield return PlayLines(OktoDialogue.TrainingHandoff, OktoDialogueSection.TrainingHandoff);
+            yield return RunFreeYutPlay(playerNode);
 
             // 육성 화면으로 복귀
             _state.ScrollMode = ScrollMode.Nurture;
+            _ui.YutGame.ShowOpponentPiece(false);
+            _ui.YutGame.ShowRulesPanel(false);
             _ui.YutGame.Hide();
             _ui.YutGame.SetLeaveVisible(false);
             _ui.YutGame.SetThrowVisible(false);
             yield return Advance(TutorialStepId.ItemCollect);
+        }
+
+        /// <summary>
+        /// 각본이 끝난 뒤 진짜 확률표(YutThrowRoller)로 던지는 자유 구간.
+        /// 참으로 돌아와야만 완주로 치고(시작점에서는 골인 불가), 모/윷은 하트 없이 한 번 더.
+        /// </summary>
+        IEnumerator RunFreeYutPlay(int startNode)
+        {
+            _inFreePlay = true;
+            int pieceNode = startNode;
+            bool freeThrow = false;
+
+            while (true)
+            {
+                if (!freeThrow && _state.Wallet.Hearts <= 0)
+                {
+                    _ui.YutGame.SetThrowVisible(false);
+                    _ui.YutGame.SetLeaveVisible(true);
+                    _ui.YutGame.ShowResult("하트가 없어요");
+                    yield return WaitFreeThrowOrLeave();
+                    break;
+                }
+
+                _ui.YutGame.SetThrowVisible(true);
+                _ui.YutGame.SetLeaveVisible(true);
+                _ui.ShowStatus("윷을 던지거나 뒤로가기를 눌러주세요");
+                yield return WaitFreeThrowOrLeave();
+                if (_freeLeavePressed) break;
+
+                if (!freeThrow)
+                    _state.Wallet.TrySpendHearts(1);
+                freeThrow = false;
+                _ui.YutGame.SetThrowVisible(false);
+                _ui.RefreshAll(_state);
+
+                var outcome = YutThrowRoller.Roll();
+                yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
+
+                var path = YutMoveResolver.GetPath(pieceNode, outcome.Result);
+                bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);
+
+                _ui.YutGame.ShowResult(finished
+                    ? $"{outcome.Result.DisplayName()} → 골인!"
+                    : outcome.GrantsBonusThrow
+                        ? $"{outcome.Result.DisplayName()}! (한 번 더)"
+                        : $"{outcome.Result.DisplayName()}!");
+
+                yield return MoveYutPiece(path, 0.32f);
+                pieceNode = path[^1];
+
+                _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
+                _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
+                if (finished)
+                {
+                    _state.Wallet.Coins += 1;
+                    _ui.ShowStatus("완주! 엽전 +1");
+                }
+                _ui.RefreshAll(_state);
+                SaveService.Save(_state);
+
+                if (outcome.GrantsBonusThrow)
+                    freeThrow = true;
+            }
+
+            _inFreePlay = false;
+        }
+
+        /// <summary>경로 중간에 참(Start, 0)이 다시 나오면 그 자리에서 완주로 끊는다.</summary>
+        static bool TryTruncateAtStart(int[] path, out int[] truncated)
+        {
+            for (int i = 1; i < path.Length; i++)
+            {
+                if (path[i] == YutBoardLayout.Start)
+                {
+                    var result = new int[i + 1];
+                    Array.Copy(path, result, i + 1);
+                    truncated = result;
+                    return true;
+                }
+            }
+            truncated = path;
+            return false;
         }
 
         // ─────────────────────────────────────────────
@@ -589,6 +740,19 @@ namespace KSpirits.Tutorial
             }
         }
 
+        // 이무기(상대) 말 이동 애니메이션 — MoveYutPiece와 동일하되 상대 말 쪽을 움직인다
+        IEnumerator MoveOpponentPiece(int[] path, float stepDuration)
+        {
+            if (path == null || path.Length == 0) yield break;
+
+            _ui.YutGame.SetOpponentPieceIndex(path[0]);
+            for (int i = 1; i < path.Length; i++)
+            {
+                yield return new WaitForSecondsRealtime(stepDuration);
+                _ui.YutGame.SetOpponentPieceIndex(path[i]);
+            }
+        }
+
         // 대사 리스트를 한 줄씩 보여주고, 매번 입력 대기
         IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines, string sectionId)
         {
@@ -613,6 +777,14 @@ namespace KSpirits.Tutorial
         {
             _lastChoiceId = null;
             _ui.ShowChoices(choices);
+            yield return WaitInput();
+        }
+
+        // 자유 던지기 구간: 던지기/나가기 중 뭐가 눌렸는지 구분해서 대기 (RunFreeYutPlay 전용)
+        IEnumerator WaitFreeThrowOrLeave()
+        {
+            _freeThrowPressed = false;
+            _freeLeavePressed = false;
             yield return WaitInput();
         }
 
@@ -677,18 +849,32 @@ namespace KSpirits.Tutorial
         // 윷 던지기
         void HandleThrowYut()
         {
-            if (_state.TutorialStep == TutorialStepId.Training && _waitingInput)
+            if (_state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
+
+            if (_inFreePlay)
             {
-                _ui.YutGame.SetThrowVisible(false);
+                _freeThrowPressed = true;
                 _waitingInput = false;
+                return;
             }
+
+            _ui.YutGame.SetThrowVisible(false);
+            _waitingInput = false;
         }
 
         // 수련장 나가기
         void HandleLeaveTraining()
         {
-            if (_state.TutorialStep == TutorialStepId.Training && _waitingInput)
+            if (_state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
+
+            if (_inFreePlay)
+            {
+                _freeLeavePressed = true;
                 _waitingInput = false;
+                return;
+            }
+
+            _waitingInput = false;
         }
 
         static CardContent BuildOktoCardContent() => new("옥토끼 요괴패", "흑토끼", "백토끼 둘");

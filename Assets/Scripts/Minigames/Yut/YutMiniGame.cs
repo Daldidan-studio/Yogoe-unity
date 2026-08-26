@@ -25,9 +25,12 @@ namespace KSpirits.Minigames.Yut
         Button _leaveButton;
         RectTransform _boardRoot;
         RectTransform _piece;
+        RectTransform _opponentPiece;
         Image[] _pads;
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
+        Button _rulesButton;
+        GameObject _rulesPanel;
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
@@ -81,6 +84,44 @@ namespace KSpirits.Minigames.Yut
             if (_heartIcons == null) return;
             for (int i = 0; i < _heartIcons.Length; i++)
                 _heartIcons[i].color = i < hearts ? HeartOn : HeartOff;
+        }
+
+        /// <summary>상대(이무기 등) 말 표시를 켜고 끈다. 켜기 전까지는 판 위에 안 보인다.</summary>
+        public void ShowOpponentPiece(bool on)
+        {
+            EnsureBoard();
+            if (_opponentPiece != null) _opponentPiece.gameObject.SetActive(on);
+        }
+
+        public void SetOpponentPieceIndex(int nodeId)
+        {
+            EnsureBoard();
+            if (_pads == null || _pads.Length == 0 || _opponentPiece == null) return;
+
+            nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
+            var pad = _pads[nodeId].rectTransform;
+            _opponentPiece.SetParent(pad, false);
+            _opponentPiece.anchorMin = new Vector2(0.15f, 0.15f);
+            _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
+            _opponentPiece.offsetMin = Vector2.zero;
+            _opponentPiece.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>특정 칸을 잠깐 밝게 강조(다음 이동 위치 예고 등). 다음 SetPieceIndex 호출 때 정상 복구된다.</summary>
+        public void FlashNode(int nodeId)
+        {
+            EnsureBoard();
+            if (_pads == null || nodeId < 0 || nodeId >= _pads.Length) return;
+            _pads[nodeId].color = new Color(1f, 0.95f, 0.4f, 1f);
+        }
+
+        /// <summary>윷놀이 족보(확률표) 참고 패널. "?" 버튼으로도 토글되고, 코드에서 직접 열어줄 수도 있다.</summary>
+        public void ShowRulesPanel(bool on)
+        {
+            EnsureBoard();
+            if (_rulesPanel == null) return;
+            _rulesPanel.SetActive(on);
+            if (on) _rulesPanel.transform.SetAsLastSibling();
         }
 
         static bool IsWaypoint(int nodeId) =>
@@ -175,7 +216,41 @@ namespace KSpirits.Minigames.Yut
             _piece.offsetMax = Vector2.zero;
             pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
 
+            var opponentGo = new GameObject("ImugiPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            opponentGo.transform.SetParent(_pads[0].transform, false);
+            _opponentPiece = opponentGo.GetComponent<RectTransform>();
+            _opponentPiece.anchorMin = new Vector2(0.15f, 0.15f);
+            _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
+            _opponentPiece.offsetMin = Vector2.zero;
+            _opponentPiece.offsetMax = Vector2.zero;
+            opponentGo.GetComponent<Image>().color = new Color(0.25f, 0.55f, 0.85f, 1f); // 옥토끼 말과 구분되는 파란 톤
+            opponentGo.SetActive(false);
+
             EnsureQuadrants();
+            EnsureRulesUi();
+        }
+
+        void EnsureRulesUi()
+        {
+            if (_rulesButton != null) return;
+
+            _rulesButton = CreateButton(transform, "RulesToggle", "?", () => ShowRulesPanel(!_rulesPanel.activeSelf));
+            SetAnchor(_rulesButton.GetComponent<RectTransform>(), 0.9f, 0.68f, 0.98f, 0.775f, 0, 0, 0, 0);
+
+            _rulesPanel = new GameObject("RulesPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _rulesPanel.transform.SetParent(transform, false);
+            SetAnchor((RectTransform)_rulesPanel.transform, 0.14f, 0.3f, 0.86f, 0.66f, 0, 0, 0, 0);
+            _rulesPanel.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.95f);
+
+            var text = CreateText(_rulesPanel.transform, "RulesText",
+                "윷놀이 족보 (16분의)\n\n모 — 5칸, 한 번 더\n윷 — 4칸, 한 번 더\n걸 — 3칸\n개 — 2칸\n도 — 1칸\n빽도 — 1칸 뒤로",
+                22, TextAnchor.MiddleCenter);
+            Stretch(text.rectTransform);
+
+            var closeBtn = CreateButton(_rulesPanel.transform, "Close", "닫기", () => ShowRulesPanel(false));
+            SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
+
+            _rulesPanel.SetActive(false);
         }
 
         /// <summary>
@@ -445,6 +520,21 @@ namespace KSpirits.Minigames.Yut
             if (btn == null) return;
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(() => action?.Invoke());
+        }
+
+        static Button CreateButton(Transform parent, string name, string label, Action onClick)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = new Color(0.25f, 0.22f, 0.18f, 0.95f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = go.GetComponent<Image>();
+            btn.onClick.AddListener(() => onClick?.Invoke());
+
+            var text = CreateText(go.transform, "Label", label, 24, TextAnchor.MiddleCenter);
+            Stretch(text.rectTransform);
+            text.raycastTarget = false;
+            return btn;
         }
 
         static Text CreateText(Transform parent, string name, string content, int size, TextAnchor anchor)

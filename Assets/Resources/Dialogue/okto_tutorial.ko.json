@@ -114,41 +114,141 @@
       ]
     },
     {
-      "id": "after_baekdo",
+      "id": "training_gae_first",
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "앗, 뒤로 움직이는 빽도가 나왔네요!",
+          "text": "앗, 개가 나왔네요! 저를 앞으로 두 칸 움직여 주세요.",
+          "narration": false
+        }
+      ]
+    },
+    {
+      "id": "training_pass_to_imugi",
+      "lines": [
+        {
+          "speaker": "옥토끼",
+          "text": "그럼 다음 턴은 이무기 님이십니다. 이무기 님!",
+          "narration": false
+        }
+      ]
+    },
+    {
+      "id": "training_imugi_throw1",
+      "lines": [
+        {
+          "speaker": "이무기",
+          "text": "….",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "이무기가 귀찮다는 듯 윷을 던진다.",
+          "narration": true
+        }
+      ]
+    },
+    {
+      "id": "training_capture",
+      "lines": [
+        {
+          "speaker": "옥토끼",
+          "text": "앗! 이무기 님도 개가 나왔어요. 제 말이 잡혀버렸어요…",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "이무기의 말이 옥토끼 말을 잡고, 옥토끼 말이 시작점으로 돌아간다.",
+          "narration": true
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "적편의 말을 잡았으니 이무기 님, 한 번 더 던지세요!",
+          "narration": false
+        }
+      ]
+    },
+    {
+      "id": "training_imugi_bonus",
+      "lines": [
+        {
+          "speaker": "",
+          "text": "이무기가 윷을 던지고 도가 나와서 한 칸 더 앞으로 간다.",
+          "narration": true
+        }
+      ]
+    },
+    {
+      "id": "training_mo_result",
+      "lines": [
+        {
+          "speaker": "옥토끼",
+          "text": "와! 모가 나왔어요!",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "이제 모서리에 도착하셨으니 지름길로 가실 수 있어요.",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "모가 나왔으니 다시 한 번 던져주세요! 히히!",
+          "narration": false
+        }
+      ]
+    },
+    {
+      "id": "training_shortcut",
+      "lines": [
+        {
+          "speaker": "옥토끼",
+          "text": "와! 운이 좋으시네요! 북극성에 도착했어요. 여기가 제일 빠른 길이랍니다.",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "이무기 님이 저를 잡아주셔서 오히려 빨리 올 수 있었네요.",
+          "narration": false
+        },
+        {
+          "speaker": "이무기",
+          "text": "….",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "이무기가 어이없다는 표정을 짓는다.",
+          "narration": true
+        }
+      ]
+    },
+    {
+      "id": "training_coin_tile",
+      "lines": [
+        {
+          "speaker": "옥토끼",
+          "text": "그리고 여기는 엽전 칸이에요.",
           "narration": false
         },
         {
           "speaker": "옥토끼",
           "text": "엽전은 상점에서 쓰실 수 있답니다.",
           "narration": false
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "그럼 다시 한번 윷을 던져주세요!",
-          "narration": false
         }
       ]
     },
     {
-      "id": "after_goal",
+      "id": "training_handoff",
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "와! 골인!!!",
+          "text": "이제 직접 윷을 던져보세요. 언제든 뒤로가기 버튼을 누르면 족자로 돌아가실 수 있어요.",
           "narration": false
         },
         {
           "speaker": "옥토끼",
-          "text": "완주 선물로 정화수를 가져왔어요!",
-          "narration": false
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "그럼 이제 수련장을 나가볼까요?",
+          "text": "윷놀이 룰은 언제든 ? 버튼을 눌러주시면 보실 수 있답니다!",
           "narration": false
         }
       ]
