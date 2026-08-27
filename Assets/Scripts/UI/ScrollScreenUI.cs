@@ -389,6 +389,7 @@ namespace KSpirits.UI
                     resetLabel.text = "다시 누르면 초기화돼요";
                     return;
                 }
+                SaveHost.SuppressNextAutoSave();
                 SaveService.Delete();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             });
