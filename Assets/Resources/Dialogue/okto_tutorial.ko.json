@@ -22,12 +22,6 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
           "text": "원래 넋 단계에서는 말을 못 하거든요?",
           "narration": false,
           "layout": "near_yokai"
@@ -74,37 +68,6 @@
           "narration": false,
           "layout": "near_yokai",
           "fx": "evolve_flash"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "이제 수련을 하러 갈 힘이 생겼어요. 저기 수련장을 눌러주세요!",
-          "narration": false,
-          "layout": "near_yokai"
-        }
-      ]
-    },
-    {
-      "id": "petting",
-      "lines": [
-        {
-          "speaker": "옥토끼",
-          "text": "헤헤, 간질간질해요!",
-          "narration": false,
-          "layout": "near_yokai",
-          "fx": "offer_react"
-        },
-        {
-          "speaker": "",
-          "text": "그럼 손님에게는 제 귀가 4개로 보이나요?",
-          "narration": false,
-          "layout": "near_yokai",
-          "fx": "부르르/통통/"
         },
         {
           "speaker": "옥토끼",
@@ -360,95 +323,103 @@
       ]
     },
     {
-      "id": "memory_moon",
+      "id": "petting",
       "lines": [
         {
-          "speaker": "",
-          "text": "— 달 —",
-          "narration": true,
-          "layout": "above_mortar"
-        },
-        {
           "speaker": "옥토끼",
-          "text": "여긴 달이에요. 조용하죠?",
+          "text": "헤헤, 간질간질해요!",
           "narration": false,
           "layout": "near_yokai",
-          "fx": "쓸쓸한 옥토끼"
+          "fx": "offer_react"
         },
         {
           "speaker": "옥토끼",
-          "text": "늘 이렇죠. 아무도 없으니까요.",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "아무튼 저기 절구 보이세요?",
-          "narration": false,
-          "layout": "above_mortar"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "저건 한 이천년쯤 썼나?",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "매일매일 떡을 찧었어요. 쿵, 쿵, 쿵.",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "누가 먹냐고요?  그건 저도 몰라요. 저는 그냥 찧기만 했거든요.",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "찧고, 산책하고, 여기 딱 이 자리에 앉아서, 저기를 봤어요.",
-          "narration": false,
-          "layout": "near_yokai"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "예쁘죠? 반짝반짝.",
+          "text": "그럼 손님에게는 제 귀가 4개로 보이나요?",
           "narration": false,
           "layout": "near_yokai",
-          "fx": "웃는 옥토끼"
+          "fx": "부르르/통통/"
         },
         {
           "speaker": "옥토끼",
-          "text": "저기는 엄청 시끄러울 것 같지 않아요?",
+          "text": "손님은 정말 신기해요",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "이제 수련을 하러 갈 힘이 생겼어요. 저기 수련장을 눌러주세요!",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
-          "text": "저는 그 시끄러운 게 늘 궁금했어요.",
-          "narration": false,
-          "layout": "near_yokai"
+          "text": "손님은 달을 좋아하시나요?",
+          "narration": false
         },
         {
           "speaker": "옥토끼",
-          "text": "한 번도 못 가봤으니까요.",
-          "narration": false,
-          "layout": "near_yokai"
+          "text": "한번 더 만져주세요!",
+          "narration": false
         },
         {
           "speaker": "옥토끼",
-          "text": "어! 저거 봐요, 별똥별! 아, 저게 그날이에요.",
-          "narration": false,
-          "layout": "near_yokai",
-          "fx": "별똥별이 날아옴,"
+          "text": "손이 따뜻하시네요.",
+          "narration": false
         },
         {
           "speaker": "옥토끼",
-          "text": "완전히 부서져서 떡을 못 찧겠더라고요?",
-          "narration": false,
-          "layout": "near_yokai"
+          "text": "제 털 부드럽죠? 할 게 없어서 빗질을 자주 했거든요.",
+          "narration": false
         },
+        {
+          "speaker": "옥토끼",
+          "text": "손님도 달에 소원을 빈 적이 있나요?",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "무서운 얘기를 들었어요. 계수나무 한 나무, 토끼 세 마리~",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "괴일 때에는 기억을 제대로 찾지 못해요. 저만 빼고요. 저는 튜토리얼이니까요~",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "족자 안의 요괴, 낭만적이지 않나요?",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "헤헤.",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "넋은 도깨비불 모양이에요.",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "요괴들마다 좋아하는 음식이 달라요.",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "저는 떡을 좋아해요.",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "다른 요괴들도 이렇게 만져주시면 좋아할 거예요.",
+          "narration": false
+        }
+      ]
+    },
+    {
+      "id": "memory_moon",
+      "lines": [
         {
           "speaker": "옥토끼",
           "text": "어떻게 할지 몰라서 한참 서있다가, 갑자기 좋은 생각이 난 거예요.",
