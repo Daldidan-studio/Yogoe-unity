@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using KSpirits.Core;
 using KSpirits.Data;
 using KSpirits.Model;
 using KSpirits.UI;
@@ -25,11 +26,13 @@ namespace KSpirits.Tutorial
     public class OpeningController : MonoBehaviour
     {
         GameState _state;
+        ScrollScreenUI _ui;
         DialogueSequencer _dialogue;
 
         public void Bind(GameState state, ScrollScreenUI ui)
         {
             _state = state;
+            _ui = ui;
             _dialogue = new DialogueSequencer(ui);
         }
 
@@ -40,6 +43,8 @@ namespace KSpirits.Tutorial
 
         IEnumerator Run(Action onComplete)
         {
+            ResetVisuals();
+
             yield return PlayLines(OpeningDialogue.Intro);
             yield return _dialogue.WaitChoice(OpeningDialogue.ChoiceOptions);
 
@@ -48,6 +53,26 @@ namespace KSpirits.Tutorial
 
             _state.OpeningSeen = true;
             onComplete?.Invoke();
+        }
+
+        /// <summary>
+        /// 재생 시작 전 화면을 깨끗한 상태로 되돌린다. 실제 최초 부팅 때는 어차피 아무것도
+        /// 떠 있지 않아 무해하지만, DEV "오프닝 다시보기"는 수련장 등 다른 화면이 떠 있는
+        /// 도중에도 눌릴 수 있어서 그 잔여 상태(윷판 등)를 지우고 시작해야 한다.
+        /// </summary>
+        void ResetVisuals()
+        {
+            _state.ScrollMode = ScrollMode.Nurture;
+            _ui.HideDialogue();
+            _ui.YutGame.Hide();
+            _ui.YutGame.SetThrowVisible(false);
+            _ui.YutGame.SetLeaveVisible(false);
+            _ui.YutGame.ShowRulesOverlay(false);
+            _ui.TwoSpeakerDialogue?.Hide();
+            _ui.SetTrainingButtonVisible(false);
+            _ui.SetOfferButtonVisible(false);
+            _ui.SetYokaiInteractable(false);
+            _ui.RefreshAll(_state);
         }
 
         // 연출 전용 행(fx/note만 있고 speaker/text가 빈 행)은 걸러내고 넘긴다 — 아직 재생할 게 없음
