@@ -71,6 +71,7 @@ namespace KSpirits.UI
         bool _offerEnabled;
         bool _wired;
         bool _yokaiInteractableBeforeDialogue;
+        GameObject _dialogueCenterCatcher;
         Color _trainingButtonBaseColor = new(0f, 0f, 0f, 0f);
         GameObject _storyOverlay;
         Text _storyOverlayTitle;
@@ -323,6 +324,8 @@ namespace KSpirits.UI
                 advanceInput.Bind(_typewriter,
                     () => OnDialogueContinue?.Invoke(),
                     () => _dialogueContinueHint.gameObject.SetActive(true));
+
+                EnsureDialogueCenterCatcher();
             }
 
             if (_waterDrag != null)
@@ -482,6 +485,11 @@ namespace KSpirits.UI
             _dialogueRoot.SetActive(true);
             _choiceRoot.SetActive(false);
             _dialogueContinueHint.gameObject.SetActive(false);
+            if (_dialogueCenterCatcher != null)
+            {
+                _dialogueCenterCatcher.SetActive(true);
+                _dialogueCenterCatcher.transform.SetAsLastSibling();
+            }
 
             if (line.IsNarration)
                 _dialogueSpeaker.text = $"나레이션  ({index}/{total})";
@@ -501,7 +509,35 @@ namespace KSpirits.UI
             _typewriter.Stop();
             _dialogueContinueHint.gameObject.SetActive(false);
             _dialogueRoot.SetActive(false);
+            if (_dialogueCenterCatcher != null) _dialogueCenterCatcher.SetActive(false);
             SetYokaiInteractable(_yokaiInteractableBeforeDialogue);
+        }
+
+        /// <summary>
+        /// 대사창 자체 말고, 화면 중앙에도 같은 탭/홀드 동작(넘기기)을 받는 투명 영역을 하나 더 둔다.
+        /// DialogueAdvanceInput은 특정 오브젝트에 종속되지 않아서, 같은 typewriter/콜백으로
+        /// 새 인스턴스를 하나 더 붙이기만 하면 된다 — 헤더/하단독 버튼과 안 겹치게 중앙 영역만 차지.
+        /// </summary>
+        void EnsureDialogueCenterCatcher()
+        {
+            if (_dialogueCenterCatcher != null) return;
+
+            _dialogueCenterCatcher = new GameObject("DialogueCenterCatcher", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _dialogueCenterCatcher.transform.SetParent(transform, false);
+            var rt = _dialogueCenterCatcher.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.1f, 0.25f);
+            rt.anchorMax = new Vector2(0.9f, 0.78f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var img = _dialogueCenterCatcher.GetComponent<Image>();
+            img.color = new Color(0, 0, 0, 0); // 안 보이지만 raycast는 받음
+
+            _dialogueCenterCatcher.AddComponent<DialogueAdvanceInput>().Bind(_typewriter,
+                () => OnDialogueContinue?.Invoke(),
+                () => _dialogueContinueHint.gameObject.SetActive(true));
+
+            _dialogueCenterCatcher.SetActive(false);
         }
 
         IEnumerator WatchTypewriterComplete()

@@ -38,6 +38,7 @@ namespace KSpirits.UI
         GameObject _topBar;
         GameObject _bottomBar;
         GameObject _narrationBar;
+        GameObject _centerCatcher;
         Text _topName, _topBody;
         Text _bottomName, _bottomBody;
         Text _narrationText;
@@ -63,12 +64,14 @@ namespace KSpirits.UI
             if (_topBar != null) _topBar.SetActive(false);
             if (_bottomBar != null) _bottomBar.SetActive(false);
             if (_narrationBar != null) _narrationBar.SetActive(false);
+            if (_centerCatcher != null) _centerCatcher.SetActive(false);
         }
 
         /// <summary>lines를 한 줄씩, 탭할 때마다 다음으로 넘기며 재생한다. 다 끝나면 자동으로 숨긴다.</summary>
         public IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines)
         {
             EnsureBuilt();
+            _centerCatcher.SetActive(true);
             foreach (var line in lines)
             {
                 Text body;
@@ -126,9 +129,18 @@ namespace KSpirits.UI
             _narrationText = CreateText(_narrationBar.transform, "Text", "", 24, TextAnchor.MiddleCenter);
             Stretch(_narrationText.rectTransform);
 
+            // 화면 중앙(위/아래 바 사이) 어디를 눌러도 넘어가는 투명 영역 — 바가 뭐가 떠 있든
+            // (위/아래/나레이션) 항상 같이 켜진다.
+            _centerCatcher = new GameObject("CenterCatcher", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _centerCatcher.transform.SetParent(transform, false);
+            SetAnchor(_centerCatcher.GetComponent<RectTransform>(), 0.02f, 0.22f, 0.98f, 0.78f, 0, 0, 0, 0);
+            _centerCatcher.GetComponent<Image>().color = new Color(0, 0, 0, 0);
+            _centerCatcher.AddComponent<DialogueAdvanceInput>().Bind(_typewriter, HandleAdvance);
+
             _topBar.SetActive(false);
             _bottomBar.SetActive(false);
             _narrationBar.SetActive(false);
+            _centerCatcher.SetActive(false);
         }
 
         GameObject BuildBar(string name, float yMin, float yMax, bool portraitOnLeft,
