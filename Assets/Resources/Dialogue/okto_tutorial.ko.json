@@ -17,11 +17,12 @@
           "speaker": "옥토끼",
           "text": "기력이 떨어져서 도망갈 뻔 했네요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "넋이 부르르 떤다"
         },
         {
           "speaker": "옥토끼",
-          "text": "안녕하세요, 손님!",
+          "text": "",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -35,7 +36,8 @@
           "speaker": "옥토끼",
           "text": "근데 저는 그냥 할래요. 안 그러면 아무것도 설명을 못 드리잖아요. 헤헤.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "넋이 위아래로 통통 튄다"
         },
         {
           "speaker": "옥토끼",
@@ -51,7 +53,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "근데 걱정 마세요! 잘 먹여주고 잘 놀아주시면 금방 쑥쑥 자라요.",
+          "text": "근데 걱정 마세요! 잘 먹여주시면 금방 쑥쑥 자라요.",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -68,14 +70,14 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "짜잔!  이 상태는 ‘괴’라고 해요. 아직 제모습을 되찾지 못한 상태랍니다.",
+          "text": "짜잔!  이 상태는 ‘괴’라고 해요. 아직 제 모습은 아니지만 귀엽죠?",
           "narration": false,
           "layout": "near_yokai",
           "fx": "evolve_flash"
         },
         {
           "speaker": "옥토끼",
-          "text": "하지만 귀엽죠?",
+          "text": "",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -99,9 +101,10 @@
         },
         {
           "speaker": "",
-          "text": "건드리기로 아이템을 얻었다. (정화수 +1)",
-          "narration": true,
-          "layout": "top_narration"
+          "text": "그럼 손님에게는 제 귀가 4개로 보이나요?",
+          "narration": false,
+          "layout": "near_yokai",
+          "fx": "부르르/통통/"
         },
         {
           "speaker": "옥토끼",
@@ -116,19 +119,19 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "수련은 윷놀이로 해요!",
+          "text": "수련은 윷놀이로 해요! 상대편은 이무기 님이 맡아주실 거예요.",
           "narration": false,
           "layout": "bottom_wide"
         },
         {
           "speaker": "옥토끼",
-          "text": "윷을 던질 때마다 심장이 하나씩 줄어요. 근데 윷이나 모가 나오면 공짜로 한 번 더 던질 수 있어요!",
+          "text": "",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
-          "text": "저를 움직여주시면 기력도 조금 오르고, 무엇보다 저랑 더 친해질 수 있어요. 그게 제일 중요하죠!",
+          "text": "저를 움직여주시면 제 기력도 조금 오르고, 무엇보다 저랑 더 친해질 수 있어요. 그게 제일 중요하죠!",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -136,7 +139,8 @@
           "speaker": "옥토끼",
           "text": "한 번 윷을 던져보세요!",
           "narration": false,
-          "layout": "bottom_wide"
+          "layout": "bottom_wide",
+          "fx": "윷을 던질 때 심장이 하나 깜빡거리며 사라진다."
         }
       ]
     },
@@ -147,7 +151,8 @@
           "speaker": "옥토끼",
           "text": "앗, 개가 나왔네요! 저를 앞으로 두 칸 움직여 주세요.",
           "narration": false,
-          "layout": "bottom_wide"
+          "layout": "bottom_wide",
+          "fx": "옥토끼가 갈 수 있는 곳에 옥토끼 아이콘이 깜빡인다"
         }
       ]
     },
@@ -167,13 +172,13 @@
       "lines": [
         {
           "speaker": "이무기",
-          "text": "....",
+          "text": "(이무기가 귀찮다는 듯 윷을 던진다.)",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "",
-          "text": "이무기가 귀찮다는 듯 윷을 던진다.",
+          "text": "",
           "narration": true,
           "layout": "top_narration"
         }
@@ -184,14 +189,14 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "앗! 이무기 님도 개가 나왔어요. 제 말이 잡혀버렸어요...",
+          "text": "앗! 이무기 님도 개가 나왔어요. 제 말이 잡혀버렸어요….",
           "narration": false,
           "layout": "bottom_wide"
         },
         {
           "speaker": "",
-          "text": "이무기의 말이 옥토끼 말을 잡고, 옥토끼 말이 시작점으로 돌아간다.",
-          "narration": true,
+          "text": "그러면 제 말은 시작점으로 돌아가요. 분하네요.",
+          "narration": false,
           "layout": "top_narration"
         },
         {
@@ -207,7 +212,7 @@
       "lines": [
         {
           "speaker": "",
-          "text": "이무기가 윷을 던지고 도가 나와서 한 칸 더 앞으로 간다.",
+          "text": "저희도 이무기 님을 잡을 수 있을까요?",
           "narration": true,
           "layout": "top_narration"
         }
@@ -220,7 +225,8 @@
           "speaker": "옥토끼",
           "text": "와! 모가 나왔어요!",
           "narration": false,
-          "layout": "bottom_wide"
+          "layout": "bottom_wide",
+          "fx": "윷, 모가 나오면 [한번더] 딱지가 쾅 하고 떨어진다"
         },
         {
           "speaker": "옥토끼",
@@ -253,13 +259,13 @@
         },
         {
           "speaker": "이무기",
-          "text": "....",
+          "text": "(이무기가 어이없다는 표정을 짓는다.)",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "",
-          "text": "이무기가 어이없다는 표정을 짓는다.",
+          "text": "",
           "narration": true,
           "layout": "top_narration"
         }
@@ -272,11 +278,12 @@
           "speaker": "옥토끼",
           "text": "그리고 여기는 엽전 칸이에요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "엽전이 윷놀이판에서 떨어져서 돈 숫자있는 곳으로 가서 사라진다"
         },
         {
           "speaker": "옥토끼",
-          "text": "엽전은 상점에서 쓰실 수 있답니다.",
+          "text": "",
           "narration": false,
           "layout": "near_yokai"
         }
@@ -287,9 +294,15 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "이제 직접 윷을 던져보세요. 언제든 뒤로가기 버튼을 누르면 족자로 돌아가실 수 있어요.",
+          "text": "이제부터는 자유롭게 윷놀이 수련을 즐겨보세요. 언제든 뒤로가기 버튼을 누르면 족자로 돌아가실 수 있어요.",
           "narration": false,
           "layout": "bottom_wide"
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "아, 심장은 채워드릴게요. 제 마음이에요 ♡♡♡♡♡",
+          "narration": false,
+          "layout": "near_yokai"
         }
       ]
     },
@@ -298,14 +311,14 @@
       "lines": [
         {
           "speaker": "",
-          "text": "기력이 떨어지고 있다... 방치하면 도망갈지도 모른다.",
+          "text": "",
           "narration": true,
           "layout": "top_narration",
           "fx": "energy_warning_pulse"
         },
         {
           "speaker": "옥토끼",
-          "text": "손님, 기력이 바닥나면 요괴가 도망가요. 공양으로 채워주세요!",
+          "text": "",
           "narration": false,
           "layout": "near_yokai"
         }
@@ -316,7 +329,7 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "기력이 모자라요",
+          "text": "기력이 모자라요. 공양물로 기력을 꽉 채워주세요!",
           "narration": false,
           "layout": "near_yokai"
         }
@@ -340,7 +353,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "이제 여기서부터는 저를 잘 부탁드릴게요.",
+          "text": "튜토리얼은 대충 끝났어요. 이제 저를 잘 부탁드릴게요, 손님!",
           "narration": false,
           "layout": "near_yokai"
         }
@@ -359,7 +372,8 @@
           "speaker": "옥토끼",
           "text": "여긴 달이에요. 조용하죠?",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "쓸쓸한 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -401,7 +415,8 @@
           "speaker": "옥토끼",
           "text": "예쁘죠? 반짝반짝.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "웃는 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -425,7 +440,8 @@
           "speaker": "옥토끼",
           "text": "어! 저거 봐요, 별똥별! 아, 저게 그날이에요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "별똥별이 날아옴,"
         },
         {
           "speaker": "옥토끼",
@@ -437,7 +453,8 @@
           "speaker": "옥토끼",
           "text": "어떻게 할지 몰라서 한참 서있다가, 갑자기 좋은 생각이 난 거예요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "깨달은 옥토끼 얼굴 위로 전구 이모지"
         },
         {
           "speaker": "옥토끼",
@@ -458,9 +475,10 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "지구에 오자마자 와! 와! 와!!!",
+          "text": "지구에 오자마자 와! 와!! 와!!!",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "눈이 반짝거리는 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -488,7 +506,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "붕어빵도, 오뎅도, 떡꼬치도 맛있어보였는데 돈이 없으면 못 산다고 하더라고요....",
+          "text": "붕어빵도, 오뎅도, 떡꼬치도 맛있어보였는데 돈이 없으면 못 산다고 하더라고요….",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -500,7 +518,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "너무너무너무 춥고..., 너무너무너무 배고프고..., 숨쉬기가 막 어려워지더니,",
+          "text": "너무너무너무 춥고…, 너무너무너무 배고프고…, 숨쉬기가 막 어려워지더니,",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -508,11 +526,12 @@
           "speaker": "옥토끼",
           "text": "쓰러져버렸어요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "화면 블랙아웃"
         },
         {
           "speaker": "",
-          "text": "화면이 암전된다.",
+          "text": "",
           "narration": true,
           "layout": "top_narration"
         },
@@ -555,7 +574,8 @@
           "speaker": "옥토끼",
           "text": "붕어빵도, 오뎅도, 떡꼬치도 먹을 수 있어요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "행복한 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -567,11 +587,12 @@
           "speaker": "옥토끼",
           "text": "그래도 옥토끼의 자존심이 있지, 이무기님에 대한 은혜를 갚아야 달로 가지 않겠어요?",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "결연한 옥토끼"
         },
         {
           "speaker": "옥토끼",
-          "text": "이무기님은 아주 오래 전에 999년 묵었는데요, 이제 마지막 공덕을 쌓아야 용으로 승천하실 수 있어요.",
+          "text": "이무기님은 999년을 채우고서도 몇 백년을 더 묵었어요. 용으로 승천하기에는 마지막 공덕이 모자라서요.",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -585,7 +606,8 @@
           "speaker": "옥토끼",
           "text": "결국 이무기 님도 지치셔서 기억을 없앤 후에 저렇게 봉인해두고 계셨죠.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "한숨쉬는 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -607,7 +629,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "근데 손님이, ‘와...... 예쁘다’ 하잖아요.",
+          "text": "근데 손님이, ‘와, 예쁘다’ 하셨잖아요.",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -615,7 +637,8 @@
           "speaker": "옥토끼",
           "text": "어? 저게 보여? 저 근사한 손님한테, 저게 보인다고? 그때 딱 느낌이 왔어요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "신난 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -625,15 +648,16 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "그래서 제가 발을 걸었어요. 정말 죄송해요..., 화나셨죠?",
+          "text": "그래서 제가 발을 걸었어요. 정말 죄송해요…, 화나셨죠?",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
-          "text": "근데 있잖아요, 저는요......",
+          "text": "근데 있잖아요, 저는요……",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "눈을 내리깐 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -648,7 +672,7 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "그럼 이제 저는 달로 돌아갈게요. 달을 오래 비우면 점점 힘이 약해지거든요. 얘기 들어주셔서 감사해요!",
+          "text": "손님은 좋은 분이신 것 같아요. 부디 요괴들을 잘 부탁드려요. 사실 불쌍한 것들이거든요.",
           "narration": false,
           "layout": "near_yokai"
         }
@@ -659,7 +683,7 @@
       "lines": [
         {
           "speaker": "옥토끼",
-          "text": "...그렇게 말해주시니 정말 감사해요.",
+          "text": "…그렇게 말해주시니 정말 감사해요.",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -671,7 +695,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "달을 오래 비우면 저도 점점 힘이 약해지고...,",
+          "text": "달을 오래 비우면 저도 점점 힘이 약해지고…,",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -685,7 +709,8 @@
           "speaker": "옥토끼",
           "text": "너무 무서워요. 그곳은 외로워요.",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "덜덜 떠는 옥토끼"
         },
         {
           "speaker": "옥토끼",
@@ -701,13 +726,13 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "아니, 아니에요. 그건 제 업이에요. 안 되는데....",
+          "text": "아니, 아니에요. 그건 제 업이에요. 안 되는데….",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
-          "text": "으으....",
+          "text": "으으….",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -720,13 +745,13 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "죄, 죄송해요. 다시 생각해보니 돌아갈 수 없을 것 같아요...!",
+          "text": "죄, 죄송해요. 다시 생각해보니 돌아갈 수 없을 것 같아요…!",
           "narration": false,
           "layout": "near_yokai"
         },
         {
           "speaker": "",
-          "text": "토끼는 흑토끼가 되어 족자 밖으로 달아난다.",
+          "text": "(토끼는 흑토끼가 되어 족자 밖으로 달아났다.)",
           "narration": true,
           "layout": "top_narration"
         },
@@ -749,38 +774,40 @@
         },
         {
           "speaker": "",
-          "text": "이무기는 한숨을 내쉬었다.",
+          "text": "",
+          "narration": true,
+          "layout": "top_narration",
+          "fx": "(이무기는 한숨을 내쉬었다.)"
+        },
+        {
+          "speaker": "",
+          "text": "(이무기가 곰방대 연기를 내뿜자 흑토끼가 잡혀왔다.)",
           "narration": true,
           "layout": "top_narration"
         },
         {
           "speaker": "",
-          "text": "곰방대 연기로 흑토끼를 붙잡아 온다.",
-          "narration": true,
-          "layout": "top_narration"
-        },
-        {
-          "speaker": "",
-          "text": "흑토끼에게서 검은 기운—탁기—를 삼키자 옥토끼는 다시 하얗게 돌아왔다.",
+          "text": "(흑토끼에게서 검은 기운을 삼키자 옥토끼는 다시 하얗게 돌아왔다.)",
           "narration": true,
           "layout": "top_narration",
           "fx": "restore_white"
         },
         {
           "speaker": "",
-          "text": "이무기의 한쪽 눈 흰자가 검게 물들었다.",
+          "text": "",
           "narration": true,
-          "layout": "top_narration"
+          "layout": "top_narration",
+          "fx": "이무기의 한쪽 눈 흰자가 검게 물든다"
         },
         {
           "speaker": "이무기",
-          "text": "......됐다. 정신이 드느냐.",
+          "text": "정신이 드느냐.",
           "narration": false,
           "layout": "bottom_wide"
         },
         {
           "speaker": "옥토끼",
-          "text": "으...... 저 방금 엄청 이상했어요. 죄송해요, 손님. 무서우셨죠.",
+          "text": "으…… 저 방금 엄청 이상했어요. 죄송해요, 손님. 무서우셨죠.",
           "narration": false,
           "layout": "near_yokai"
         }
@@ -797,13 +824,13 @@
         },
         {
           "speaker": "이무기",
-          "text": "괜한 계약에 얽매이게 해서 미안하다.",
+          "text": "괜한 약속에 얽매이게 해서 미안하다.",
           "narration": false,
           "layout": "bottom_wide"
         },
         {
           "speaker": "이무기",
-          "text": "권속을 제대로 단속하지 못한 내 잘못이니, 소원을 하나 들어주마.",
+          "text": "옥토끼를 제대로 단속하지 못한 내 잘못이니, 소원을 하나 들어주마.",
           "narration": false,
           "layout": "bottom_wide"
         },
@@ -826,19 +853,20 @@
       "lines": [
         {
           "speaker": "이무기",
-          "text": "...옥토끼가 사람은 잘 보았나보군. 그래도 달에는 토끼가 필요해. 그러니 이렇게 하지.",
+          "text": "…옥토끼가 사람은 잘 보았나보군. 그래도 달에는 토끼가 필요해. 그러니 이렇게 하지.",
           "narration": false,
           "layout": "bottom_wide"
         },
         {
           "speaker": "",
-          "text": "이무기가 손을 젓자 옥토끼가 두 마리로 갈라진다.",
+          "text": "(이무기가 손을 젓자 옥토끼가 두 마리로 갈라졌다.)",
           "narration": true,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "옥토끼 두마리"
         },
         {
           "speaker": "옥토끼A",
-          "text": "어...... 어어?! 저거 저예요?!",
+          "text": "어…… 어어?! 저거 저예요?!",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -873,7 +901,7 @@
       "lines": [
         {
           "speaker": "이무기",
-          "text": "......무를 수 없다. 정말이냐?",
+          "text": "……무를 수 없다. 정말이냐?",
           "narration": false,
           "layout": "bottom_wide"
         }
@@ -890,9 +918,10 @@
         },
         {
           "speaker": "",
-          "text": "짧은 암전 후 타이틀로 돌아간다. (히든 엔딩 0)",
+          "text": "",
           "narration": true,
-          "layout": "top_narration"
+          "layout": "top_narration",
+          "fx": "짧은 암전 후 타이틀로 돌아간다. (히든 엔딩 0)"
         }
       ]
     },
@@ -907,7 +936,7 @@
         },
         {
           "speaker": "옥토끼",
-          "text": "저를 구해주셔서 감사해요...! 제 두 번째 은인으로 삼겠습니다!",
+          "text": "저를 구해주셔서 감사해요…! 제 두 번째 은인으로 삼겠습니다!",
           "narration": false,
           "layout": "near_yokai"
         },
@@ -938,11 +967,45 @@
       ]
     },
     {
+      "id": "first_meeting",
+      "lines": [
+        {
+          "speaker": "",
+          "text": "……",
+          "narration": false,
+          "layout": "near_yokai"
+        },
+        {
+          "speaker": "",
+          "text": "공양이 필요한 것 같다.",
+          "narration": true,
+          "layout": "top_narration"
+        }
+      ]
+    },
+    {
+      "id": "item_collect",
+      "lines": [
+        {
+          "speaker": "",
+          "text": "",
+          "narration": true,
+          "layout": "top_narration"
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "",
+          "narration": false,
+          "layout": "near_yokai"
+        }
+      ]
+    },
+    {
       "id": "black_rabbit_flee",
       "lines": [
         {
           "speaker": "",
-          "text": "흑토끼가 족자를 찢고 밖으로 사라진다. 빈 족자만 남았다.",
+          "text": "흑토끼가 족자를 찢고 밖으로 사라졌다. 빈 족자만 남았다.",
           "narration": true,
           "layout": "top_narration"
         }
