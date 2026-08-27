@@ -15,18 +15,17 @@ namespace KSpirits.Systems
     /// YutThrowRoller로 진짜 랜덤 판정을 돌린다.
     ///
     /// 보유 요괴 전체가 각자 말 하나씩 판 위에 동시에 있다(YokaiInstance.BoardNode에 위치 저장).
-    /// 던질 때마다 그 결과를 보유 요괴 전체에 적용했을 때의 후보 도착칸을 잠깐 보여주고
-    /// (YutMiniGame.FlashCandidates), 실제로 움직이는 건 지금 육성 중인 focus 요괴뿐이다 —
-    /// 어느 말을 움직일지 직접 고르는 것/업기/잡기는 다음 단계.
+    /// 던질 때마다 그 결과를 보유 요괴 전체에 적용했을 때의 후보 도착칸을 반짝여서 보여주고,
+    /// 유저가 그중 하나(말/칸)를 직접 탭해서 골라야 그 말이 실제로 이동한다 — 업기/잡기는 다음 단계.
     /// </summary>
     public class NurtureTrainingController : MonoBehaviour
     {
         GameState _state;
         ScrollScreenUI _ui;
-        int _pieceNode;
         bool _active;
         bool _throwFlag;
         bool _leaveFlag;
+        string _pickedYokaiId;
 
         public void Bind(GameState state, ScrollScreenUI ui)
         {
@@ -35,6 +34,7 @@ namespace KSpirits.Systems
             _ui.OnTrainingPressed += HandleTrainingPressed;
             _ui.YutGame.OnThrowPressed += HandleThrowPressed;
             _ui.YutGame.OnLeavePressed += HandleLeavePressed;
+            _ui.YutGame.OnCandidateTapped += HandleCandidateTapped;
         }
 
         void HandleTrainingPressed()
@@ -62,10 +62,14 @@ namespace KSpirits.Systems
             if (_active) _leaveFlag = true;
         }
 
+        void HandleCandidateTapped(string yokaiId)
+        {
+            if (_active) _pickedYokaiId = yokaiId;
+        }
+
         IEnumerator RunSession()
         {
             _active = true;
-            _pieceNode = _state.FocusYokai.BoardNode;
 
             _state.ScrollMode = ScrollMode.Training;
             _ui.SetTrainingButtonVisible(false);
@@ -99,19 +103,20 @@ namespace KSpirits.Systems
                 var outcome = YutThrowRoller.Roll();
                 yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
 
-                // 이번 결과를 보유 요괴 전체에 적용했을 때 후보 도착칸을 잠깐 미리 보여준다
-                // (어느 말을 실제로 움직일지 고르는 로직은 아직 없음 — 지금은 미리보기만).
-                yield return ShowMoveCandidates(outcome.Result);
+                // 보유 요괴 전체의 후보 도착칸을 반짝이는 채로, 유저가 그중 하나를 탭해서
+                // 고를 때까지 기다린다 — 실제로 이동하는 건 고른 요괴 하나뿐.
+                yield return WaitCandidatePick(outcome.Result);
+                var yokai = FindYokai(_pickedYokaiId) ?? _state.FocusYokai;
 
-                var path = YutMoveResolver.GetPath(_pieceNode, outcome.Result);
+                var path = YutMoveResolver.GetPath(yokai.BoardNode, outcome.Result);
                 // 빽도(뒤로 이동)는 참으로 되돌아가도 완주가 아니라 그냥 그 자리에 서는 것 — 전진일 때만 완주 판정
                 bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);
 
-                yield return MovePiece(path, 0.32f);
-                _state.FocusYokai.BoardNode = _pieceNode;
+                yield return MovePiece(yokai, path, 0.32f);
+                yokai.BoardNode = path[^1];
 
-                _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
-                _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
+                yokai.AddEnergy(GameConstants.YutMoveEnergyGain);
+                yokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
                 if (finished)
                 {
                     _state.Wallet.Coins += 1;
@@ -136,42 +141,54 @@ namespace KSpirits.Systems
             _active = false;
         }
 
+        YokaiInstance FindYokai(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            foreach (var y in _state.OwnedYokai)
+                if (y.Id == id) return y;
+            return null;
+        }
+
         /// <summary>보유 요괴 전체를 지금 위치대로 판 위에 동시에 표시(각자 색+이니셜로 구분).</summary>
-        void RefreshYokaiPieces()
+        void RefreshYokaiPieces(YokaiInstance movingYokai = null, int movingNode = 0)
         {
             var pieces = new List<YutMiniGame.YokaiPieceInfo>();
             foreach (var y in _state.OwnedYokai)
             {
-                int node = ReferenceEquals(y, _state.FocusYokai) ? _pieceNode : y.BoardNode;
+                int node = ReferenceEquals(y, movingYokai) ? movingNode : y.BoardNode;
                 pieces.Add(new YutMiniGame.YokaiPieceInfo(y.Id, y.DisplayName, node));
             }
             _ui.YutGame.ShowYokaiPieces(pieces);
         }
 
-        /// <summary>이번 던지기 결과를 보유 요괴 전체(각자 현재 위치)에 적용한 후보 도착칸을 반짝여서 보여준다.</summary>
-        IEnumerator ShowMoveCandidates(YutThrowResult result)
+        /// <summary>
+        /// 이번 던지기 결과를 보유 요괴 전체(각자 현재 위치)에 적용한 후보 도착칸을 반짝이며 보여주고,
+        /// 유저가 그중 하나를 탭해서 고를 때까지 기다린다.
+        /// </summary>
+        IEnumerator WaitCandidatePick(YutThrowResult result)
         {
             var candidates = new List<YutMiniGame.YokaiMoveCandidate>();
             foreach (var y in _state.OwnedYokai)
             {
-                int from = ReferenceEquals(y, _state.FocusYokai) ? _pieceNode : y.BoardNode;
-                var path = YutMoveResolver.GetPath(from, result);
+                var path = YutMoveResolver.GetPath(y.BoardNode, result);
                 candidates.Add(new YutMiniGame.YokaiMoveCandidate(y.Id, y.DisplayName, path[^1]));
             }
             _ui.YutGame.FlashCandidates(candidates);
-            yield return new WaitForSecondsRealtime(0.9f);
+            _ui.ShowStatus(candidates.Count > 1 ? "움직일 말을 탭하세요" : "말을 탭해서 이동하세요");
+
+            _pickedYokaiId = null;
+            while (_pickedYokaiId == null) yield return null;
+
             _ui.YutGame.ClearCandidates();
         }
 
-        IEnumerator MovePiece(int[] path, float stepDuration)
+        IEnumerator MovePiece(YokaiInstance yokai, int[] path, float stepDuration)
         {
-            _pieceNode = path[0];
-            RefreshYokaiPieces();
+            RefreshYokaiPieces(yokai, path[0]);
             for (int i = 1; i < path.Length; i++)
             {
                 yield return new WaitForSecondsRealtime(stepDuration);
-                _pieceNode = path[i];
-                RefreshYokaiPieces();
+                RefreshYokaiPieces(yokai, path[i]);
             }
         }
 

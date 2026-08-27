@@ -65,6 +65,9 @@ namespace KSpirits.Tutorial
         // 족보 안내 오버레이 대기 전용 플래그. _waitingInput과 절대 공유하지 않는다
         // (다른 대사 WaitInput() 대기 중에 열렸다 닫혀도 그 대기까지 같이 풀리면 안 되므로).
         bool _rulesPanelWaiting;
+        // 수련장에서 도착 칸이 반짝이는 동안, 유저가 그 말을 탭해서 이동을 확정할 때까지 대기.
+        // OnCandidateTapped는 NurtureTrainingController도 같이 구독하므로 이 플래그로 서로 구분한다.
+        bool _waitingCandidateTap;
 
         // 외부에서 현재 상태 읽을 때 사용
         public GameState State => _state;
@@ -91,6 +94,8 @@ namespace KSpirits.Tutorial
             _ui.YutGame.OnLeavePressed += HandleLeaveTraining;
             // 윷놀이 족보 안내 닫기
             _ui.YutGame.OnRulesClosed += HandleRulesClosed;
+            // 도착 칸 반짝임을 탭해서 이동 확정
+            _ui.YutGame.OnCandidateTapped += HandleCandidateTapped;
             // 요괴패 카드 뷰어(X로 닫기 / 재생 버튼)
             _ui.EnsureCardViewer().OnClosed += HandleCardClosed;
             _ui.CardUI.OnReplayRequested += HandleCardReplayRequested;
@@ -374,8 +379,8 @@ namespace KSpirits.Tutorial
 
             int playerNode = 0;
             var toTwo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
-            _ui.YutGame.FlashNode(toTwo[^1]);
             yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingGaeFirst);
+            yield return FlashAndWaitPlayerMove(toTwo[^1]);
             yield return MoveYutPiece(toTwo, 0.35f);
             playerNode = toTwo[^1];
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
@@ -422,6 +427,7 @@ namespace KSpirits.Tutorial
             _ui.RefreshAll(_state);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Mo);
             var toMo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Mo);
+            yield return FlashAndWaitPlayerMove(toMo[^1]);
             yield return MoveYutPiece(toMo, 0.35f);
             playerNode = toMo[^1];
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
@@ -436,6 +442,7 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetThrowVisible(false);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Geol);
             var toShortcut = YutMoveResolver.GetPath(playerNode, YutThrowResult.Geol);
+            yield return FlashAndWaitPlayerMove(toShortcut[^1]);
             yield return MoveYutPiece(toShortcut, 0.35f);
             playerNode = toShortcut[^1];
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
@@ -511,6 +518,7 @@ namespace KSpirits.Tutorial
                 var path = YutMoveResolver.GetPath(pieceNode, outcome.Result);
                 bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);
 
+                yield return FlashAndWaitPlayerMove(path[^1]);
                 yield return MoveYutPiece(path, 0.32f);
                 pieceNode = path[^1];
 
@@ -802,6 +810,16 @@ namespace KSpirits.Tutorial
             while (_rulesPanelWaiting) yield return null;
         }
 
+        // 내 말의 도착 칸을 반짝여서 보여주고, 유저가 그 말을 탭해서 이동을 확정할 때까지 대기한다.
+        // 상대(이무기) 자동 이동에는 쓰지 않는다 — 유저가 직접 미는 건 내 말뿐.
+        IEnumerator FlashAndWaitPlayerMove(int destNode)
+        {
+            _ui.YutGame.FlashCandidates(new[] { new YutMiniGame.YokaiMoveCandidate("player", "옥토끼", destNode) });
+            _waitingCandidateTap = true;
+            while (_waitingCandidateTap) yield return null;
+            _ui.YutGame.ClearCandidates();
+        }
+
         // ─────────────────────────────────────────────
         // 입력 핸들러: WaitInput()을 풀어주는 쪽
         // ─────────────────────────────────────────────
@@ -903,6 +921,13 @@ namespace KSpirits.Tutorial
         void HandleRulesClosed()
         {
             _rulesPanelWaiting = false;
+        }
+
+        // 도착 칸 반짝임 탭 → 이동 확정. NurtureTrainingController도 같은 이벤트를 구독하지만
+        // 그쪽은 _active(자기 세션 중)일 때만 반응하므로 튜토리얼 중엔 서로 안 겹친다.
+        void HandleCandidateTapped(string id)
+        {
+            if (_waitingCandidateTap) _waitingCandidateTap = false;
         }
 
         // 카드 뷰어 재생 버튼 → StepCardComplete의 대기 루프가 직접 재생을 이어서 처리

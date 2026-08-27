@@ -22,6 +22,8 @@ namespace KSpirits.Minigames.Yut
         public event Action<bool> OnRulesPanelToggled;
         /// <summary>족보 안내를 유저가 닫기 버튼으로 직접 닫았을 때.</summary>
         public event Action OnRulesClosed;
+        /// <summary>FlashCandidates로 띄운 후보 중 하나를 유저가 탭했을 때 — 그 시점에 보이던 요괴 id.</summary>
+        public event Action<string> OnCandidateTapped;
 
         Image[] _heartIcons;
         Button _throwButton;
@@ -263,19 +265,24 @@ namespace KSpirits.Minigames.Yut
             Stretch(label.rectTransform);
             label.raycastTarget = false;
 
-            StartCoroutine(PulseAndCycle(img, label, group));
+            // 지금 화면에 보이는(번갈아 표시되는) 후보를 탭하면 그 요괴를 골랐다고 알린다.
+            var cycleIndex = new int[1];
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(group[cycleIndex[0] % group.Count].Id));
+
+            StartCoroutine(PulseAndCycle(img, label, group, cycleIndex));
             return go;
         }
 
-        IEnumerator PulseAndCycle(Image img, Text label, List<YokaiMoveCandidate> group)
+        IEnumerator PulseAndCycle(Image img, Text label, List<YokaiMoveCandidate> group, int[] cycleIndex)
         {
             const float cycleInterval = 0.6f;
             const float pulseSpeed = 4f;
-            int idx = 0;
             float t = 0f;
             while (img != null)
             {
-                var candidate = group[idx % group.Count];
+                var candidate = group[cycleIndex[0] % group.Count];
                 var baseColor = ColorForYokai(candidate.Id);
                 float pulse = 0.55f + 0.45f * Mathf.PingPong(Time.unscaledTime * pulseSpeed, 1f);
                 img.color = new Color(baseColor.r, baseColor.g, baseColor.b, pulse);
@@ -285,7 +292,7 @@ namespace KSpirits.Minigames.Yut
                 if (group.Count > 1 && t >= cycleInterval)
                 {
                     t = 0f;
-                    idx++;
+                    cycleIndex[0]++;
                 }
                 yield return null;
             }
