@@ -329,14 +329,7 @@ namespace KSpirits.Tutorial
             _ui.ShowStatus("정화수 +1");
 
             // 쓰다듬기 대사
-            var lines = OktoDialogue.Petting;
-            for (int i = 0; i < lines.Count; i++)
-            {
-                _ui.ShowDialogue(lines[i], i + 1, lines.Count, OktoDialogueSection.Petting);
-                yield return WaitInput();
-            }
-
-            _ui.HideDialogue();
+            yield return PlayLines(OktoDialogue.Petting, OktoDialogueSection.Petting);
             _ui.HighlightItemBar(false);
 
             yield return Advance(TutorialStepId.MemoryView);

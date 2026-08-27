@@ -46,6 +46,18 @@ namespace KSpirits.UI
                 ReleaseHold();
         }
 
+        // GameObject가 비활성화되면(예: ShowChoices/HideDialogue가 대사창을 SetActive(false))
+        // 코루틴이 자기 정리 코드를 못 돌고 그냥 죽어버려서 _holdRoutine이 null로 안 풀린다.
+        // 그 상태로 두면 다음에 다시 눌러도 "이미 도는 중"으로 착각해 꾹 눌러넘기기가 영영 안 켜짐 —
+        // 그래서 비활성화될 때 여기서 직접 정리한다.
+        void OnDisable()
+        {
+            _held = false;
+            _holdAdvancedAny = false;
+            _holdRoutine = null;
+            _typewriter?.SetFastForward(false);
+        }
+
         void OnApplicationFocus(bool hasFocus)
         {
             if (!hasFocus) ReleaseHold();
