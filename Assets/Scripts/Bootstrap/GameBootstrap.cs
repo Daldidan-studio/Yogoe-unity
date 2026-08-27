@@ -38,6 +38,25 @@ namespace KSpirits.Bootstrap
             var saveHost = gameObject.GetComponent<SaveHost>() ?? gameObject.AddComponent<SaveHost>();
             saveHost.Bind(state);
 
+            var opening = gameObject.GetComponent<OpeningController>() ?? gameObject.AddComponent<OpeningController>();
+            opening.Bind(state, _ui);
+
+            if (!state.OpeningSeen)
+            {
+                opening.Play(() =>
+                {
+                    SaveService.Save(state);
+                    StartTutorialFlow(state, opening);
+                });
+            }
+            else
+            {
+                StartTutorialFlow(state, opening);
+            }
+        }
+
+        void StartTutorialFlow(GameState state, OpeningController opening)
+        {
             var summon = gameObject.GetComponent<SummonController>() ?? gameObject.AddComponent<SummonController>();
             summon.Bind(state, _ui);
 
@@ -49,7 +68,7 @@ namespace KSpirits.Bootstrap
             nurtureTraining.Bind(state, _ui);
 
             var debugMenu = gameObject.GetComponent<TutorialDebugMenu>() ?? gameObject.AddComponent<TutorialDebugMenu>();
-            debugMenu.Bind(tutorial, _ui, nurtureTraining);
+            debugMenu.Bind(tutorial, _ui, nurtureTraining, opening);
         }
 
         void Start()

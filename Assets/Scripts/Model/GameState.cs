@@ -78,6 +78,8 @@ namespace KSpirits.Model
     {
         public TutorialStepId TutorialStep = TutorialStepId.FirstMeeting;
         public bool TutorialFinished;
+        // 튜토리얼보다 먼저 재생되는 오프닝 컷씬을 봤는지. 새 게임만 false로 시작한다.
+        public bool OpeningSeen;
         public EndingType LastEnding = EndingType.None;
         public PlayerWallet Wallet = new();
 

@@ -144,6 +144,13 @@ namespace KSpirits.Systems
                 }
             }
 
+            if (data.version < 3)
+            {
+                // v3: 오프닝 컷씬 추가. 이전 세이브는 이미 튜토리얼을 진행 중이었으므로
+                // 오프닝을 새로 보여주지 않는다.
+                data.openingSeen = true;
+            }
+
             Debug.Log($"[Save] migrate {data.version} → {SaveData.CurrentVersion}");
             data.version = SaveData.CurrentVersion;
         }

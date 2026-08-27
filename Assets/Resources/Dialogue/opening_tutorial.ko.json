@@ -1,0 +1,232 @@
+{
+  "version": "1.0",
+  "character": "opening",
+  "locale": "ko",
+  "sections": [
+    {
+      "id": "opening_intro",
+      "lines": [
+        {
+          "speaker": "",
+          "text": "",
+          "narration": false,
+          "fx": "탁탁 소리, 배경 이미지가 위아래로 조금씩 흔들림"
+        },
+        {
+          "speaker": "나",
+          "text": "어? 이런 데 가게가 있었나. 들어가볼까.",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "",
+          "narration": false,
+          "fx": "문으로 줌인, 블랙아웃, 풍경소리"
+        },
+        {
+          "speaker": "나",
+          "text": "주인은 없나?",
+          "narration": false
+        },
+        {
+          "speaker": "나",
+          "text": "",
+          "narration": false,
+          "fx": "이동 연출 \n탁탁 소리 + 배경 상하 흔들림\n고가구 중 하나에 줌인(짤랑 소리)\n다른 고가구 하나에 줌 이동(달그락 소리)\n나전칠기장으로 이동"
+        },
+        {
+          "speaker": "나",
+          "text": "와.... 이건 진짜 예쁘다. 홀리겠네.",
+          "narration": false,
+          "fx": "나전칠기 반짝반짝 모션"
+        },
+        {
+          "speaker": "나",
+          "text": "",
+          "narration": false,
+          "fx": "부적 줌인, 불길한 효과음"
+        },
+        {
+          "speaker": "",
+          "text": "어딘가 불길한 느낌이 들어 뒷걸음질치던 나는 갑자기 어딘가에 발이 걸렸다.",
+          "narration": true
+        },
+        {
+          "speaker": "나",
+          "text": "으앗!",
+          "narration": false,
+          "fx": "쿵 소리+진동. 배경 이미지가 크게 한번 흔들리고 블랙아웃 후 넋들이 확 흩어지는 연출. 후 다시 블랙아웃, 화이트아웃(삐-소리) 후 이미지 변경"
+        },
+        {
+          "speaker": "나",
+          "text": "뭐, 뭐지? 원래 비어있었나?",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "큰 소리 때문인지 가게 주인이 나왔다. 눈동자가 신기한 색이었다.",
+          "narration": true
+        },
+        {
+          "speaker": "???",
+          "text": "이게 무슨....",
+          "narration": false
+        },
+        {
+          "speaker": "나",
+          "text": "죄송한데 제가 넘어져서 이게 열린 것 같아요.",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "가게 주인은 빈 자개함을 들여다보았다.",
+          "narration": true
+        },
+        {
+          "speaker": "???",
+          "text": "네 놈 때문에 요괴들이 다 풀려났어.",
+          "narration": false,
+          "fx": "비네팅으로 천천히 어두워짐. 이무기의 동공이 뱀처럼 좁아짐"
+        },
+        {
+          "speaker": "나",
+          "text": "예? 뭐라고요?",
+          "narration": false
+        },
+        {
+          "speaker": "???",
+          "text": "이  것들만 승천시키면 나도 승천할 차례였는데. 네 놈이 다 망쳐버렸어.",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "기이한 압박감에 온 몸이 짓눌리는 느낌이 들었다. 여러 색깔이 섞인 이상한 눈동자가 나를 꿰뚫어 보고 있었다.",
+          "narration": true
+        },
+        {
+          "speaker": "",
+          "text": "그 뒤로 알 수 없는 뱀의 형체가 보였다.",
+          "narration": true
+        },
+        {
+          "speaker": "나",
+          "text": "배, 뱀?",
+          "narration": false
+        },
+        {
+          "speaker": "",
+          "text": "내가 그렇게 중얼거리자 갑자기 가게 주인이 힘을 풀었다. 숨을 쉬기 쉬워졌다.",
+          "narration": true,
+          "fx": "이무기의 동공이 다시 사람처럼 돌아옴"
+        },
+        {
+          "speaker": "나",
+          "text": "헉. 헉....",
+          "narration": false
+        },
+        {
+          "speaker": "???",
+          "text": "오히려 잘된 일일지도 모르겠군.",
+          "narration": false
+        },
+        {
+          "speaker": "???",
+          "text": "이 안에 있던 것들, 네가 다 잡아와.",
+          "narration": false
+        },
+        {
+          "speaker": "나",
+          "text": "예, 예? 그건 말도 안돼요",
+          "narration": false
+        },
+        {
+          "speaker": "???",
+          "text": "아니면 산 채로 이 함에 넣어줄까?",
+          "narration": false,
+          "fx": "이무기 동공 다시 뱀"
+        },
+        {
+          "speaker": "",
+          "text": "또 알 수 없는 압박감이 느껴졌다.",
+          "narration": true
+        }
+      ]
+    },
+    {
+      "id": "opening_accept",
+      "lines": [
+        {
+          "speaker": "나",
+          "text": "아, 알겠어요. 이 안에서 찾아오면 되는 거죠?",
+          "narration": false
+        }
+      ]
+    },
+    {
+      "id": "opening_flee",
+      "lines": [
+        {
+          "speaker": "",
+          "text": "몸으로 뛰어 나가려고 한 순간, 온 몸이 굳어 꼼짝도 할 수 없었다. 두려움이 밀려왔다.",
+          "narration": true
+        }
+      ]
+    },
+    {
+      "id": "opening_reveal",
+      "lines": [
+        {
+          "speaker": "???",
+          "text": "도망갈 수 있을 줄 알았나?",
+          "narration": false
+        },
+        {
+          "speaker": "나",
+          "text": "하, 할게요....",
+          "narration": false
+        },
+        {
+          "speaker": "???",
+          "text": "그래. 자세한 건 따로 들어라. 옥토끼!",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "안녕하세요, 손님!",
+          "narration": false
+        },
+        {
+          "speaker": "나",
+          "text": "그 귀는...?",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "아, 역시 보이시는군요!",
+          "narration": false
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "설명보다 직접 해보시는 게 빨라요. 우선 저를 시험삼아 키워주세요!",
+          "narration": false,
+          "fx": "옥토끼에서 넋으로 변화. 접혀있던 족자가 펼쳐지며 넋이  족자 속으로 빨려들어감, 족자 화면으로 이동, 전체화면"
+        }
+      ]
+    }
+  ],
+  "choices": [
+    {
+      "id": "opening_choice",
+      "options": [
+        {
+          "id": "accept",
+          "label": "포기하고 고개를 끄덕인다"
+        },
+        {
+          "id": "flee",
+          "label": "재빨리 도망간다"
+        }
+      ]
+    }
+  ]
+}

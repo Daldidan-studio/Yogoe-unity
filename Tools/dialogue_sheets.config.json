@@ -1,6 +1,6 @@
 {
   "sheet_id": "1d3c7nN8cZjKQUBBetL5B7q6U2hwUBRvwWtL5ys4nrRs",
-  "characters": ["okto"],
+  "characters": ["okto", "opening"],
   "locales": ["ko", "en", "zh"],
   "fallback_locale": "ko"
 }

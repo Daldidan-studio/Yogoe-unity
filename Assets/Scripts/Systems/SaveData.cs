@@ -12,7 +12,7 @@ namespace KSpirits.Systems
     [Serializable]
     public class SaveData
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int version = CurrentVersion;
         public string savedAtIso;
@@ -20,6 +20,7 @@ namespace KSpirits.Systems
 
         public int tutorialStep;
         public bool tutorialFinished;
+        public bool openingSeen;
         public int lastEnding;
         public int unlockedSlots;
         public int totalSummons;
@@ -101,6 +102,7 @@ namespace KSpirits.Systems
                 locale = GameLocale.Current,
                 tutorialStep = (int)state.TutorialStep,
                 tutorialFinished = state.TutorialFinished,
+                openingSeen = state.OpeningSeen,
                 lastEnding = (int)state.LastEnding,
                 unlockedSlots = state.UnlockedSlots,
                 totalSummons = state.TotalSummons,
@@ -152,6 +154,7 @@ namespace KSpirits.Systems
             {
                 TutorialStep = (TutorialStepId)data.tutorialStep,
                 TutorialFinished = data.tutorialFinished,
+                OpeningSeen = data.openingSeen,
                 LastEnding = (EndingType)data.lastEnding,
                 UnlockedSlots = data.unlockedSlots > 0 ? data.unlockedSlots : GameConstants.BaseSlots,
                 TotalSummons = data.totalSummons,

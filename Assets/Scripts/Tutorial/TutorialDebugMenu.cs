@@ -20,14 +20,17 @@ namespace KSpirits.Tutorial
     {
         TutorialController _tutorial;
         NurtureTrainingController _nurtureTraining;
+        OpeningController _opening;
         ScrollScreenUI _ui;
         GameObject _panel;
         bool _open;
 
-        public void Bind(TutorialController tutorial, ScrollScreenUI ui, NurtureTrainingController nurtureTraining = null)
+        public void Bind(TutorialController tutorial, ScrollScreenUI ui, NurtureTrainingController nurtureTraining = null,
+            OpeningController opening = null)
         {
             _tutorial = tutorial;
             _nurtureTraining = nurtureTraining;
+            _opening = opening;
             _ui = ui;
             BuildToggle();
         }
@@ -41,6 +44,21 @@ namespace KSpirits.Tutorial
             var yutJump = CreateButton(_ui.transform, "GoraniYutJump", "고라니왕 수련장", JumpToGoraniTraining);
             yutJump.transform.SetAsLastSibling();
             SetAnchor(yutJump.GetComponent<RectTransform>(), 0.15f, 0.965f, 0.4f, 0.998f, 0, 0, 0, 0);
+
+            var openingReplay = CreateButton(_ui.transform, "OpeningReplay", "오프닝 다시보기", ReplayOpening);
+            openingReplay.transform.SetAsLastSibling();
+            SetAnchor(openingReplay.GetComponent<RectTransform>(), 0.41f, 0.965f, 0.66f, 0.998f, 0, 0, 0, 0);
+        }
+
+        /// <summary>
+        /// 오프닝 컷씬을 지금 다시 재생한다 (테스트용). 실제 진행 상태(TutorialStep 등)는
+        /// 건드리지 않고 대사/선택지 UI만 다시 돌린다.
+        /// </summary>
+        void ReplayOpening()
+        {
+            if (_opening == null) return;
+            if (_open) TogglePanel();
+            _opening.Play(null);
         }
 
         /// <summary>
