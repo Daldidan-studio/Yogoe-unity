@@ -46,6 +46,10 @@ namespace KSpirits.Tutorial
         SummonController _summonController;
         // true면 WaitInput()이 플레이어 입력을 기다리는 중
         bool _waitingInput;
+        // true인 동안엔 _ui의 공용 이벤트(대사/선택지 등)에 전혀 반응하지 않는다 —
+        // 오프닝 다시보기처럼 같은 ScrollScreenUI 이벤트를 다른 컨트롤러가 잠깐 쓸 때,
+        // 튜토리얼이 자기가 대기 중이던 스텝을 같이 넘겨버리는 걸 막는다.
+        bool _inputSuspended;
         // 선택지에서 고른 선택 id (예: "cancel_contract")
         string _lastChoiceId;
         // 쓰다듬기 대사 중에 이미 수련장 버튼을 눌렀는지
@@ -93,6 +97,12 @@ namespace KSpirits.Tutorial
             // 대사 다음으로(탭/자동진행)
             _ui.OnDialogueContinue += HandleDialogueContinue;
         }
+
+        /// <summary>
+        /// true를 주면 튜토리얼이 _ui의 공용 이벤트에 반응하지 않게 된다.
+        /// 오프닝 다시보기 등, 같은 ScrollScreenUI 이벤트를 다른 컨트롤러가 잠깐 독점해야 할 때 사용.
+        /// </summary>
+        public void SetInputSuspended(bool suspended) => _inputSuspended = suspended;
 
         /// <summary>
         /// 튜토리얼 시작. 세이브에 저장된 TutorialStep부터 이어서 실행.
@@ -835,6 +845,7 @@ namespace KSpirits.Tutorial
         // 요괴 탭
         void HandleYokaiTap()
         {
+            if (_inputSuspended) return;
             // 현현 진화 중인데 기력이 아직 부족하면 → 안내만 하고 진행은 안 함
             if (_state.TutorialStep == TutorialStepId.EvolveToManifest &&
                 _state.FocusYokai.Energy < GameConstants.EnergyMax)
@@ -859,6 +870,7 @@ namespace KSpirits.Tutorial
         // 정화수 공양
         void HandleOffer()
         {
+            if (_inputSuspended) return;
             if (_state.Wallet.PurifiedWater <= 0) return;
 
             // 첫 공양 / 현현 진화 스텝에서만 공양 처리
@@ -876,7 +888,7 @@ namespace KSpirits.Tutorial
         // 수련장 버튼
         void HandleTrainingPressed()
         {
-            if (!_waitingInput) return;
+            if (_inputSuspended || !_waitingInput) return;
             // 쓰다듬기 안내 중 or 수련 스텝에서만
             if (_state.TutorialStep == TutorialStepId.Training ||
                 _state.TutorialStep == TutorialStepId.Petting)
@@ -889,7 +901,7 @@ namespace KSpirits.Tutorial
         // 윷 던지기
         void HandleThrowYut()
         {
-            if (_state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
+            if (_inputSuspended || _state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
 
             if (_inFreePlay)
             {
@@ -905,7 +917,7 @@ namespace KSpirits.Tutorial
         // 수련장 나가기
         void HandleLeaveTraining()
         {
-            if (_state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
+            if (_inputSuspended || _state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
 
             if (_inFreePlay)
             {
@@ -922,12 +934,14 @@ namespace KSpirits.Tutorial
         // 카드 뷰어 X로 닫힘 → 대기 해제
         void HandleCardClosed()
         {
+            if (_inputSuspended) return;
             if (_waitingInput) _waitingInput = false;
         }
 
         // 족보 안내를 유저가 직접 닫음 → _waitingInput은 절대 안 건드린다 (WaitRulesClosed 참고)
         void HandleRulesClosed()
         {
+            if (_inputSuspended) return;
             _rulesPanelWaiting = false;
         }
 
@@ -936,6 +950,7 @@ namespace KSpirits.Tutorial
         // 바깥쪽 대기까지 같이 풀려버리는 경합이 생김 — 그래서 여기선 플래그만 세우고 넘김)
         void HandleCardReplayRequested(bool showingBack)
         {
+            if (_inputSuspended) return;
             _cardReplayRequested = true;
             _cardReplayShowingBack = showingBack;
             if (_waitingInput) _waitingInput = false;
@@ -944,6 +959,7 @@ namespace KSpirits.Tutorial
         // 선택지 클릭 → id 저장 후 대기 해제
         void HandleChoice(string id)
         {
+            if (_inputSuspended) return;
             _lastChoiceId = id;
             if (_waitingInput) _waitingInput = false;
         }
@@ -951,6 +967,7 @@ namespace KSpirits.Tutorial
         // 대사 "다음" (탭/자동진행) → 대기 해제
         void HandleDialogueContinue()
         {
+            if (_inputSuspended) return;
             if (_waitingInput) _waitingInput = false;
         }
     }

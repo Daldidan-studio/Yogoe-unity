@@ -58,7 +58,10 @@ namespace KSpirits.Tutorial
         {
             if (_opening == null) return;
             if (_open) TogglePanel();
-            _opening.Play(null);
+            // 튜토리얼이 이미 같은 ScrollScreenUI 이벤트(대사/선택지)를 구독 중이라,
+            // 끄지 않으면 오프닝 탭이 튜토리얼 쪽 대기까지 같이 풀어버린다.
+            _tutorial?.SetInputSuspended(true);
+            _opening.Play(() => _tutorial?.SetInputSuspended(false));
         }
 
         /// <summary>
