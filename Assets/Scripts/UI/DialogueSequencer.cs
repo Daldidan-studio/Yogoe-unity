@@ -26,14 +26,23 @@ namespace KSpirits.UI
             _ui = ui;
         }
 
-        /// <summary>lines를 한 줄씩, 탭할 때마다 다음으로 넘기며 보여준다. 다 끝나면 대사창을 숨긴다.</summary>
+        /// <summary>
+        /// lines를 한 줄씩, 탭할 때마다 다음으로 넘기며 보여준다. 다 끝나면 대사창을 숨긴다.
+        /// 시트 칸이 비어서 text도 fx도 없는 줄은 건너뛰고(빈 대사창이 뜨는 걸 방지),
+        /// text 없이 fx만 있는 줄은 그 fx만 트리거하고 탭 대기 없이 바로 다음 줄로 넘어간다.
+        /// </summary>
         public IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines, string sectionId = null)
         {
             var previousOwner = _ui.SetDialogueInputOwner(HandleContinue, HandleChoice);
             for (int i = 0; i < lines.Count; i++)
             {
-                _ui.ShowDialogue(lines[i], i + 1, lines.Count, sectionId);
-                yield return WaitForInput();
+                var line = lines[i];
+                bool hasText = !string.IsNullOrEmpty(line.Text);
+                bool hasFx = !string.IsNullOrEmpty(line.Fx);
+                if (!hasText && !hasFx) continue; // 시트에서 비워둔 줄 — 보여줄 것도 트리거할 것도 없음
+
+                _ui.ShowDialogue(line, i + 1, lines.Count, sectionId);
+                if (hasText) yield return WaitForInput();
             }
             _ui.HideDialogue();
             _ui.SetDialogueInputOwner(previousOwner.onContinue, previousOwner.onChoice);
