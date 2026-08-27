@@ -82,7 +82,6 @@ namespace KSpirits.Systems
 
                 _ui.YutGame.SetThrowVisible(true);
                 _ui.YutGame.SetLeaveVisible(true);
-                _ui.YutGame.ShowProbabilityStrip(true);
                 yield return WaitThrowOrLeave();
                 if (_leaveFlag) break;
 
@@ -90,7 +89,6 @@ namespace KSpirits.Systems
                     _state.Wallet.TrySpendHearts(1);
                 freeThrow = false;
                 _ui.YutGame.SetThrowVisible(false);
-                _ui.YutGame.ShowProbabilityStrip(false);
                 _ui.RefreshAll(_state);
 
                 var outcome = YutThrowRoller.Roll();
@@ -124,7 +122,6 @@ namespace KSpirits.Systems
             _ui.YutGame.Hide();
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
-            _ui.YutGame.ShowProbabilityStrip(false);
             _ui.YutGame.HideThrowResult();
             _ui.SetTrainingButtonVisible(true);
             _ui.RefreshAll(_state);

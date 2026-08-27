@@ -17,4 +17,3 @@ line,training_shortcut,4,,이무기가 어이없다는 표정을 짓는다.,,TRU
 line,training_coin_tile,1,옥토끼,그리고 여기는 엽전 칸이에요.,,FALSE,near_yokai,,,,,
 line,training_coin_tile,2,옥토끼,엽전은 상점에서 쓰실 수 있답니다.,,FALSE,near_yokai,,,,,
 line,training_handoff,1,옥토끼,이제 직접 윷을 던져보세요. 언제든 뒤로가기 버튼을 누르면 족자로 돌아가실 수 있어요.,,FALSE,bottom_wide,,,,,
-line,training_handoff,2,옥토끼,윷놀이 룰은 언제든 ? 버튼을 눌러주시면 보실 수 있답니다!,,FALSE,near_yokai,,,,,

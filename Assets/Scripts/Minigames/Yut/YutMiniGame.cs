@@ -18,8 +18,10 @@ namespace KSpirits.Minigames.Yut
     {
         public event Action OnThrowPressed;
         public event Action OnLeavePressed;
-        /// <summary>상단 족보 스트립이 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
+        /// <summary>족보 안내 오버레이가 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
         public event Action<bool> OnRulesPanelToggled;
+        /// <summary>족보 안내를 유저가 닫기 버튼으로 직접 닫았을 때.</summary>
+        public event Action OnRulesClosed;
 
         Image[] _heartIcons;
         Button _throwButton;
@@ -30,7 +32,7 @@ namespace KSpirits.Minigames.Yut
         Image[] _pads;
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
-        GameObject _probabilityStrip;
+        GameObject _rulesOverlay;
         Text _resultLabel;
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
@@ -110,17 +112,22 @@ namespace KSpirits.Minigames.Yut
         }
 
         /// <summary>
-        /// 던지기 전 참고용 상단 족보 스트립(빽도~모 6종 전부 나열). 던지기 버튼을 누르는 순간
-        /// 호출부가 꺼준다(자동으로 안 없어짐). 열려있는 동안엔 OnRulesPanelToggled(true)로
-        /// 대사 타이핑을 같이 멈춰서, 다른 진행이 몰래 같이 흐르지 않게 한다.
+        /// 족보(빽도~모 6종) 안내 오버레이. 딱 한 번 보여주고, 유저가 닫기 버튼을 눌러야 닫힌다
+        /// (자동으로 안 없어짐). 열려있는 동안엔 OnRulesPanelToggled(true)로 대사 타이핑도
+        /// 같이 멈춰서, 안내 보는 동안 다른 진행이 몰래 같이 흐르지 않게 한다.
+        /// 닫히는 순간 OnRulesClosed를 쏴서, 호출부가 "닫을 때까지 대기"를 걸 수 있다.
         /// </summary>
-        public void ShowProbabilityStrip(bool on)
+        public void ShowRulesOverlay(bool on)
         {
             EnsureBoard();
-            if (_probabilityStrip == null) return;
+            if (_rulesOverlay == null) return;
 
-            _probabilityStrip.SetActive(on);
+            bool wasOpen = _rulesOverlay.activeSelf;
+            _rulesOverlay.SetActive(on);
             OnRulesPanelToggled?.Invoke(on);
+
+            if (wasOpen && !on)
+                OnRulesClosed?.Invoke();
         }
 
         /// <summary>
@@ -248,18 +255,22 @@ namespace KSpirits.Minigames.Yut
 
         void EnsureResultUi()
         {
-            if (_probabilityStrip != null) return;
+            if (_rulesOverlay != null) return;
 
-            _probabilityStrip = new GameObject("ProbabilityStrip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _probabilityStrip.transform.SetParent(transform, false);
-            SetAnchor((RectTransform)_probabilityStrip.transform, 0.05f, 0.68f, 0.95f, 0.78f, 0, 0, 0, 0);
-            _probabilityStrip.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.9f);
+            _rulesOverlay = new GameObject("RulesOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _rulesOverlay.transform.SetParent(transform, false);
+            SetAnchor((RectTransform)_rulesOverlay.transform, 0.14f, 0.32f, 0.86f, 0.64f, 0, 0, 0, 0);
+            _rulesOverlay.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.95f);
 
-            var stripText = CreateText(_probabilityStrip.transform, "StripText",
-                "빽도 -1   도 1   개 2   걸 3   윷 4(+1)   모 5(+1)",
-                20, TextAnchor.MiddleCenter);
-            Stretch(stripText.rectTransform);
-            _probabilityStrip.SetActive(false);
+            var rulesText = CreateText(_rulesOverlay.transform, "RulesText",
+                "윷놀이 족보 (16분의)\n\n빽도 -1\n도 1\n개 2\n걸 3\n윷 4 (한 번 더)\n모 5 (한 번 더)",
+                22, TextAnchor.MiddleCenter);
+            SetAnchor(rulesText.rectTransform, 0.05f, 0.2f, 0.95f, 0.95f, 0, 0, 0, 0);
+
+            var closeBtn = CreateButton(_rulesOverlay.transform, "Close", "닫기", () => ShowRulesOverlay(false));
+            SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
+
+            _rulesOverlay.SetActive(false);
 
             _resultLabel = CreateText(transform, "YutResult", "", 26, TextAnchor.MiddleCenter);
             SetAnchor(_resultLabel.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);

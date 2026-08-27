@@ -290,12 +290,6 @@
           "text": "이제 직접 윷을 던져보세요. 언제든 뒤로가기 버튼을 누르면 족자로 돌아가실 수 있어요.",
           "narration": false,
           "layout": "bottom_wide"
-        },
-        {
-          "speaker": "옥토끼",
-          "text": "윷놀이 룰은 언제든 ? 버튼을 눌러주시면 보실 수 있답니다!",
-          "narration": false,
-          "layout": "near_yokai"
         }
       ]
     },
