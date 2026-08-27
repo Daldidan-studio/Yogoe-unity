@@ -9,8 +9,6 @@ using KSpirits.Minigames.Yut;
 using KSpirits.Model;
 using KSpirits.Systems;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -72,10 +70,7 @@ namespace KSpirits.UI
         bool _blackened;
         bool _offerEnabled;
         bool _wired;
-        bool _dialogueHeld;
-        bool _holdAdvancedAny;
         bool _yokaiInteractableBeforeDialogue;
-        Coroutine _dialogueHoldRoutine;
         Color _trainingButtonBaseColor = new(0f, 0f, 0f, 0f);
         GameObject _storyOverlay;
         Text _storyOverlayTitle;
@@ -104,34 +99,6 @@ namespace KSpirits.UI
             if (!Application.isPlaying)
                 return;
             EnsureWired();
-        }
-
-        void Update()
-        {
-            // PointerUp/Exit 이벤트가 캔버스 밖 릴리즈 등으로 누락되는 경우를 대비한 안전장치.
-            if (_dialogueHeld && !IsPointerDown())
-                HandleDialoguePointerUp();
-        }
-
-        static bool IsPointerDown()
-        {
-            var mouse = Mouse.current;
-            if (mouse != null && mouse.leftButton.isPressed) return true;
-            var touch = Touchscreen.current;
-            if (touch != null && touch.primaryTouch.press.isPressed) return true;
-            return false;
-        }
-
-        void OnApplicationFocus(bool hasFocus)
-        {
-            if (!hasFocus)
-                HandleDialoguePointerUp();
-        }
-
-        void OnApplicationPause(bool paused)
-        {
-            if (paused)
-                HandleDialoguePointerUp();
         }
 
         internal void BindHierarchy(
@@ -350,22 +317,12 @@ namespace KSpirits.UI
 
             if (_dialogueRoot != null)
             {
-                var dialogueBtn = _dialogueRoot.GetComponent<Button>();
-                if (dialogueBtn == null)
-                {
-                    dialogueBtn = _dialogueRoot.AddComponent<Button>();
-                    dialogueBtn.targetGraphic = _dialogueRoot.GetComponent<Image>();
-                }
-                dialogueBtn.onClick.RemoveAllListeners();
-                dialogueBtn.onClick.AddListener(HandleDialogueTap);
-
-                var trigger = _dialogueRoot.GetComponent<EventTrigger>();
-                if (trigger == null)
-                    trigger = _dialogueRoot.AddComponent<EventTrigger>();
-                trigger.triggers.Clear();
-                AddTrigger(trigger, EventTriggerType.PointerDown, HandleDialoguePointerDown);
-                AddTrigger(trigger, EventTriggerType.PointerUp, HandleDialoguePointerUp);
-                AddTrigger(trigger, EventTriggerType.PointerExit, HandleDialoguePointerUp);
+                var advanceInput = _dialogueRoot.GetComponent<DialogueAdvanceInput>();
+                if (advanceInput == null)
+                    advanceInput = _dialogueRoot.AddComponent<DialogueAdvanceInput>();
+                advanceInput.Bind(_typewriter,
+                    () => OnDialogueContinue?.Invoke(),
+                    () => _dialogueContinueHint.gameObject.SetActive(true));
             }
 
             if (_waterDrag != null)
@@ -441,13 +398,6 @@ namespace KSpirits.UI
         {
             if (_offerEnabled)
                 OnOfferPurifiedWater?.Invoke();
-        }
-
-        static void AddTrigger(EventTrigger trigger, EventTriggerType type, Action action)
-        {
-            var entry = new EventTrigger.Entry { eventID = type };
-            entry.callback.AddListener(_ => action());
-            trigger.triggers.Add(entry);
         }
 
         static void WireButton(Button btn, Action action)
@@ -552,86 +502,6 @@ namespace KSpirits.UI
             _dialogueContinueHint.gameObject.SetActive(false);
             _dialogueRoot.SetActive(false);
             SetYokaiInteractable(_yokaiInteractableBeforeDialogue);
-        }
-
-        void HandleDialogueTap()
-        {
-            if (_holdAdvancedAny)
-            {
-                _holdAdvancedAny = false;
-                return;
-            }
-
-            if (_typewriter != null && _typewriter.HandleTap())
-            {
-                _dialogueContinueHint.gameObject.SetActive(true);
-                return;
-            }
-
-            OnDialogueContinue?.Invoke();
-        }
-
-        const float DialogueHoldEngageDelay = 0.25f;
-
-        void HandleDialoguePointerDown()
-        {
-            _dialogueHeld = true;
-            _holdAdvancedAny = false;
-            if (_dialogueHoldRoutine == null)
-                _dialogueHoldRoutine = StartCoroutine(HoldThenAutoAdvance());
-        }
-
-        void HandleDialoguePointerUp()
-        {
-            _dialogueHeld = false;
-            _typewriter?.SetFastForward(false);
-        }
-
-        /// <summary>
-        /// 짧은 탭은 무시(기존 HandleDialogueTap 경로로 처리)하고,
-        /// DialogueHoldEngageDelay 이상 눌려 있을 때만 3배속 + 완료된 줄 자동 진행을 켠다.
-        /// </summary>
-        IEnumerator HoldThenAutoAdvance()
-        {
-            float t = 0f;
-            while (_dialogueHeld && t < DialogueHoldEngageDelay)
-            {
-                t += Time.unscaledDeltaTime;
-                yield return null;
-            }
-
-            if (!_dialogueHeld)
-            {
-                _dialogueHoldRoutine = null;
-                yield break;
-            }
-
-            _typewriter?.SetFastForward(true);
-            while (_dialogueHeld)
-            {
-                if (_dialogueRoot != null && _dialogueRoot.activeSelf &&
-                    _typewriter != null && _typewriter.IsComplete && !_typewriter.IsTyping)
-                {
-                    // 문장이 다 끝난 뒤에도 잠깐(0.5초) 머물러서, 빠르게 넘기는 중에도 방금
-                    // 끝난 줄을 눈으로 훑어볼 시간을 준다. 그사이 손을 떼면 자동 진행하지 않는다.
-                    float hold = 0f;
-                    while (_dialogueHeld && hold < 0.5f)
-                    {
-                        hold += Time.unscaledDeltaTime;
-                        yield return null;
-                    }
-                    if (!_dialogueHeld) break;
-
-                    _holdAdvancedAny = true;
-                    OnDialogueContinue?.Invoke();
-                    yield return null; // 다음 줄이 Play()로 갱신될 시간을 한 프레임 확보
-                }
-                else
-                {
-                    yield return null;
-                }
-            }
-            _dialogueHoldRoutine = null;
         }
 
         IEnumerator WatchTypewriterComplete()

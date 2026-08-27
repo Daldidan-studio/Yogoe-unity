@@ -44,7 +44,7 @@ namespace KSpirits.UI
         Image _topPortrait, _bottomPortrait;
         DialogueTypewriter _typewriter;
         bool _built;
-        bool _waitingTap;
+        bool _waitingAdvance;
 
         /// <summary>위쪽 바에 나올 화자, 아래쪽 바에 나올 화자를 지정한다.</summary>
         public void Configure(Speaker top, Speaker bottom)
@@ -97,19 +97,14 @@ namespace KSpirits.UI
                 _typewriter.Bind(body);
                 _typewriter.Play(line.Text ?? "");
 
-                _waitingTap = true;
-                while (_waitingTap) yield return null;
+                _waitingAdvance = true;
+                while (_waitingAdvance) yield return null;
             }
 
             Hide();
         }
 
-        void HandleTap()
-        {
-            if (_typewriter != null && _typewriter.HandleTap())
-                return; // 타이핑 중이면 전체 표시만 하고, 다음으로는 안 넘어감
-            _waitingTap = false;
-        }
+        void HandleAdvance() => _waitingAdvance = false;
 
         void EnsureBuilt()
         {
@@ -127,6 +122,7 @@ namespace KSpirits.UI
             _narrationBar.transform.SetParent(transform, false);
             SetAnchor(_narrationBar.GetComponent<RectTransform>(), 0.12f, 0.42f, 0.88f, 0.58f, 0, 0, 0, 0);
             _narrationBar.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.85f);
+            _narrationBar.AddComponent<DialogueAdvanceInput>().Bind(_typewriter, HandleAdvance);
             _narrationText = CreateText(_narrationBar.transform, "Text", "", 24, TextAnchor.MiddleCenter);
             Stretch(_narrationText.rectTransform);
 
@@ -142,10 +138,7 @@ namespace KSpirits.UI
             bar.transform.SetParent(transform, false);
             SetAnchor(bar.GetComponent<RectTransform>(), 0.02f, yMin, 0.98f, yMax, 0, 0, 0, 0);
             bar.GetComponent<Image>().color = new Color(0.06f, 0.06f, 0.1f, 0.92f);
-
-            var btn = bar.AddComponent<Button>();
-            btn.targetGraphic = bar.GetComponent<Image>();
-            btn.onClick.AddListener(HandleTap);
+            bar.AddComponent<DialogueAdvanceInput>().Bind(_typewriter, HandleAdvance);
 
             float portraitX0 = portraitOnLeft ? 0f : 0.8f;
             float portraitX1 = portraitOnLeft ? 0.2f : 1f;
