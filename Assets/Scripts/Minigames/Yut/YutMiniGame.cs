@@ -33,7 +33,6 @@ namespace KSpirits.Minigames.Yut
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         GameObject _rulesOverlay;
-        Text _resultLabel;
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
@@ -128,26 +127,6 @@ namespace KSpirits.Minigames.Yut
 
             if (wasOpen && !on)
                 OnRulesClosed?.Invoke();
-        }
-
-        /// <summary>
-        /// 던진 결과를 이름+숫자로 보여준다 (예: "걸 3", "모 5 (한 번 더)").
-        /// 족보 스트립과는 별개로, 이건 던진 뒤 결과 확인용이라 다음 던지기 전까지 계속 보인다.
-        /// </summary>
-        public void ShowThrowResult(YutThrowResult result, bool grantsBonusThrow)
-        {
-            EnsureBoard();
-            if (_resultLabel == null) return;
-            string text = $"{result.DisplayName()} {(int)result}";
-            if (grantsBonusThrow) text += " (한 번 더)";
-            _resultLabel.text = text;
-            _resultLabel.gameObject.SetActive(true);
-        }
-
-        public void HideThrowResult()
-        {
-            EnsureBoard();
-            if (_resultLabel != null) _resultLabel.gameObject.SetActive(false);
         }
 
         static bool IsWaypoint(int nodeId) =>
@@ -250,10 +229,10 @@ namespace KSpirits.Minigames.Yut
             opponentGo.SetActive(false);
 
             EnsureQuadrants();
-            EnsureResultUi();
+            EnsureRulesOverlay();
         }
 
-        void EnsureResultUi()
+        void EnsureRulesOverlay()
         {
             if (_rulesOverlay != null) return;
 
@@ -271,10 +250,6 @@ namespace KSpirits.Minigames.Yut
             SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
 
             _rulesOverlay.SetActive(false);
-
-            _resultLabel = CreateText(transform, "YutResult", "", 26, TextAnchor.MiddleCenter);
-            SetAnchor(_resultLabel.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
-            _resultLabel.gameObject.SetActive(false);
         }
 
         /// <summary>

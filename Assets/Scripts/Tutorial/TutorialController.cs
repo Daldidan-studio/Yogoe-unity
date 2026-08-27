@@ -136,7 +136,6 @@ namespace KSpirits.Tutorial
             _ui.YutGame.Hide();
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
-            _ui.YutGame.HideThrowResult();
             _ui.YutGame.ShowRulesOverlay(false);
             _ui.RestoreYokaiOnScroll();
             _ui.SetYokaiInteractable(false);
@@ -374,7 +373,6 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetThrowVisible(false);
             _ui.RefreshAll(_state);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
-            _ui.YutGame.ShowThrowResult(YutThrowResult.Gae, false);
 
             // 족보 안내: 딱 한 번 보여주고, 유저가 닫기를 눌러야 다음으로 넘어간다
             _ui.YutGame.ShowRulesOverlay(true);
@@ -399,7 +397,6 @@ namespace KSpirits.Tutorial
             // --- 이무기 1번째 던지기: 개 (고정) → 옥토끼 말과 같은 칸 → 캡처 ---
             yield return PlayLines(OktoDialogue.TrainingImugiThrow1, OktoDialogueSection.TrainingImugiThrow1);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
-            _ui.YutGame.ShowThrowResult(YutThrowResult.Gae, false);
             var imugiToTwo = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Gae);
             yield return MoveOpponentPiece(imugiToTwo, 0.35f);
             imugiNode = imugiToTwo[^1];
@@ -416,7 +413,6 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetThrowVisible(false);
 
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Do);
-            _ui.YutGame.ShowThrowResult(YutThrowResult.Do, false);
             var imugiToThree = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Do);
             yield return MoveOpponentPiece(imugiToThree, 0.35f);
             imugiNode = imugiToThree[^1];
@@ -431,7 +427,6 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetThrowVisible(false);
             _ui.RefreshAll(_state);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Mo);
-            _ui.YutGame.ShowThrowResult(YutThrowResult.Mo, true);
             var toMo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Mo);
             yield return MoveYutPiece(toMo, 0.35f);
             playerNode = toMo[^1];
@@ -446,7 +441,6 @@ namespace KSpirits.Tutorial
 
             _ui.YutGame.SetThrowVisible(false);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Geol);
-            _ui.YutGame.ShowThrowResult(YutThrowResult.Geol, false);
             var toShortcut = YutMoveResolver.GetPath(playerNode, YutThrowResult.Geol);
             yield return MoveYutPiece(toShortcut, 0.35f);
             playerNode = toShortcut[^1];
@@ -463,7 +457,6 @@ namespace KSpirits.Tutorial
             // --- 이무기 마지막 턴: 걸 (고정) ---
             _ui.ShowStatus("이무기 님 차례 — 걸!");
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Geol);
-            _ui.YutGame.ShowThrowResult(YutThrowResult.Geol, false);
             var imugiToSix = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Geol);
             yield return MoveOpponentPiece(imugiToSix, 0.35f);
 
@@ -477,7 +470,6 @@ namespace KSpirits.Tutorial
             // 육성 화면으로 복귀
             _state.ScrollMode = ScrollMode.Nurture;
             _ui.YutGame.ShowOpponentPiece(false);
-            _ui.YutGame.HideThrowResult();
             _ui.YutGame.Hide();
             _ui.YutGame.SetLeaveVisible(false);
             _ui.YutGame.SetThrowVisible(false);
@@ -520,7 +512,6 @@ namespace KSpirits.Tutorial
 
                 var outcome = YutThrowRoller.Roll();
                 yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
-                _ui.YutGame.ShowThrowResult(outcome.Result, outcome.GrantsBonusThrow);
 
                 var path = YutMoveResolver.GetPath(pieceNode, outcome.Result);
                 bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);

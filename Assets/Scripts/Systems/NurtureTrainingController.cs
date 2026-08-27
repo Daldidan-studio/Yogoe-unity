@@ -93,7 +93,6 @@ namespace KSpirits.Systems
 
                 var outcome = YutThrowRoller.Roll();
                 yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
-                _ui.YutGame.ShowThrowResult(outcome.Result, outcome.GrantsBonusThrow);
 
                 var path = YutMoveResolver.GetPath(_pieceNode, outcome.Result);
                 // 빽도(뒤로 이동)는 참으로 되돌아가도 완주가 아니라 그냥 그 자리에 서는 것 — 전진일 때만 완주 판정
@@ -122,7 +121,6 @@ namespace KSpirits.Systems
             _ui.YutGame.Hide();
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
-            _ui.YutGame.HideThrowResult();
             _ui.SetTrainingButtonVisible(true);
             _ui.RefreshAll(_state);
             SaveService.Save(_state);
