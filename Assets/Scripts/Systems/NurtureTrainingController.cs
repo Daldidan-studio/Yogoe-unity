@@ -66,7 +66,6 @@ namespace KSpirits.Systems
             _ui.SetTrainingButtonVisible(false);
             _ui.YutGame.Show();
             _ui.YutGame.SetPieceIndex(_pieceNode);
-            _ui.YutGame.ShowResult("윷을 던져보세요");
             _ui.RefreshAll(_state);
 
             bool freeThrow = false;
@@ -76,13 +75,14 @@ namespace KSpirits.Systems
                 {
                     _ui.YutGame.SetThrowVisible(false);
                     _ui.YutGame.SetLeaveVisible(true);
-                    _ui.YutGame.ShowResult("하트가 없어요");
+                    _ui.ShowStatus("하트가 없어요");
                     yield return WaitLeave();
                     break;
                 }
 
                 _ui.YutGame.SetThrowVisible(true);
                 _ui.YutGame.SetLeaveVisible(true);
+                _ui.YutGame.ShowProbabilityStrip(true);
                 yield return WaitThrowOrLeave();
                 if (_leaveFlag) break;
 
@@ -90,20 +90,16 @@ namespace KSpirits.Systems
                     _state.Wallet.TrySpendHearts(1);
                 freeThrow = false;
                 _ui.YutGame.SetThrowVisible(false);
+                _ui.YutGame.ShowProbabilityStrip(false);
                 _ui.RefreshAll(_state);
 
                 var outcome = YutThrowRoller.Roll();
                 yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
+                _ui.YutGame.ShowThrowResult(outcome.Result, outcome.GrantsBonusThrow);
 
                 var path = YutMoveResolver.GetPath(_pieceNode, outcome.Result);
                 // 빽도(뒤로 이동)는 참으로 되돌아가도 완주가 아니라 그냥 그 자리에 서는 것 — 전진일 때만 완주 판정
                 bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);
-
-                _ui.YutGame.ShowResult(finished
-                    ? $"{outcome.Result.DisplayName()} → 골인!"
-                    : outcome.GrantsBonusThrow
-                        ? $"{outcome.Result.DisplayName()}! (한 번 더)"
-                        : $"{outcome.Result.DisplayName()}!");
 
                 yield return MovePiece(path, 0.32f);
                 _pieceNode = path[^1];
@@ -128,6 +124,8 @@ namespace KSpirits.Systems
             _ui.YutGame.Hide();
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
+            _ui.YutGame.ShowProbabilityStrip(false);
+            _ui.YutGame.HideThrowResult();
             _ui.SetTrainingButtonVisible(true);
             _ui.RefreshAll(_state);
             SaveService.Save(_state);

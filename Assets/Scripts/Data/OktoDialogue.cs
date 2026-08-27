@@ -137,7 +137,6 @@ namespace KSpirits.Data
         public static IReadOnlyList<DialogueLine> TrainingShortcut => Lines("training_shortcut");
         public static IReadOnlyList<DialogueLine> TrainingCoinTile => Lines("training_coin_tile");
         public static IReadOnlyList<DialogueLine> TrainingHandoff => Lines("training_handoff");
-        public static IReadOnlyList<DialogueLine> ItemCollect => Lines("item_collect");
         public static IReadOnlyList<DialogueLine> EnergyWarning => Lines("energy_warning");
         public static IReadOnlyList<DialogueLine> NeedMoreEnergy => Lines("need_more_energy");
         public static IReadOnlyList<DialogueLine> AfterManifestEvolve => Lines("after_manifest_evolve");
@@ -153,7 +152,6 @@ namespace KSpirits.Data
         public static IReadOnlyList<DialogueLine> HiddenConfirm => Lines("hidden_confirm");
         public static IReadOnlyList<DialogueLine> HiddenEnding => Lines("hidden_ending");
         public static IReadOnlyList<DialogueLine> CardAndIncense => Lines("card_and_incense");
-        public static IReadOnlyList<DialogueLine> FirstMeeting => Lines("first_meeting");
 
         public static IReadOnlyList<ChoiceOption> BlackeningChoices => Choices("blackening");
         public static IReadOnlyList<ChoiceOption> WishChoices => Choices("wish");
@@ -242,7 +240,6 @@ namespace KSpirits.Data
     /// <summary>okto_tutorial JSON section id.</summary>
     public static class OktoDialogueSection
     {
-        public const string FirstMeeting = "first_meeting";
         public const string AfterFirstOffering = "after_first_offering";
         public const string AfterApparitionEvolve = "after_apparition_evolve";
         public const string Petting = "petting";
@@ -256,7 +253,6 @@ namespace KSpirits.Data
         public const string TrainingShortcut = "training_shortcut";
         public const string TrainingCoinTile = "training_coin_tile";
         public const string TrainingHandoff = "training_handoff";
-        public const string ItemCollect = "item_collect";
         public const string EnergyWarning = "energy_warning";
         public const string NeedMoreEnergy = "need_more_energy";
         public const string AfterManifestEvolve = "after_manifest_evolve";

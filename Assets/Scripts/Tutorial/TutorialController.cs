@@ -57,8 +57,6 @@ namespace KSpirits.Tutorial
         bool _inFreePlay;
         bool _freeThrowPressed;
         bool _freeLeavePressed;
-        // 족보 패널 대기 전용 플래그. _waitingInput과 절대 공유하지 않는다(위 HandleRulesClosed 참고).
-        bool _rulesPanelWaiting;
 
         // 외부에서 현재 상태 읽을 때 사용
         public GameState State => _state;
@@ -82,8 +80,6 @@ namespace KSpirits.Tutorial
             _ui.YutGame.OnThrowPressed += HandleThrowYut;
             // 수련장 나가기 버튼
             _ui.YutGame.OnLeavePressed += HandleLeaveTraining;
-            // 윷놀이 족보 패널 닫기
-            _ui.YutGame.OnRulesClosed += HandleRulesClosed;
             // 요괴패 카드 뷰어(X로 닫기 / 재생 버튼)
             _ui.EnsureCardViewer().OnClosed += HandleCardClosed;
             _ui.CardUI.OnReplayRequested += HandleCardReplayRequested;
@@ -116,7 +112,6 @@ namespace KSpirits.Tutorial
             _cardReplayRequested = false;
             _trainingButtonPressed = false;
             _inFreePlay = false;
-            _rulesPanelWaiting = false;
 
             // 어느 스텝에서 점프해오든, 그 스텝이 켜뒀을 수 있는 일시적 연출/오버레이를
             // 전부 꺼서 깨끗한 상태에서 시작한다 — 원래는 각 스텝이 끝나면서 스스로 정리하는데,
@@ -135,7 +130,8 @@ namespace KSpirits.Tutorial
             _ui.YutGame.Hide();
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
-            _ui.YutGame.ShowRulesPanel(false); // 열어둔 채로 점프하면 타이핑이 계속 paused로 남기 때문
+            _ui.YutGame.ShowProbabilityStrip(false); // 열어둔 채로 점프하면 타이핑이 계속 paused로 남기 때문
+            _ui.YutGame.HideThrowResult();
             _ui.RestoreYokaiOnScroll();
             _ui.SetYokaiInteractable(false);
 
@@ -247,9 +243,6 @@ namespace KSpirits.Tutorial
             _ui.ShowStatus("도깨비불을 탭해 보세요");
             // 탭할 때까지 대기 (HandleYokaiTap이 _waitingInput 해제)
             yield return WaitInput();
-
-            // 첫 만남 대사 재생 (한 줄마다 탭해서 넘김)
-            yield return PlayLines(OktoDialogue.FirstMeeting, OktoDialogueSection.FirstMeeting);
 
             // 다음 스텝 힌트: 기력바 깜빡 + 공양 하이라이트
             _ui.PulseEnergyBar(true);
@@ -368,18 +361,16 @@ namespace KSpirits.Tutorial
 
             // --- 유저 1번째 던지기: 개 (고정 연출) ---
             _ui.YutGame.SetThrowVisible(true);
+            _ui.YutGame.ShowProbabilityStrip(true);
             _ui.ShowStatus("하트 1개를 쓰고 윷을 던져보세요");
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
             _ui.YutGame.SetThrowVisible(false);
+            _ui.YutGame.ShowProbabilityStrip(false);
             _ui.RefreshAll(_state);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
-            _ui.YutGame.ShowResult("개!");
-
-            _ui.YutGame.ShowRulesPanel(true);
-            _ui.ShowStatus("족보를 확인하고 닫아주세요");
-            yield return WaitRulesClosed();
+            _ui.YutGame.ShowThrowResult(YutThrowResult.Gae, false);
 
             int playerNode = 0;
             var toTwo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
@@ -400,6 +391,7 @@ namespace KSpirits.Tutorial
             // --- 이무기 1번째 던지기: 개 (고정) → 옥토끼 말과 같은 칸 → 캡처 ---
             yield return PlayLines(OktoDialogue.TrainingImugiThrow1, OktoDialogueSection.TrainingImugiThrow1);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
+            _ui.YutGame.ShowThrowResult(YutThrowResult.Gae, false);
             var imugiToTwo = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Gae);
             yield return MoveOpponentPiece(imugiToTwo, 0.35f);
             imugiNode = imugiToTwo[^1];
@@ -409,7 +401,14 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetPieceIndex(playerNode);
 
             // --- 이무기 보너스 던지기(캡처 보상): 도 (고정) ---
+            // "한 번 더 던지세요!" 직후라, 던지기 버튼이 활성화된 것처럼 잠깐 보여준다
+            // (실제로는 이무기가 자동으로 던짐 — 눌러도 반응 없음, 연출용).
+            _ui.YutGame.SetThrowVisible(true);
+            yield return new WaitForSecondsRealtime(0.5f);
+            _ui.YutGame.SetThrowVisible(false);
+
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Do);
+            _ui.YutGame.ShowThrowResult(YutThrowResult.Do, false);
             var imugiToThree = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Do);
             yield return MoveOpponentPiece(imugiToThree, 0.35f);
             imugiNode = imugiToThree[^1];
@@ -417,13 +416,16 @@ namespace KSpirits.Tutorial
 
             // --- 유저 2번째 던지기: 모 (고정, 참에서 시작이라 모서리에 정확히 도착) ---
             _ui.YutGame.SetThrowVisible(true);
+            _ui.YutGame.ShowProbabilityStrip(true);
             _ui.ShowStatus("다시 윷을 던져주세요");
             yield return WaitInput();
 
             _state.Wallet.TrySpendHearts(1);
             _ui.YutGame.SetThrowVisible(false);
+            _ui.YutGame.ShowProbabilityStrip(false);
             _ui.RefreshAll(_state);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Mo);
+            _ui.YutGame.ShowThrowResult(YutThrowResult.Mo, true);
             var toMo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Mo);
             yield return MoveYutPiece(toMo, 0.35f);
             playerNode = toMo[^1];
@@ -432,13 +434,16 @@ namespace KSpirits.Tutorial
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.TrainingMoResult, OktoDialogueSection.TrainingMoResult);
 
-            // --- 유저 보너스 던지기(모 덕분, 하트 소모 없음): 개 (고정, 지름길 진입) ---
+            // --- 유저 보너스 던지기(모 덕분, 하트 소모 없음): 걸 (고정, 지름길 타고 방=북극성까지) ---
             _ui.YutGame.SetThrowVisible(true);
+            _ui.YutGame.ShowProbabilityStrip(true);
             yield return WaitInput();
 
             _ui.YutGame.SetThrowVisible(false);
-            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
-            var toShortcut = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
+            _ui.YutGame.ShowProbabilityStrip(false);
+            yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Geol);
+            _ui.YutGame.ShowThrowResult(YutThrowResult.Geol, false);
+            var toShortcut = YutMoveResolver.GetPath(playerNode, YutThrowResult.Geol);
             yield return MoveYutPiece(toShortcut, 0.35f);
             playerNode = toShortcut[^1];
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
@@ -454,6 +459,7 @@ namespace KSpirits.Tutorial
             // --- 이무기 마지막 턴: 걸 (고정) ---
             _ui.ShowStatus("이무기 님 차례 — 걸!");
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Geol);
+            _ui.YutGame.ShowThrowResult(YutThrowResult.Geol, false);
             var imugiToSix = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Geol);
             yield return MoveOpponentPiece(imugiToSix, 0.35f);
 
@@ -461,13 +467,18 @@ namespace KSpirits.Tutorial
             yield return PlayLines(OktoDialogue.TrainingHandoff, OktoDialogueSection.TrainingHandoff);
             yield return RunFreeYutPlay(playerNode);
 
+            // 윷놀이가 끝나면 하트를 다시 가득 채워준다
+            _state.Wallet.AddHearts(GameConstants.HeartMax);
+
             // 육성 화면으로 복귀
             _state.ScrollMode = ScrollMode.Nurture;
             _ui.YutGame.ShowOpponentPiece(false);
-            _ui.YutGame.ShowRulesPanel(false);
+            _ui.YutGame.ShowProbabilityStrip(false);
+            _ui.YutGame.HideThrowResult();
             _ui.YutGame.Hide();
             _ui.YutGame.SetLeaveVisible(false);
             _ui.YutGame.SetThrowVisible(false);
+            _ui.RefreshAll(_state);
             yield return Advance(TutorialStepId.ItemCollect);
         }
 
@@ -487,13 +498,14 @@ namespace KSpirits.Tutorial
                 {
                     _ui.YutGame.SetThrowVisible(false);
                     _ui.YutGame.SetLeaveVisible(true);
-                    _ui.YutGame.ShowResult("하트가 없어요");
+                    _ui.ShowStatus("하트가 없어요");
                     yield return WaitFreeThrowOrLeave();
                     break;
                 }
 
                 _ui.YutGame.SetThrowVisible(true);
                 _ui.YutGame.SetLeaveVisible(true);
+                _ui.YutGame.ShowProbabilityStrip(true);
                 _ui.ShowStatus("윷을 던지거나 뒤로가기를 눌러주세요");
                 yield return WaitFreeThrowOrLeave();
                 if (_freeLeavePressed) break;
@@ -502,19 +514,15 @@ namespace KSpirits.Tutorial
                     _state.Wallet.TrySpendHearts(1);
                 freeThrow = false;
                 _ui.YutGame.SetThrowVisible(false);
+                _ui.YutGame.ShowProbabilityStrip(false);
                 _ui.RefreshAll(_state);
 
                 var outcome = YutThrowRoller.Roll();
                 yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
+                _ui.YutGame.ShowThrowResult(outcome.Result, outcome.GrantsBonusThrow);
 
                 var path = YutMoveResolver.GetPath(pieceNode, outcome.Result);
                 bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);
-
-                _ui.YutGame.ShowResult(finished
-                    ? $"{outcome.Result.DisplayName()} → 골인!"
-                    : outcome.GrantsBonusThrow
-                        ? $"{outcome.Result.DisplayName()}! (한 번 더)"
-                        : $"{outcome.Result.DisplayName()}!");
 
                 yield return MoveYutPiece(path, 0.32f);
                 pieceNode = path[^1];
@@ -558,10 +566,8 @@ namespace KSpirits.Tutorial
         // ─────────────────────────────────────────────
         IEnumerator StepItemCollect()
         {
-            _ui.HighlightItemBar(true);
-            _ui.ShowStatus("정화수를 회수했습니다");
-            yield return PlayLines(OktoDialogue.ItemCollect, OktoDialogueSection.ItemCollect);
-            _ui.HighlightItemBar(false);
+            // 안내 대사 없이, 요괴가 가져온 것처럼 아이템이 보관함으로 날아가는 연출만 보여준다
+            yield return _ui.PlayItemFlyToInventory();
             yield return Advance(TutorialStepId.EnergyWarning);
         }
 
@@ -815,14 +821,6 @@ namespace KSpirits.Tutorial
             yield return WaitInput();
         }
 
-        // 족보 패널을 유저가 닫을 때까지 대기 — _waitingInput과 분리된 전용 플래그를 쓴다
-        // (다른 WaitInput() 대기 중에 "?"를 열었다 닫아도 그 대기가 같이 풀려버리면 안 되므로).
-        IEnumerator WaitRulesClosed()
-        {
-            _rulesPanelWaiting = true;
-            while (_rulesPanelWaiting) yield return null;
-        }
-
         // ─────────────────────────────────────────────
         // 입력 핸들러: WaitInput()을 풀어주는 쪽
         // ─────────────────────────────────────────────
@@ -918,15 +916,6 @@ namespace KSpirits.Tutorial
         void HandleCardClosed()
         {
             if (_waitingInput) _waitingInput = false;
-        }
-
-        // 윷놀이 족보 패널을 유저가 직접 닫음 → _waitingInput은 절대 안 건드린다.
-        // 족보는 대사가 이미 WaitInput()으로 대기 중일 때도 "?"로 열어볼 수 있는데,
-        // 그 상태에서 닫았다고 _waitingInput까지 false로 만들면 지금 멈춰있던 그 대사가
-        // "탭해서 다음으로" 취급돼서 그냥 넘어가 버린다 — 그래서 별도 플래그로 뺐다.
-        void HandleRulesClosed()
-        {
-            _rulesPanelWaiting = false;
         }
 
         // 카드 뷰어 재생 버튼 → StepCardComplete의 대기 루프가 직접 재생을 이어서 처리

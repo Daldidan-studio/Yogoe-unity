@@ -73,6 +73,7 @@ namespace KSpirits.UI
         bool _wired;
         bool _dialogueHeld;
         bool _holdAdvancedAny;
+        bool _yokaiInteractableBeforeDialogue;
         Coroutine _dialogueHoldRoutine;
         Color _trainingButtonBaseColor = new(0f, 0f, 0f, 0f);
         GameObject _storyOverlay;
@@ -514,6 +515,13 @@ namespace KSpirits.UI
         {
             if (_dialogueRoot == null) return;
 
+            // 대사가 떠 있는 동안엔 뒤쪽 요괴 등을 못 누르게 막는다 — 끝나면 그 전 상태로 복원.
+            if (!_dialogueRoot.activeSelf)
+            {
+                _yokaiInteractableBeforeDialogue = _yokaiButton != null && _yokaiButton.interactable;
+                SetYokaiInteractable(false);
+            }
+
             _dialogueLayout?.ApplyForLine(line, sectionId, _dialogueRoot.transform as RectTransform);
 
             // 스토리 오버레이보다 대사를 위에 두고 클릭 가능하게
@@ -542,6 +550,7 @@ namespace KSpirits.UI
             _typewriter.Stop();
             _dialogueContinueHint.gameObject.SetActive(false);
             _dialogueRoot.SetActive(false);
+            SetYokaiInteractable(_yokaiInteractableBeforeDialogue);
         }
 
         void HandleDialogueTap()
@@ -602,6 +611,16 @@ namespace KSpirits.UI
                 if (_dialogueRoot != null && _dialogueRoot.activeSelf &&
                     _typewriter != null && _typewriter.IsComplete && !_typewriter.IsTyping)
                 {
+                    // 문장이 다 끝난 뒤에도 잠깐(0.5초) 머물러서, 빠르게 넘기는 중에도 방금
+                    // 끝난 줄을 눈으로 훑어볼 시간을 준다. 그사이 손을 떼면 자동 진행하지 않는다.
+                    float hold = 0f;
+                    while (_dialogueHeld && hold < 0.5f)
+                    {
+                        hold += Time.unscaledDeltaTime;
+                        yield return null;
+                    }
+                    if (!_dialogueHeld) break;
+
                     _holdAdvancedAny = true;
                     OnDialogueContinue?.Invoke();
                     yield return null; // 다음 줄이 Play()로 갱신될 시간을 한 프레임 확보
@@ -746,6 +765,46 @@ namespace KSpirits.UI
             img.color = on
                 ? new Color(1f, 0.9f, 0.3f, 1f)
                 : new Color(0.35f, 0.65f, 0.95f, 1f);
+        }
+
+        /// <summary>
+        /// 요괴가 가져온 것처럼, 아이템 아이콘이 요괴 위치에서 하단 보관함으로 날아가는 연출.
+        /// 안내 대사 대신 이 연출 하나로 "아이템을 회수했다"를 보여준다.
+        /// </summary>
+        public IEnumerator PlayItemFlyToInventory()
+        {
+            if (_yokaiButton == null || _waterSlotRoot == null) yield break;
+
+            var canvas = GetComponentInParent<Canvas>();
+            var parent = canvas != null ? (Transform)canvas.transform : transform;
+
+            var go = new GameObject("ItemFly", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(parent, false);
+            go.transform.SetAsLastSibling();
+            var rt = go.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(48f, 48f);
+            go.GetComponent<Image>().color = new Color(0.4f, 0.75f, 0.95f, 1f);
+
+            Vector3 start = _yokaiButton.transform.position;
+            Vector3 end = _waterSlotRoot.transform.position;
+            rt.position = start;
+
+            const float duration = 0.5f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                float eased = 1f - (1f - u) * (1f - u);
+                rt.position = Vector3.Lerp(start, end, eased);
+                rt.localScale = Vector3.one * Mathf.Lerp(1f, 0.4f, u);
+                yield return null;
+            }
+
+            Destroy(go);
+            HighlightItemBar(true);
+            yield return new WaitForSecondsRealtime(0.3f);
+            HighlightItemBar(false);
         }
 
         public void ShowStoryOverlay(string title, Color bg)

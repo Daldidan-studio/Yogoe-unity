@@ -18,11 +18,9 @@ namespace KSpirits.Minigames.Yut
     {
         public event Action OnThrowPressed;
         public event Action OnLeavePressed;
-        public event Action OnRulesClosed;
-        /// <summary>족보 패널이 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑 등을 같이 멈춘다.</summary>
+        /// <summary>상단 족보 스트립이 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
         public event Action<bool> OnRulesPanelToggled;
 
-        Text _resultText;
         Image[] _heartIcons;
         Button _throwButton;
         Button _leaveButton;
@@ -32,9 +30,8 @@ namespace KSpirits.Minigames.Yut
         Image[] _pads;
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
-        Button _rulesButton;
-        GameObject _rulesPanel;
-        GameObject _rulesBlocker;
+        GameObject _probabilityStrip;
+        Text _resultLabel;
 
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
@@ -43,7 +40,6 @@ namespace KSpirits.Minigames.Yut
 
         public void BindFromHierarchy()
         {
-            _resultText = transform.Find("YutResult")?.GetComponent<Text>();
             _throwButton = transform.Find("Throw")?.GetComponent<Button>();
             _leaveButton = transform.Find("Leave")?.GetComponent<Button>();
 
@@ -75,12 +71,6 @@ namespace KSpirits.Minigames.Yut
             if (_leaveButton == null) return;
             _leaveButton.gameObject.SetActive(on);
             if (on) EnsureButtonLabel(_leaveButton, "나가기");
-        }
-
-        public void ShowResult(string text)
-        {
-            if (_resultText != null)
-                _resultText.text = text;
         }
 
         public void RefreshHearts(int hearts)
@@ -120,30 +110,37 @@ namespace KSpirits.Minigames.Yut
         }
 
         /// <summary>
-        /// 윷놀이 족보(확률표) 참고 패널. "?" 버튼으로도 토글되고, 코드에서 직접 열어줄 수도 있다.
-        /// 유저가 직접 닫기 전까지는(닫기 버튼 or "?" 토글) 안 닫힌다 — 열려 있다가 닫히는 순간에만
-        /// OnRulesClosed를 쏴서, 호출부가 "닫을 때까지 대기"를 걸 수 있게 한다.
-        /// 전체화면 블로커를 같이 켜서, 보고 있는 동안엔 던지기/나가기 등 다른 입력이 안 먹는다 —
-        /// 게임이 실제로 멈춘 것처럼 보이게 하기 위함.
+        /// 던지기 전 참고용 상단 족보 스트립(빽도~모 6종 전부 나열). 던지기 버튼을 누르는 순간
+        /// 호출부가 꺼준다(자동으로 안 없어짐). 열려있는 동안엔 OnRulesPanelToggled(true)로
+        /// 대사 타이핑을 같이 멈춰서, 다른 진행이 몰래 같이 흐르지 않게 한다.
         /// </summary>
-        public void ShowRulesPanel(bool on)
+        public void ShowProbabilityStrip(bool on)
         {
             EnsureBoard();
-            if (_rulesPanel == null) return;
+            if (_probabilityStrip == null) return;
 
-            bool wasOpen = _rulesPanel.activeSelf;
-            _rulesBlocker.SetActive(on);
-            _rulesPanel.SetActive(on);
-            if (on)
-            {
-                _rulesBlocker.transform.SetAsLastSibling();
-                _rulesPanel.transform.SetAsLastSibling();
-            }
-
+            _probabilityStrip.SetActive(on);
             OnRulesPanelToggled?.Invoke(on);
+        }
 
-            if (wasOpen && !on)
-                OnRulesClosed?.Invoke();
+        /// <summary>
+        /// 던진 결과를 이름+숫자로 보여준다 (예: "걸 3", "모 5 (한 번 더)").
+        /// 족보 스트립과는 별개로, 이건 던진 뒤 결과 확인용이라 다음 던지기 전까지 계속 보인다.
+        /// </summary>
+        public void ShowThrowResult(YutThrowResult result, bool grantsBonusThrow)
+        {
+            EnsureBoard();
+            if (_resultLabel == null) return;
+            string text = $"{result.DisplayName()} {(int)result}";
+            if (grantsBonusThrow) text += " (한 번 더)";
+            _resultLabel.text = text;
+            _resultLabel.gameObject.SetActive(true);
+        }
+
+        public void HideThrowResult()
+        {
+            EnsureBoard();
+            if (_resultLabel != null) _resultLabel.gameObject.SetActive(false);
         }
 
         static bool IsWaypoint(int nodeId) =>
@@ -192,9 +189,6 @@ namespace KSpirits.Minigames.Yut
                 SetAnchor(_boardRoot, 0.1f, 0.2f, 0.9f, 0.65f, 0, 0, 0, 0);
                 boardGo.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
             }
-
-            if (_resultText != null)
-                SetAnchor(_resultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
 
             if (_heartIcons == null)
             {
@@ -249,43 +243,27 @@ namespace KSpirits.Minigames.Yut
             opponentGo.SetActive(false);
 
             EnsureQuadrants();
-            EnsureRulesUi();
+            EnsureResultUi();
         }
 
-        void EnsureRulesUi()
+        void EnsureResultUi()
         {
-            if (_rulesButton != null) return;
+            if (_probabilityStrip != null) return;
 
-            _rulesButton = CreateButton(transform, "RulesToggle", "?", () => ShowRulesPanel(!_rulesPanel.activeSelf));
-            SetAnchor(_rulesButton.GetComponent<RectTransform>(), 0.9f, 0.68f, 0.98f, 0.775f, 0, 0, 0, 0);
+            _probabilityStrip = new GameObject("ProbabilityStrip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _probabilityStrip.transform.SetParent(transform, false);
+            SetAnchor((RectTransform)_probabilityStrip.transform, 0.05f, 0.68f, 0.95f, 0.78f, 0, 0, 0, 0);
+            _probabilityStrip.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.9f);
 
-            // 블로커·패널은 TrainingPanel 안이 아니라 캔버스 루트에 둔다 — 대사창(Dialogue)도
-            // TrainingPanel과 형제 관계라, 여기 안에서만 맨 위로 올려봐야 대사창보다 아래에
-            // 깔릴 수 있다. 캔버스 루트 기준으로 맨 위에 둬야 대사·선택지까지 전부 가린다.
-            var modalRoot = GetComponentInParent<Canvas>()?.transform ?? transform;
+            var stripText = CreateText(_probabilityStrip.transform, "StripText",
+                "빽도 -1   도 1   개 2   걸 3   윷 4(+1)   모 5(+1)",
+                20, TextAnchor.MiddleCenter);
+            Stretch(stripText.rectTransform);
+            _probabilityStrip.SetActive(false);
 
-            // 던지기/나가기 버튼 등 뒤쪽 입력을 막는 전체화면 블로커. 패널보다 한 칸 아래(먼저 생성)에 둬서
-            // 패널·닫기 버튼 클릭은 그대로 받고, 그 바깥은 다 막는다.
-            _rulesBlocker = new GameObject("RulesBlocker", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _rulesBlocker.transform.SetParent(modalRoot, false);
-            Stretch((RectTransform)_rulesBlocker.transform);
-            _rulesBlocker.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.4f);
-            _rulesBlocker.SetActive(false);
-
-            _rulesPanel = new GameObject("RulesPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _rulesPanel.transform.SetParent(modalRoot, false);
-            SetAnchor((RectTransform)_rulesPanel.transform, 0.14f, 0.3f, 0.86f, 0.66f, 0, 0, 0, 0);
-            _rulesPanel.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.95f);
-
-            var text = CreateText(_rulesPanel.transform, "RulesText",
-                "윷놀이 족보 (16분의)\n\n모 — 5칸, 한 번 더\n윷 — 4칸, 한 번 더\n걸 — 3칸\n개 — 2칸\n도 — 1칸\n빽도 — 1칸 뒤로",
-                22, TextAnchor.MiddleCenter);
-            Stretch(text.rectTransform);
-
-            var closeBtn = CreateButton(_rulesPanel.transform, "Close", "닫기", () => ShowRulesPanel(false));
-            SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
-
-            _rulesPanel.SetActive(false);
+            _resultLabel = CreateText(transform, "YutResult", "", 26, TextAnchor.MiddleCenter);
+            SetAnchor(_resultLabel.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
+            _resultLabel.gameObject.SetActive(false);
         }
 
         /// <summary>

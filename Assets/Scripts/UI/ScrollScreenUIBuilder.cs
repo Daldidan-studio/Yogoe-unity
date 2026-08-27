@@ -294,8 +294,6 @@ namespace KSpirits.UI
             Stretch(trainingPanel.GetComponent<RectTransform>());
             var trainTitle = CreateText(trainingPanel.transform, "Title", "수련장 · 윷놀이", 40, TextAnchor.UpperCenter);
             SetAnchor(trainTitle.rectTransform, 0.05f, 0.88f, 0.95f, 0.98f, 0, 0, 0, 0);
-            var yutResultText = CreateText(trainingPanel.transform, "YutResult", "", 44, TextAnchor.MiddleCenter);
-            SetAnchor(yutResultText.rectTransform, 0.1f, 0.68f, 0.9f, 0.82f, 0, 0, 0, 0);
             var throwButton = CreateButton(trainingPanel.transform, "Throw", "윷 던지기");
             SetAnchor(throwButton.GetComponent<RectTransform>(), 0.15f, 0.06f, 0.46f, 0.16f, 0, 0, 0, 0);
             var leaveTrainingButton = CreateButton(trainingPanel.transform, "Leave", "나가기");
