@@ -23,8 +23,26 @@ namespace KSpirits.UI
         public event Action OnYokaiTapped;
         public event Action OnOfferPurifiedWater;
         public event Action OnTrainingPressed;
-        public event Action<string> OnChoiceSelected;
-        public event Action OnDialogueContinue;
+
+        // 대사 "다음"/선택지 클릭은 여러 컨트롤러가 동시에 구독하는 브로드캐스트가 아니라
+        // 한 번에 한 소유자만 받는다 — 안 그러면 탭 한 번이 서로 다른 컨트롤러의 대기를
+        // 동시에 풀어버릴 수 있다(예: 오프닝 다시보기 중 탭했더니 튜토리얼도 같이 넘어감).
+        // DialogueSequencer가 SetDialogueInputOwner로 이 소유권을 관리한다.
+        Action _dialogueContinueOwner;
+        Action<string> _dialogueChoiceOwner;
+
+        /// <summary>
+        /// 대사 "다음"/선택지 클릭을 받을 단독 소유자를 지정하고, 이전 소유자를 돌려준다.
+        /// 다 쓰고 나면 반환받은 값으로 다시 호출해 원래 주인에게 돌려줘야 한다 —
+        /// DialogueSequencer를 쓰면 이 왕복은 자동으로 처리된다.
+        /// </summary>
+        public (Action onContinue, Action<string> onChoice) SetDialogueInputOwner(Action onContinue, Action<string> onChoice)
+        {
+            var previous = (_dialogueContinueOwner, _dialogueChoiceOwner);
+            _dialogueContinueOwner = onContinue;
+            _dialogueChoiceOwner = onChoice;
+            return previous;
+        }
 
         public YutMiniGame YutGame { get; private set; }
         public CardViewer CardUI { get; private set; }
@@ -322,7 +340,7 @@ namespace KSpirits.UI
                 if (advanceInput == null)
                     advanceInput = _dialogueRoot.AddComponent<DialogueAdvanceInput>();
                 advanceInput.Bind(_typewriter,
-                    () => OnDialogueContinue?.Invoke(),
+                    () => _dialogueContinueOwner?.Invoke(),
                     () => _dialogueContinueHint.gameObject.SetActive(true));
 
                 EnsureDialogueCenterCatcher();
@@ -535,7 +553,7 @@ namespace KSpirits.UI
             img.color = new Color(0, 0, 0, 0); // 안 보이지만 raycast는 받음
 
             _dialogueCenterCatcher.AddComponent<DialogueAdvanceInput>().Bind(_typewriter,
-                () => OnDialogueContinue?.Invoke(),
+                () => _dialogueContinueOwner?.Invoke(),
                 () => _dialogueContinueHint.gameObject.SetActive(true));
 
             _dialogueCenterCatcher.SetActive(false);
@@ -566,7 +584,7 @@ namespace KSpirits.UI
                 var btn = CreateButton(_choiceContainer, c.Id, c.Label, () =>
                 {
                     _choiceRoot.SetActive(false);
-                    OnChoiceSelected?.Invoke(captured);
+                    _dialogueChoiceOwner?.Invoke(captured);
                 });
                 SetAnchor(btn.GetComponent<RectTransform>(), 0.1f, y - 0.12f, 0.9f, y, 0, 0, 0, 0);
                 y -= 0.16f;

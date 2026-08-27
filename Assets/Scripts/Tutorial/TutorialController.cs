@@ -46,12 +46,12 @@ namespace KSpirits.Tutorial
         SummonController _summonController;
         // true면 WaitInput()이 플레이어 입력을 기다리는 중
         bool _waitingInput;
-        // true인 동안엔 _ui의 공용 이벤트(대사/선택지 등)에 전혀 반응하지 않는다 —
-        // 오프닝 다시보기처럼 같은 ScrollScreenUI 이벤트를 다른 컨트롤러가 잠깐 쓸 때,
-        // 튜토리얼이 자기가 대기 중이던 스텝을 같이 넘겨버리는 걸 막는다.
-        bool _inputSuspended;
+        // 대사/선택지 진행은 DialogueSequencer에 위임 — PlayLines/WaitChoice 실행 중에만
+        // ScrollScreenUI의 입력 소유권을 잠깐 가져가고 끝나면 돌려주므로, 오프닝 다시보기처럼
+        // 다른 컨트롤러가 같은 이벤트를 잠깐 쓰더라도 서로의 대기를 건드리지 않는다.
+        DialogueSequencer _dialogue;
         // 선택지에서 고른 선택 id (예: "cancel_contract")
-        string _lastChoiceId;
+        string _lastChoiceId => _dialogue.LastChoiceId;
         // 쓰다듬기 대사 중에 이미 수련장 버튼을 눌렀는지
         bool _trainingButtonPressed;
         // 카드 뷰어에서 재생 버튼을 눌렀는지 (WaitInput 공유 플래그라 StepCardComplete가 직접 분기)
@@ -77,6 +77,7 @@ namespace KSpirits.Tutorial
             _state = state;
             _ui = ui;
             _summonController = summonController;
+            _dialogue = new DialogueSequencer(ui);
             // 요괴 탭
             _ui.OnYokaiTapped += HandleYokaiTap;
             // 정화수 공양(드래그)
@@ -92,17 +93,7 @@ namespace KSpirits.Tutorial
             // 요괴패 카드 뷰어(X로 닫기 / 재생 버튼)
             _ui.EnsureCardViewer().OnClosed += HandleCardClosed;
             _ui.CardUI.OnReplayRequested += HandleCardReplayRequested;
-            // 선택지 클릭
-            _ui.OnChoiceSelected += HandleChoice;
-            // 대사 다음으로(탭/자동진행)
-            _ui.OnDialogueContinue += HandleDialogueContinue;
         }
-
-        /// <summary>
-        /// true를 주면 튜토리얼이 _ui의 공용 이벤트에 반응하지 않게 된다.
-        /// 오프닝 다시보기 등, 같은 ScrollScreenUI 이벤트를 다른 컨트롤러가 잠깐 독점해야 할 때 사용.
-        /// </summary>
-        public void SetInputSuspended(bool suspended) => _inputSuspended = suspended;
 
         /// <summary>
         /// 튜토리얼 시작. 세이브에 저장된 TutorialStep부터 이어서 실행.
@@ -796,17 +787,8 @@ namespace KSpirits.Tutorial
             }
         }
 
-        // 대사 리스트를 한 줄씩 보여주고, 매번 입력 대기
-        IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines, string sectionId)
-        {
-            for (int i = 0; i < lines.Count; i++)
-            {
-                // i+1 / 전체줄수 표시 + layout/fx 적용은 UI 쪽에서
-                _ui.ShowDialogue(lines[i], i + 1, lines.Count, sectionId);
-                yield return WaitInput();
-            }
-            _ui.HideDialogue();
-        }
+        // 대사 리스트를 한 줄씩 보여주고, 매번 입력 대기 (실제 진행은 DialogueSequencer가 맡음)
+        IEnumerator PlayLines(IReadOnlyList<DialogueLine> lines, string sectionId) => _dialogue.PlayLines(lines, sectionId);
 
         // 플레이어 입력이 올 때까지 매 프레임 대기
         IEnumerator WaitInput()
@@ -815,13 +797,8 @@ namespace KSpirits.Tutorial
             while (_waitingInput) yield return null; // Handle*가 false로 바꿀 때까지
         }
 
-        // 선택지 띄우고, 고를 때까지 WaitInput과 동일하게 대기
-        IEnumerator WaitChoice(IReadOnlyList<ChoiceOption> choices)
-        {
-            _lastChoiceId = null;
-            _ui.ShowChoices(choices);
-            yield return WaitInput();
-        }
+        // 선택지 띄우고, 고를 때까지 대기 (실제 진행은 DialogueSequencer가 맡음)
+        IEnumerator WaitChoice(IReadOnlyList<ChoiceOption> choices) => _dialogue.WaitChoice(choices);
 
         // 자유 던지기 구간: 던지기/나가기 중 뭐가 눌렸는지 구분해서 대기 (RunFreeYutPlay 전용)
         IEnumerator WaitFreeThrowOrLeave()
@@ -845,7 +822,6 @@ namespace KSpirits.Tutorial
         // 요괴 탭
         void HandleYokaiTap()
         {
-            if (_inputSuspended) return;
             // 현현 진화 중인데 기력이 아직 부족하면 → 안내만 하고 진행은 안 함
             if (_state.TutorialStep == TutorialStepId.EvolveToManifest &&
                 _state.FocusYokai.Energy < GameConstants.EnergyMax)
@@ -870,7 +846,6 @@ namespace KSpirits.Tutorial
         // 정화수 공양
         void HandleOffer()
         {
-            if (_inputSuspended) return;
             if (_state.Wallet.PurifiedWater <= 0) return;
 
             // 첫 공양 / 현현 진화 스텝에서만 공양 처리
@@ -888,7 +863,7 @@ namespace KSpirits.Tutorial
         // 수련장 버튼
         void HandleTrainingPressed()
         {
-            if (_inputSuspended || !_waitingInput) return;
+            if (!_waitingInput) return;
             // 쓰다듬기 안내 중 or 수련 스텝에서만
             if (_state.TutorialStep == TutorialStepId.Training ||
                 _state.TutorialStep == TutorialStepId.Petting)
@@ -901,7 +876,7 @@ namespace KSpirits.Tutorial
         // 윷 던지기
         void HandleThrowYut()
         {
-            if (_inputSuspended || _state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
+            if (_state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
 
             if (_inFreePlay)
             {
@@ -917,7 +892,7 @@ namespace KSpirits.Tutorial
         // 수련장 나가기
         void HandleLeaveTraining()
         {
-            if (_inputSuspended || _state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
+            if (_state.TutorialStep != TutorialStepId.Training || !_waitingInput) return;
 
             if (_inFreePlay)
             {
@@ -934,14 +909,12 @@ namespace KSpirits.Tutorial
         // 카드 뷰어 X로 닫힘 → 대기 해제
         void HandleCardClosed()
         {
-            if (_inputSuspended) return;
             if (_waitingInput) _waitingInput = false;
         }
 
         // 족보 안내를 유저가 직접 닫음 → _waitingInput은 절대 안 건드린다 (WaitRulesClosed 참고)
         void HandleRulesClosed()
         {
-            if (_inputSuspended) return;
             _rulesPanelWaiting = false;
         }
 
@@ -950,24 +923,8 @@ namespace KSpirits.Tutorial
         // 바깥쪽 대기까지 같이 풀려버리는 경합이 생김 — 그래서 여기선 플래그만 세우고 넘김)
         void HandleCardReplayRequested(bool showingBack)
         {
-            if (_inputSuspended) return;
             _cardReplayRequested = true;
             _cardReplayShowingBack = showingBack;
-            if (_waitingInput) _waitingInput = false;
-        }
-
-        // 선택지 클릭 → id 저장 후 대기 해제
-        void HandleChoice(string id)
-        {
-            if (_inputSuspended) return;
-            _lastChoiceId = id;
-            if (_waitingInput) _waitingInput = false;
-        }
-
-        // 대사 "다음" (탭/자동진행) → 대기 해제
-        void HandleDialogueContinue()
-        {
-            if (_inputSuspended) return;
             if (_waitingInput) _waitingInput = false;
         }
     }
