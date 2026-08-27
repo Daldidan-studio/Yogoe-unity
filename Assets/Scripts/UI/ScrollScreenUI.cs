@@ -30,6 +30,7 @@ namespace KSpirits.UI
 
         public YutMiniGame YutGame { get; private set; }
         public CardViewer CardUI { get; private set; }
+        public TwoSpeakerDialogueBox TwoSpeakerDialogue { get; private set; }
 
         [SerializeField] Text _coinText;
         [SerializeField] Text _heartText;
@@ -925,6 +926,21 @@ namespace KSpirits.UI
             if (CardUI == null)
                 CardUI = _cardPanel.AddComponent<CardViewer>();
             return CardUI;
+        }
+
+        /// <summary>
+        /// 2인 대화 전용 대화창(위/아래 고정 바 + 초상화). 지금은 윷놀이 수련장 패널 위에
+        /// 붙여서 쓰지만, 컴포넌트 자체는 특정 화자에 종속되지 않아 다른 장면에서도 재사용 가능.
+        /// </summary>
+        public TwoSpeakerDialogueBox EnsureTwoSpeakerDialogue()
+        {
+            EnsureWired();
+            if (TwoSpeakerDialogue != null) return TwoSpeakerDialogue;
+
+            TwoSpeakerDialogue = _trainingPanel.GetComponent<TwoSpeakerDialogueBox>();
+            if (TwoSpeakerDialogue == null)
+                TwoSpeakerDialogue = _trainingPanel.AddComponent<TwoSpeakerDialogueBox>();
+            return TwoSpeakerDialogue;
         }
 
         public SummonScreenUI EnsureSummonScreen()

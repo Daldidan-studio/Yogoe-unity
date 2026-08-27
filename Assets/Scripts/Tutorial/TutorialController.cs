@@ -137,6 +137,7 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetThrowVisible(false);
             _ui.YutGame.SetLeaveVisible(false);
             _ui.YutGame.ShowRulesOverlay(false);
+            _ui.TwoSpeakerDialogue?.Hide();
             _ui.RestoreYokaiOnScroll();
             _ui.SetYokaiInteractable(false);
 
@@ -362,7 +363,13 @@ namespace KSpirits.Tutorial
             _ui.YutGame.SetPieceIndex(0);
             _ui.YutGame.ShowOpponentPiece(false);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.TrainingIntro, OktoDialogueSection.TrainingIntro);
+
+            // 수련장 대화는 위(이무기)/아래(옥토끼) 고정 대화창으로 진행
+            _ui.EnsureTwoSpeakerDialogue().Configure(
+                new TwoSpeakerDialogueBox.Speaker("이무기", new Color(0.55f, 0.72f, 0.95f)),
+                new TwoSpeakerDialogueBox.Speaker("옥토끼", new Color(0.95f, 0.95f, 0.9f)));
+
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingIntro);
 
             // --- 유저 1번째 던지기: 개 (고정 연출) ---
             _ui.YutGame.SetThrowVisible(true);
@@ -381,7 +388,7 @@ namespace KSpirits.Tutorial
             int playerNode = 0;
             var toTwo = YutMoveResolver.GetPath(playerNode, YutThrowResult.Gae);
             _ui.YutGame.FlashNode(toTwo[^1]);
-            yield return PlayLines(OktoDialogue.TrainingGaeFirst, OktoDialogueSection.TrainingGaeFirst);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingGaeFirst);
             yield return MoveYutPiece(toTwo, 0.35f);
             playerNode = toTwo[^1];
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
@@ -389,19 +396,19 @@ namespace KSpirits.Tutorial
             _ui.RefreshAll(_state);
 
             // --- 턴 넘김: 이무기 등장 ---
-            yield return PlayLines(OktoDialogue.TrainingPassToImugi, OktoDialogueSection.TrainingPassToImugi);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingPassToImugi);
             _ui.YutGame.ShowOpponentPiece(true);
             _ui.YutGame.SetOpponentPieceIndex(0);
             int imugiNode = 0;
 
             // --- 이무기 1번째 던지기: 개 (고정) → 옥토끼 말과 같은 칸 → 캡처 ---
-            yield return PlayLines(OktoDialogue.TrainingImugiThrow1, OktoDialogueSection.TrainingImugiThrow1);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingImugiThrow1);
             yield return _ui.YutGame.PlayThrowAnim(YutThrowResult.Gae);
             var imugiToTwo = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Gae);
             yield return MoveOpponentPiece(imugiToTwo, 0.35f);
             imugiNode = imugiToTwo[^1];
 
-            yield return PlayLines(OktoDialogue.TrainingCapture, OktoDialogueSection.TrainingCapture);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingCapture);
             playerNode = YutBoardLayout.Start;
             _ui.YutGame.SetPieceIndex(playerNode);
 
@@ -416,7 +423,7 @@ namespace KSpirits.Tutorial
             var imugiToThree = YutMoveResolver.GetPath(imugiNode, YutThrowResult.Do);
             yield return MoveOpponentPiece(imugiToThree, 0.35f);
             imugiNode = imugiToThree[^1];
-            yield return PlayLines(OktoDialogue.TrainingImugiBonus, OktoDialogueSection.TrainingImugiBonus);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingImugiBonus);
 
             // --- 유저 2번째 던지기: 모 (고정, 참에서 시작이라 모서리에 정확히 도착) ---
             _ui.YutGame.SetThrowVisible(true);
@@ -433,7 +440,7 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
             _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.TrainingMoResult, OktoDialogueSection.TrainingMoResult);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingMoResult);
 
             // --- 유저 보너스 던지기(모 덕분, 하트 소모 없음): 걸 (고정, 지름길 타고 방=북극성까지) ---
             _ui.YutGame.SetThrowVisible(true);
@@ -447,12 +454,12 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
             _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.TrainingShortcut, OktoDialogueSection.TrainingShortcut);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingShortcut);
 
             // --- 엽전 칸 ---
             _state.Wallet.Coins += 1;
             _ui.RefreshAll(_state);
-            yield return PlayLines(OktoDialogue.TrainingCoinTile, OktoDialogueSection.TrainingCoinTile);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingCoinTile);
 
             // --- 이무기 마지막 턴: 걸 (고정) ---
             _ui.ShowStatus("이무기 님 차례 — 걸!");
@@ -461,7 +468,7 @@ namespace KSpirits.Tutorial
             yield return MoveOpponentPiece(imugiToSix, 0.35f);
 
             // --- 컨트롤 이양: 여기서부터는 진짜 확률표 기반 자유 던지기 ---
-            yield return PlayLines(OktoDialogue.TrainingHandoff, OktoDialogueSection.TrainingHandoff);
+            yield return _ui.TwoSpeakerDialogue.PlayLines(OktoDialogue.TrainingHandoff);
             yield return RunFreeYutPlay(playerNode);
 
             // 윷놀이가 끝나면 하트를 다시 가득 채워준다
@@ -470,6 +477,7 @@ namespace KSpirits.Tutorial
             // 육성 화면으로 복귀
             _state.ScrollMode = ScrollMode.Nurture;
             _ui.YutGame.ShowOpponentPiece(false);
+            _ui.TwoSpeakerDialogue.Hide();
             _ui.YutGame.Hide();
             _ui.YutGame.SetLeaveVisible(false);
             _ui.YutGame.SetThrowVisible(false);
