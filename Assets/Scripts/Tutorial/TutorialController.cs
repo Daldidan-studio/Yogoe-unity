@@ -15,15 +15,16 @@ namespace KSpirits.Tutorial
     /// <summary>
     /// 옥토끼(Okto) 튜토리얼 전체 진행 컨트롤러.
     ///
-    /// 【전체 흐름】
+    /// 【전체 흐름 — 실제 재생 순서. TutorialStepId의 숫자값은 세이브 호환 때문에
+    /// 이 순서와 다를 수 있다(Petting=4가 대표적 — 실제로는 8번 다음에 온다)】
     /// 1. FirstMeeting      도깨비불 탭 → 첫 만남 대사
     /// 2. FirstOffering     정화수 드래그 공양
-    /// 3. EvolveToApparition 현상(Apparition) 진화
-    /// 4. Petting           쓰다듬기 → 수련장 안내
-    /// 5. Training          윷놀이(빽도 → 골인) → 나가기
-    /// 6. ItemCollect       정화수 회수 안내
-    /// 7. EnergyWarning     기력 경고 → 현현 진화 직전 세팅
-    /// 8. EvolveToManifest  정화수로 기력 100 → 현현 진화
+    /// 3. EvolveToApparition 현상(Apparition) 진화 → 수련장 안내
+    /// 4. Training          윷놀이(빽도 → 골인) → 나가기
+    /// 5. ItemCollect       정화수 회수 안내
+    /// 6. EnergyWarning     기력 경고 → 현현 진화 직전 세팅
+    /// 7. EvolveToManifest  정화수로 기력 100 → 현현 진화("이제 저를 잘 부탁드릴게요")
+    /// 8. Petting           쓰다듬기 (혼 단계 이후로 이동)
     /// 9. MemoryView        기억 3막(달/지구/고가구점)
     /// 10. BlackeningChoice 흑화 선택 → 카드 뒷면 해금
     /// 11. BlackRabbitFlee  흑토끼 도망 → 빈 족자
@@ -144,7 +145,9 @@ namespace KSpirits.Tutorial
 
             if (step >= TutorialStepId.EvolveToApparition)
                 _state.FocusYokai.SetStage(YokaiStage.Apparition);
-            if (step >= TutorialStepId.EvolveToManifest)
+            // Petting은 실제 플레이 순서상 혼(Manifest) 진화 이후에 온다(enum 값 자체는
+            // 세이브 호환 때문에 그대로 4번). 그래서 EvolveToManifest보다 숫자가 작아도 여기 포함시킨다.
+            if (step >= TutorialStepId.EvolveToManifest || step == TutorialStepId.Petting)
                 _state.FocusYokai.SetStage(YokaiStage.Manifest);
             if (step > TutorialStepId.BlackeningChoice)
                 _state.FocusYokai.Card.BackUnlocked = true;
@@ -297,11 +300,19 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.AddEnergy(40);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.AfterApparitionEvolve, OktoDialogueSection.AfterApparitionEvolve);
-            yield return Advance(TutorialStepId.Petting);
+
+            // 수련장으로 안내 (쓰다듬기는 혼 단계 이후로 옮겨서, 여기서 바로 수련장으로 유도)
+            _trainingButtonPressed = false;
+            _ui.SetTrainingButtonVisible(true);
+            _ui.SetTrainingHighlight(true);
+            _ui.ShowStatus("왼쪽 아래 수련장을 눌러주세요");
+            yield return WaitInput();
+
+            yield return Advance(TutorialStepId.Training);
         }
 
         // ─────────────────────────────────────────────
-        // STEP 4: 쓰다듬기 → 수련장으로 안내
+        // STEP 4(위치는 혼 단계 이후): 쓰다듬기
         // ─────────────────────────────────────────────
         IEnumerator StepPetting()
         {
@@ -317,36 +328,18 @@ namespace KSpirits.Tutorial
             _ui.HighlightItemBar(true);
             _ui.ShowStatus("정화수 +1");
 
-            // 쓰다듬기 대사. 마지막 줄에서 수련장 버튼을 보여줌
+            // 쓰다듬기 대사
             var lines = OktoDialogue.Petting;
             for (int i = 0; i < lines.Count; i++)
             {
-                if (i == lines.Count - 1)
-                {
-                    // 마지막 대사와 함께 수련장 유도
-                    _trainingButtonPressed = false;
-                    _ui.HighlightItemBar(false);
-                    _ui.SetTrainingButtonVisible(true);
-                    _ui.SetTrainingHighlight(true);
-                    _ui.ShowStatus("왼쪽 아래 수련장을 눌러주세요");
-                }
-
                 _ui.ShowDialogue(lines[i], i + 1, lines.Count, OktoDialogueSection.Petting);
-                // 대사 탭 or 수련장 버튼으로 진행 가능
                 yield return WaitInput();
             }
 
             _ui.HideDialogue();
-            // 대사 중에 수련장을 안 눌렀으면 다시 강제 대기
-            if (!_trainingButtonPressed)
-            {
-                _ui.SetTrainingButtonVisible(true);
-                _ui.SetTrainingHighlight(true);
-                _ui.ShowStatus("왼쪽 아래 수련장을 눌러주세요");
-                yield return WaitInput();
-            }
+            _ui.HighlightItemBar(false);
 
-            yield return Advance(TutorialStepId.Training);
+            yield return Advance(TutorialStepId.MemoryView);
         }
 
         // ─────────────────────────────────────────────
@@ -618,7 +611,8 @@ namespace KSpirits.Tutorial
             _state.FocusYokai.SetStage(YokaiStage.Manifest);
             _ui.RefreshAll(_state);
             yield return PlayLines(OktoDialogue.AfterManifestEvolve, OktoDialogueSection.AfterManifestEvolve);
-            yield return Advance(TutorialStepId.MemoryView);
+            // "알아서 키워달라"(이제 저를 잘 부탁드릴게요) 이후 — 쓰다듬기는 여기, 혼 단계에서 진행
+            yield return Advance(TutorialStepId.Petting);
         }
 
         // ─────────────────────────────────────────────
@@ -864,9 +858,9 @@ namespace KSpirits.Tutorial
         void HandleTrainingPressed()
         {
             if (!_waitingInput) return;
-            // 쓰다듬기 안내 중 or 수련 스텝에서만
+            // 현상 진화 직후 수련장 유도 중 or 수련 스텝에서만
             if (_state.TutorialStep == TutorialStepId.Training ||
-                _state.TutorialStep == TutorialStepId.Petting)
+                _state.TutorialStep == TutorialStepId.EvolveToApparition)
             {
                 _trainingButtonPressed = true;
                 _waitingInput = false;
