@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using KSpirits.Core;
 using KSpirits.Minigames.Yut;
 using KSpirits.Model;
@@ -11,8 +12,12 @@ namespace KSpirits.Systems
     /// <summary>
     /// 튜토리얼이 끝난 뒤(본게임, TutorialStep.Done) 수련장에서 실제로 플레이하는 윷놀이 루프.
     /// 튜토리얼의 StepTraining()은 빽도→도 두 번만 재생하는 스크립트고, 이쪽은
-    /// YutThrowRoller로 진짜 랜덤 판정을 돌린다. 말은 아직 1개짜리 최소 루프
-    /// (업기·잡기·상대 말 등은 다음 단계).
+    /// YutThrowRoller로 진짜 랜덤 판정을 돌린다.
+    ///
+    /// 보유 요괴 전체가 각자 말 하나씩 판 위에 동시에 있다(YokaiInstance.BoardNode에 위치 저장).
+    /// 던질 때마다 그 결과를 보유 요괴 전체에 적용했을 때의 후보 도착칸을 잠깐 보여주고
+    /// (YutMiniGame.FlashCandidates), 실제로 움직이는 건 지금 육성 중인 focus 요괴뿐이다 —
+    /// 어느 말을 움직일지 직접 고르는 것/업기/잡기는 다음 단계.
     /// </summary>
     public class NurtureTrainingController : MonoBehaviour
     {
@@ -60,12 +65,12 @@ namespace KSpirits.Systems
         IEnumerator RunSession()
         {
             _active = true;
-            _pieceNode = YutBoardLayout.Start;
+            _pieceNode = _state.FocusYokai.BoardNode;
 
             _state.ScrollMode = ScrollMode.Training;
             _ui.SetTrainingButtonVisible(false);
             _ui.YutGame.Show();
-            _ui.YutGame.SetPieceIndex(_pieceNode);
+            RefreshYokaiPieces();
             _ui.RefreshAll(_state);
 
             bool freeThrow = false;
@@ -94,12 +99,16 @@ namespace KSpirits.Systems
                 var outcome = YutThrowRoller.Roll();
                 yield return _ui.YutGame.PlayThrowAnim(outcome.Result);
 
+                // 이번 결과를 보유 요괴 전체에 적용했을 때 후보 도착칸을 잠깐 미리 보여준다
+                // (어느 말을 실제로 움직일지 고르는 로직은 아직 없음 — 지금은 미리보기만).
+                yield return ShowMoveCandidates(outcome.Result);
+
                 var path = YutMoveResolver.GetPath(_pieceNode, outcome.Result);
                 // 빽도(뒤로 이동)는 참으로 되돌아가도 완주가 아니라 그냥 그 자리에 서는 것 — 전진일 때만 완주 판정
                 bool finished = outcome.Result != YutThrowResult.Baekdo && TryTruncateAtStart(path, out path);
 
                 yield return MovePiece(path, 0.32f);
-                _pieceNode = path[^1];
+                _state.FocusYokai.BoardNode = _pieceNode;
 
                 _state.FocusYokai.AddEnergy(GameConstants.YutMoveEnergyGain);
                 _state.FocusYokai.AddIntimacy(GameConstants.YutMoveIntimacyGain);
@@ -127,13 +136,42 @@ namespace KSpirits.Systems
             _active = false;
         }
 
+        /// <summary>보유 요괴 전체를 지금 위치대로 판 위에 동시에 표시(각자 색+이니셜로 구분).</summary>
+        void RefreshYokaiPieces()
+        {
+            var pieces = new List<YutMiniGame.YokaiPieceInfo>();
+            foreach (var y in _state.OwnedYokai)
+            {
+                int node = ReferenceEquals(y, _state.FocusYokai) ? _pieceNode : y.BoardNode;
+                pieces.Add(new YutMiniGame.YokaiPieceInfo(y.Id, y.DisplayName, node));
+            }
+            _ui.YutGame.ShowYokaiPieces(pieces);
+        }
+
+        /// <summary>이번 던지기 결과를 보유 요괴 전체(각자 현재 위치)에 적용한 후보 도착칸을 반짝여서 보여준다.</summary>
+        IEnumerator ShowMoveCandidates(YutThrowResult result)
+        {
+            var candidates = new List<YutMiniGame.YokaiMoveCandidate>();
+            foreach (var y in _state.OwnedYokai)
+            {
+                int from = ReferenceEquals(y, _state.FocusYokai) ? _pieceNode : y.BoardNode;
+                var path = YutMoveResolver.GetPath(from, result);
+                candidates.Add(new YutMiniGame.YokaiMoveCandidate(y.Id, y.DisplayName, path[^1]));
+            }
+            _ui.YutGame.FlashCandidates(candidates);
+            yield return new WaitForSecondsRealtime(0.9f);
+            _ui.YutGame.ClearCandidates();
+        }
+
         IEnumerator MovePiece(int[] path, float stepDuration)
         {
-            _ui.YutGame.SetPieceIndex(path[0]);
+            _pieceNode = path[0];
+            RefreshYokaiPieces();
             for (int i = 1; i < path.Length; i++)
             {
                 yield return new WaitForSecondsRealtime(stepDuration);
-                _ui.YutGame.SetPieceIndex(path[i]);
+                _pieceNode = path[i];
+                RefreshYokaiPieces();
             }
         }
 

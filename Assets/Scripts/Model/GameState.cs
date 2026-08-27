@@ -17,6 +17,9 @@ namespace KSpirits.Model
         // 이 요괴 개체 하나의 양면 카드 진행도. 이전엔 GameState.OktoCard로 하나만 있었지만,
         // 요괴를 여러 마리 소환해도 각자 카드가 따로 남아야 해서 개체별로 들고 있는다.
         public CardFaceState Card = new();
+        // 본게임 수련장 윷판에서 이 요괴의 말이 있는 칸(YutBoardLayout 노드 id). 여러 요괴가
+        // 동시에 판 위에 있을 수 있어서(다음 단계: 업기/잡기) 개체별로 들고 있는다.
+        public int BoardNode;
 
         public YokaiInstance(string id, string displayName, bool isTutorialOkto = false)
         {

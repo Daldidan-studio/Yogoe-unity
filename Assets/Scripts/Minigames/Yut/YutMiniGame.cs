@@ -34,6 +34,12 @@ namespace KSpirits.Minigames.Yut
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         GameObject _rulesOverlay;
 
+        // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
+        // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
+        readonly Dictionary<string, RectTransform> _yokaiPieces = new();
+        readonly Dictionary<string, Text> _yokaiPieceLabels = new();
+        readonly List<GameObject> _candidateMarkers = new();
+
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
         static readonly Color HeartOn = new(0.95f, 0.25f, 0.35f);
@@ -58,6 +64,7 @@ namespace KSpirits.Minigames.Yut
         {
             gameObject.SetActive(false);
             ClearParkedSticks();
+            ClearCandidates();
         }
 
         public void SetThrowVisible(bool on)
@@ -108,6 +115,180 @@ namespace KSpirits.Minigames.Yut
             EnsureBoard();
             if (_pads == null || nodeId < 0 || nodeId >= _pads.Length) return;
             _pads[nodeId].color = new Color(1f, 0.95f, 0.4f, 1f);
+        }
+
+        public readonly struct YokaiPieceInfo
+        {
+            public readonly string Id;
+            public readonly string DisplayName;
+            public readonly int NodeId;
+
+            public YokaiPieceInfo(string id, string displayName, int nodeId)
+            {
+                Id = id;
+                DisplayName = displayName;
+                NodeId = nodeId;
+            }
+        }
+
+        /// <summary>
+        /// 본게임 수련장 전용 — 보유 요괴 전체를 각자 위치에 동시에 말로 표시한다.
+        /// 목록에 없는 요괴의 말은 정리된다. 아직 실제 아트가 없어서 id 기반 색 + 이름 첫 글자로 구분한다.
+        /// </summary>
+        public void ShowYokaiPieces(IReadOnlyList<YokaiPieceInfo> pieces)
+        {
+            EnsureBoard();
+            if (_pads == null || _pads.Length == 0 || pieces == null) return;
+
+            var keep = new HashSet<string>();
+            foreach (var info in pieces) keep.Add(info.Id);
+            var stale = new List<string>();
+            foreach (var kv in _yokaiPieces)
+                if (!keep.Contains(kv.Key)) stale.Add(kv.Key);
+            foreach (var id in stale)
+            {
+                if (_yokaiPieces.TryGetValue(id, out var rt) && rt != null) Destroy(rt.gameObject);
+                _yokaiPieces.Remove(id);
+                _yokaiPieceLabels.Remove(id);
+            }
+
+            foreach (var info in pieces)
+            {
+                if (!_yokaiPieces.TryGetValue(info.Id, out var piece) || piece == null)
+                {
+                    piece = BuildYokaiPieceVisual(info.Id, info.DisplayName, out var label);
+                    _yokaiPieces[info.Id] = piece;
+                    _yokaiPieceLabels[info.Id] = label;
+                }
+                PlaceOnNode(piece, info.NodeId);
+            }
+        }
+
+        RectTransform BuildYokaiPieceVisual(string id, string displayName, out Text label)
+        {
+            var go = new GameObject($"YokaiPiece_{id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(_pads[0].transform, false);
+            go.GetComponent<Image>().color = ColorForYokai(id);
+
+            label = CreateText(go.transform, "Label", InitialOf(displayName), 20, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform);
+            label.raycastTarget = false;
+
+            return go.GetComponent<RectTransform>();
+        }
+
+        void PlaceOnNode(RectTransform piece, int nodeId)
+        {
+            nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
+            piece.SetParent(_pads[nodeId].transform, false);
+            piece.anchorMin = new Vector2(0.22f, 0.22f);
+            piece.anchorMax = new Vector2(0.78f, 0.78f);
+            piece.offsetMin = Vector2.zero;
+            piece.offsetMax = Vector2.zero;
+        }
+
+        static string InitialOf(string displayName) =>
+            string.IsNullOrEmpty(displayName) ? "?" : displayName.Substring(0, 1);
+
+        static Color ColorForYokai(string id)
+        {
+            int hash = 0;
+            if (!string.IsNullOrEmpty(id))
+                foreach (char c in id) hash = hash * 31 + c;
+            float hue = (Mathf.Abs(hash) % 360) / 360f;
+            return Color.HSVToRGB(hue, 0.55f, 0.9f);
+        }
+
+        public readonly struct YokaiMoveCandidate
+        {
+            public readonly string Id;
+            public readonly string DisplayName;
+            public readonly int DestinationNode;
+
+            public YokaiMoveCandidate(string id, string displayName, int destinationNode)
+            {
+                Id = id;
+                DisplayName = displayName;
+                DestinationNode = destinationNode;
+            }
+        }
+
+        /// <summary>
+        /// 던진 결과를 각 요괴 말에 적용했을 때의 후보 도착 칸을 전부 반짝여서 보여준다
+        /// (미리보기 전용 — 어느 말을 실제로 움직일지 고르는 로직은 이 다음 단계).
+        /// 같은 칸에 후보가 여러 개 겹치면 번갈아가며 보여준다.
+        /// </summary>
+        public void FlashCandidates(IReadOnlyList<YokaiMoveCandidate> candidates)
+        {
+            ClearCandidates();
+            EnsureBoard();
+            if (_pads == null || _pads.Length == 0 || candidates == null || candidates.Count == 0) return;
+
+            var byNode = new Dictionary<int, List<YokaiMoveCandidate>>();
+            foreach (var c in candidates)
+            {
+                int node = Mathf.Clamp(c.DestinationNode, 0, _pads.Length - 1);
+                if (!byNode.TryGetValue(node, out var list))
+                {
+                    list = new List<YokaiMoveCandidate>();
+                    byNode[node] = list;
+                }
+                list.Add(c);
+            }
+
+            foreach (var kv in byNode)
+                _candidateMarkers.Add(BuildCandidateMarker(kv.Key, kv.Value));
+        }
+
+        /// <summary>FlashCandidates로 띄운 미리보기를 전부 지운다.</summary>
+        public void ClearCandidates()
+        {
+            foreach (var go in _candidateMarkers)
+                if (go != null) Destroy(go);
+            _candidateMarkers.Clear();
+        }
+
+        GameObject BuildCandidateMarker(int nodeId, List<YokaiMoveCandidate> group)
+        {
+            var go = new GameObject($"Candidate_{nodeId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(_pads[nodeId].transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.22f, 0.22f);
+            rt.anchorMax = new Vector2(0.78f, 0.78f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+
+            var label = CreateText(go.transform, "Label", "", 20, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform);
+            label.raycastTarget = false;
+
+            StartCoroutine(PulseAndCycle(img, label, group));
+            return go;
+        }
+
+        IEnumerator PulseAndCycle(Image img, Text label, List<YokaiMoveCandidate> group)
+        {
+            const float cycleInterval = 0.6f;
+            const float pulseSpeed = 4f;
+            int idx = 0;
+            float t = 0f;
+            while (img != null)
+            {
+                var candidate = group[idx % group.Count];
+                var baseColor = ColorForYokai(candidate.Id);
+                float pulse = 0.55f + 0.45f * Mathf.PingPong(Time.unscaledTime * pulseSpeed, 1f);
+                img.color = new Color(baseColor.r, baseColor.g, baseColor.b, pulse);
+                if (label != null) label.text = InitialOf(candidate.DisplayName);
+
+                t += Time.unscaledDeltaTime;
+                if (group.Count > 1 && t >= cycleInterval)
+                {
+                    t = 0f;
+                    idx++;
+                }
+                yield return null;
+            }
         }
 
         /// <summary>

@@ -61,6 +61,7 @@ namespace KSpirits.Systems
         public int intimacy;
         public bool isTutorialOkto;
         public bool occupiesSlot;
+        public int boardNode;
         public CardSave card = new();
     }
 
@@ -185,6 +186,7 @@ namespace KSpirits.Systems
                 intimacy = y.Intimacy,
                 isTutorialOkto = y.IsTutorialOkto,
                 occupiesSlot = y.OccupiesSlot,
+                boardNode = y.BoardNode,
                 card = new CardSave
                 {
                     frontUnlocked = y.Card.FrontUnlocked,
@@ -202,6 +204,7 @@ namespace KSpirits.Systems
                 OccupiesSlot = s.occupiesSlot,
                 Energy = s.energy,
                 Intimacy = s.intimacy,
+                BoardNode = s.boardNode,
                 Card = new CardFaceState
                 {
                     FrontUnlocked = s.card?.frontUnlocked ?? false,
