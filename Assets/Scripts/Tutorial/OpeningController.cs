@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using KSpirits.Core;
+using KSpirits.Data;
 using KSpirits.Model;
 using KSpirits.UI;
 using UnityEngine;

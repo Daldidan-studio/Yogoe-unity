@@ -53,8 +53,6 @@ namespace KSpirits.Tutorial
         DialogueSequencer _dialogue;
         // 선택지에서 고른 선택 id (예: "cancel_contract")
         string _lastChoiceId => _dialogue.LastChoiceId;
-        // 쓰다듬기 대사 중에 이미 수련장 버튼을 눌렀는지
-        bool _trainingButtonPressed;
         // 카드 뷰어에서 재생 버튼을 눌렀는지 (WaitInput 공유 플래그라 StepCardComplete가 직접 분기)
         bool _cardReplayRequested;
         bool _cardReplayShowingBack;
@@ -122,7 +120,6 @@ namespace KSpirits.Tutorial
             StopAllCoroutines();
             _waitingInput = false;
             _cardReplayRequested = false;
-            _trainingButtonPressed = false;
             _inFreePlay = false;
             _rulesPanelWaiting = false;
 
@@ -307,7 +304,6 @@ namespace KSpirits.Tutorial
             yield return PlayLines(OktoDialogue.AfterApparitionEvolve, OktoDialogueSection.AfterApparitionEvolve);
 
             // 수련장으로 안내 (쓰다듬기는 혼 단계 이후로 옮겨서, 여기서 바로 수련장으로 유도)
-            _trainingButtonPressed = false;
             _ui.SetTrainingButtonVisible(true);
             _ui.SetTrainingHighlight(true);
             _ui.ShowStatus("왼쪽 아래 수련장을 눌러주세요");
@@ -873,7 +869,6 @@ namespace KSpirits.Tutorial
             if (_state.TutorialStep == TutorialStepId.Training ||
                 _state.TutorialStep == TutorialStepId.EvolveToApparition)
             {
-                _trainingButtonPressed = true;
                 _waitingInput = false;
             }
         }
