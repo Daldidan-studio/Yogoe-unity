@@ -342,7 +342,8 @@
         {
           "speaker": "옥토끼",
           "text": "손님은 정말 신기해요",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
@@ -353,73 +354,107 @@
         {
           "speaker": "옥토끼",
           "text": "손님은 달을 좋아하시나요?",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "한번 더 만져주세요!",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "손이 따뜻하시네요.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "제 털 부드럽죠? 할 게 없어서 빗질을 자주 했거든요.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "손님도 달에 소원을 빈 적이 있나요?",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "무서운 얘기를 들었어요. 계수나무 한 나무, 토끼 세 마리~",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "괴일 때에는 기억을 제대로 찾지 못해요. 저만 빼고요. 저는 튜토리얼이니까요~",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "족자 안의 요괴, 낭만적이지 않나요?",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "헤헤.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "넋은 도깨비불 모양이에요.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "요괴들마다 좋아하는 음식이 달라요.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "저는 떡을 좋아해요.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         },
         {
           "speaker": "옥토끼",
           "text": "다른 요괴들도 이렇게 만져주시면 좋아할 거예요.",
-          "narration": false
+          "narration": false,
+          "layout": "near_yokai"
         }
       ]
     },
     {
       "id": "memory_moon",
       "lines": [
+        {
+          "speaker": "옥토끼",
+          "text": "여긴 달이에요. 조용하죠?",
+          "narration": false,
+          "layout": "near_yokai",
+          "fx": "쓸쓸한 옥토끼"
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "예쁘죠? 반짝반짝.",
+          "narration": false,
+          "layout": "near_yokai",
+          "fx": "웃는 옥토끼"
+        },
+        {
+          "speaker": "옥토끼",
+          "text": "어! 저거 봐요, 별똥별! 아, 저게 그날이에요.\n(별똥별이 절구에 정통으로 떨어졌다.)",
+          "narration": false,
+          "layout": "near_yokai",
+          "fx": "별똥별이 날아옴,"
+        },
         {
           "speaker": "옥토끼",
           "text": "어떻게 할지 몰라서 한참 서있다가, 갑자기 좋은 생각이 난 거예요.",
@@ -431,7 +466,8 @@
           "speaker": "옥토끼",
           "text": "지구에 가서 절구를 받아오자!",
           "narration": false,
-          "layout": "near_yokai"
+          "layout": "near_yokai",
+          "fx": "지구로 날아가는 토끼 이미지"
         }
       ]
     },
