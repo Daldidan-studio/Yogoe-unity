@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using KSpirits.Core;
 using KSpirits.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -366,7 +365,7 @@ namespace KSpirits.Minigames.Yut
 
             if (_heartIcons == null)
             {
-                _heartIcons = new Image[GameConstants.HeartMax];
+                _heartIcons = new Image[5 /* 구 KSpirits.Core.GameConstants.HeartMax, 새 설계에 맞게 나중에 재조정 */];
                 const float iconW = 0.035f;
                 const float gap = 0.008f;
                 float totalW = _heartIcons.Length * iconW + (_heartIcons.Length - 1) * gap;

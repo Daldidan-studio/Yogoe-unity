@@ -100,3 +100,4 @@ InitTestScene*.unity*
 
 # Local tooling (npm)
 /node_modules/
+.DS_Store
