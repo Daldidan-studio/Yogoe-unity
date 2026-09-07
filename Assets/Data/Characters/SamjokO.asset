@@ -21,6 +21,12 @@ MonoBehaviour:
   detailDescription: 해를 등에 진 세 발 까마귀. 콧대가 높고 높은 자리를 좋아한다.
   startingIntimacy: 50
   startingStamina: 100
+  monologueLines:
+  - 흥, 여기 앉을 자리는 좀 더 높은 곳이 없나.
+  - 해를 등에 지고 다니는 몸인데, 대접이 영 부족하군.
+  - 저 아래 것들은 참 소란스럽구나.
+  - 내 깃털이 오늘따라 더 빛나는 것 같은데.
+  - 높은 곳에서 내려다보니 다 하찮아 보이는군.
   walkDown:
   - {fileID: 21300000, guid: fa544626a896149da9f0abb2db7fc41d, type: 3}
   - {fileID: 21300000, guid: 8e0bb2834c3714fafa1d50967e25d86c, type: 3}

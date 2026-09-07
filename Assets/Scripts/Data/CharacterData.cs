@@ -25,6 +25,9 @@ namespace Yoegoe.Data
         public float startingIntimacy = 50f;
         public float startingStamina = 100f;
 
+        [Header("혼잣말 (6-4장): 가만히 있을 때 머리 위에 랜덤으로 뜨는 대사")]
+        public string[] monologueLines;
+
         [Header("걷기 애니메이션 스프라이트 (방향별 4프레임, 순서대로 재생)")]
         [Tooltip("정면(카메라 쪽)으로 걷는 4프레임")]
         public Sprite[] walkDown = new Sprite[4];

@@ -21,6 +21,12 @@ MonoBehaviour:
   detailDescription: 사람이 되고 싶어했던 아홉 꼬리 여우. 새침하다.
   startingIntimacy: 50
   startingStamina: 100
+  monologueLines:
+  - ...딱히 너 기다린 거 아니야.
+  - 사람이 되면 뭘 제일 먼저 해볼까.
+  - 흥, 신경 안 써.
+  - 꼬리 손질하기 참 귀찮네.
+  - 누가 보는 거 아니지?
   walkDown:
   - {fileID: 21300000, guid: 2962accb945ef4d7394a25860aa59e5a, type: 3}
   - {fileID: 21300000, guid: 5f3559c4a38dc44c699bd5c14dfe6cf9, type: 3}

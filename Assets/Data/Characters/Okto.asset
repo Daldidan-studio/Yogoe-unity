@@ -20,6 +20,12 @@ MonoBehaviour:
   detailDescription: 달에서 떡방아를 찧던 토끼. 고가구점 안내인을 자처하며 참견이 많고 낙천적이다.
   startingIntimacy: 50
   startingStamina: 100
+  monologueLines:
+  - 오늘 장사는 잘 될 것 같아!
+  - 저 손님, 여기 구경 한번 해보세요~
+  - 떡방아 찧던 시절이 그립네.
+  - 다들 배고프지 않아? 나 좀 출출한데.
+  - 새 손님 왔나? 어디 보자~
   walkDown:
   - {fileID: 21300000, guid: 9b71a38e2217f4db5aed3d5c0b0fc28e, type: 3}
   - {fileID: 21300000, guid: 3e7db520db2d44dab81c86c3caabc010, type: 3}

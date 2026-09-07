@@ -95,9 +95,18 @@ namespace Yoegoe.Debugging
 
         private void Awake()
         {
+            // [비활성 탭 대응] 브라우저 탭이 백그라운드로 가면 유니티 프레임이 뜸해지는데(스로틀링),
+            // 유니티는 기본적으로 한 프레임의 deltaTime을 Time.maximumDeltaTime(기본 0.33초)로
+            // 잘라버려서 탭이 비활성이던 동안 흐른 실제 시간이 통째로 무시되고 기력/생산이 멈춘
+            // 것처럼 보인다. 이 값을 크게 잡아서, 탭이 다시 활성화됐을 때 그동안 지난 실제 시간을
+            // 한 번에 반영(따라잡기)하게 한다 — "오프라인 동일 속도" 요구사항(4장)의 최소 버전.
+            // (앱을 완전히 껐다 켜는 진짜 오프라인 정산은 세이브 시스템이 있어야 해서 별도 작업 필요.)
+            Time.maximumDeltaTime = 3600f;
+
             EnsureCamera();
             EnsureLight();
             EnsureEventSystem();
+            EnsureCharacterTapRouter();
             CreateBackground();
 
             var propManagerGO = new GameObject("PropManager");
@@ -169,6 +178,18 @@ namespace Yoegoe.Debugging
             cam.transform.position = new Vector3(0, 0, -10);
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
+        }
+
+        /// <summary>
+        /// 캐릭터를 탭하면 혼잣말이 즉시 뜨게(09번 문서) 하려면 씬에 탭 판정 라우터가 하나 있어야 한다.
+        /// 배경 유무와 상관없이 항상 필요해서 CreateBackground()보다 먼저, 카메라가 준비된 다음 붙인다.
+        /// </summary>
+        private void EnsureCharacterTapRouter()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            if (cam.GetComponent<Yoegoe.Characters.CharacterTapRouter>() == null)
+                cam.gameObject.AddComponent<Yoegoe.Characters.CharacterTapRouter>();
         }
 
         private void EnsureLight()
@@ -294,6 +315,7 @@ namespace Yoegoe.Debugging
 
                 agent = go.AddComponent<CharacterAgent>();
                 agent.Data = realData; // 런타임 스텁이 아니라 실제 에셋을 그대로 사용 (걷기 애니메이션 재생됨)
+                agent.bubbleFont = hudFont; // 혼잣말 말풍선용 폰트 (한글 지원)
             }
             else
             {
@@ -307,6 +329,7 @@ namespace Yoegoe.Debugging
                 ApplyUrpColor(go.GetComponent<Renderer>(), color);
 
                 agent = go.AddComponent<CharacterAgent>();
+                agent.bubbleFont = hudFont;
 
                 var data = ScriptableObject.CreateInstance<CharacterData>();
                 data.displayName = name;

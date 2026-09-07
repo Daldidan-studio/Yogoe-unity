@@ -27,6 +27,15 @@ namespace Yoegoe.Characters
         private const float StayDurationSeconds = 5f * 60f;
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float WanderRetrySeconds = 30f;
+
+        [Header("디버그: 기력 소모 배속 (테스트용, 확인 끝나면 1로 되돌릴 것)")]
+        [Tooltip("1 = 기획서 그대로(1분당 3, 20초당 1). 8이면 8배 빨리 줄어서 2.5초당 1점 — " +
+                 "눈으로 바로 확인하기 위한 임시값. 확인 끝나면 1로 되돌려주세요.")]
+        public float staminaDrainMultiplier = 8f;
+
+        [Header("혼잣말 (6-4장)")]
+        [Tooltip("혼잣말 말풍선에 쓸 한글 폰트. 비워두면 유니티 기본 폰트로 나와서 한글이 깨질 수 있음.")]
+        public Font bubbleFont;
         private const float SeparationRadius = 0.6f; // 이보다 가까워지면 서로 밀어냄 (안 겹치게)
         private const float SeparationSpeed = 3f;
 
@@ -62,6 +71,8 @@ namespace Yoegoe.Characters
         {
             ActiveAgents.Remove(this);
             if (stateDot != null) Destroy(stateDot.gameObject);
+            if (bubbleBg != null) Destroy(bubbleBg.gameObject);
+            if (bubbleTextMesh != null) Destroy(bubbleTextMesh.gameObject);
         }
 
         // ---------------- 상태 디버그 표시 (에디터 Gizmo는 WebGL 빌드에선 안 보여서 따로 만듦) ----------------
@@ -125,6 +136,9 @@ namespace Yoegoe.Characters
             }
 
             if (Stats.Stage != GrowthStage.Neok) EnterWalking();
+
+            // 로딩 직후 모든 캐릭터가 동시에 혼잣말을 시작하지 않도록 첫 대사까지 약간의 랜덤 지연을 둔다.
+            monologueTimer = Random.Range(2f, MonologueMinInterval);
         }
 
         private void Update()
@@ -142,6 +156,117 @@ namespace Yoegoe.Characters
 
             UpdateWalkAnimation(dt);
             UpdateStateDot();
+            if (Stats.State != ActionState.Fainted) UpdateMonologue(dt);
+        }
+
+        // ---------------- 혼잣말 (6-4장, 05_기획_미확정사항.md 9번) ----------------
+        // 걷기/머물기 중 랜덤 주기(30초~1분)로 머리 위 말풍선이 뜬다 (유지 시간 약 10초).
+        // 캐릭터를 탭해도 즉시 뜨고, 이미 떠 있는 상태에서 또 탭하면 내용이 바뀌고 유지 시간이 10초로 다시 연장된다.
+        // (탭하면 상세화면으로 이동하는 것은 "요구" 말풍선 쪽 규칙이라 여기선 적용 안 함 — 09번 문서 참고)
+
+        private TextMesh bubbleTextMesh;
+        private SpriteRenderer bubbleBg;
+        private float monologueTimer;
+        private bool monologueShowing;
+        private string lastMonologueLine;
+        private const float MonologueDisplaySeconds = 10f;
+        private const float MonologueMinInterval = 30f;
+        private const float MonologueMaxInterval = 60f;
+
+        private void UpdateMonologue(float dt)
+        {
+            if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
+
+            if (monologueTimer <= 0f)
+            {
+                monologueTimer = 0f; // 음수로 계속 내려가지 않게
+                if (monologueShowing) HideMonologue();
+                else ShowMonologue();
+            }
+            monologueTimer -= dt;
+
+            if (monologueShowing && bubbleTextMesh != null)
+            {
+                float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
+                Vector3 bubblePos = transform.position + Vector3.up * (spriteTop + 0.55f);
+                bubbleTextMesh.transform.position = bubblePos;
+                if (bubbleBg != null) bubbleBg.transform.position = bubblePos;
+            }
+        }
+
+        /// <summary>
+        /// 캐릭터를 탭했을 때 CharacterTapRouter가 호출한다. 안 떠 있으면 새로 띄우고,
+        /// 이미 떠 있으면 문구를 바꾸고 유지 시간을 다시 10초로 연장한다 (기획 09번 규칙).
+        /// </summary>
+        public void OnTapped()
+        {
+            if (Stats.State == ActionState.Fainted) return;
+            if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
+            ShowMonologue();
+        }
+
+        private void ShowMonologue()
+        {
+            EnsureBubble();
+            bubbleTextMesh.text = PickMonologueLine();
+            bubbleTextMesh.gameObject.SetActive(true);
+            bubbleBg.gameObject.SetActive(true);
+
+            // 배경 판을 텍스트 실제 크기에 맞춰 다시 그림 (말풍선처럼 보이게).
+            // 배경과 텍스트는 서로 형제 오브젝트라, 배경 스케일을 바꿔도 텍스트 크기엔 영향 없음.
+            var renderer = bubbleTextMesh.GetComponent<MeshRenderer>();
+            renderer.sortingOrder = 1001; // 상태 점(1000)보다 위
+            Bounds bounds = renderer.bounds;
+            bubbleBg.transform.localScale = new Vector3(bounds.size.x + 0.3f, bounds.size.y + 0.18f, 1f);
+
+            monologueShowing = true;
+            monologueTimer = MonologueDisplaySeconds;
+        }
+
+        /// <summary>같은 문구가 연달아 나오지 않도록, 대사가 2개 이상이면 직전과 다른 것을 고른다.</summary>
+        private string PickMonologueLine()
+        {
+            var lines = Data.monologueLines;
+            if (lines.Length <= 1) return lines[0];
+            string line;
+            do { line = lines[Random.Range(0, lines.Length)]; } while (line == lastMonologueLine);
+            lastMonologueLine = line;
+            return line;
+        }
+
+        private void HideMonologue()
+        {
+            if (bubbleTextMesh != null) bubbleTextMesh.gameObject.SetActive(false);
+            if (bubbleBg != null) bubbleBg.gameObject.SetActive(false);
+            monologueShowing = false;
+            monologueTimer = Random.Range(MonologueMinInterval, MonologueMaxInterval);
+        }
+
+        private void EnsureBubble()
+        {
+            if (bubbleTextMesh != null) return;
+
+            var bgGo = new GameObject(gameObject.name + "_BubbleBg");
+            bubbleBg = bgGo.AddComponent<SpriteRenderer>();
+            bubbleBg.sprite = GetSharedDotSprite();
+            bubbleBg.color = new Color(1f, 1f, 0.96f, 0.92f);
+            bubbleBg.sortingOrder = 1000;
+            bgGo.SetActive(false);
+
+            var textGo = new GameObject(gameObject.name + "_Bubble");
+            bubbleTextMesh = textGo.AddComponent<TextMesh>();
+            bubbleTextMesh.characterSize = 0.08f;
+            bubbleTextMesh.fontSize = 64;
+            bubbleTextMesh.anchor = TextAnchor.MiddleCenter;
+            bubbleTextMesh.alignment = TextAlignment.Center;
+            bubbleTextMesh.color = new Color(0.15f, 0.1f, 0.08f);
+            if (bubbleFont != null)
+            {
+                bubbleTextMesh.font = bubbleFont;
+                textGo.GetComponent<MeshRenderer>().material = bubbleFont.material;
+            }
+            textGo.GetComponent<MeshRenderer>().sortingOrder = 1001;
+            textGo.SetActive(false);
         }
 
         /// <summary>
@@ -302,7 +427,7 @@ namespace Yoegoe.Characters
         private void TickStaying(float dt)
         {
             Stats.StateTimer += dt;
-            Stats.Stamina -= dt / 20f; // 6-2: 1분당 3 소모 = 20초당 1
+            Stats.Stamina -= dt / 20f * staminaDrainMultiplier; // 6-2: 1분당 3 소모 = 20초당 1 (디버그 배속 적용)
 
             if (Stats.Stamina <= 0f)
             {
