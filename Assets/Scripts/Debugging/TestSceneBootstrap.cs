@@ -34,6 +34,15 @@ namespace Yoegoe.Debugging
                  "새로 받은 그림이 원래 픽셀 크기 그대로면 화면에 비해 너무 크게 나와서 기본값을 작게 잡아둠.")]
         public float characterScale = 0.35f;
 
+        [Header("기물 그림 (없으면 그 기물만 색깔 큐브로 대체)")]
+        [Tooltip("기물 렌더 크기 배율.")]
+        public float propScale = 0.6f;
+        public Sprite propSpriteGate;        // 솟대/문
+        public Sprite propSpriteWell;        // 우물
+        public Sprite propSpriteThatchedHut; // 초가집
+        public Sprite propSpriteSwing;       // 그네
+        public Sprite propSpriteStoneLion;   // 돌사자
+
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
         // [버그 수정] Shader.Find("Universal Render Pipeline/Lit")나 Shader.Find("Standard")는
@@ -75,9 +84,13 @@ namespace Yoegoe.Debugging
             var propManagerGO = new GameObject("PropManager");
             propManagerGO.AddComponent<PropManager>();
 
-            CreateProp("돌탑", new Vector3(-3, -1.5f, 0), new Color(0.55f, 0.5f, 0.45f));
-            CreateProp("우물", new Vector3(0, -1.5f, 0), new Color(0.4f, 0.45f, 0.55f));
-            CreateProp("떡절구", new Vector3(3, -1.5f, 0), new Color(0.6f, 0.45f, 0.3f));
+            // [기물 아트 연결] 세로(1080x1920) 카메라 기준 맵 폭이 좁아서(약 ±2.3유닛) 5개를
+            // 한 줄에 배치. 실제 그림(propSprite*)이 비어있으면 CreateProp이 알아서 색깔 큐브로 대체함.
+            CreateProp("솟대문", new Vector3(-2.0f, -1.5f, 0), new Color(0.6f, 0.55f, 0.5f), propSpriteGate);
+            CreateProp("우물", new Vector3(-1.0f, -1.5f, 0), new Color(0.4f, 0.45f, 0.55f), propSpriteWell);
+            CreateProp("초가집", new Vector3(0f, -1.6f, 0), new Color(0.55f, 0.45f, 0.35f), propSpriteThatchedHut);
+            CreateProp("그네", new Vector3(1.0f, -1.5f, 0), new Color(0.5f, 0.4f, 0.3f), propSpriteSwing);
+            CreateProp("돌사자", new Vector3(2.0f, -1.5f, 0), new Color(0.5f, 0.5f, 0.5f), propSpriteStoneLion);
 
             CreateCharacter("옥토끼", new Vector3(-1, 2, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0, 2, 0), Color.black, samjokOData);
@@ -149,16 +162,30 @@ namespace Yoegoe.Debugging
             renderer.material = mat;
         }
 
-        private void CreateProp(string name, Vector3 pos, Color color)
+        private void CreateProp(string name, Vector3 pos, Color color, Sprite sprite = null)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "Prop_" + name;
-            go.transform.position = pos;
-            go.transform.localScale = Vector3.one * 0.8f;
-            var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            GameObject go;
 
-            ApplyUrpColor(go.GetComponent<Renderer>(), color);
+            if (sprite != null)
+            {
+                // 실제 기물 그림이 있으면 큐브 대신 SpriteRenderer로 생성.
+                go = new GameObject("Prop_" + name);
+                go.transform.position = pos;
+                go.transform.localScale = Vector3.one * propScale;
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = sprite;
+            }
+            else
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = "Prop_" + name;
+                go.transform.position = pos;
+                go.transform.localScale = Vector3.one * 0.8f;
+                var col = go.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+
+                ApplyUrpColor(go.GetComponent<Renderer>(), color);
+            }
 
             var slot = go.AddComponent<PropSlot>();
 
