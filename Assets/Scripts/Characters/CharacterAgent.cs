@@ -55,7 +55,55 @@ namespace Yoegoe.Characters
         }
 
         private void OnEnable() => ActiveAgents.Add(this);
-        private void OnDisable() => ActiveAgents.Remove(this);
+        private void OnDisable()
+        {
+            ActiveAgents.Remove(this);
+            if (stateDot != null) Destroy(stateDot.gameObject);
+        }
+
+        // ---------------- 상태 디버그 표시 (에디터 Gizmo는 WebGL 빌드에선 안 보여서 따로 만듦) ----------------
+        private SpriteRenderer stateDot;
+        private static Sprite sharedDotSprite;
+
+        private static Sprite GetSharedDotSprite()
+        {
+            if (sharedDotSprite != null) return sharedDotSprite;
+            var tex = new Texture2D(8, 8);
+            var pixels = new Color[64];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
+            tex.SetPixels(pixels);
+            tex.Apply();
+            sharedDotSprite = Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 8f);
+            return sharedDotSprite;
+        }
+
+        /// <summary>
+        /// 지금 뭘 하고 있는지(걷기=초록/머물기=파랑/주저앉기=노랑/기절=빨강)를 캐릭터 머리 위에
+        /// 작은 점으로 항상 표시한다. Scene 뷰 Gizmo와 달리 실제 빌드(WebGL 포함)에서도 보여서,
+        /// "멈춰 보이는 게 버그인지 원래 일하는 중(머물기)인지" 눈으로 바로 구분할 수 있게 하기 위함.
+        /// </summary>
+        private void UpdateStateDot()
+        {
+            if (stateDot == null)
+            {
+                var dotGO = new GameObject(gameObject.name + "_StateDot");
+                stateDot = dotGO.AddComponent<SpriteRenderer>();
+                stateDot.sprite = GetSharedDotSprite();
+                stateDot.sortingOrder = 1000;
+                dotGO.transform.localScale = Vector3.one * 0.12f;
+            }
+
+            float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
+            stateDot.transform.position = transform.position + Vector3.up * (spriteTop + 0.15f);
+            stateDot.color = Stats.State switch
+            {
+                ActionState.Walking => Color.green,
+                ActionState.Staying => new Color(0.25f, 0.55f, 1f), // 파랑 = 기물에서 일하는 중 (정상)
+                ActionState.Slumped => Color.yellow,
+                ActionState.Fainted => Color.red,
+                _ => Color.white
+            };
+        }
 
         private void Start()
         {
@@ -88,6 +136,7 @@ namespace Yoegoe.Characters
             }
 
             UpdateWalkAnimation(dt);
+            UpdateStateDot();
         }
 
         /// <summary>

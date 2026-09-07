@@ -30,6 +30,11 @@ namespace Yoegoe.Debugging
                  "이 안에서만 돌아다니게 한다.")]
         public Sprite backgroundSprite;
 
+        [Tooltip("맵을 화면(카메라 뷰)보다 이 배수만큼 더 크게 만든다. 기본 1 = 배경 원본 크기 그대로 " +
+                 "(카메라를 덮는 최소 배율만 적용, 인위적으로 더 키우지 않음). 1보다 크게 주면 그만큼 더 " +
+                 "크게 만들어서 드래그로 둘러볼 여지를 늘릴 수 있음.")]
+        public float mapOverscan = 1f;
+
         [Tooltip("실제 스프라이트가 있는 캐릭터(옥토끼/삼족오/구미호)의 렌더 크기 배율. " +
                  "새로 받은 그림이 원래 픽셀 크기 그대로면 화면에 비해 너무 크게 나와서 기본값을 작게 잡아둠.")]
         public float characterScale = 0.35f;
@@ -84,13 +89,14 @@ namespace Yoegoe.Debugging
             var propManagerGO = new GameObject("PropManager");
             propManagerGO.AddComponent<PropManager>();
 
-            // [기물 아트 연결] 세로(1080x1920) 카메라 기준 맵 폭이 좁아서(약 ±2.3유닛) 5개를
-            // 한 줄에 배치. 실제 그림(propSprite*)이 비어있으면 CreateProp이 알아서 색깔 큐브로 대체함.
-            CreateProp("솟대문", new Vector3(-2.0f, -1.5f, 0), new Color(0.6f, 0.55f, 0.5f), propSpriteGate);
-            CreateProp("우물", new Vector3(-1.0f, -1.5f, 0), new Color(0.4f, 0.45f, 0.55f), propSpriteWell);
-            CreateProp("초가집", new Vector3(0f, -1.6f, 0), new Color(0.55f, 0.45f, 0.35f), propSpriteThatchedHut);
-            CreateProp("그네", new Vector3(1.0f, -1.5f, 0), new Color(0.5f, 0.4f, 0.3f), propSpriteSwing);
-            CreateProp("돌사자", new Vector3(2.0f, -1.5f, 0), new Color(0.5f, 0.5f, 0.5f), propSpriteStoneLion);
+            // [기물 아트 연결] 한 줄로 나란히 두지 말고 맵(세로 카메라 기준 x는 대략 ±2.3, y는 ±4.5
+            // 안쪽) 여기저기에 자연스럽게 흩어서 배치. 실제 그림(propSprite*)이 비어있으면 CreateProp이
+            // 알아서 색깔 큐브로 대체함.
+            CreateProp("돌사자", new Vector3(-2.1f, 2.6f, 0), new Color(0.5f, 0.5f, 0.5f), propSpriteStoneLion);
+            CreateProp("초가집", new Vector3(-0.6f, -0.6f, 0), new Color(0.55f, 0.45f, 0.35f), propSpriteThatchedHut);
+            CreateProp("그네", new Vector3(2.0f, 1.0f, 0), new Color(0.5f, 0.4f, 0.3f), propSpriteSwing);
+            CreateProp("솟대문", new Vector3(-1.9f, -3.2f, 0), new Color(0.6f, 0.55f, 0.5f), propSpriteGate);
+            CreateProp("우물", new Vector3(1.6f, -3.6f, 0), new Color(0.4f, 0.45f, 0.55f), propSpriteWell);
 
             CreateCharacter("옥토끼", new Vector3(-1, 2, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0, 2, 0), Color.black, samjokOData);
@@ -143,14 +149,29 @@ namespace Yoegoe.Debugging
             float spriteHeight = backgroundSprite.bounds.size.y;
             if (spriteWidth <= 0f || spriteHeight <= 0f) return;
 
-            float scale = Mathf.Max(camWidth / spriteWidth, camHeight / spriteHeight);
+            // 카메라 뷰를 최소한으로 덮는 배율에 mapOverscan을 곱해서, 맵을 화면보다 일부러 더 크게 만든다
+            // (그래야 드래그로 이동할 여지가 생긴다. mapOverscan=1이면 예전처럼 화면 딱 맞는 크기).
+            float coverScale = Mathf.Max(camWidth / spriteWidth, camHeight / spriteHeight);
+            float scale = coverScale * Mathf.Max(1f, mapOverscan);
             go.transform.localScale = new Vector3(scale, scale, 1f);
 
-            // 약간의 여백(0.5유닛)을 두어 캐릭터가 화면 가장자리에 완전히 붙지 않게 한다.
+            float mapWidth = spriteWidth * scale;
+            float mapHeight = spriteHeight * scale;
+
+            // 약간의 여백(0.5유닛)을 두어 캐릭터가 맵 가장자리에 완전히 붙지 않게 한다.
             const float margin = 0.5f;
             MapBounds.SetBounds(
-                new Vector2(-camWidth / 2f + margin, -camHeight / 2f + margin),
-                new Vector2(camWidth / 2f - margin, camHeight / 2f - margin));
+                new Vector2(-mapWidth / 2f + margin, -mapHeight / 2f + margin),
+                new Vector2(mapWidth / 2f - margin, mapHeight / 2f - margin));
+
+            // 맵이 화면보다 큰 만큼(overscan) 카메라를 드래그로 움직일 수 있게 하고, 배경 밖으로는
+            // 못 나가도록 카메라 중심 이동 범위를 "맵 절반 - 카메라 뷰 절반"으로 제한한다.
+            var drag = cam.GetComponent<MapCameraDrag>();
+            if (drag == null) drag = cam.gameObject.AddComponent<MapCameraDrag>();
+
+            float halfExtraW = Mathf.Max(0f, mapWidth / 2f - camWidth / 2f);
+            float halfExtraH = Mathf.Max(0f, mapHeight / 2f - camHeight / 2f);
+            drag.SetBounds(new Vector2(-halfExtraW, -halfExtraH), new Vector2(halfExtraW, halfExtraH));
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)
