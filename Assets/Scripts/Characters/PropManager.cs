@@ -32,6 +32,7 @@ namespace Yoegoe.Characters
             var candidates = allProps.Where(p =>
                 p != null &&
                 !p.IsOccupied &&
+                !p.IsReserved &&
                 p != exclude &&
                 p.CanBeUsedBy(requester)
             ).ToList();

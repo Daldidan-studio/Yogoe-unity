@@ -24,6 +24,16 @@ namespace Yoegoe.Debugging
         [Tooltip("구미호 CharacterData. 비워두면 구미호는 주황 캡슐로 대체 재생된다.")]
         public CharacterData gumihoData;
 
+        [Header("맵 배경 (없으면 카메라 단색 배경 그대로)")]
+        [Tooltip("사용자가 준 배경 이미지(예: Background_GrassField) — 카메라 뷰 전체를 덮도록 자동 스케일하고, " +
+                 "이 배경이 덮는 범위를 그대로 '맵 범위(MapBounds)'로 설정해서 캐릭터가 정처 없이 돌아다닐 때도 " +
+                 "이 안에서만 돌아다니게 한다.")]
+        public Sprite backgroundSprite;
+
+        [Tooltip("실제 스프라이트가 있는 캐릭터(옥토끼/삼족오/구미호)의 렌더 크기 배율. " +
+                 "새로 받은 그림이 원래 픽셀 크기 그대로면 화면에 비해 너무 크게 나와서 기본값을 작게 잡아둠.")]
+        public float characterScale = 0.35f;
+
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
         // [버그 수정] Shader.Find("Universal Render Pipeline/Lit")나 Shader.Find("Standard")는
@@ -60,6 +70,7 @@ namespace Yoegoe.Debugging
         {
             EnsureCamera();
             EnsureLight();
+            CreateBackground();
 
             var propManagerGO = new GameObject("PropManager");
             propManagerGO.AddComponent<PropManager>();
@@ -92,6 +103,41 @@ namespace Yoegoe.Debugging
             var light = lightGO.AddComponent<Light>();
             light.type = LightType.Directional;
             lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
+        }
+
+        /// <summary>
+        /// 배경 스프라이트를 카메라 뷰 전체를 덮도록(CSS의 background-size: cover와 동일한 방식) 스케일해서
+        /// 맨 뒤(sortingOrder 최하)에 깐다. 그리고 그 배경이 실제로 덮는 가로/세로 범위를 그대로
+        /// MapBounds로 설정해서, "정처 없이 돌아다니는" 캐릭터가 배경(맵) 밖으로 나가지 않게 한다.
+        /// backgroundSprite가 비어있으면 조용히 스킵 (기존처럼 카메라 단색 배경 그대로 동작).
+        /// </summary>
+        private void CreateBackground()
+        {
+            if (backgroundSprite == null) return;
+
+            var go = new GameObject("Background");
+            go.transform.position = new Vector3(0f, 0f, 1f); // 카메라(z=-10)에서 봤을 때 항상 맨 뒤
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = backgroundSprite;
+            sr.sortingOrder = -100;
+
+            var cam = Camera.main;
+            if (cam == null || !cam.orthographic) return;
+
+            float camHeight = cam.orthographicSize * 2f;
+            float camWidth = camHeight * cam.aspect;
+            float spriteWidth = backgroundSprite.bounds.size.x;
+            float spriteHeight = backgroundSprite.bounds.size.y;
+            if (spriteWidth <= 0f || spriteHeight <= 0f) return;
+
+            float scale = Mathf.Max(camWidth / spriteWidth, camHeight / spriteHeight);
+            go.transform.localScale = new Vector3(scale, scale, 1f);
+
+            // 약간의 여백(0.5유닛)을 두어 캐릭터가 화면 가장자리에 완전히 붙지 않게 한다.
+            const float margin = 0.5f;
+            MapBounds.SetBounds(
+                new Vector2(-camWidth / 2f + margin, -camHeight / 2f + margin),
+                new Vector2(camWidth / 2f - margin, camHeight / 2f - margin));
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)
@@ -140,6 +186,7 @@ namespace Yoegoe.Debugging
 
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = FirstSprite(realData);
+                go.transform.localScale = Vector3.one * characterScale;
 
                 agent = go.AddComponent<CharacterAgent>();
                 agent.Data = realData; // 런타임 스텁이 아니라 실제 에셋을 그대로 사용 (걷기 애니메이션 재생됨)

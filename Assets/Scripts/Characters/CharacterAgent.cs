@@ -27,12 +27,18 @@ namespace Yoegoe.Characters
         private const float StayDurationSeconds = 5f * 60f;
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float WanderRetrySeconds = 30f;
+        private const float SeparationRadius = 0.6f; // 이보다 가까워지면 서로 밀어냄 (안 겹치게)
+        private const float SeparationSpeed = 3f;
+
+        private static readonly System.Collections.Generic.List<CharacterAgent> ActiveAgents
+            = new System.Collections.Generic.List<CharacterAgent>();
 
         private PropSlot currentProp;
         private PropSlot previousProp;
         private PropSlot destination;
         private bool isWandering;
         private float wanderTimer;
+        private Vector3? wanderTarget; // isWandering 중 실제로 걸어갈 맵 안의 임시 목적지
 
         // ---------------- 걷기 애니메이션 (방향별 4프레임 스와핑) ----------------
         private enum FacingDir { Down, Up, Left, Right }
@@ -47,6 +53,9 @@ namespace Yoegoe.Characters
             if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             lastPosition = transform.position;
         }
+
+        private void OnEnable() => ActiveAgents.Add(this);
+        private void OnDisable() => ActiveAgents.Remove(this);
 
         private void Start()
         {
@@ -140,12 +149,20 @@ namespace Yoegoe.Characters
 
         private void PickDestination()
         {
+            // 이전에 찜해둔 목적지가 있으면(도착 못 하고 재추첨하는 경우) 먼저 예약 해제.
+            if (destination != null) destination.ReleaseReservation(this);
+
             destination = PropManager.Instance != null
                 ? PropManager.Instance.GetRandomAvailableProp(this, previousProp)
                 : null;
 
+            // 고르는 즉시 찜해둬서, 같은 프레임에 다른 캐릭터가 고를 때 후보에서 빠지게 한다
+            // (다 같이 같은 기물로 몰려가는 문제 방지).
+            if (destination != null) destination.TryReserve(this);
+
             isWandering = destination == null;
             wanderTimer = 0f;
+            wanderTarget = null;
         }
 
         private void TickWalking(float dt)
@@ -153,16 +170,27 @@ namespace Yoegoe.Characters
             if (isWandering)
             {
                 // 6-2 "후보가 없으면 30초 걷고 재추첨" / "자리가 없으면 걷거나 길바닥에 앉아 쉰다"를
-                // 하나의 대기-후-재추첨 루프로 단순화 (문서 표현이 두 케이스를 명확히 구분 안 해서 통합함)
+                // 하나의 대기-후-재추첨 루프로 단순화 (문서 표현이 두 케이스를 명확히 구분 안 해서 통합함).
+                // [버그 수정] 예전엔 이 분기에서 타이머만 세고 실제로는 제자리에 가만히 서 있었다
+                // ("돌아다녀야하는데 다 같이 멈춰있다" 버그의 일부). 맵(MapBounds) 안의 랜덤한 지점을
+                // 목적지로 삼아 실제로 걸어다니게 하고, 도착하면 다음 랜덤 지점을 또 고른다.
                 wanderTimer += dt;
-                if (wanderTimer >= WanderRetrySeconds) PickDestination();
+                if (wanderTimer >= WanderRetrySeconds) { PickDestination(); return; }
+
+                if (wanderTarget == null || Vector3.Distance(transform.position, wanderTarget.Value) < 0.05f)
+                {
+                    wanderTarget = MapBounds.RandomPoint(transform.position.z);
+                }
+                transform.position = MapBounds.Clamp(Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
+                ResolveSeparation(dt);
                 return;
             }
 
             if (destination == null) { PickDestination(); return; }
 
             Vector3 targetPos = destination.transform.position;
-            transform.position = Vector3.MoveTowards(transform.position, targetPos, moveSpeed * dt);
+            transform.position = MapBounds.Clamp(Vector3.MoveTowards(transform.position, targetPos, moveSpeed * dt));
+            ResolveSeparation(dt);
 
             if (Vector3.Distance(transform.position, targetPos) < 0.05f)
             {
@@ -178,6 +206,34 @@ namespace Yoegoe.Characters
                     // 다음 후보를 즉시 재선정하는 것으로 단순화
                     PickDestination();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 걷는 중인 캐릭터끼리 너무 가까워지면(스프라이트가 겹쳐 보일 정도) 서로 밀어낸다.
+        /// 자리 잡고 일하는 중(Staying 등)인 캐릭터의 위치는 여기서 건드리지 않는다 — 이 함수는
+        /// "이번에 움직이고 있는 나"의 위치만 보정하고, 상대방 위치는 그대로 둔다.
+        /// </summary>
+        private void ResolveSeparation(float dt)
+        {
+            Vector3 push = Vector3.zero;
+            for (int i = 0; i < ActiveAgents.Count; i++)
+            {
+                var other = ActiveAgents[i];
+                if (other == null || other == this) continue;
+
+                Vector3 diff = transform.position - other.transform.position;
+                diff.z = 0f;
+                float dist = diff.magnitude;
+                if (dist > 0.0001f && dist < SeparationRadius)
+                {
+                    push += diff.normalized * (SeparationRadius - dist);
+                }
+            }
+
+            if (push != Vector3.zero)
+            {
+                transform.position = MapBounds.Clamp(transform.position + push * SeparationSpeed * dt);
             }
         }
 
