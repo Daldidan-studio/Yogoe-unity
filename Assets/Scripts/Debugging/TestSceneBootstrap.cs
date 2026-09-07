@@ -22,8 +22,35 @@ namespace Yoegoe.Debugging
 
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
-        // 프리미티브를 쓸 때는 항상 이 셰이더로 새 머티리얼을 만들어서 색을 입힌다.
-        private static Shader UrpLitShader => Shader.Find("Universal Render Pipeline/Lit");
+        // [버그 수정] Shader.Find("Universal Render Pipeline/Lit")나 Shader.Find("Standard")는
+        // 에디터에서는 항상 찾아지지만, WebGL 등 실제 빌드에서는 그 셰이더를 참조하는 에셋이
+        // 하나도 없으면 빌드 과정에서 통째로 스트리핑되어 null을 반환한다 → new Material(null)이
+        // "Value cannot be null. Parameter name: shader" 예외를 던지고 부트스트랩 전체가 죽는다.
+        // 대신 현재 렌더 파이프라인(URP)이 자체적으로 들고 있는 기본 머티리얼을 복제해서 쓴다.
+        // 이건 파이프라인 에셋 자신이 참조하고 있어서 빌드에서 절대 스트리핑되지 않는다.
+        private static Material CreateBaseMaterial()
+        {
+            var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+            if (rp != null && rp.defaultMaterial != null)
+            {
+                return new Material(rp.defaultMaterial);
+            }
+
+            // 혹시 파이프라인이 아예 안 잡혀있는 극단적인 경우를 위한 최후의 폴백들.
+            var shader = Shader.Find("Universal Render Pipeline/Lit")
+                         ?? Shader.Find("Standard")
+                         ?? Shader.Find("Sprites/Default")
+                         ?? Shader.Find("Unlit/Color");
+
+            if (shader == null)
+            {
+                Debug.LogError("[TestSceneBootstrap] 사용 가능한 셰이더를 하나도 찾지 못했습니다. " +
+                                "머티리얼 없이 렌더러 기본값으로 진행합니다.");
+                return null;
+            }
+
+            return new Material(shader);
+        }
 
         private void Awake()
         {
@@ -66,8 +93,8 @@ namespace Yoegoe.Debugging
         private static void ApplyUrpColor(Renderer renderer, Color color)
         {
             if (renderer == null) return;
-            var shader = UrpLitShader;
-            var mat = shader != null ? new Material(shader) : new Material(Shader.Find("Standard"));
+            var mat = CreateBaseMaterial();
+            if (mat == null) return; // 렌더러 기본 머티리얼(핑크)로라도 일단 화면엔 나온다
             mat.color = color;
             renderer.material = mat;
         }
