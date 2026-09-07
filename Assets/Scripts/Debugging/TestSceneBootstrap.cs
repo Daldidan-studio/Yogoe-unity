@@ -19,6 +19,10 @@ namespace Yoegoe.Debugging
         [Tooltip("옥토끼 CharacterData (Walk Down/Left/Right/Up 스프라이트까지 채운 에셋)를 연결하면 " +
                  "캡슐 대신 실제 스프라이트로 만들고, CharacterAgent.Data도 이 실제 에셋을 그대로 사용한다.")]
         public CharacterData oktoData;
+        [Tooltip("삼족오 CharacterData. 비워두면 삼족오는 검정 캡슐로 대체 재생된다.")]
+        public CharacterData samjokOData;
+        [Tooltip("구미호 CharacterData. 비워두면 구미호는 주황 캡슐로 대체 재생된다.")]
+        public CharacterData gumihoData;
 
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
@@ -65,8 +69,8 @@ namespace Yoegoe.Debugging
             CreateProp("떡절구", new Vector3(3, -1.5f, 0), new Color(0.6f, 0.45f, 0.3f));
 
             CreateCharacter("옥토끼", new Vector3(-1, 2, 0), Color.white, oktoData);
-            CreateCharacter("삼족오", new Vector3(0, 2, 0), Color.black, null);
-            CreateCharacter("구미호", new Vector3(1, 2, 0), new Color(1f, 0.6f, 0.2f), null);
+            CreateCharacter("삼족오", new Vector3(0, 2, 0), Color.black, samjokOData);
+            CreateCharacter("구미호", new Vector3(1, 2, 0), new Color(1f, 0.6f, 0.2f), gumihoData);
         }
 
         private void EnsureCamera()
