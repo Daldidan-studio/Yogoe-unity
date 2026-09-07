@@ -46,17 +46,22 @@ namespace Yoegoe.Characters
         {
             if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             lastPosition = transform.position;
+        }
 
+        private void Start()
+        {
+            // Data 초기화는 Awake가 아니라 Start에서 한다: 코드로 캐릭터를 생성할 때
+            // AddComponent<CharacterAgent>() 직후에 Data를 대입하는 패턴(TestSceneBootstrap 등)이
+            // 흔한데, AddComponent가 Awake를 즉시 실행시키기 때문에 Awake 시점엔 Data가 아직
+            // null이라 초기화가 안 먹는 버그가 있었다. Start는 모든 오브젝트의 Awake가 끝난
+            // 다음 프레임 이전에 실행되므로 이 시점엔 Data가 확실히 채워져 있다.
             if (Data != null)
             {
                 Stats.Stage = Data.startingStage;
                 Stats.Intimacy = Data.startingIntimacy;
                 Stats.Stamina = Data.startingStamina;
             }
-        }
 
-        private void Start()
-        {
             if (Stats.Stage != GrowthStage.Neok) EnterWalking();
         }
 
