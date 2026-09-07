@@ -152,6 +152,8 @@ MonoBehaviour:
   samjokOData: {fileID: 11400000, guid: 8a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 2}
   gumihoData: {fileID: 11400000, guid: 3b7c1e9f2a4d4c6e8f0a1b2c3d4e5f60, type: 2}
   backgroundSprite: {fileID: 21300000, guid: 5215ef6a9024d41f4ab9dd07fbc18cdc, type: 3}
+  characterScale: 0.35
+  propScale: 0.6
   propSpriteGate: {fileID: 21300000, guid: 77d192376a68547d395da0dfed0cec52, type: 3}
   propSpriteWell: {fileID: 21300000, guid: 8fadd503e0a4b4e57ad8f92c8b66f50b, type: 3}
   propSpriteThatchedHut: {fileID: 21300000, guid: ecd51b3c927d74908927f093fb80d3eb, type: 3}
@@ -172,3 +174,8 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1660057539 &9223372036854775807
+SceneRoots:
+  m_ObjectHideFlags: 0
+  m_Roots:
+  - {fileID: 100000003}
