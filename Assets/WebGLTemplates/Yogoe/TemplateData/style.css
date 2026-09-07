@@ -20,6 +20,24 @@ body {
   height: 100%;
 }
 
+#unity-container.unity-desktop.intro-settle {
+  animation: settle-down-desktop 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+#unity-container.unity-mobile.intro-settle {
+  animation: settle-down-mobile 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes settle-down-desktop {
+  from { transform: translate(-50%, calc(-50% - 4vh)); }
+  to { transform: translate(-50%, -50%); }
+}
+
+@keyframes settle-down-mobile {
+  from { transform: translateY(-4vh); }
+  to { transform: translateY(0); }
+}
+
 #unity-canvas {
   background: #000000;
 }
@@ -36,6 +54,13 @@ body {
   display: none;
   background: #000000;
   text-align: center;
+  transition: transform 0.75s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.55s ease;
+}
+
+#unity-loading-bar.hiding {
+  transform: translateY(18vh);
+  opacity: 0;
+  pointer-events: none;
 }
 
 #unity-loading-bar .loading-inner {

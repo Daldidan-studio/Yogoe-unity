@@ -135,7 +135,7 @@ namespace Yoegoe.Debugging
 
         private void Start()
         {
-            // 빌드 씬은 TestScene이라 GameBootstrap이 없음 — 여기서 로딩 오버레이를 내린다.
+            // 빌드 씬은 Main이라 GameBootstrap이 없음 — 로딩 오버레이를 아래로 내리며 게임을 드러낸다.
 #if UNITY_WEBGL && !UNITY_EDITOR
             YogoeHideLoadingOverlay();
 #endif

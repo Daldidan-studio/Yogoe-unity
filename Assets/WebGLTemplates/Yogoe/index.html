@@ -96,11 +96,25 @@
         canvas.style.height = Math.floor(gameH * scale) + "px";
       }
 
+      function hideLoadingOverlay() {
+        if (!loadingBar || loadingBar.dataset.hiding === "1") return;
+        loadingBar.dataset.hiding = "1";
+        loadingBar.classList.add("hiding");
+        var container = document.getElementById("unity-container");
+        if (container) container.classList.add("intro-settle");
+        setTimeout(function () {
+          loadingBar.style.display = "none";
+        }, 800);
+      }
+      window.YogoeHideLoadingOverlayJs = hideLoadingOverlay;
+
       var unityStarted = false;
       function startUnity() {
         if (unityStarted) return;
         unityStarted = true;
         startBtn.style.display = "none";
+        loadingBar.classList.remove("hiding");
+        loadingBar.dataset.hiding = "";
         loadingBar.style.display = "block";
         resumeWebAudio();
 
@@ -110,11 +124,10 @@
           createUnityInstance(canvas, config, function (progress) {
             document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
           }).then(function (unityInstance) {
-            // 로딩 UI는 GameBootstrap(Start)에서 YogoeHideLoadingOverlay로 내림
-            // Boot 콜백 실패 시 안전망
+            // 로딩 UI는 TestSceneBootstrap(Start)에서 YogoeHideLoadingOverlay로 내림
+            // (내려가며 게임 화면이 자리 잡는 연출). 콜백 실패 시 안전망.
             setTimeout(function () {
-              if (loadingBar && loadingBar.style.display !== "none")
-                loadingBar.style.display = "none";
+              hideLoadingOverlay();
             }, 8000);
             resumeWebAudio();
             document.addEventListener("pointerdown", resumeWebAudio);
