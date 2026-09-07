@@ -24,5 +24,15 @@ namespace Yoegoe.Data
         [Header("스탯 초기값 (2장: 시작 3인 친밀도 50, 기력 100)")]
         public float startingIntimacy = 50f;
         public float startingStamina = 100f;
+
+        [Header("걷기 애니메이션 스프라이트 (방향별 4프레임, 순서대로 재생)")]
+        [Tooltip("정면(카메라 쪽)으로 걷는 4프레임")]
+        public Sprite[] walkDown = new Sprite[4];
+        [Tooltip("왼쪽으로 걷는 4프레임")]
+        public Sprite[] walkLeft = new Sprite[4];
+        [Tooltip("오른쪽으로 걷는 4프레임")]
+        public Sprite[] walkRight = new Sprite[4];
+        [Tooltip("뒤(화면 위쪽)로 걷는 4프레임")]
+        public Sprite[] walkUp = new Sprite[4];
     }
 }

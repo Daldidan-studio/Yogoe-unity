@@ -34,9 +34,18 @@ namespace Yoegoe.Characters
         private bool isWandering;
         private float wanderTimer;
 
+        // ---------------- 걷기 애니메이션 (방향별 4프레임 스와핑) ----------------
+        private enum FacingDir { Down, Up, Left, Right }
+        private const float AnimFrameInterval = 0.15f; // 프레임당 재생 시간
+        private Vector3 lastPosition;
+        private FacingDir facing = FacingDir.Down;
+        private int animFrame;
+        private float animTimer;
+
         private void Awake()
         {
             if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            lastPosition = transform.position;
 
             if (Data != null)
             {
@@ -62,6 +71,56 @@ namespace Yoegoe.Characters
                 case ActionState.Staying: TickStaying(dt); break;
                 case ActionState.Slumped: TickSlumped(dt); break;
                 case ActionState.Fainted: /* 외부(공양)에서만 깨어남 */ break;
+            }
+
+            UpdateWalkAnimation(dt);
+        }
+
+        /// <summary>
+        /// 이번 프레임 실제 이동량(transform.position 변화)으로 방향을 판단해
+        /// Data의 방향별 4프레임 배열을 순환 재생한다. 멈춰있으면(대기·머무르기·기절 등) 0번 프레임으로 정지.
+        /// spriteRenderer나 Data가 없으면 조용히 아무것도 안 함(아트 없이도 기존처럼 동작).
+        /// </summary>
+        private void UpdateWalkAnimation(float dt)
+        {
+            if (spriteRenderer == null || Data == null) return;
+
+            Vector3 delta = transform.position - lastPosition;
+            lastPosition = transform.position;
+            bool isMoving = delta.sqrMagnitude > 0.0000001f;
+
+            if (isMoving)
+            {
+                facing = Mathf.Abs(delta.x) > Mathf.Abs(delta.y)
+                    ? (delta.x > 0f ? FacingDir.Right : FacingDir.Left)
+                    : (delta.y > 0f ? FacingDir.Up : FacingDir.Down);
+
+                animTimer += dt;
+                if (animTimer >= AnimFrameInterval)
+                {
+                    animTimer -= AnimFrameInterval;
+                    animFrame = (animFrame + 1) % 4;
+                }
+            }
+            else
+            {
+                animFrame = 0;
+                animTimer = 0f;
+            }
+
+            Sprite[] frames = facing switch
+            {
+                FacingDir.Down => Data.walkDown,
+                FacingDir.Up => Data.walkUp,
+                FacingDir.Left => Data.walkLeft,
+                FacingDir.Right => Data.walkRight,
+                _ => Data.walkDown
+            };
+
+            if (frames != null && frames.Length > 0)
+            {
+                int idx = Mathf.Clamp(animFrame, 0, frames.Length - 1);
+                if (frames[idx] != null) spriteRenderer.sprite = frames[idx];
             }
         }
 
