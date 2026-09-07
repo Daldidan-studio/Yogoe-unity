@@ -15,9 +15,10 @@ MonoBehaviour:
   id: 1
   displayName: 삼족오
   startingStage: 1
-  preferredOfferings: []
+  preferredOfferings:
+  - {fileID: 11400000, guid: 7f5cedae05be4608aa496627ce941ad9, type: 2}
   endingProp: {fileID: 0}
-  detailDescription: 
+  detailDescription: 해를 등에 진 세 발 까마귀. 콧대가 높고 높은 자리를 좋아한다.
   startingIntimacy: 50
   startingStamina: 100
   walkDown:

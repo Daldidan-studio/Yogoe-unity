@@ -19,6 +19,7 @@ namespace Yoegoe.UI
     {
         public Font font;
         public Sprite purifiedWaterIcon;
+        public DetailScreen detailScreen;
 
         private Text meritText;
         private Text yeopjeonText;
@@ -102,6 +103,15 @@ namespace Yoegoe.UI
 
                 var bg = chipGO.AddComponent<Image>();
                 bg.color = new Color(0.11f, 0.08f, 0.07f, 0.85f);
+
+                // 탭하면 상세화면 열기 (기획서 1장 "요괴 탭 → 전체화면").
+                var capturedAgent = agent;
+                var button = chipGO.AddComponent<Button>();
+                button.targetGraphic = bg;
+                button.onClick.AddListener(() =>
+                {
+                    if (detailScreen != null) detailScreen.Open(capturedAgent);
+                });
 
                 var nameGO = new GameObject("Name");
                 SetupRect(nameGO, chipRt, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1f),

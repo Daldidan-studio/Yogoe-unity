@@ -15,9 +15,10 @@ MonoBehaviour:
   id: 2
   displayName: 구미호
   startingStage: 1
-  preferredOfferings: []
+  preferredOfferings:
+  - {fileID: 11400000, guid: 26314678e70647f398a9913fc6d62b7e, type: 2}
   endingProp: {fileID: 0}
-  detailDescription: 
+  detailDescription: 사람이 되고 싶어했던 아홉 꼬리 여우. 새침하다.
   startingIntimacy: 50
   startingStamina: 100
   walkDown:

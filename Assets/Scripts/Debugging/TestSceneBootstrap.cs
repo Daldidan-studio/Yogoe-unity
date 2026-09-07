@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
 using Yoegoe.UI;
@@ -56,6 +58,8 @@ namespace Yoegoe.Debugging
         public Font hudFont;
         [Tooltip("정화수 재화 칩에 쓸 아이콘 (Assets/Art/Offerings/Offering_PurifiedWater 연결 권장).")]
         public Sprite purifiedWaterIcon;
+        [Tooltip("상세화면 하단 급여 바에 나열할 공양물 전체 목록 (Assets/Data/Offerings/*.asset 전부 연결).")]
+        public OfferingData[] offerings;
 
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
@@ -93,6 +97,7 @@ namespace Yoegoe.Debugging
         {
             EnsureCamera();
             EnsureLight();
+            EnsureEventSystem();
             CreateBackground();
 
             var propManagerGO = new GameObject("PropManager");
@@ -129,10 +134,29 @@ namespace Yoegoe.Debugging
 
         private void CreateHud()
         {
+            var detailGO = new GameObject("DetailScreen");
+            var detail = detailGO.AddComponent<DetailScreen>();
+            detail.font = hudFont;
+            detail.offerings = offerings;
+
             var hudGO = new GameObject("Hud");
             var hud = hudGO.AddComponent<GameHud>();
             hud.font = hudFont;
             hud.purifiedWaterIcon = purifiedWaterIcon;
+            hud.detailScreen = detail;
+        }
+
+        /// <summary>
+        /// uGUI 버튼(슬롯 탭 등)이 반응하려면 EventSystem이 씬에 있어야 한다. 이 프로젝트는 새
+        /// Input System만 쓰도록 설정돼 있어서(Project Settings) 구식 StandaloneInputModule 대신
+        /// InputSystemUIInputModule을 붙인다.
+        /// </summary>
+        private void EnsureEventSystem()
+        {
+            if (FindObjectOfType<EventSystem>() != null) return;
+            var esGo = new GameObject("EventSystem");
+            esGo.AddComponent<EventSystem>();
+            esGo.AddComponent<InputSystemUIInputModule>();
         }
 
         private void EnsureCamera()
