@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using UnityEngine;
 using Yoegoe.Characters;
 using Yoegoe.Data;
+using Yoegoe.UI;
 
 namespace Yoegoe.Debugging
 {
@@ -47,6 +49,13 @@ namespace Yoegoe.Debugging
         public Sprite propSpriteThatchedHut; // 초가집
         public Sprite propSpriteSwing;       // 그네
         public Sprite propSpriteStoneLion;   // 돌사자
+
+        [Header("HUD (상단 재화 바 + 하단 슬롯바)")]
+        [Tooltip("한글 표시용 폰트. 비워두면 유니티 기본 폰트로 나오는데 한글이 깨질 수 있음 " +
+                 "(Assets/Fonts/DOSGothic.ttf 연결 권장 — 프로젝트에 이미 있는 한글 폰트).")]
+        public Font hudFont;
+        [Tooltip("정화수 재화 칩에 쓸 아이콘 (Assets/Art/Offerings/Offering_PurifiedWater 연결 권장).")]
+        public Sprite purifiedWaterIcon;
 
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
@@ -101,6 +110,29 @@ namespace Yoegoe.Debugging
             CreateCharacter("옥토끼", new Vector3(-1, 2, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0, 2, 0), Color.black, samjokOData);
             CreateCharacter("구미호", new Vector3(1, 2, 0), new Color(1f, 0.6f, 0.2f), gumihoData);
+
+            CreateHud();
+        }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        static extern void YogoeHideLoadingOverlay();
+#endif
+
+        private void Start()
+        {
+            // 빌드 씬은 TestScene이라 GameBootstrap이 없음 — 여기서 로딩 오버레이를 내린다.
+#if UNITY_WEBGL && !UNITY_EDITOR
+            YogoeHideLoadingOverlay();
+#endif
+        }
+
+        private void CreateHud()
+        {
+            var hudGO = new GameObject("Hud");
+            var hud = hudGO.AddComponent<GameHud>();
+            hud.font = hudFont;
+            hud.purifiedWaterIcon = purifiedWaterIcon;
         }
 
         private void EnsureCamera()

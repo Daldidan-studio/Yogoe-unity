@@ -33,6 +33,9 @@ namespace Yoegoe.Characters
         private static readonly System.Collections.Generic.List<CharacterAgent> ActiveAgents
             = new System.Collections.Generic.List<CharacterAgent>();
 
+        /// <summary>지금 씬에 존재하는 모든 캐릭터 (슬롯바 UI 등에서 순회용). 절대 수정하지 말 것.</summary>
+        public static System.Collections.Generic.IReadOnlyList<CharacterAgent> All => ActiveAgents;
+
         private PropSlot currentProp;
         private PropSlot previousProp;
         private PropSlot destination;
@@ -68,11 +71,13 @@ namespace Yoegoe.Characters
         private static Sprite GetSharedDotSprite()
         {
             if (sharedDotSprite != null) return sharedDotSprite;
-            var tex = new Texture2D(8, 8);
+            var tex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
             var pixels = new Color[64];
             for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
             tex.SetPixels(pixels);
-            tex.Apply();
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
             sharedDotSprite = Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 8f);
             return sharedDotSprite;
         }

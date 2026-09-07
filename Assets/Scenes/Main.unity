@@ -159,6 +159,8 @@ MonoBehaviour:
   propSpriteThatchedHut: {fileID: 21300000, guid: ecd51b3c927d74908927f093fb80d3eb, type: 3}
   propSpriteSwing: {fileID: 21300000, guid: 91bdc28eaba3448f690a8d3d6fefe498, type: 3}
   propSpriteStoneLion: {fileID: 21300000, guid: 9e842dce33cdb436bb8ff5a04d24f253, type: 3}
+  hudFont: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
+  purifiedWaterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
 --- !u!4 &100000003
 Transform:
   m_ObjectHideFlags: 0

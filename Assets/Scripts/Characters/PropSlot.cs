@@ -67,7 +67,7 @@ namespace Yoegoe.Characters
         /// <summary>6-2 걷기 후보 필터: 다른 요괴의 엔딩 기물은 후보에서 제외.</summary>
         public bool CanBeUsedBy(CharacterAgent agent)
         {
-            if (data == null) return true;
+            if (data == null || agent == null || agent.Data == null) return true;
             if (data.isEndingProp && data.owner != agent.Data.id) return false;
             return true;
         }
