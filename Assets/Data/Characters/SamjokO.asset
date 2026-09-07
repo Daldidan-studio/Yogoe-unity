@@ -47,3 +47,23 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 91174c152781246e8a0ab2e382fd1404, type: 3}
   - {fileID: 21300000, guid: 702ad2364171e4404b48a3df7dcf82a9, type: 3}
   - {fileID: 21300000, guid: 5f580da4e51d94a7da583183a298a1ed, type: 3}
+  stay:
+  - {fileID: 21300000, guid: 1b6b712e8f4c44ca8b87b4228ffaeeeb, type: 3}
+  - {fileID: 21300000, guid: a574c6be36de4ac9adad2710ee2b256a, type: 3}
+  - {fileID: 21300000, guid: 39c4536c7d484d589f6bf4e1753cb249, type: 3}
+  - {fileID: 21300000, guid: 36240c332f084b3eb7059334decf93d5, type: 3}
+  slumped:
+  - {fileID: 21300000, guid: fe556edabf174117bdfece9e8e60e21f, type: 3}
+  - {fileID: 21300000, guid: 2060aafcfdce472c8a86f92011ae9938, type: 3}
+  - {fileID: 21300000, guid: d9fc5b26b5bf49e286d453d2dc973eaf, type: 3}
+  - {fileID: 21300000, guid: baeac4d04d494681b8295158a2144453, type: 3}
+  fainted:
+  - {fileID: 21300000, guid: 4587692314bf4d0084287053bec79dd1, type: 3}
+  - {fileID: 21300000, guid: 9be8ebbb2db94c05a4a173fcdf268f32, type: 3}
+  - {fileID: 21300000, guid: 247527dc0e3845dcb65b85dcf0a43d6e, type: 3}
+  - {fileID: 21300000, guid: 5771dc94ba794779842dbe03fa5f61b3, type: 3}
+  idle:
+  - {fileID: 21300000, guid: 92558c78db43432da906b2cdfb5efb44, type: 3}
+  - {fileID: 21300000, guid: c263f68764ab4bdcabfe543a160b502a, type: 3}
+  - {fileID: 21300000, guid: 8f4f975a769f4fb4a438fac749573514, type: 3}
+  - {fileID: 21300000, guid: cddc645d956546d7839f1ca7a9f291b4, type: 3}

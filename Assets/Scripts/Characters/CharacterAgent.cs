@@ -13,7 +13,7 @@ namespace Yoegoe.Characters
     /// 노랑=주저앉기/빨강=기절).
     ///
     /// 넋 단계는 이 상태머신을 타지 않음 (9장: 소환된 넋은 화면에 뜨는 고정 도깨비불로 취급하고
-    /// 정화수로만 진화 게이지를 채운다는 가정 — DESIGN_DECISIONS_NEEDED.md 4번 참고, 확정 아님).
+    /// 정화수로만 기력을 채운다 — 기력 100 도달 시 혼으로 진화, Docs/05 4항 확정).
     /// </summary>
     public class CharacterAgent : MonoBehaviour
     {
@@ -270,9 +270,9 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 이번 프레임 실제 이동량(transform.position 변화)으로 방향을 판단해
-        /// Data의 방향별 4프레임 배열을 순환 재생한다. 멈춰있으면(대기·머무르기·기절 등) 0번 프레임으로 정지.
-        /// spriteRenderer나 Data가 없으면 조용히 아무것도 안 함(아트 없이도 기존처럼 동작).
+        /// 이번 프레임 실제 이동량으로 방향을 판단해 스프라이트를 재생한다.
+        /// 걷기: 방향별 walk 배열. 머물기/주저앉기/기절: CharacterData의 stay/slumped/fainted.
+        /// 멈춰 있는 걷기·놀기는 idle(없으면 walkDown 0프레임).
         /// </summary>
         private void UpdateWalkAnimation(float dt)
         {
@@ -297,24 +297,71 @@ namespace Yoegoe.Characters
             }
             else
             {
-                animFrame = 0;
-                animTimer = 0f;
+                // 상태 애니(앉기·기절 등)는 가만히 있어도 프레임 순환
+                bool loopWhileIdle = Stats.State == ActionState.Staying
+                    || Stats.State == ActionState.Slumped
+                    || Stats.State == ActionState.Fainted;
+                if (loopWhileIdle)
+                {
+                    animTimer += dt;
+                    if (animTimer >= AnimFrameInterval * 2f) // 상태 애니는 조금 더 느리게
+                    {
+                        animTimer -= AnimFrameInterval * 2f;
+                        animFrame = (animFrame + 1) % 4;
+                    }
+                }
+                else
+                {
+                    animFrame = 0;
+                    animTimer = 0f;
+                }
             }
 
-            Sprite[] frames = facing switch
-            {
-                FacingDir.Down => Data.walkDown,
-                FacingDir.Up => Data.walkUp,
-                FacingDir.Left => Data.walkLeft,
-                FacingDir.Right => Data.walkRight,
-                _ => Data.walkDown
-            };
-
+            Sprite[] frames = ResolveAnimationFrames(isMoving);
             if (frames != null && frames.Length > 0)
             {
                 int idx = Mathf.Clamp(animFrame, 0, frames.Length - 1);
                 if (frames[idx] != null) spriteRenderer.sprite = frames[idx];
             }
+        }
+
+        private Sprite[] ResolveAnimationFrames(bool isMoving)
+        {
+            switch (Stats.State)
+            {
+                case ActionState.Staying:
+                    if (HasFrames(Data.stay)) return Data.stay;
+                    break;
+                case ActionState.Slumped:
+                    if (HasFrames(Data.slumped)) return Data.slumped;
+                    break;
+                case ActionState.Fainted:
+                    if (HasFrames(Data.fainted)) return Data.fainted;
+                    break;
+            }
+
+            if (isMoving)
+            {
+                return facing switch
+                {
+                    FacingDir.Down => Data.walkDown,
+                    FacingDir.Up => Data.walkUp,
+                    FacingDir.Left => Data.walkLeft,
+                    FacingDir.Right => Data.walkRight,
+                    _ => Data.walkDown
+                };
+            }
+
+            if (HasFrames(Data.idle)) return Data.idle;
+            return Data.walkDown;
+        }
+
+        private static bool HasFrames(Sprite[] frames)
+        {
+            if (frames == null || frames.Length == 0) return false;
+            for (int i = 0; i < frames.Length; i++)
+                if (frames[i] != null) return true;
+            return false;
         }
 
         // ---------------- Walking ----------------
