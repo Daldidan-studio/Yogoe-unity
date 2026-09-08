@@ -99,12 +99,11 @@
       function hideLoadingOverlay() {
         if (!loadingBar || loadingBar.dataset.hiding === "1") return;
         loadingBar.dataset.hiding = "1";
+        // 검은 오버레이만 페이드아웃 → 아래 인게임이 자연스럽게 드러남
         loadingBar.classList.add("hiding");
-        var container = document.getElementById("unity-container");
-        if (container) container.classList.add("intro-settle");
         setTimeout(function () {
           loadingBar.style.display = "none";
-        }, 800);
+        }, 950);
       }
       window.YogoeHideLoadingOverlayJs = hideLoadingOverlay;
 

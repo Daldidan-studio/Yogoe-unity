@@ -20,24 +20,6 @@ body {
   height: 100%;
 }
 
-#unity-container.unity-desktop.intro-settle {
-  animation: settle-down-desktop 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-#unity-container.unity-mobile.intro-settle {
-  animation: settle-down-mobile 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes settle-down-desktop {
-  from { transform: translate(-50%, calc(-50% - 4vh)); }
-  to { transform: translate(-50%, -50%); }
-}
-
-@keyframes settle-down-mobile {
-  from { transform: translateY(-4vh); }
-  to { transform: translateY(0); }
-}
-
 #unity-canvas {
   background: #000000;
 }
@@ -47,6 +29,7 @@ body {
   height: 100%;
 }
 
+/* 로딩: 캔버스 위를 덮고, 준비되면 페이드로 걷혀 인게임이 드러남 */
 #unity-loading-bar {
   position: fixed;
   inset: 0;
@@ -54,11 +37,11 @@ body {
   display: none;
   background: #000000;
   text-align: center;
-  transition: transform 0.75s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.55s ease;
+  opacity: 1;
+  transition: opacity 0.9s ease;
 }
 
 #unity-loading-bar.hiding {
-  transform: translateY(18vh);
   opacity: 0;
   pointer-events: none;
 }
@@ -69,29 +52,35 @@ body {
   top: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
+  transition: opacity 0.45s ease;
+}
+
+#unity-loading-bar.hiding .loading-inner {
+  opacity: 0;
 }
 
 #game-title {
   width: min(86vw, 420px);
   height: min(38vw, 180px);
-  margin: 0 auto 22px;
+  margin: 0 auto;
   background: #000000 url("game_title.png") center / contain no-repeat;
+  opacity: 0.92;
 }
 
+/* 진행률은 DOM에만 두고 화면에는 안 보임 (로드 콜백용) */
 #unity-progress-bar-empty {
-  width: min(70vw, 280px);
-  height: 10px;
-  margin: 0 auto;
-  background: #1a2430;
-  border: 2px solid #3cb078;
-  box-sizing: border-box;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
 }
 
 #unity-progress-bar-full {
   width: 0%;
   height: 100%;
-  background: #f0d58c;
 }
 
 #sapsar-logo {
