@@ -121,18 +121,16 @@ namespace Yoegoe
             var propManagerGO = new GameObject("PropManager");
             propManagerGO.AddComponent<PropManager>();
 
-            // [기물 아트 연결] 한 줄로 나란히 두지 말고 맵(세로 카메라 기준 x는 대략 ±2.3, y는 ±4.5
-            // 안쪽) 여기저기에 자연스럽게 흩어서 배치. 실제 그림(propSprite*)이 비어있으면 CreateProp이
-            // 알아서 색깔 큐브로 대체함.
-            CreateProp("돌사자", new Vector3(-2.1f, 2.6f, 0), new Color(0.5f, 0.5f, 0.5f), propSpriteStoneLion);
-            CreateProp("초가집", new Vector3(-0.6f, -0.6f, 0), new Color(0.55f, 0.45f, 0.35f), propSpriteThatchedHut);
-            CreateProp("그네", new Vector3(2.0f, 1.0f, 0), new Color(0.5f, 0.4f, 0.3f), propSpriteSwing);
-            CreateProp("솟대문", new Vector3(-1.9f, -3.2f, 0), new Color(0.6f, 0.55f, 0.5f), propSpriteGate);
-            CreateProp("우물", new Vector3(1.6f, -3.6f, 0), new Color(0.4f, 0.45f, 0.55f), propSpriteWell);
+            // 배경은 PPU 원본(~9×4 유닛). cover로 키우지 않으므로 기물·캐릭터도 그 안에 배치.
+            CreateProp("돌사자", new Vector3(-2.1f, 1.2f, 0), new Color(0.5f, 0.5f, 0.5f), propSpriteStoneLion);
+            CreateProp("초가집", new Vector3(-0.6f, -0.2f, 0), new Color(0.55f, 0.45f, 0.35f), propSpriteThatchedHut);
+            CreateProp("그네", new Vector3(2.0f, 0.8f, 0), new Color(0.5f, 0.4f, 0.3f), propSpriteSwing);
+            CreateProp("솟대문", new Vector3(-1.9f, -1.3f, 0), new Color(0.6f, 0.55f, 0.5f), propSpriteGate);
+            CreateProp("우물", new Vector3(1.6f, -1.4f, 0), new Color(0.4f, 0.45f, 0.55f), propSpriteWell);
 
-            CreateCharacter("옥토끼", new Vector3(-1, 2, 0), Color.white, oktoData);
-            CreateCharacter("삼족오", new Vector3(0, 2, 0), Color.black, samjokOData);
-            CreateCharacter("구미호", new Vector3(1, 2, 0), new Color(1f, 0.6f, 0.2f), gumihoData);
+            CreateCharacter("옥토끼", new Vector3(-1f, 0.5f, 0), Color.white, oktoData);
+            CreateCharacter("삼족오", new Vector3(0f, 0.5f, 0), Color.black, samjokOData);
+            CreateCharacter("구미호", new Vector3(1f, 0.5f, 0), new Color(1f, 0.6f, 0.2f), gumihoData);
 
             CreateHud();
         }
@@ -227,10 +225,9 @@ namespace Yoegoe
         }
 
         /// <summary>
-        /// 배경 스프라이트를 카메라 뷰 전체를 덮도록(CSS의 background-size: cover와 동일한 방식) 스케일해서
-        /// 맨 뒤(sortingOrder 최하)에 깐다. 그리고 그 배경이 실제로 덮는 가로/세로 범위를 그대로
-        /// MapBounds로 설정해서, "정처 없이 돌아다니는" 캐릭터가 배경(맵) 밖으로 나가지 않게 한다.
-        /// backgroundSprite가 비어있으면 조용히 스킵 (기존처럼 카메라 단색 배경 그대로 동작).
+        /// 배경을 스프라이트 원본 월드 크기(PPU × mapScale)로 깐다.
+        /// 예전 cover×overscan 방식은 세로 화면에서 맵을 크게 확대해 버려 "원본이 아니다"는 느낌이 났다.
+        /// 맵이 카메라보다 크면 MapCameraDrag로 패닝하고, 작으면 카메라 여백이 보인다.
         /// </summary>
         private void CreateBackground()
         {
@@ -251,10 +248,7 @@ namespace Yoegoe
             float spriteHeight = backgroundSprite.bounds.size.y;
             if (spriteWidth <= 0f || spriteHeight <= 0f) return;
 
-            // 카메라 뷰를 최소한으로 덮는 배율에 mapOverscan을 곱해서, 맵을 화면보다 일부러 더 크게 만든다
-            // (그래야 드래그로 이동할 여지가 생긴다. mapOverscan=1이면 예전처럼 화면 딱 맞는 크기).
-            float coverScale = Mathf.Max(camWidth / spriteWidth, camHeight / spriteHeight);
-            float scale = coverScale * Mathf.Max(1f, Scale.mapOverscan);
+            float scale = Mathf.Max(0.01f, Scale.mapScale);
             go.transform.localScale = new Vector3(scale, scale, 1f);
 
             float mapWidth = spriteWidth * scale;
@@ -266,8 +260,7 @@ namespace Yoegoe
                 new Vector2(-mapWidth / 2f + margin, -mapHeight / 2f + margin),
                 new Vector2(mapWidth / 2f - margin, mapHeight / 2f - margin));
 
-            // 맵이 화면보다 큰 만큼(overscan) 카메라를 드래그로 움직일 수 있게 하고, 배경 밖으로는
-            // 못 나가도록 카메라 중심 이동 범위를 "맵 절반 - 카메라 뷰 절반"으로 제한한다.
+            // 맵이 화면보다 큰 축만 드래그 여유. 작으면 해당 축 clamp 범위 0.
             var drag = cam.GetComponent<MapCameraDrag>();
             if (drag == null) drag = cam.gameObject.AddComponent<MapCameraDrag>();
 

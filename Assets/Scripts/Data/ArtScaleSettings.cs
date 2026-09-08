@@ -14,8 +14,8 @@ namespace Yoegoe.Data
         public float cameraOrthoSize = 5f;
 
         [Header("맵")]
-        [Tooltip("1 = 카메라 뷰를 덮는 최소 크기(드래그 여유 없음). 1.3~1.5면 드래그로 둘러보기 가능.")]
-        public float mapOverscan = 1.35f;
+        [Tooltip("배경 Transform 배율. 1 = 스프라이트 PPU 원본 월드 크기(cover 확대 없음).")]
+        public float mapScale = 1f;
 
         [Header("캐릭터")]
         [Tooltip("스프라이트 캐릭터 Transform 배율.")]
