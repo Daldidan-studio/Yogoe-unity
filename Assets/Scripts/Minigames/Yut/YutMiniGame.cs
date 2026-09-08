@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using KSpirits.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -695,7 +694,8 @@ namespace KSpirits.Minigames.Yut
                 text.raycastTarget = false;
             }
             text.text = label;
-            UIFont.Apply(text, UIFontRole.Default);
+            if (text.font == null)
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 29;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
@@ -729,7 +729,7 @@ namespace KSpirits.Minigames.Yut
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.text = content;
-            UIFont.Apply(text, UIFontRole.Default);
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = size + 1;
             text.color = Color.white;
             text.alignment = anchor;

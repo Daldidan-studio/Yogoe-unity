@@ -567,8 +567,8 @@ namespace Yoegoe.Characters
                 }
                 else
                 {
-                    LeaveCurrentProp();
-                    EnterWalking();
+                    // 머물기 5분 종료 → 놀기(떠돎) → 이후 걷기(타겟) → 기물
+                    EnterPlaying();
                 }
                 return 0.0001f;
             }
@@ -593,8 +593,7 @@ namespace Yoegoe.Characters
             }
             else if (Stats.StateTimer >= StayDurationSeconds)
             {
-                LeaveCurrentProp();
-                EnterWalking();
+                EnterPlaying();
             }
 
             return slice;
@@ -674,13 +673,14 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 기물이 아닌 곳에 내려놓았을 때 호출 (드래그 드롭). 기물 점유를 풀고 5분간 맵을 돌아다닌다.
-        /// 기력 소모·생산 없음. 혼잣말은 유지. Docs/06_행동룰.md
+        /// 놀기: 기물 점유를 풀고 5분간 맵을 돌아다닌다. 기력 소모·생산 없음.
+        /// 진입: 머물기 5분 종료, 또는 기물 아닌 곳 드래그 드롭.
+        /// 종료: 5분 후 Walking(목표 타겟팅) → 기물. Docs/06_행동룰.md
         /// </summary>
         public void EnterPlaying()
         {
             if (Stats.Stage == GrowthStage.Neok) return;
-            if (Stats.State == ActionState.Fainted) return; // 기절은 드래그 불가
+            if (Stats.State == ActionState.Fainted) return;
 
             ClearWalkDestination();
             LeaveCurrentProp();

@@ -107,8 +107,7 @@ namespace Yoegoe.Save
                 }
                 else
                 {
-                    LeavePropKeepPile(agent);
-                    EnterWalking(agent);
+                    EnterPlaying(agent);
                 }
                 return 0.0001f; // 진행 보장
             }
@@ -126,8 +125,7 @@ namespace Yoegoe.Save
             }
             else if (agent.stateTimer >= StayDurationSeconds)
             {
-                LeavePropKeepPile(agent);
-                EnterWalking(agent);
+                EnterPlaying(agent);
             }
 
             return slice;
@@ -201,6 +199,14 @@ namespace Yoegoe.Save
         private static void EnterWalking(AgentSave agent)
         {
             agent.state = ActionState.Walking;
+            agent.stateTimer = 0f;
+        }
+
+        /// <summary>머물기 종료·드롭과 동일: 기물 비우고 놀기 5분.</summary>
+        private static void EnterPlaying(AgentSave agent)
+        {
+            LeavePropKeepPile(agent);
+            agent.state = ActionState.Playing;
             agent.stateTimer = 0f;
         }
 
