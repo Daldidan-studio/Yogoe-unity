@@ -124,7 +124,7 @@
           createUnityInstance(canvas, config, function (progress) {
             document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
           }).then(function (unityInstance) {
-            // 로딩 UI는 TestSceneBootstrap(Start)에서 YogoeHideLoadingOverlay로 내림
+            // 로딩 UI는 Main(Start)에서 YogoeHideLoadingOverlay로 내림
             // (내려가며 게임 화면이 자리 잡는 연출). 콜백 실패 시 안전망.
             setTimeout(function () {
               hideLoadingOverlay();

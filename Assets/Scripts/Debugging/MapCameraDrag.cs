@@ -11,7 +11,7 @@ namespace Yoegoe.Debugging
     /// WebGL에서는 Pointer.current(가상 디바이스)를 읽으면 WASM "memory access out of bounds"로
     /// 크래시하는 경우가 있어, 실제 Mouse/Touchscreen만 사용한다.
     ///
-    /// 카메라가 배경 밖(빈 공간)을 비추지 않도록, TestSceneBootstrap이 계산해주는 범위로 카메라
+    /// 카메라가 배경 밖(빈 공간)을 비추지 않도록, Main이 계산해주는 범위로 카메라
     /// 중심 좌표를 clamp한다 (SetBounds 호출 전에는 자유롭게 움직임).
     /// </summary>
     public class MapCameraDrag : MonoBehaviour

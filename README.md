@@ -17,7 +17,7 @@
 - [x] BigNumber 무한 자릿수 재화 시스템 (ㄱㄴㄷ...ㅎ → ㄱㄱ,ㄴㄴ 순환 단위)
 - [x] 캐릭터 행동 상태머신 (걷기 → 머무르기 → 늘어짐 → 기절), 기물 점유/생산 계산
 - [x] 기물/공양/캐릭터 데이터 정의 (ScriptableObject)
-- [x] 아트 없이도 실제 빌드에서 확인 가능한 테스트 부트스트랩 (`TestSceneBootstrap`)
+- [x] Main 씬 진입점 (`Main`)
 - [x] 윷놀이 보드 계산 · 확률표 · 화면(기존 프로젝트에서 재사용, 검증 완료)
 - [ ] 윷놀이 승패 판정 / 상대 AI / 잡기 / 보상 지급 (새로 설계·구현 필요)
 - [ ] 활성 테스트 씬 (Boot.unity가 레거시로 이동되어 현재 없음 — 아래 "실행 방법" 참고)
@@ -47,7 +47,7 @@
 
 1. Unity Hub에서 이 폴더를 연다.
 2. 새 씬을 만든다 (예: `Assets/Scenes/Main.unity`).
-3. 빈 GameObject를 만들고 `TestSceneBootstrap` 컴포넌트를 붙인다.
+3. 빈 GameObject를 만들고 `Main` 컴포넌트를 붙인다.
 4. File → Build Profiles(또는 Build Settings) → 방금 만든 씬을 Scenes In Build에 추가한다.
 5. Play를 누른다 — 아트 없이 캡슐/큐브로 캐릭터·기물이 움직이는 것을 확인할 수 있다.
 
@@ -62,7 +62,8 @@ Assets/
     Data/            Enums, CharacterData / PropData / OfferingData (ScriptableObject)
     Characters/      CharacterRuntimeStats, PropSlot, PropManager, CharacterAgent(행동 상태머신)
     Economy/         GameEconomy (공덕 누적)
-    Debugging/       TestSceneBootstrap (아트 없이 프리미티브로 씬 구성)
+    Main.cs          Main 씬 진입점
+    Debugging/       MapCameraDrag
     Minigames/Yut/   윷놀이 보드·이동·확률·화면 (기존 프로젝트에서 재사용)
   _Legacy_KSpirits/  이전 설계("다시...나의 요괴들") 코드/에셋 보관 (활성 트리 아님)
 Docs/

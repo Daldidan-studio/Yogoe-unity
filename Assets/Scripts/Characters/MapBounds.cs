@@ -4,7 +4,7 @@ namespace Yoegoe.Characters
 {
     /// <summary>
     /// 캐릭터가 "정처 없이 돌아다닐" 때(할당된 기물이 없을 때) 벗어나면 안 되는 맵 범위.
-    /// TestSceneBootstrap 등 씬 부트스트랩 쪽에서 배경/카메라 크기에 맞춰 SetBounds로 설정해준다.
+    /// Main 등 씬 부트스트랩 쪽에서 배경/카메라 크기에 맞춰 SetBounds로 설정해준다.
     /// 아무도 설정 안 해주면(예: 기존 씬) 넉넉한 기본값으로 동작해서 이전 동작을 깨지 않는다.
     /// </summary>
     public static class MapBounds

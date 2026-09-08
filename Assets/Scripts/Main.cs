@@ -4,20 +4,16 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
+using Yoegoe.Debugging;
 using Yoegoe.UI;
 
-namespace Yoegoe.Debugging
+namespace Yoegoe
 {
     /// <summary>
-    /// 에셋(스프라이트) 없이도 상태머신을 실제 빌드(WebGL 포함)에서 눈으로 확인하기 위한 임시 부트스트랩.
-    /// 완전히 빈 씬에 이 스크립트 하나만 올려두고 재생하면:
-    ///  - 기물 3개(돌탑/우물/떡절구)를 큐브로
-    ///  - 캐릭터 3마리(옥토끼/삼족오/구미호)를 캡슐로(또는 Okto Data가 연결되어 있으면 실제 스프라이트로)
-    /// 코드로 직접 생성해서 배치한다. 카메라/조명도 없으면 자동으로 만든다.
-    ///
-    /// 실제 아트/씬 세팅이 끝나면 이 스크립트와 테스트 씬은 지우면 된다.
+    /// Main 씬 진입점. 카메라·맵·기물·캐릭터·HUD를 조립한다.
+    /// 화면 크기 배율은 Assets/Resources/ArtScaleSettings.asset 에서 조절.
     /// </summary>
-    public class TestSceneBootstrap : MonoBehaviour
+    public class Main : MonoBehaviour
     {
         [Header("실제 아트 연결 (없으면 캡슐로 대체 재생)")]
         [Tooltip("옥토끼 CharacterData (Walk Down/Left/Right/Up 스프라이트까지 채운 에셋)를 연결하면 " +
@@ -28,24 +24,17 @@ namespace Yoegoe.Debugging
         [Tooltip("구미호 CharacterData. 비워두면 구미호는 주황 캡슐로 대체 재생된다.")]
         public CharacterData gumihoData;
 
+        [Header("화면 크기 (여기 말고 ArtScaleSettings.asset에서 조절)")]
+        [Tooltip("비워두면 Resources/ArtScaleSettings 를 자동으로 찾는다. 맵·캐릭터·기물 배율은 그 에셋 하나에서 바꾼다.")]
+        public ArtScaleSettings artScale;
+
         [Header("맵 배경 (없으면 카메라 단색 배경 그대로)")]
         [Tooltip("사용자가 준 배경 이미지(예: Background_GrassField) — 카메라 뷰 전체를 덮도록 자동 스케일하고, " +
                  "이 배경이 덮는 범위를 그대로 '맵 범위(MapBounds)'로 설정해서 캐릭터가 정처 없이 돌아다닐 때도 " +
                  "이 안에서만 돌아다니게 한다.")]
         public Sprite backgroundSprite;
 
-        [Tooltip("맵을 화면(카메라 뷰)보다 이 배수만큼 더 크게 만든다. 기본 1 = 배경 원본 크기 그대로 " +
-                 "(카메라를 덮는 최소 배율만 적용, 인위적으로 더 키우지 않음). 1보다 크게 주면 그만큼 더 " +
-                 "크게 만들어서 드래그로 둘러볼 여지를 늘릴 수 있음.")]
-        public float mapOverscan = 1f;
-
-        [Tooltip("실제 스프라이트가 있는 캐릭터(옥토끼/삼족오/구미호)의 렌더 크기 배율. " +
-                 "새로 받은 그림이 원래 픽셀 크기 그대로면 화면에 비해 너무 크게 나와서 기본값을 작게 잡아둠.")]
-        public float characterScale = 0.35f;
-
         [Header("기물 그림 (없으면 그 기물만 색깔 큐브로 대체)")]
-        [Tooltip("기물 렌더 크기 배율.")]
-        public float propScale = 0.6f;
         public Sprite propSpriteGate;        // 솟대/문
         public Sprite propSpriteWell;        // 우물
         public Sprite propSpriteThatchedHut; // 초가집
@@ -60,6 +49,23 @@ namespace Yoegoe.Debugging
         public Sprite purifiedWaterIcon;
         [Tooltip("상세화면 하단 급여 바에 나열할 공양물 전체 목록 (Assets/Data/Offerings/*.asset 전부 연결).")]
         public OfferingData[] offerings;
+
+        private ArtScaleSettings _scale;
+        private ArtScaleSettings Scale
+        {
+            get
+            {
+                if (_scale != null) return _scale;
+                if (artScale != null) return _scale = artScale;
+                _scale = Resources.Load<ArtScaleSettings>("ArtScaleSettings");
+                if (_scale == null)
+                {
+                    // 에셋이 없어도 부트스트랩이 죽지 않게 런타임 기본값
+                    _scale = ScriptableObject.CreateInstance<ArtScaleSettings>();
+                }
+                return _scale;
+            }
+        }
 
         // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
         // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
@@ -85,7 +91,7 @@ namespace Yoegoe.Debugging
 
             if (shader == null)
             {
-                Debug.LogError("[TestSceneBootstrap] 사용 가능한 셰이더를 하나도 찾지 못했습니다. " +
+                Debug.LogError("[Main] 사용 가능한 셰이더를 하나도 찾지 못했습니다. " +
                                 "머티리얼 없이 렌더러 기본값으로 진행합니다.");
                 return null;
             }
@@ -135,7 +141,7 @@ namespace Yoegoe.Debugging
 
         private void Start()
         {
-            // 빌드 씬은 Main이라 GameBootstrap이 없음 — 로딩 오버레이를 아래로 내리며 게임을 드러낸다.
+            // 빌드 씬은 Main — 로딩 오버레이를 아래로 내리며 게임을 드러낸다.
 #if UNITY_WEBGL && !UNITY_EDITOR
             YogoeHideLoadingOverlay();
 #endif
@@ -170,14 +176,23 @@ namespace Yoegoe.Debugging
 
         private void EnsureCamera()
         {
-            if (Camera.main != null) return;
-            var camGO = new GameObject("Main Camera") { tag = "MainCamera" };
-            var cam = camGO.AddComponent<Camera>();
+            Camera cam;
+            if (Camera.main != null)
+            {
+                cam = Camera.main;
+            }
+            else
+            {
+                var camGO = new GameObject("Main Camera") { tag = "MainCamera" };
+                cam = camGO.AddComponent<Camera>();
+                cam.orthographic = true;
+                cam.transform.position = new Vector3(0, 0, -10);
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
+            }
+
             cam.orthographic = true;
-            cam.orthographicSize = 5f;
-            cam.transform.position = new Vector3(0, 0, -10);
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
+            cam.orthographicSize = Scale.cameraOrthoSize;
         }
 
         /// <summary>
@@ -229,7 +244,7 @@ namespace Yoegoe.Debugging
             // 카메라 뷰를 최소한으로 덮는 배율에 mapOverscan을 곱해서, 맵을 화면보다 일부러 더 크게 만든다
             // (그래야 드래그로 이동할 여지가 생긴다. mapOverscan=1이면 예전처럼 화면 딱 맞는 크기).
             float coverScale = Mathf.Max(camWidth / spriteWidth, camHeight / spriteHeight);
-            float scale = coverScale * Mathf.Max(1f, mapOverscan);
+            float scale = coverScale * Mathf.Max(1f, Scale.mapOverscan);
             go.transform.localScale = new Vector3(scale, scale, 1f);
 
             float mapWidth = spriteWidth * scale;
@@ -269,7 +284,7 @@ namespace Yoegoe.Debugging
                 // 실제 기물 그림이 있으면 큐브 대신 SpriteRenderer로 생성.
                 go = new GameObject("Prop_" + name);
                 go.transform.position = pos;
-                go.transform.localScale = Vector3.one * propScale;
+                go.transform.localScale = Vector3.one * Scale.propScale;
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = sprite;
             }
@@ -311,7 +326,7 @@ namespace Yoegoe.Debugging
 
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = FirstSprite(realData);
-                go.transform.localScale = Vector3.one * characterScale;
+                go.transform.localScale = Vector3.one * Scale.characterScale;
 
                 agent = go.AddComponent<CharacterAgent>();
                 agent.Data = realData; // 런타임 스텁이 아니라 실제 에셋을 그대로 사용 (걷기 애니메이션 재생됨)
