@@ -102,12 +102,8 @@ namespace Yoegoe
 
         private void Awake()
         {
-            // [비활성 탭 대응] 브라우저 탭이 백그라운드로 가면 유니티 프레임이 뜸해지는데(스로틀링),
-            // 유니티는 기본적으로 한 프레임의 deltaTime을 Time.maximumDeltaTime(기본 0.33초)로
-            // 잘라버려서 탭이 비활성이던 동안 흐른 실제 시간이 통째로 무시되고 기력/생산이 멈춘
-            // 것처럼 보인다. 이 값을 크게 잡아서, 탭이 다시 활성화됐을 때 그동안 지난 실제 시간을
-            // 한 번에 반영(따라잡기)하게 한다 — "오프라인 동일 속도" 요구사항(4장)의 최소 버전.
-            // (앱을 완전히 껐다 켜는 진짜 오프라인 정산은 세이브 시스템이 있어야 해서 별도 작업 필요.)
+            // [비활성 탭 대응] 복귀 시 지난 실시간을 deltaTime으로 넘기기 위해 상한을 크게 둔다.
+            // 이동 텔레포트는 CharacterAgent.CatchUpAfterPause에서 막고, 기력·공덕·타이머만 따라잡는다.
             Time.maximumDeltaTime = 3600f;
 
             GameEconomy.ApplyStartingState(StartingStateSettings.Get());

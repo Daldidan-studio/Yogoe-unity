@@ -155,6 +155,16 @@ namespace Yoegoe.Characters
             }
 
             float dt = Time.deltaTime;
+            // 탭/앱 복귀 시 maximumDeltaTime이 커서 dt가 수 초~수 분이 될 수 있다.
+            // 그 값을 이동에 그대로 쓰면 한 프레임에 맵을 가로지른다 → 타이머/생산만 따라잡고 위치는 끊는다.
+            if (dt > MaxContinuousMoveDelta)
+            {
+                CatchUpAfterPause(dt);
+                UpdateSortingOrder();
+                UpdateStateDot();
+                return;
+            }
+
             switch (Stats.State)
             {
                 case ActionState.Walking: TickWalking(dt); break;
@@ -168,6 +178,60 @@ namespace Yoegoe.Characters
             UpdateSortingOrder();
             UpdateStateDot();
             if (Stats.State != ActionState.Fainted) UpdateMonologue(dt);
+        }
+
+        /// <summary>이보다 긴 dt는 "이동 보간"에 쓰지 않는다 (복귀 스파이크 방지).</summary>
+        private const float MaxContinuousMoveDelta = 0.25f;
+
+        /// <summary>
+        /// 백그라운드 복귀 등 긴 공백 정산.
+        /// 기력·공덕·상태 타이머는 반영하고, MoveTowards로는 따라잡지 않는다.
+        /// </summary>
+        private void CatchUpAfterPause(float dt)
+        {
+            switch (Stats.State)
+            {
+                case ActionState.Walking:
+                    CatchUpWalkingAfterPause();
+                    break;
+                case ActionState.Staying:
+                    TickStaying(dt);
+                    break;
+                case ActionState.Slumped:
+                    TickSlumped(dt);
+                    break;
+                case ActionState.Playing:
+                    Stats.StateTimer += dt;
+                    if (Stats.StateTimer >= PlayDurationSeconds)
+                        EnterWalking();
+                    break;
+                case ActionState.Fainted:
+                    break;
+            }
+        }
+
+        /// <summary>긴 공백 동안 목적지에 도착한 것으로 보고 앉히거나, 방황 중이면 재추첨만.</summary>
+        private void CatchUpWalkingAfterPause()
+        {
+            if (isWandering || destination == null)
+            {
+                PickDestination();
+                return;
+            }
+
+            Vector3 targetPos = destination.transform.position;
+            transform.position = MapBounds.Clamp(new Vector3(targetPos.x, targetPos.y, transform.position.z));
+
+            if (destination.TryOccupy(this))
+            {
+                currentProp = destination;
+                destination = null;
+                EnterStaying();
+            }
+            else
+            {
+                PickDestination();
+            }
         }
 
         private ArtScaleSettings _artScale;
