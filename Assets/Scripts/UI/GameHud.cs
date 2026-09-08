@@ -68,6 +68,15 @@ namespace Yoegoe.UI
 
         private BigNumber lastMeritShown;
         private bool hasLastMeritShown;
+        /// <summary>일괄 수거 시 HUD 공덕 숫자 카운트업.</summary>
+        private bool meritCounting;
+        private BigNumber meritAnimFrom;
+        private BigNumber meritAnimTo;
+        private BigNumber meritAnimShown;
+        private float meritAnimElapsed;
+        // MeritCollectFx: 첫 꽃잎 도착 ≈ Scatter(0.4)+Hover(0.28), 마지막까지 ≈ Stagger*17+Fly(0.55)
+        private const float MeritCountDelay = 0.68f;
+        private const float MeritCountDuration = 1.35f;
         private int lastYeopjeon = int.MinValue;
         private int lastHyang = int.MinValue;
         private int lastPurifiedWater = int.MinValue;
@@ -122,12 +131,17 @@ namespace Yoegoe.UI
         {
             if (meritText != null)
             {
-                var merit = GameEconomy.MeritPile;
-                if (!hasLastMeritShown || !merit.Equals(lastMeritShown))
+                if (meritCounting)
+                    TickMeritCountUp();
+                else
                 {
-                    hasLastMeritShown = true;
-                    lastMeritShown = merit;
-                    meritText.text = "공덕 " + merit.ToDisplayString();
+                    var merit = GameEconomy.MeritPile;
+                    if (!hasLastMeritShown || !merit.Equals(lastMeritShown))
+                    {
+                        hasLastMeritShown = true;
+                        lastMeritShown = merit;
+                        meritText.text = "공덕 " + merit.ToDisplayString();
+                    }
                 }
             }
             if (yeopjeonText != null && GameEconomy.Yeopjeon != lastYeopjeon)
@@ -420,11 +434,94 @@ namespace Yoegoe.UI
         {
             // 콜드스타트 Sweep 이후 다시 쌓인 더미도 함께 수거해 기물 위 숫자가 남기지 않는다.
             GameSaveBridge.SweepPropPilesIntoBatch();
+            var before = GameEconomy.MeritPile;
             if (!GameEconomy.TryClaimBatchMerit()) return;
+            var after = GameEconomy.MeritPile;
             GameSaveBridge.SaveFromWorld();
 
+            BeginMeritCountUp(before, after);
             if (hudCanvas != null && from != null && meritTextRt != null)
                 PlayMeritCollectFx(from);
+        }
+
+        /// <summary>공덕 HUD 숫자를 from→to로 단계적으로 올린다 (일괄 수거 연출).</summary>
+        private void BeginMeritCountUp(BigNumber from, BigNumber to)
+        {
+            if (meritText == null) return;
+            if (from.Equals(to)) return;
+
+            // 이미 카운트 중이면 현재 표시값에서 이어서 목표만 갱신
+            if (meritCounting)
+                meritAnimFrom = meritAnimShown;
+            else
+                meritAnimFrom = from;
+
+            meritAnimTo = to;
+            meritAnimShown = meritAnimFrom;
+            meritAnimElapsed = 0f;
+            meritCounting = true;
+            hasLastMeritShown = true;
+            lastMeritShown = meritAnimFrom;
+            meritText.text = "공덕 " + meritAnimFrom.ToDisplayString();
+        }
+
+        private void TickMeritCountUp()
+        {
+            // 실제 지갑이 연출 목표와 어긋나면(소비·추가 수거) 즉시 실제값으로 맞춤
+            var real = GameEconomy.MeritPile;
+            if (!real.Equals(meritAnimTo))
+            {
+                // 목표가 더 커진 경우(연출 중 추가 수거)는 이어서 카운트
+                if (real > meritAnimTo)
+                {
+                    meritAnimFrom = meritAnimShown;
+                    meritAnimTo = real;
+                    meritAnimElapsed = MeritCountDelay; // 딜레이 없이 바로 이어서
+                }
+                else
+                {
+                    EndMeritCountUp(real);
+                    return;
+                }
+            }
+
+            meritAnimElapsed += Time.unscaledDeltaTime;
+            if (meritAnimElapsed < MeritCountDelay)
+            {
+                // 꽃잎이 흩날리는 동안은 시작값 유지
+                if (!meritAnimShown.Equals(meritAnimFrom))
+                {
+                    meritAnimShown = meritAnimFrom;
+                    lastMeritShown = meritAnimShown;
+                    meritText.text = "공덕 " + meritAnimShown.ToDisplayString();
+                }
+                return;
+            }
+
+            float u = Mathf.Clamp01((meritAnimElapsed - MeritCountDelay) / MeritCountDuration);
+            // easeOutCubic — 초반에 빠르게 오르다 끝에서 감속
+            float e = 1f - (1f - u) * (1f - u) * (1f - u);
+            var shown = meritAnimFrom + (meritAnimTo - meritAnimFrom) * e;
+
+            if (!shown.Equals(meritAnimShown))
+            {
+                meritAnimShown = shown;
+                lastMeritShown = shown;
+                meritText.text = "공덕 " + shown.ToDisplayString();
+            }
+
+            if (u >= 1f)
+                EndMeritCountUp(meritAnimTo);
+        }
+
+        private void EndMeritCountUp(BigNumber final)
+        {
+            meritCounting = false;
+            meritAnimShown = final;
+            lastMeritShown = final;
+            hasLastMeritShown = true;
+            if (meritText != null)
+                meritText.text = "공덕 " + final.ToDisplayString();
         }
 
         // ---------------- 우하단 업그레이드 (8장) ----------------

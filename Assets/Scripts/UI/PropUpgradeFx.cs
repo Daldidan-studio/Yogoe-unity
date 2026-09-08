@@ -10,20 +10,41 @@ namespace Yoegoe.UI
 
         public static void SpawnWorld(Vector3 worldPos, string text, Font font = null)
         {
+            // TextMesh + 동적 한글 폰트는 글리프/머티리얼이 깨져 네모·이상한 도형으로 보인다.
+            // 월드 스페이스 캔버스 + UI.Text로 띄운다.
             var go = new GameObject("PropUpgradeFx_World");
             go.transform.position = worldPos + Vector3.up * 0.9f;
-            var tm = go.AddComponent<TextMesh>();
-            tm.text = text;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.characterSize = 0.09f;
-            tm.fontSize = 48;
-            tm.color = new Color(1f, 0.95f, 0.55f, 1f);
-            var f = font != null ? font : BuiltinFont();
-            if (f != null) tm.font = f;
-            var mr = go.GetComponent<MeshRenderer>();
-            if (mr != null) mr.sortingOrder = 600;
-            go.AddComponent<FloatAndFadeWorld>().Init(1.2f, 1.1f);
+
+            var canvas = go.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 600;
+            go.AddComponent<CanvasScaler>();
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(220f, 48f);
+            // 월드에서 읽기 좋은 크기 (대략 캐릭터 머리 위)
+            rt.localScale = Vector3.one * 0.012f;
+
+            var labelGO = new GameObject("Label");
+            var labelRt = labelGO.AddComponent<RectTransform>();
+            labelRt.SetParent(rt, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+
+            var label = labelGO.AddComponent<Text>();
+            label.font = font != null ? font : BuiltinFont();
+            label.fontSize = 36;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = new Color(1f, 0.95f, 0.55f, 1f);
+            label.text = text;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+
+            // 카메라를 향해 빌보드
+            go.AddComponent<FloatAndFadeWorld>().Init(1.2f, 1.1f, label);
         }
 
         public static void SpawnUi(RectTransform parent, string text, Font font)
@@ -58,28 +79,37 @@ namespace Yoegoe.UI
             private float life;
             private float duration;
             private float rise;
-            private TextMesh tm;
+            private Text label;
             private Color baseColor;
+            private Camera cam;
 
-            public void Init(float durationSec, float riseSpeed)
+            public void Init(float durationSec, float riseSpeed, Text textLabel)
             {
                 duration = durationSec;
                 life = durationSec;
                 rise = riseSpeed;
-                tm = GetComponent<TextMesh>();
-                if (tm != null) baseColor = tm.color;
+                label = textLabel;
+                if (label != null) baseColor = label.color;
+                cam = Camera.main;
             }
 
-            private void Update()
+            private void LateUpdate()
             {
+                if (cam == null) cam = Camera.main;
+                if (cam != null)
+                {
+                    // 화면 정면 유지 (월드 텍스트가 뒤집히지 않게)
+                    transform.rotation = cam.transform.rotation;
+                }
+
                 life -= Time.unscaledDeltaTime;
                 transform.position += Vector3.up * (rise * Time.unscaledDeltaTime);
-                if (tm != null)
+                if (label != null)
                 {
                     float a = Mathf.Clamp01(life / duration);
                     var c = baseColor;
                     c.a = a;
-                    tm.color = c;
+                    label.color = c;
                 }
                 if (life <= 0f) Destroy(gameObject);
             }
