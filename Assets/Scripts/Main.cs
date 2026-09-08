@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -18,6 +19,11 @@ namespace Yoegoe
     /// </summary>
     public class Main : MonoBehaviour
     {
+        /// <summary>이보다 긴 벽시계 공백이면 캐릭터 정산을 돌린다 (WebGL 탭 숨김 등).</summary>
+        private const float WallClockCatchUpThresholdSeconds = 1f;
+
+        private DateTime lastActiveUtc;
+        private bool worldReady;
         [Header("실제 아트 연결 (없으면 캡슐로 대체 재생)")]
         [Tooltip("옥토끼 CharacterData (Walk Down/Left/Right/Up 스프라이트까지 채운 에셋)를 연결하면 " +
                  "캡슐 대신 실제 스프라이트로 만들고, CharacterAgent.Data도 이 실제 에셋을 그대로 사용한다.")]
@@ -106,9 +112,10 @@ namespace Yoegoe
 
         private void Awake()
         {
-            // [비활성 탭 대응] 복귀 시 지난 실시간을 deltaTime으로 넘기기 위해 상한을 크게 둔다.
-            // 이동 텔레포트는 CharacterAgent.CatchUpAfterPause에서 막고, 기력·공덕·타이머만 따라잡는다.
+            // maximumDeltaTime은 이동 스파이크 방지용으로 남겨 두되, 실제 공백 정산은 벽시계로 한다.
+            // (WebGL은 탭 복귀 시 deltaTime 스파이크를 안 주는 경우가 많다.)
             Time.maximumDeltaTime = 3600f;
+            lastActiveUtc = DateTime.UtcNow;
 
             GameEconomy.ApplyStartingState(StartingStateSettings.Get());
 
@@ -147,15 +154,64 @@ namespace Yoegoe
             // CharacterAgent.Start(기본 스탯)가 끝난 뒤 세이브를 덮어써야 복원이 유지된다.
             yield return null;
             GameSaveBridge.TryLoadSimulateAndApply();
+            lastActiveUtc = DateTime.UtcNow;
+            worldReady = true;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             YogoeHideLoadingOverlay();
 #endif
         }
 
+        private void Update()
+        {
+            if (!worldReady) return;
+
+            var now = DateTime.UtcNow;
+            double gap = (now - lastActiveUtc).TotalSeconds;
+            lastActiveUtc = now;
+
+            // Update가 멈췄다 재개되면(탭 숨김·잠금화면 등) gap이 커진다.
+            if (gap >= WallClockCatchUpThresholdSeconds)
+            {
+                float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
+                CharacterAgent.CatchUpAll(seconds);
+            }
+        }
+
         private void OnApplicationPause(bool pause)
         {
-            if (pause) GameSaveBridge.SaveFromWorld();
+            if (pause)
+            {
+                if (worldReady) GameSaveBridge.SaveFromWorld();
+                return;
+            }
+
+            // pause=false: Update 한 프레임이 오기 전에 포커스가 돌아올 수 있어 여기서도 정산.
+            ApplyWallClockCatchUpIfNeeded();
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus)
+            {
+                if (worldReady) GameSaveBridge.SaveFromWorld();
+                return;
+            }
+
+            ApplyWallClockCatchUpIfNeeded();
+        }
+
+        private void ApplyWallClockCatchUpIfNeeded()
+        {
+            if (!worldReady) return;
+
+            var now = DateTime.UtcNow;
+            double gap = (now - lastActiveUtc).TotalSeconds;
+            lastActiveUtc = now;
+            if (gap < WallClockCatchUpThresholdSeconds) return;
+
+            float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
+            CharacterAgent.CatchUpAll(seconds);
         }
 
         private void OnApplicationQuit()

@@ -1,5 +1,6 @@
 using UnityEngine;
 using Yoegoe.Data;
+using Yoegoe.Save;
 
 namespace Yoegoe.Characters
 {
@@ -107,15 +108,9 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            float dt = Time.deltaTime;
-            // 탭/앱 복귀 시 maximumDeltaTime이 커서 dt가 수 초~수 분이 될 수 있다.
-            // 그 값을 이동에 그대로 쓰면 한 프레임에 맵을 가로지른다 → 타이머/생산만 따라잡고 위치는 끊는다.
-            if (dt > MaxContinuousMoveDelta)
-            {
-                CatchUpAfterPause(dt);
-                UpdateSortingOrder();
-                return;
-            }
+            // 긴 공백 정산은 Main의 벽시계 CatchUpAll이 담당한다.
+            // deltaTime에 의존하면 WebGL 탭 복귀 시 스파이크가 안 오거나, 오면 이동이 텔레포트한다.
+            float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
 
             switch (Stats.State)
             {
@@ -131,33 +126,52 @@ namespace Yoegoe.Characters
             if (Stats.State != ActionState.Fainted) UpdateMonologue(dt);
         }
 
-        /// <summary>이보다 긴 dt는 "이동 보간"에 쓰지 않는다 (복귀 스파이크 방지).</summary>
+        /// <summary>이보다 긴 dt는 이동·일반 틱에 쓰지 않는다 (프레임 스파이크 방지).</summary>
         private const float MaxContinuousMoveDelta = 0.25f;
 
         /// <summary>
-        /// 백그라운드 복귀 등 긴 공백 정산.
-        /// 기력·공덕·상태 타이머는 반영하고, MoveTowards로는 따라잡지 않는다.
+        /// 탭/앱이 다시 살아났을 때 벽시계로 잰 공백을 전 캐릭터에 반영한다.
+        /// 기력·공덕·상태만 따라잡고, 걷기는 목적지 도착 처리만 한다.
         /// </summary>
-        private void CatchUpAfterPause(float dt)
+        public static void CatchUpAll(float seconds)
         {
-            switch (Stats.State)
+            if (seconds <= 0.001f) return;
+            float capped = Mathf.Min(seconds, OfflineSimulator.MaxOfflineSeconds);
+            for (int i = 0; i < ActiveAgents.Count; i++)
             {
-                case ActionState.Walking:
-                    CatchUpWalkingAfterPause();
-                    break;
-                case ActionState.Staying:
-                    TickStaying(dt);
-                    break;
-                case ActionState.Slumped:
-                    TickSlumped(dt);
-                    break;
-                case ActionState.Playing:
-                    Stats.StateTimer += dt;
-                    if (Stats.StateTimer >= PlayDurationSeconds)
-                        EnterWalking();
-                    break;
-                case ActionState.Fainted:
-                    break;
+                var agent = ActiveAgents[i];
+                if (agent != null) agent.CatchUpWallClock(capped);
+            }
+        }
+
+        private void CatchUpWallClock(float remaining)
+        {
+            if (Stats.Stage == GrowthStage.Neok) return;
+
+            int guard = 0;
+            while (remaining > 0.0001f && guard++ < 256)
+            {
+                switch (Stats.State)
+                {
+                    case ActionState.Staying:
+                        remaining -= TickStayingSlice(remaining);
+                        break;
+                    case ActionState.Slumped:
+                        remaining -= TickSlumpedSlice(remaining);
+                        break;
+                    case ActionState.Playing:
+                        remaining -= TickPlayingSlice(remaining);
+                        break;
+                    case ActionState.Walking:
+                        CatchUpWalkingAfterPause();
+                        // 오프라인과 동일: 걷는 동안 생산 없음. 앉히지 못했으면 나머지 폐기.
+                        if (Stats.State == ActionState.Walking) return;
+                        break;
+                    case ActionState.Fainted:
+                        return;
+                    default:
+                        return;
+                }
             }
         }
 
@@ -529,15 +543,39 @@ namespace Yoegoe.Characters
 
         private void TickStaying(float dt)
         {
-            Stats.StateTimer += dt;
-            Stats.Stamina -= dt / 20f; // 6-2: 1분당 3 소모 = 20초당 1
+            // 긴 dt에서도 기력 고갈·5분 종료 전까지의 구간만 생산 (OfflineSimulator와 동일).
+            float left = dt;
+            int guard = 0;
+            while (left > 0.0001f && Stats.State == ActionState.Staying && guard++ < 8)
+                left -= TickStayingSlice(left);
+        }
 
-            if (Stats.Stamina <= 0f)
+        /// <summary>머물기 한 구간. 소모한 초를 반환한다.</summary>
+        private float TickStayingSlice(float dt)
+        {
+            const float drain = 1f / 20f; // 6-2: 1분당 3 = 20초당 1
+            float timeToZero = Stats.Stamina > 0f ? Stats.Stamina / drain : 0f;
+            float timeToStayEnd = Mathf.Max(0f, StayDurationSeconds - Stats.StateTimer);
+            float slice = Mathf.Min(dt, Mathf.Min(timeToZero, timeToStayEnd));
+
+            if (slice <= 0f)
             {
-                Stats.Stamina = 0f;
-                EnterSlumped();
-                return;
+                if (Stats.Stamina <= 0f)
+                {
+                    Stats.Stamina = 0f;
+                    EnterSlumped();
+                }
+                else
+                {
+                    LeaveCurrentProp();
+                    EnterWalking();
+                }
+                return 0.0001f;
             }
+
+            Stats.StateTimer += slice;
+            Stats.Stamina -= slice * drain;
+            if (Stats.Stamina < 0f) Stats.Stamina = 0f;
 
             if (currentProp != null)
             {
@@ -545,14 +583,21 @@ namespace Yoegoe.Characters
                                     * GetIntimacyCorrection()
                                     * GetEndingPropCorrection();
                 // 7-2: HUD가 아니라 기물 더미에 쌓임. 탭 수거 시 GameEconomy로 이동.
-                currentProp.AddToMeritPile(perMinute / 60.0 * dt);
+                currentProp.AddToMeritPile(perMinute / 60.0 * slice);
             }
 
-            if (Stats.StateTimer >= StayDurationSeconds)
+            if (Stats.Stamina <= 0f)
+            {
+                Stats.Stamina = 0f;
+                EnterSlumped();
+            }
+            else if (Stats.StateTimer >= StayDurationSeconds)
             {
                 LeaveCurrentProp();
                 EnterWalking();
             }
+
+            return slice;
         }
 
         /// <summary>7-1: 친밀도 보정 = 1 + 친밀도/100.</summary>
@@ -713,12 +758,34 @@ namespace Yoegoe.Characters
 
         private void TickSlumped(float dt)
         {
-            Stats.StateTimer += dt;
+            TickSlumpedSlice(dt);
+        }
+
+        private float TickSlumpedSlice(float dt)
+        {
+            float timeToFaint = Mathf.Max(0f, FaintThresholdSeconds - Stats.StateTimer);
+            float slice = Mathf.Min(dt, timeToFaint > 0f ? timeToFaint : dt);
+            if (slice <= 0f) slice = dt;
+
+            Stats.StateTimer += slice;
             if (Stats.StateTimer >= FaintThresholdSeconds)
             {
                 Stats.State = ActionState.Fainted;
                 Stats.StateTimer = 0f;
             }
+            return slice;
+        }
+
+        private float TickPlayingSlice(float dt)
+        {
+            float timeToEnd = Mathf.Max(0f, PlayDurationSeconds - Stats.StateTimer);
+            float slice = Mathf.Min(dt, timeToEnd > 0f ? timeToEnd : dt);
+            if (slice <= 0f) slice = dt;
+
+            Stats.StateTimer += slice;
+            if (Stats.StateTimer >= PlayDurationSeconds)
+                EnterWalking();
+            return slice;
         }
 
         // ---------------- 세이브 복원 ----------------
