@@ -84,7 +84,16 @@ namespace Yoegoe.UI
                 string name = chip.Agent.Data != null ? chip.Agent.Data.displayName : "?";
                 chip.NameText.text = name + " · " + stageLabel;
                 if (chip.StaminaFill != null)
-                    chip.StaminaFill.fillAmount = Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
+                {
+                    var state = chip.Agent.Stats.State;
+                    bool alert = state == ActionState.Slumped || state == ActionState.Fainted;
+                    // 기력 0이면 fill이 비어 번쩍임이 안 보이므로, 주저/기절은 바 전체를 경고색으로 깜빡인다.
+                    chip.StaminaFill.fillAmount = alert
+                        ? 1f
+                        : Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
+                    chip.StaminaFill.color = CharacterStatusPresentation.ForStaminaBar(
+                        state, Time.unscaledTime);
+                }
 
                 RefreshStatusTag(chip);
             }

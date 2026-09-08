@@ -562,15 +562,37 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 드래그 종료. 기물 위면 앉히기, 아니면 놀기(EnterPlaying).
+        /// 드래그 종료.
+        /// 주저앉기 중이면 지친 상태를 유지한 채 그 자리(기물이면 기물 아래)에 앉는다.
+        /// 그 외에는 기물 위면 머물기, 아니면 놀기.
         /// </summary>
         public void EndPlayerDrag(PropSlot dropProp)
         {
             if (!IsBeingDragged) return;
             IsBeingDragged = false;
 
+            if (Stats.State == ActionState.Slumped)
+            {
+                SettleSlumpedAfterDrag(dropProp);
+                return;
+            }
+
             if (dropProp != null && TrySitOnProp(dropProp)) return;
             EnterPlaying();
+        }
+
+        /// <summary>주저앉기 드래그 드롭: 상태·12시간 타이머 유지, 가능하면 기물 점유.</summary>
+        private void SettleSlumpedAfterDrag(PropSlot dropProp)
+        {
+            if (dropProp != null
+                && dropProp.CanBeUsedBy(this)
+                && dropProp.TryOccupy(this))
+            {
+                currentProp = dropProp;
+                var p = dropProp.transform.position;
+                transform.position = new Vector3(p.x, p.y, transform.position.z);
+            }
+            // 기물 아니면 드롭 좌표에 그대로 주저앉음 (State는 이미 Slumped)
         }
 
         /// <summary>
@@ -619,6 +641,7 @@ namespace Yoegoe.Characters
         {
             if (prop == null || Stats.Stage == GrowthStage.Neok) return false;
             if (Stats.State == ActionState.Fainted) return false;
+            if (Stats.State == ActionState.Slumped) return false; // 주저앉기는 SettleSlumpedAfterDrag
 
             ClearWalkDestination();
             LeaveCurrentProp();

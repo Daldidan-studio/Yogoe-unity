@@ -54,5 +54,22 @@ namespace Yoegoe.Data
             ActionState.Playing => new Color(1f, 0.45f, 0.85f),
             _ => Color.white
         };
+
+        private static readonly Color StaminaHealthy = new Color(0.35f, 0.75f, 0.4f, 1f);
+        private static readonly Color StaminaFlashRed = new Color(0.9f, 0.2f, 0.2f, 1f);
+        private static readonly Color StaminaFlashGray = new Color(0.45f, 0.45f, 0.45f, 1f);
+
+        /// <summary>
+        /// 슬롯 기력바 색. 주저앉기·기절은 빨강↔회색 번쩍 (기획 6-2).
+        /// </summary>
+        public static Color ForStaminaBar(ActionState state, float timeSeconds)
+        {
+            if (state == ActionState.Slumped || state == ActionState.Fainted)
+            {
+                float t = Mathf.PingPong(timeSeconds * 2.5f, 1f);
+                return Color.Lerp(StaminaFlashRed, StaminaFlashGray, t);
+            }
+            return StaminaHealthy;
+        }
     }
 }
