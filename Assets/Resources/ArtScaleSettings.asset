@@ -16,3 +16,7 @@ MonoBehaviour:
   mapOverscan: 1
   characterScale: 0.35
   propScale: 0.6
+  backgroundSort: -100
+  propSortBase: 0
+  characterSortBase: 100
+  ySortMultiplier: 10

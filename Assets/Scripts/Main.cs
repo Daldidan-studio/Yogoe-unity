@@ -233,7 +233,7 @@ namespace Yoegoe
             go.transform.position = new Vector3(0f, 0f, 1f); // 카메라(z=-10)에서 봤을 때 항상 맨 뒤
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = backgroundSprite;
-            sr.sortingOrder = -100;
+            sr.sortingOrder = Scale.backgroundSort;
 
             var cam = Camera.main;
             if (cam == null || !cam.orthographic) return;
@@ -290,6 +290,7 @@ namespace Yoegoe
                 go.transform.localScale = Vector3.one * Scale.propScale;
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = sprite;
+                sr.sortingOrder = Scale.SortOrderForProp(pos.y);
             }
             else
             {
@@ -329,6 +330,7 @@ namespace Yoegoe
 
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = FirstSprite(realData);
+                sr.sortingOrder = Scale.SortOrderForCharacter(pos.y);
                 go.transform.localScale = Vector3.one * Scale.characterScale;
 
                 agent = go.AddComponent<CharacterAgent>();

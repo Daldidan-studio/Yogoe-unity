@@ -24,8 +24,10 @@ namespace Yoegoe.Characters
         public void Unregister(PropSlot slot) => allProps.Remove(slot);
 
         /// <summary>
-        /// 6-2 걷기 목적지 후보 선정: 비어있고, 직전 기물이 아니고, 다른 요괴의 엔딩 기물이 아닌 것 중 랜덤.
-        /// 후보가 없으면 null (호출측에서 대기 후 재추첨).
+        /// 6-2 걷기 목적지 후보 선정.
+        /// 룰 기준: Docs/06_행동룰.md
+        /// 비어있고, 직전 기물이 아니고, 다른 요괴의 엔딩 기물이 아닌 것 중 랜덤.
+        /// 후보가 없으면 null (호출측에서 30초 방황 후 재추첨).
         /// </summary>
         public PropSlot GetRandomAvailableProp(CharacterAgent requester, PropSlot exclude)
         {

@@ -156,8 +156,22 @@ namespace Yoegoe.Characters
             }
 
             UpdateWalkAnimation(dt);
+            UpdateSortingOrder();
             UpdateStateDot();
             if (Stats.State != ActionState.Fainted) UpdateMonologue(dt);
+        }
+
+        private ArtScaleSettings _artScale;
+        private ArtScaleSettings ArtScale =>
+            _artScale != null ? _artScale : (_artScale = Resources.Load<ArtScaleSettings>("ArtScaleSettings"));
+
+        /// <summary>Y 기준 sortingOrder — ArtScaleSettings.asset 의 characterSortBase / ySortMultiplier.</summary>
+        private void UpdateSortingOrder()
+        {
+            if (spriteRenderer == null) return;
+            var s = ArtScale;
+            if (s == null) return;
+            spriteRenderer.sortingOrder = s.SortOrderForCharacter(transform.position.y);
         }
 
         // ---------------- 혼잣말 (6-4장, 05_기획_미확정사항.md 9번) ----------------
@@ -396,11 +410,7 @@ namespace Yoegoe.Characters
         {
             if (isWandering)
             {
-                // 6-2 "후보가 없으면 30초 걷고 재추첨" / "자리가 없으면 걷거나 길바닥에 앉아 쉰다"를
-                // 하나의 대기-후-재추첨 루프로 단순화 (문서 표현이 두 케이스를 명확히 구분 안 해서 통합함).
-                // [버그 수정] 예전엔 이 분기에서 타이머만 세고 실제로는 제자리에 가만히 서 있었다
-                // ("돌아다녀야하는데 다 같이 멈춰있다" 버그의 일부). 맵(MapBounds) 안의 랜덤한 지점을
-                // 목적지로 삼아 실제로 걸어다니게 하고, 도착하면 다음 랜덤 지점을 또 고른다.
+                // 6-2 방황/재추첨 — Docs/06_행동룰.md (후보없음·자리없음을 한 루프로 통합)
                 wanderTimer += dt;
                 if (wanderTimer >= WanderRetrySeconds) { PickDestination(); return; }
 

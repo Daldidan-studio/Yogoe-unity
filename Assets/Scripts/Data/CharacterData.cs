@@ -39,7 +39,7 @@ namespace Yoegoe.Data
         public Sprite[] walkUp = new Sprite[4];
 
         [Header("상태 애니메이션 스프라이트 (각 4프레임)")]
-        [Tooltip("기물에 앉아 머물기(생산)")]
+        [Tooltip("기물에 앉아 머물기(생산) — 스프라이트 시트 5행")]
         public Sprite[] stay = new Sprite[4];
         [Tooltip("기력 0 주저앉기")]
         public Sprite[] slumped = new Sprite[4];
