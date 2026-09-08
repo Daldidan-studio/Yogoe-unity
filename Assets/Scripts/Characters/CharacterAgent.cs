@@ -96,6 +96,22 @@ namespace Yoegoe.Characters
 
             // 로딩 직후 모든 캐릭터가 동시에 혼잣말을 시작하지 않도록 첫 대사까지 약간의 랜덤 지연을 둔다.
             monologueTimer = Random.Range(2f, MonologueMinInterval);
+
+            // AddComponent 직후 Data가 늦게 붙는 패턴 대비 — 첫 프레임부터 walk/idle 스프라이트 적용
+            lastPosition = transform.position;
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            ApplyAnimationFrameImmediate();
+        }
+
+        private void ApplyAnimationFrameImmediate()
+        {
+            if (spriteRenderer == null || Data == null) return;
+            bool wantsWalk = Stats.State == ActionState.Walking
+                || Stats.State == ActionState.Playing;
+            Sprite[] frames = ResolveAnimationFrames(wantsWalk);
+            if (frames != null && frames.Length > 0 && frames[0] != null)
+                spriteRenderer.sprite = frames[0];
         }
 
         private void Update()
@@ -186,6 +202,7 @@ namespace Yoegoe.Characters
 
             Vector3 targetPos = destination.transform.position;
             transform.position = MapBounds.Clamp(new Vector3(targetPos.x, targetPos.y, transform.position.z));
+            lastPosition = transform.position;
 
             if (destination.TryOccupy(this))
             {
@@ -340,64 +357,66 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 이번 프레임 실제 이동량으로 방향을 판단해 스프라이트를 재생한다.
-        /// 걷기: 방향별 walk 배열. 머물기/주저앉기/기절: CharacterData의 stay/slumped/fainted.
-        /// 멈춰 있는 걷기·놀기는 idle(없으면 walkDown 0프레임).
+        /// 이번 프레임 이동·상태로 스프라이트를 재생한다.
+        /// 걷기/놀기 이동: 시트 1~4행(walkDown/Left/Right/Up).
+        /// 놀기 정지: idle. 머물기/주저앉기/기절: stay/slumped/fainted.
         /// </summary>
         private void UpdateWalkAnimation(float dt)
         {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             if (spriteRenderer == null || Data == null) return;
 
             Vector3 delta = transform.position - lastPosition;
             lastPosition = transform.position;
-            bool isMoving = delta.sqrMagnitude > 0.0000001f;
+            bool moved = delta.sqrMagnitude > 0.0000001f;
 
-            if (isMoving)
+            // 이동 중이거나, 목적지/방황 목표가 있으면 걷기 사이클(시트 1~4행)
+            bool wantsWalkCycle =
+                Stats.State == ActionState.Walking
+                || (Stats.State == ActionState.Playing && (moved || wanderTarget.HasValue));
+
+            if (moved)
             {
                 facing = Mathf.Abs(delta.x) > Mathf.Abs(delta.y)
                     ? (delta.x > 0f ? FacingDir.Right : FacingDir.Left)
                     : (delta.y > 0f ? FacingDir.Up : FacingDir.Down);
+            }
 
+            bool advanceFrames = wantsWalkCycle || Stats.State == ActionState.Staying
+                || Stats.State == ActionState.Slumped
+                || Stats.State == ActionState.Fainted
+                || Stats.State == ActionState.Playing;
+
+            if (advanceFrames)
+            {
+                float interval = wantsWalkCycle ? AnimFrameInterval : AnimFrameInterval * 2f;
                 animTimer += dt;
-                if (animTimer >= AnimFrameInterval)
+                if (animTimer >= interval)
                 {
-                    animTimer -= AnimFrameInterval;
+                    animTimer -= interval;
                     animFrame = (animFrame + 1) % 4;
                 }
             }
             else
             {
-                // 상태 애니(앉기·기절 등)는 가만히 있어도 프레임 순환
-                bool loopWhileIdle = Stats.State == ActionState.Staying
-                    || Stats.State == ActionState.Slumped
-                    || Stats.State == ActionState.Fainted
-                    || Stats.State == ActionState.Playing;
-                if (loopWhileIdle)
-                {
-                    animTimer += dt;
-                    if (animTimer >= AnimFrameInterval * 2f) // 상태 애니는 조금 더 느리게
-                    {
-                        animTimer -= AnimFrameInterval * 2f;
-                        animFrame = (animFrame + 1) % 4;
-                    }
-                }
-                else
-                {
-                    animFrame = 0;
-                    animTimer = 0f;
-                }
+                animFrame = 0;
+                animTimer = 0f;
             }
 
-            Sprite[] frames = ResolveAnimationFrames(isMoving);
-            if (frames != null && frames.Length > 0)
-            {
-                int idx = Mathf.Clamp(animFrame, 0, frames.Length - 1);
-                if (frames[idx] != null) spriteRenderer.sprite = frames[idx];
-            }
+            Sprite[] frames = ResolveAnimationFrames(wantsWalkCycle);
+            if (frames == null || frames.Length == 0) return;
+
+            int idx = Mathf.Clamp(animFrame, 0, frames.Length - 1);
+            if (frames[idx] != null)
+                spriteRenderer.sprite = frames[idx];
         }
 
-        private Sprite[] ResolveAnimationFrames(bool isMoving)
+        private Sprite[] ResolveAnimationFrames(bool wantsWalkCycle)
         {
+            if (wantsWalkCycle)
+                return WalkFramesForFacing();
+
             switch (Stats.State)
             {
                 case ActionState.Staying:
@@ -414,20 +433,23 @@ namespace Yoegoe.Characters
                     break;
             }
 
-            if (isMoving)
-            {
-                return facing switch
-                {
-                    FacingDir.Down => Data.walkDown,
-                    FacingDir.Up => Data.walkUp,
-                    FacingDir.Left => Data.walkLeft,
-                    FacingDir.Right => Data.walkRight,
-                    _ => Data.walkDown
-                };
-            }
-
             if (HasFrames(Data.idle)) return Data.idle;
-            return Data.walkDown;
+            return WalkFramesForFacing();
+        }
+
+        private Sprite[] WalkFramesForFacing()
+        {
+            Sprite[] frames = facing switch
+            {
+                FacingDir.Down => Data.walkDown,
+                FacingDir.Up => Data.walkUp,
+                FacingDir.Left => Data.walkLeft,
+                FacingDir.Right => Data.walkRight,
+                _ => Data.walkDown
+            };
+            if (HasFrames(frames)) return frames;
+            if (HasFrames(Data.walkDown)) return Data.walkDown;
+            return frames;
         }
 
         private static bool HasFrames(Sprite[] frames)
@@ -444,6 +466,9 @@ namespace Yoegoe.Characters
         {
             Stats.State = ActionState.Walking;
             Stats.StateTimer = 0f;
+            animFrame = 0;
+            animTimer = 0f;
+            lastPosition = transform.position;
             PickDestination();
         }
 
@@ -629,6 +654,7 @@ namespace Yoegoe.Characters
             IsBeingDragged = true;
             ClearWalkDestination();
             LeaveCurrentProp();
+            lastPosition = transform.position;
         }
 
         public void SetDragWorldPosition(Vector3 world)
@@ -636,6 +662,7 @@ namespace Yoegoe.Characters
             if (!IsBeingDragged) return;
             world.z = transform.position.z;
             transform.position = MapBounds.Clamp(world);
+            lastPosition = transform.position; // 드롭 직후 가짜 이동량으로 방향이 튀지 않게
         }
 
         /// <summary>
@@ -647,6 +674,7 @@ namespace Yoegoe.Characters
         {
             if (!IsBeingDragged) return;
             IsBeingDragged = false;
+            lastPosition = transform.position;
 
             if (Stats.State == ActionState.Slumped)
             {
@@ -688,6 +716,9 @@ namespace Yoegoe.Characters
             wanderTarget = null;
             Stats.State = ActionState.Playing;
             Stats.StateTimer = 0f;
+            animFrame = 0;
+            animTimer = 0f;
+            lastPosition = transform.position;
         }
 
         private void TickPlaying(float dt)
@@ -813,6 +844,7 @@ namespace Yoegoe.Characters
             Stats.State = state;
             Stats.StateTimer = stateTimer;
             transform.position = MapBounds.Clamp(worldPos);
+            lastPosition = transform.position;
 
             if (occupyProp != null
                 && (state == ActionState.Staying
@@ -825,7 +857,10 @@ namespace Yoegoe.Characters
                     occupyProp.transform.position.x,
                     occupyProp.transform.position.y,
                     transform.position.z));
+                lastPosition = transform.position;
             }
+
+            ApplyAnimationFrameImmediate();
         }
 
         // ---------------- 외부 API (공양 시스템에서 호출) ----------------

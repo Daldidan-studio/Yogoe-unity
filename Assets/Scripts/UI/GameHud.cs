@@ -248,6 +248,8 @@ namespace Yoegoe.UI
 
         private static void OnBatchCollectClicked()
         {
+            // 콜드스타트 Sweep 이후 다시 쌓인 더미도 함께 수거해 기물 위 숫자가 남기지 않는다.
+            GameSaveBridge.SweepPropPilesIntoBatch();
             if (!GameEconomy.TryClaimBatchMerit()) return;
             GameSaveBridge.SaveFromWorld();
         }

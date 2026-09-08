@@ -174,8 +174,12 @@ namespace Yoegoe.Characters
         {
             var collected = PendingMerit;
             PendingMerit = BigNumber.Zero;
+            ForceRefreshPileLabel();
             return collected;
         }
+
+        /// <summary>더미 UI를 즉시 갱신 (LateUpdate 대기 없이).</summary>
+        public void ForceRefreshPileLabel() => RefreshPileLabel();
 
         /// <summary>
         /// 더미 표시 단계 0(빈) ~ 5.
@@ -315,7 +319,8 @@ namespace Yoegoe.Characters
         {
             if (pileLabel != null) return;
 
-            var go = new GameObject(name + "_MeritPile");
+            var go = new GameObject("MeritPile");
+            go.transform.SetParent(transform, false);
             pileLabel = go.AddComponent<TextMesh>();
             pileLabel.anchor = TextAnchor.LowerCenter;
             pileLabel.alignment = TextAlignment.Center;

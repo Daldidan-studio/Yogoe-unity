@@ -32,6 +32,7 @@ namespace Yoegoe.Save
             ApplyToWorld(data);
             // 콜드스타트 전용: 기물 더미 → 일괄 수거 대기분 (백그라운드 복귀 시엔 이 함수 자체가 안 돈다)
             SweepPropPilesIntoBatch();
+            RefreshAllPropPileLabels();
             return true;
         }
 
@@ -43,6 +44,13 @@ namespace Yoegoe.Save
                 if (p == null || !p.HasPendingMerit) continue;
                 GameEconomy.AddPendingBatchMerit(p.TakePendingMerit());
             }
+        }
+
+        /// <summary>기물 더미 표시를 즉시 맞춘다 (일괄 수거·로드 직후).</summary>
+        public static void RefreshAllPropPileLabels()
+        {
+            foreach (var p in UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None))
+                p?.ForceRefreshPileLabel();
         }
 
         public static void SaveFromWorld()
