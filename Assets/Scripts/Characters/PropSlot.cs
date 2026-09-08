@@ -95,10 +95,18 @@ namespace Yoegoe.Characters
         {
             if (!IsBuilt) return false;
             if (IsOccupied) return false;
-            if (IsReserved && ReservedBy != agent) return false;
+            // 플레이어 드롭 등이 다른 요괴의 걷기 예약보다 우선
+            if (IsReserved && ReservedBy != agent)
+                ReservedBy = null;
             Occupant = agent;
             ReservedBy = null;
             return true;
+        }
+
+        /// <summary>예약만 강제 해제 (드롭 착석용).</summary>
+        public void ClearReservation()
+        {
+            ReservedBy = null;
         }
 
         /// <summary>점유 해제. 주저앉기·기절 중에는 호출하지 않는다. 더미는 기물에 남는다.</summary>

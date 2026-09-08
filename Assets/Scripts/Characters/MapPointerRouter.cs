@@ -210,14 +210,15 @@ namespace Yoegoe.Characters
 
         private PropSlot FindDropProp(CharacterAgent agent, Vector2 screenPos)
         {
-            if (targetCamera == null) return null;
+            if (targetCamera == null || PropManager.Instance == null || agent == null) return null;
             float depth = -targetCamera.transform.position.z;
-            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
-            world.z = 0f;
+            Vector3 fingerWorld = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            fingerWorld.z = 0f;
 
-            if (PropManager.Instance != null)
-                return PropManager.Instance.FindNearestDropTarget(agent, world, propDropRadius);
-            return null;
+            // 캐릭터가 놓인 자리 우선 (화면에 보이는 위치), 없으면 손가락 좌표
+            var atChar = PropManager.Instance.FindNearestDropTarget(agent, agent.transform.position, propDropRadius);
+            if (atChar != null) return atChar;
+            return PropManager.Instance.FindNearestDropTarget(agent, fingerWorld, propDropRadius);
         }
 
         private PropSlot FindNearestProp(Vector2 screenPos)

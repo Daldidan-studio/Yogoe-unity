@@ -678,6 +678,8 @@ namespace Yoegoe.Characters
 
             ClearWalkDestination();
             LeaveCurrentProp();
+            isWandering = false;
+            wanderTarget = null;
 
             if (!prop.CanBeUsedBy(this)) return false;
             if (!prop.TryOccupy(this)) return false;

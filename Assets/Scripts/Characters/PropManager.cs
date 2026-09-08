@@ -44,7 +44,8 @@ namespace Yoegoe.Characters
             return candidates[Random.Range(0, candidates.Count)];
         }
 
-        /// <summary>드래그 드롭용: worldPos 근처에서 앉힐 수 있는 가장 가까운 기물.</summary>
+        /// <summary>드래그 드롭용: worldPos 근처에서 앉힐 수 있는 가장 가까운 기물.
+        /// 예약만 된 빈 자리는 플레이어 드롭이 가져갈 수 있다.</summary>
         public PropSlot FindNearestDropTarget(CharacterAgent requester, Vector3 worldPos, float maxRadius)
         {
             PropSlot best = null;
@@ -55,10 +56,8 @@ namespace Yoegoe.Characters
                 if (!p.IsBuilt) continue;
                 if (!p.CanBeUsedBy(requester)) continue;
                 if (p.IsOccupied) continue;
-                // 예약만 된 자리(다른 요괴가 오는 중)는 앉히지 않음
-                if (p.IsReserved && p.ReservedBy != requester) continue;
 
-                float d = DistanceToProp(p, worldPos);
+                float d = DistanceToPropSurface(p, worldPos);
                 if (d <= bestDist)
                 {
                     bestDist = d;
@@ -76,7 +75,7 @@ namespace Yoegoe.Characters
             foreach (var p in allProps)
             {
                 if (p == null) continue;
-                float d = DistanceToProp(p, worldPos);
+                float d = DistanceToPropSurface(p, worldPos);
                 if (d <= bestDist)
                 {
                     bestDist = d;
@@ -86,19 +85,24 @@ namespace Yoegoe.Characters
             return best;
         }
 
-        /// <summary>스프라이트/메시 bounds 중심 기준 거리 (큐브 절구도 잡히게).</summary>
-        private static float DistanceToProp(PropSlot prop, Vector3 worldPos)
+        /// <summary>bounds 표면까지 거리(안이면 0). 큰 기물 가장자리 드롭도 잡힘.</summary>
+        private static float DistanceToPropSurface(PropSlot prop, Vector3 worldPos)
         {
-            Vector3 center = prop.transform.position;
+            Bounds b = GetPropBounds(prop);
+            Vector3 p = worldPos;
+            p.z = b.center.z;
+            if (b.Contains(p)) return 0f;
+            Vector3 closest = b.ClosestPoint(p);
+            return Vector2.Distance(closest, p);
+        }
+
+        private static Bounds GetPropBounds(PropSlot prop)
+        {
             var sr = prop.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null && sr.sprite != null)
-                center = sr.bounds.center;
-            else
-            {
-                var r = prop.GetComponentInChildren<Renderer>();
-                if (r != null) center = r.bounds.center;
-            }
-            return Vector2.Distance(center, worldPos);
+            if (sr != null && sr.sprite != null) return sr.bounds;
+            var r = prop.GetComponentInChildren<Renderer>();
+            if (r != null) return r.bounds;
+            return new Bounds(prop.transform.position, Vector3.one * 0.8f);
         }
     }
 }
