@@ -131,8 +131,9 @@ namespace Yoegoe.Characters
             if (Data != null)
             {
                 Stats.Stage = Data.startingStage;
-                Stats.Intimacy = Data.startingIntimacy;
-                Stats.Stamina = Data.startingStamina;
+                var start = StartingStateSettings.Get();
+                Stats.Intimacy = start.startingIntimacy;
+                Stats.Stamina = start.startingStamina;
             }
 
             if (Stats.Stage != GrowthStage.Neok) EnterWalking();

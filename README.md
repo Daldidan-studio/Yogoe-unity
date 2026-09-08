@@ -17,10 +17,12 @@
 - [x] BigNumber 무한 자릿수 재화 시스템 (ㄱㄴㄷ...ㅎ → ㄱㄱ,ㄴㄴ 순환 단위)
 - [x] 캐릭터 행동 상태머신 (걷기 → 머무르기 → 늘어짐 → 기절), 기물 점유/생산 계산
 - [x] 기물/공양/캐릭터 데이터 정의 (ScriptableObject)
-- [x] Main 씬 진입점 (`Main`)
+- [x] Main 씬 진입점 (`Main` + `Assets/Scenes/Main.unity`)
+- [x] 시작값 설정 (`Resources/StartingStateSettings.asset`)
+- [x] 화면 크기 설정 (`Resources/ArtScaleSettings.asset`)
 - [x] 윷놀이 보드 계산 · 확률표 · 화면(기존 프로젝트에서 재사용, 검증 완료)
 - [ ] 윷놀이 승패 판정 / 상대 AI / 잡기 / 보상 지급 (새로 설계·구현 필요)
-- [ ] 활성 테스트 씬 (Boot.unity가 레거시로 이동되어 현재 없음 — 아래 "실행 방법" 참고)
+- [ ] 공양물 24종 에셋 채우기 (현재 일부만 StartingState에 연결)
 - [ ] 소환/진화, 요구와 보상상자, 상점/업적/저장 시스템
 
 자세한 현황은 [`Docs/02_개발진행.md`](Docs/02_개발진행.md), 기획 요약은
@@ -43,35 +45,36 @@
 
 ## 실행 방법 (로컬)
 
-`Assets/Scenes/Boot.unity`가 레거시로 이동되면서 현재 활성 씬이 없습니다.
-
 1. Unity Hub에서 이 폴더를 연다.
-2. 새 씬을 만든다 (예: `Assets/Scenes/Main.unity`).
-3. 빈 GameObject를 만들고 `Main` 컴포넌트를 붙인다.
-4. File → Build Profiles(또는 Build Settings) → 방금 만든 씬을 Scenes In Build에 추가한다.
-5. Play를 누른다 — 아트 없이 캡슐/큐브로 캐릭터·기물이 움직이는 것을 확인할 수 있다.
+2. `Assets/Scenes/Main.unity` 를 연다.
+3. Play.
 
-다음 CI 빌드(WebGL)도 여기서 등록한 씬을 기준으로 빌드됩니다.
+시작 재화·스탯: `Assets/Resources/StartingStateSettings.asset`  
+화면 크기: `Assets/Resources/ArtScaleSettings.asset`
 
 ## 폴더 구조
 
 ```
 Assets/
   Scripts/
-    Core/            BigNumber (무한 자릿수 재화 표기)
-    Data/            Enums, CharacterData / PropData / OfferingData (ScriptableObject)
-    Characters/      CharacterRuntimeStats, PropSlot, PropManager, CharacterAgent(행동 상태머신)
-    Economy/         GameEconomy (공덕 누적)
+    Core/            BigNumber
+    Data/            Enums, Character/Prop/Offering Data, StartingStateSettings, ArtScaleSettings
+    Characters/      CharacterAgent 등
+    Economy/         GameEconomy
     Main.cs          Main 씬 진입점
     Debugging/       MapCameraDrag
-    Minigames/Yut/   윷놀이 보드·이동·확률·화면 (기존 프로젝트에서 재사용)
-  _Legacy_KSpirits/  이전 설계("다시...나의 요괴들") 코드/에셋 보관 (활성 트리 아님)
+    Minigames/Yut/   윷놀이
+  Resources/         StartingStateSettings.asset, ArtScaleSettings.asset  ← 숫자 조절
+  Data/              Characters/, Offerings/ (.asset)
+  Scenes/Main.unity
+  _Legacy_KSpirits/
 Docs/
-  00_기획정리.md           현재 설계("한 폭의 요괴") 요약
-  02_개발진행.md           실제 개발 현황 (유지/신규/레거시/남은 작업)
-  04_CI_배포.md            CI/배포 방법
-  05_기획_미확정사항.md    기획 리뷰에서 발견된 미확정/모순 사항
-  _legacy_kspirits/        이전 설계 문서 보관
+  00_기획정리.md
+  02_개발진행.md
+  04_CI_배포.md
+  05_기획_미확정사항.md
+  코드정리.md
+  _legacy_kspirits/
 ```
 
 ### 윷놀이 미니게임 (`Minigames/Yut/`)

@@ -5,13 +5,14 @@ using UnityEngine.InputSystem.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
 using Yoegoe.Debugging;
+using Yoegoe.Economy;
 using Yoegoe.UI;
 
 namespace Yoegoe
 {
     /// <summary>
     /// Main 씬 진입점. 카메라·맵·기물·캐릭터·HUD를 조립한다.
-    /// 화면 크기 배율은 Assets/Resources/ArtScaleSettings.asset 에서 조절.
+    /// 화면 크기: ArtScaleSettings.asset / 시작 재화·스탯: StartingStateSettings.asset
     /// </summary>
     public class Main : MonoBehaviour
     {
@@ -108,6 +109,8 @@ namespace Yoegoe
             // 한 번에 반영(따라잡기)하게 한다 — "오프라인 동일 속도" 요구사항(4장)의 최소 버전.
             // (앱을 완전히 껐다 켜는 진짜 오프라인 정산은 세이브 시스템이 있어야 해서 별도 작업 필요.)
             Time.maximumDeltaTime = 3600f;
+
+            GameEconomy.ApplyStartingState(StartingStateSettings.Get());
 
             EnsureCamera();
             EnsureLight();

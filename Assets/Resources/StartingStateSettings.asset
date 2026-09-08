@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4a2a9c1cdc64eed846c97cc4e90d5f8, type: 3}
+  m_Name: StartingStateSettings
+  m_EditorClassIdentifier: 
+  startingIntimacy: 50
+  startingStamina: 100
+  startingMerit: 1000
+  startingYeopjeon: 0
+  startingHyang: 2
+  startingPurifiedWater: 10
+  startingYutToken: 5
+  yutTokenMax: 5
+  startingOfferings:
+  - {fileID: 11400000, guid: 26314678e70647f398a9913fc6d62b7e, type: 2}
+  - {fileID: 11400000, guid: 7f5cedae05be4608aa496627ce941ad9, type: 2}
+  - {fileID: 11400000, guid: 41009a9beb1b4c5c8ceb5d0d9d3beaf8, type: 2}
+  - {fileID: 11400000, guid: 020f33cfa21347f6a2b168044ef90c3e, type: 2}
+  - {fileID: 11400000, guid: b6ca2b1a55e147e69481a0813cb4fed5, type: 2}
+  startingOfferingCountEach: 1

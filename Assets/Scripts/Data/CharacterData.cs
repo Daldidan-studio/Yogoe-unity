@@ -21,7 +21,7 @@ namespace Yoegoe.Data
         [TextArea(3, 6)]
         public string detailDescription; // 상세 화면 설명 [제안]
 
-        [Header("스탯 초기값 (2장: 시작 3인 친밀도 50, 기력 100)")]
+        [Header("스탯 초기값 — StartingStateSettings.asset 이 우선 (여기 값은 폴백/참고용)")]
         public float startingIntimacy = 50f;
         public float startingStamina = 100f;
 

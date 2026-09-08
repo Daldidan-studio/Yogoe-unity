@@ -4,7 +4,7 @@ namespace Yoegoe.Data
 {
     /// <summary>
     /// 맵·캐릭터·기물 화면 크기 조절을 한곳에서 하는 설정.
-    /// Assets/Data/ArtScaleSettings.asset 하나만 바꾸면 된다.
+    /// Assets/Resources/ArtScaleSettings.asset 하나만 바꾸면 된다.
     /// (임포트 PPU는 각 PNG .meta — 캐릭터 16 / 맵·기물 100 가정)
     /// </summary>
     [CreateAssetMenu(fileName = "ArtScaleSettings", menuName = "Yoegoe/Art Scale Settings")]
