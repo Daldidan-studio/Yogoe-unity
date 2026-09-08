@@ -117,7 +117,13 @@ namespace Yoegoe.Core
             int remExp = Exponent % 3;
             double displayValue = absMant * Math.Pow(10, remExp); // 1 ~ 999.999 범위
 
-            return sign + displayValue.ToString("F" + decimals) + GetUnitLabel(unitLevel);
+            // 초반(ㄱ 구간, 1,000대)은 분당 생산이 작아 F1이면 수십 초간 "1.0ㄱ"에 고정된 것처럼 보인다.
+            // 값이 작을수록 자릿수를 더 보여 체감 증가가 나게 한다.
+            int places = decimals;
+            if (displayValue < 10) places = Math.Max(places, 2);
+            else if (displayValue < 100) places = Math.Max(places, 1);
+
+            return sign + displayValue.ToString("F" + places) + GetUnitLabel(unitLevel);
         }
 
         /// <summary>level 1=ㄱ(1,000) ... level 14=ㅎ, level 15=ㄱㄱ, level 16=ㄴㄴ ... (기획서 3장 확장 규칙)</summary>

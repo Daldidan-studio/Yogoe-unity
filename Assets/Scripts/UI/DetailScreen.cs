@@ -72,15 +72,7 @@ namespace Yoegoe.UI
             for (int i = 0; i < 20; i++) sb.Append(i < filled ? '♥' : '♡');
             heartsText.text = sb.ToString();
 
-            statusText.text = stats.State switch
-            {
-                ActionState.Walking => "돌아다니는 중",
-                ActionState.Staying => "기물에서 일하는 중",
-                ActionState.Slumped => "지쳐서 주저앉았다",
-                ActionState.Fainted => "기절했다",
-                ActionState.Playing => "놀고 있는 중",
-                _ => ""
-            };
+            statusText.text = CharacterStatusPresentation.ForDetail(stats.State);
         }
 
         private void OnFeed(OfferingData offering)

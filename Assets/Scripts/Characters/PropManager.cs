@@ -42,5 +42,28 @@ namespace Yoegoe.Characters
             if (candidates.Count == 0) return null;
             return candidates[Random.Range(0, candidates.Count)];
         }
+
+        /// <summary>드래그 드롭용: worldPos 근처에서 앉힐 수 있는 가장 가까운 기물.</summary>
+        public PropSlot FindNearestDropTarget(CharacterAgent requester, Vector3 worldPos, float maxRadius)
+        {
+            PropSlot best = null;
+            float bestDist = maxRadius;
+            foreach (var p in allProps)
+            {
+                if (p == null) continue;
+                if (!p.CanBeUsedBy(requester)) continue;
+                if (p.IsOccupied) continue;
+                // 예약만 된 자리(다른 요괴가 오는 중)는 앉히지 않음
+                if (p.IsReserved && p.ReservedBy != requester) continue;
+
+                float d = Vector2.Distance(p.transform.position, worldPos);
+                if (d <= bestDist)
+                {
+                    bestDist = d;
+                    best = p;
+                }
+            }
+            return best;
+        }
     }
 }

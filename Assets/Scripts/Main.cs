@@ -115,7 +115,7 @@ namespace Yoegoe
             EnsureCamera();
             EnsureLight();
             EnsureEventSystem();
-            EnsureCharacterTapRouter();
+            EnsureMapPointerRouter();
             CreateBackground();
 
             var propManagerGO = new GameObject("PropManager");
@@ -199,15 +199,17 @@ namespace Yoegoe
         }
 
         /// <summary>
-        /// 캐릭터를 탭하면 혼잣말이 즉시 뜨게(09번 문서) 하려면 씬에 탭 판정 라우터가 하나 있어야 한다.
-        /// 배경 유무와 상관없이 항상 필요해서 CreateBackground()보다 먼저, 카메라가 준비된 다음 붙인다.
+        /// 맵 탭/드래그·캐릭터 드래그 단일 라우터. CreateBackground보다 먼저 붙여 두고,
+        /// MapCameraDrag는 배경 생성 시 같은 카메라에 추가된다 (라우터가 Awake 이후 GetComponent).
         /// </summary>
-        private void EnsureCharacterTapRouter()
+        private void EnsureMapPointerRouter()
         {
             var cam = Camera.main;
             if (cam == null) return;
-            if (cam.GetComponent<Yoegoe.Characters.CharacterTapRouter>() == null)
-                cam.gameObject.AddComponent<Yoegoe.Characters.CharacterTapRouter>();
+
+            var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
+            if (router == null) router = cam.gameObject.AddComponent<Yoegoe.Characters.MapPointerRouter>();
+            router.targetCamera = cam;
         }
 
         private void EnsureLight()
@@ -267,6 +269,9 @@ namespace Yoegoe
             float halfExtraW = Mathf.Max(0f, mapWidth / 2f - camWidth / 2f);
             float halfExtraH = Mathf.Max(0f, mapHeight / 2f - camHeight / 2f);
             drag.SetBounds(new Vector2(-halfExtraW, -halfExtraH), new Vector2(halfExtraW, halfExtraH));
+
+            var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
+            if (router != null) router.mapDrag = drag;
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)

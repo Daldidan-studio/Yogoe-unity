@@ -46,6 +46,13 @@ namespace Yoegoe.Characters
         /// <summary>지금 씬에 존재하는 모든 캐릭터 (슬롯바 UI 등에서 순회용). 절대 수정하지 말 것.</summary>
         public static System.Collections.Generic.IReadOnlyList<CharacterAgent> All => ActiveAgents;
 
+        /// <summary>플레이어가 드래그 중이면 AI 틱을 멈춘다.</summary>
+        public bool IsBeingDragged { get; private set; }
+
+        /// <summary>넋·기절은 드래그 불가 (6-2).</summary>
+        public bool CanBeDraggedByPlayer =>
+            Stats.Stage != GrowthStage.Neok && Stats.State != ActionState.Fainted;
+
         private PropSlot currentProp;
         private PropSlot previousProp;
         private PropSlot destination;
@@ -112,15 +119,7 @@ namespace Yoegoe.Characters
 
             float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
             stateDot.transform.position = transform.position + Vector3.up * (spriteTop + 0.15f);
-            stateDot.color = Stats.State switch
-            {
-                ActionState.Walking => Color.green,
-                ActionState.Staying => new Color(0.25f, 0.55f, 1f), // 파랑 = 기물에서 일하는 중 (정상)
-                ActionState.Slumped => Color.yellow,
-                ActionState.Fainted => Color.red,
-                ActionState.Playing => new Color(1f, 0.45f, 0.85f), // 분홍 = 놀기
-                _ => Color.white
-            };
+            stateDot.color = CharacterStatusPresentation.ForDebugDot(Stats.State);
         }
 
         private void Start()
@@ -147,6 +146,13 @@ namespace Yoegoe.Characters
         private void Update()
         {
             if (Stats.Stage == GrowthStage.Neok) return; // 넋은 상태머신 대상 아님
+
+            if (IsBeingDragged)
+            {
+                UpdateSortingOrder();
+                UpdateStateDot();
+                return;
+            }
 
             float dt = Time.deltaTime;
             switch (Stats.State)
@@ -213,7 +219,7 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 캐릭터를 탭했을 때 CharacterTapRouter가 호출한다. 안 떠 있으면 새로 띄우고,
+        /// 캐릭터를 탭했을 때 MapPointerRouter가 호출한다. 안 떠 있으면 새로 띄우고,
         /// 이미 떠 있으면 문구를 바꾸고 유지 시간을 다시 10초로 연장한다 (기획 09번 규칙).
         /// </summary>
         public void OnTapped()
@@ -538,6 +544,34 @@ namespace Yoegoe.Characters
         }
 
         // ---------------- Playing (놀기, 6-2) ----------------
+
+        /// <summary>플레이어 드래그 시작 — 예약/점유를 풀고 AI를 멈춘다.</summary>
+        public void BeginPlayerDrag()
+        {
+            if (!CanBeDraggedByPlayer) return;
+            IsBeingDragged = true;
+            ClearWalkDestination();
+            LeaveCurrentProp();
+        }
+
+        public void SetDragWorldPosition(Vector3 world)
+        {
+            if (!IsBeingDragged) return;
+            world.z = transform.position.z;
+            transform.position = MapBounds.Clamp(world);
+        }
+
+        /// <summary>
+        /// 드래그 종료. 기물 위면 앉히기, 아니면 놀기(EnterPlaying).
+        /// </summary>
+        public void EndPlayerDrag(PropSlot dropProp)
+        {
+            if (!IsBeingDragged) return;
+            IsBeingDragged = false;
+
+            if (dropProp != null && TrySitOnProp(dropProp)) return;
+            EnterPlaying();
+        }
 
         /// <summary>
         /// 기물이 아닌 곳에 내려놓았을 때 호출 (드래그 드롭). 기물 점유를 풀고 5분간 맵을 돌아다닌다.

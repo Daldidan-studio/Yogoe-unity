@@ -33,6 +33,9 @@ namespace Yoegoe.UI
         {
             public CharacterAgent Agent;
             public Text NameText;
+            public Text StatusTagText;
+            public GameObject StatusTagRoot;
+            public Image StatusTagBg;
             public Image StaminaFill;
         }
 
@@ -82,7 +85,22 @@ namespace Yoegoe.UI
                 chip.NameText.text = name + " · " + stageLabel;
                 if (chip.StaminaFill != null)
                     chip.StaminaFill.fillAmount = Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
+
+                RefreshStatusTag(chip);
             }
+        }
+
+        /// <summary>슬롯 위 상태 딱지 — 문구·색은 CharacterStatusPresentation.</summary>
+        private static void RefreshStatusTag(SlotChip chip)
+        {
+            if (chip.StatusTagRoot == null || chip.StatusTagText == null) return;
+
+            var badge = CharacterStatusPresentation.ForSlot(chip.Agent.Stats.State);
+            chip.StatusTagRoot.SetActive(badge.Visible);
+            if (!badge.Visible) return;
+
+            chip.StatusTagText.text = badge.Label;
+            if (chip.StatusTagBg != null) chip.StatusTagBg.color = badge.Color;
         }
 
         private Transform slotBarRoot;
@@ -96,10 +114,10 @@ namespace Yoegoe.UI
             {
                 var chipGO = new GameObject("Slot_" + (agent.Data != null ? agent.Data.displayName : "?"));
                 var chipRt = SetupRect(chipGO, slotBarRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(160, 90));
+                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(160, 100));
                 var chipLayout = chipGO.AddComponent<LayoutElement>();
                 chipLayout.preferredWidth = 160;
-                chipLayout.preferredHeight = 90;
+                chipLayout.preferredHeight = 100;
 
                 var bg = chipGO.AddComponent<Image>();
                 bg.color = new Color(0.11f, 0.08f, 0.07f, 0.85f);
@@ -112,6 +130,23 @@ namespace Yoegoe.UI
                 {
                     if (detailScreen != null) detailScreen.Open(capturedAgent);
                 });
+
+                // 슬롯 위 상태 딱지 (6-2 머물기 = "일하는")
+                var tagGO = new GameObject("StatusTag");
+                SetupRect(tagGO, chipRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f),
+                    new Vector2(0, 4), new Vector2(72, 22));
+                var tagBg = tagGO.AddComponent<Image>();
+                tagBg.color = new Color(0.2f, 0.45f, 0.85f, 0.95f);
+                var tagTextGO = new GameObject("Label");
+                SetupRect(tagTextGO, tagGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                    Vector2.zero, Vector2.zero);
+                var tagText = tagTextGO.AddComponent<Text>();
+                tagText.font = font;
+                tagText.fontSize = 16;
+                tagText.alignment = TextAnchor.MiddleCenter;
+                tagText.color = Color.white;
+                tagText.text = "일하는";
+                tagGO.SetActive(false);
 
                 var nameGO = new GameObject("Name");
                 SetupRect(nameGO, chipRt, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1f),
@@ -136,7 +171,15 @@ namespace Yoegoe.UI
                 barFill.fillMethod = Image.FillMethod.Horizontal;
                 barFill.fillAmount = 1f;
 
-                slotChips.Add(new SlotChip { Agent = agent, NameText = nameText, StaminaFill = barFill });
+                slotChips.Add(new SlotChip
+                {
+                    Agent = agent,
+                    NameText = nameText,
+                    StatusTagText = tagText,
+                    StatusTagRoot = tagGO,
+                    StatusTagBg = tagBg,
+                    StaminaFill = barFill
+                });
             }
         }
 
@@ -223,7 +266,7 @@ namespace Yoegoe.UI
         {
             var slotGO = new GameObject("SlotBar");
             var slotRt = SetupRect(slotGO, canvasTf, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0f),
-                new Vector2(0, 24), new Vector2(-40, 110));
+                new Vector2(0, 24), new Vector2(-40, 130));
             var layout = slotGO.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 12;
             layout.childAlignment = TextAnchor.MiddleCenter;
