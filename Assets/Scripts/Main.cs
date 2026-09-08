@@ -31,11 +31,13 @@ namespace Yoegoe
         [Tooltip("비워두면 Resources/ArtScaleSettings 를 자동으로 찾는다. 맵·캐릭터·기물 배율은 그 에셋 하나에서 바꾼다.")]
         public ArtScaleSettings artScale;
 
-        [Header("맵 배경 (없으면 카메라 단색 배경 그대로)")]
-        [Tooltip("사용자가 준 배경 이미지(예: Background_GrassField) — 카메라 뷰 전체를 덮도록 자동 스케일하고, " +
-                 "이 배경이 덮는 범위를 그대로 '맵 범위(MapBounds)'로 설정해서 캐릭터가 정처 없이 돌아다닐 때도 " +
-                 "이 안에서만 돌아다니게 한다.")]
-        public Sprite backgroundSprite;
+        [Header("맵 배경")]
+        [Tooltip("전체 맵(섬 전경). Background_IslandOverview")]
+        public Sprite overviewBackgroundSprite;
+        [Tooltip("걷기 가능 잔디 레이어. Background_GrassField — 전체맵 위에 올림. 잔디 중심이 월드 원점.")]
+        public Sprite playfieldSprite;
+        [Tooltip("전체맵 위치 보정(잔디=원점일 때 섬 잔디 정상과 맞추는 오프셋).")]
+        public Vector2 overviewOffset = new Vector2(-0.05f, -0.32f);
 
         [Header("기물 그림 (없으면 그 기물만 색깔 큐브로 대체)")]
         public Sprite propSpriteGate;        // 솟대/문
@@ -253,65 +255,85 @@ namespace Yoegoe
         }
 
         /// <summary>
-        /// 배경을 스프라이트 원본 월드 크기(PPU × mapScale)로 깐다.
-        /// 예전 cover×overscan 방식은 세로 화면에서 맵을 크게 확대해 버려 "원본이 아니다"는 느낌이 났다.
-        /// 맵이 카메라보다 크면 MapCameraDrag로 패닝하고, 작으면 카메라 여백이 보인다.
+        /// 전체맵(섬) + 그 위 잔디 플레이필드.
+        /// 걷기는 잔디 bounds만, 카메라 패닝은 전체맵 기준.
         /// </summary>
         private void CreateBackground()
         {
-            if (backgroundSprite == null) return;
-
-            var go = new GameObject("Background");
-            go.transform.position = new Vector3(0f, 0f, 1f); // 카메라(z=-10)에서 봤을 때 항상 맨 뒤
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = backgroundSprite;
-            sr.sortingOrder = Scale.backgroundSort;
-
+            float scale = Mathf.Max(0.01f, Scale.mapScale);
             var cam = Camera.main;
+
+            // 1) 전체 맵 (뒤)
+            Sprite overview = overviewBackgroundSprite;
+            if (overview != null)
+            {
+                var go = new GameObject("Background_Overview");
+                go.transform.position = new Vector3(overviewOffset.x, overviewOffset.y, 1f);
+                go.transform.localScale = new Vector3(scale, scale, 1f);
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = overview;
+                sr.sortingOrder = Scale.backgroundSort;
+            }
+
+            // 2) 잔디 플레이필드 (앞) — 월드 원점, 걷기/기물 좌표 기준
+            Sprite playfield = playfieldSprite;
+            if (playfield == null) return;
+
+            var fieldGO = new GameObject("Background_Playfield");
+            fieldGO.transform.position = new Vector3(0f, 0f, 0.9f);
+            fieldGO.transform.localScale = new Vector3(scale, scale, 1f);
+            var fieldSr = fieldGO.AddComponent<SpriteRenderer>();
+            fieldSr.sprite = playfield;
+            fieldSr.sortingOrder = Scale.backgroundSort + 1;
+
+            float fieldW = playfield.bounds.size.x * scale;
+            float fieldH = playfield.bounds.size.y * scale;
+            if (fieldW <= 0f || fieldH <= 0f) return;
+
+            const float margin = 0.35f;
+            MapBounds.SetBounds(
+                new Vector2(-fieldW / 2f + margin, -fieldH / 2f + margin),
+                new Vector2(fieldW / 2f - margin, fieldH / 2f - margin));
+
             if (cam == null || !cam.orthographic) return;
+
+            // 패닝 범위: 전체맵이 있으면 그 크기, 없으면 잔디
+            float panW = fieldW;
+            float panH = fieldH;
+            if (overview != null)
+            {
+                panW = overview.bounds.size.x * scale;
+                panH = overview.bounds.size.y * scale;
+            }
 
             float camHeight = cam.orthographicSize * 2f;
             float camWidth = camHeight * cam.aspect;
-            float spriteWidth = backgroundSprite.bounds.size.x;
-            float spriteHeight = backgroundSprite.bounds.size.y;
-            if (spriteWidth <= 0f || spriteHeight <= 0f) return;
-
-            float scale = Mathf.Max(0.01f, Scale.mapScale);
-            go.transform.localScale = new Vector3(scale, scale, 1f);
-
-            float mapWidth = spriteWidth * scale;
-            float mapHeight = spriteHeight * scale;
-
-            // 약간의 여백(0.5유닛)을 두어 캐릭터가 맵 가장자리에 완전히 붙지 않게 한다.
-            const float margin = 0.5f;
-            MapBounds.SetBounds(
-                new Vector2(-mapWidth / 2f + margin, -mapHeight / 2f + margin),
-                new Vector2(mapWidth / 2f - margin, mapHeight / 2f - margin));
-
             var drag = cam.GetComponent<MapCameraDrag>();
             if (drag == null) drag = cam.gameObject.AddComponent<MapCameraDrag>();
 
-            float halfExtraW = Mathf.Max(0f, mapWidth / 2f - camWidth / 2f);
-            float halfExtraH = Mathf.Max(0f, mapHeight / 2f - camHeight / 2f);
+            float halfExtraW = Mathf.Max(0f, panW / 2f - camWidth / 2f);
+            float halfExtraH = Mathf.Max(0f, panH / 2f - camHeight / 2f);
 
-            // 맵이 화면 안에 완전히 들어오면 패닝 범위가 0 → 드래그가 "안 되는" 것처럼 보임.
-            // 그 경우에만 카메라를 살짝 좁혀 긴 변 기준 ~20% 패닝 여유를 만든다.
             if (halfExtraW <= 0.01f && halfExtraH <= 0.01f)
             {
-                float orthoByW = (mapWidth / 1.2f) / (2f * Mathf.Max(0.01f, cam.aspect));
-                float orthoByH = (mapHeight / 1.2f) / 2f;
+                float orthoByW = (panW / 1.2f) / (2f * Mathf.Max(0.01f, cam.aspect));
+                float orthoByH = (panH / 1.2f) / 2f;
                 float newOrtho = Mathf.Min(orthoByW, orthoByH);
                 if (newOrtho > 0.1f && newOrtho < cam.orthographicSize)
                 {
                     cam.orthographicSize = newOrtho;
                     camHeight = cam.orthographicSize * 2f;
                     camWidth = camHeight * cam.aspect;
-                    halfExtraW = Mathf.Max(0f, mapWidth / 2f - camWidth / 2f);
-                    halfExtraH = Mathf.Max(0f, mapHeight / 2f - camHeight / 2f);
+                    halfExtraW = Mathf.Max(0f, panW / 2f - camWidth / 2f);
+                    halfExtraH = Mathf.Max(0f, panH / 2f - camHeight / 2f);
                 }
             }
 
-            drag.SetBounds(new Vector2(-halfExtraW, -halfExtraH), new Vector2(halfExtraW, halfExtraH));
+            // 전체맵이 overviewOffset만큼 밀렸으면 카메라 패닝 중심도 같이 이동
+            Vector2 panCenter = overview != null ? overviewOffset : Vector2.zero;
+            drag.SetBounds(
+                new Vector2(panCenter.x - halfExtraW, panCenter.y - halfExtraH),
+                new Vector2(panCenter.x + halfExtraW, panCenter.y + halfExtraH));
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router != null) router.mapDrag = drag;

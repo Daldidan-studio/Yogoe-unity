@@ -683,6 +683,8 @@ namespace Yoegoe.Characters
             if (!prop.TryOccupy(this)) return false;
 
             currentProp = prop;
+            var p = prop.transform.position;
+            transform.position = MapBounds.Clamp(new Vector3(p.x, p.y, transform.position.z));
             EnterStaying();
             return true;
         }

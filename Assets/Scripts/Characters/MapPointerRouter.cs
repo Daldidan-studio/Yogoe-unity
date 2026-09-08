@@ -27,7 +27,7 @@ namespace Yoegoe.Characters
         public float characterHitRadiusFallback = 0.45f;
 
         [Tooltip("드롭 시 기물 스냅 반경(월드).")]
-        public float propDropRadius = 1.2f;
+        public float propDropRadius = 1.8f;
 
         [Tooltip("탭으로 공덕 수거할 때 기물 히트 반경(월드).")]
         public float propTapRadius = 1.0f;

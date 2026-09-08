@@ -58,7 +58,7 @@ namespace Yoegoe.Characters
                 // 예약만 된 자리(다른 요괴가 오는 중)는 앉히지 않음
                 if (p.IsReserved && p.ReservedBy != requester) continue;
 
-                float d = Vector2.Distance(p.transform.position, worldPos);
+                float d = DistanceToProp(p, worldPos);
                 if (d <= bestDist)
                 {
                     bestDist = d;
@@ -76,7 +76,7 @@ namespace Yoegoe.Characters
             foreach (var p in allProps)
             {
                 if (p == null) continue;
-                float d = Vector2.Distance(p.transform.position, worldPos);
+                float d = DistanceToProp(p, worldPos);
                 if (d <= bestDist)
                 {
                     bestDist = d;
@@ -84,6 +84,21 @@ namespace Yoegoe.Characters
                 }
             }
             return best;
+        }
+
+        /// <summary>스프라이트/메시 bounds 중심 기준 거리 (큐브 절구도 잡히게).</summary>
+        private static float DistanceToProp(PropSlot prop, Vector3 worldPos)
+        {
+            Vector3 center = prop.transform.position;
+            var sr = prop.GetComponentInChildren<SpriteRenderer>();
+            if (sr != null && sr.sprite != null)
+                center = sr.bounds.center;
+            else
+            {
+                var r = prop.GetComponentInChildren<Renderer>();
+                if (r != null) center = r.bounds.center;
+            }
+            return Vector2.Distance(center, worldPos);
         }
     }
 }
