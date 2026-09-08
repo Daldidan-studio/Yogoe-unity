@@ -95,10 +95,17 @@ namespace Yoegoe.Characters
         public bool TryCollectMerit()
         {
             if (!HasPendingMerit) return false;
-            var collected = PendingMerit;
-            PendingMerit = BigNumber.Zero;
+            var collected = TakePendingMerit();
             GameEconomy.AddMerit(collected);
             return true;
+        }
+
+        /// <summary>더미만 비워 반환 (일괄 수거용 — HUD에 바로 넣지 않음).</summary>
+        public BigNumber TakePendingMerit()
+        {
+            var collected = PendingMerit;
+            PendingMerit = BigNumber.Zero;
+            return collected;
         }
 
         /// <summary>

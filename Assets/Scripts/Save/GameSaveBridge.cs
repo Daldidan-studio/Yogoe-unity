@@ -30,7 +30,19 @@ namespace Yoegoe.Save
             }
 
             ApplyToWorld(data);
+            // 콜드스타트 전용: 기물 더미 → 일괄 수거 대기분 (백그라운드 복귀 시엔 이 함수 자체가 안 돈다)
+            SweepPropPilesIntoBatch();
             return true;
+        }
+
+        /// <summary>모든 기물 PendingMerit를 일괄 수거 대기분으로 옮긴다.</summary>
+        public static void SweepPropPilesIntoBatch()
+        {
+            foreach (var p in UnityEngine.Object.FindObjectsOfType<PropSlot>())
+            {
+                if (p == null || !p.HasPendingMerit) continue;
+                GameEconomy.AddPendingBatchMerit(p.TakePendingMerit());
+            }
         }
 
         public static void SaveFromWorld()
@@ -47,6 +59,7 @@ namespace Yoegoe.Save
                 economy = new EconomySave
                 {
                     merit = BigNumberSave.From(GameEconomy.MeritPile),
+                    pendingBatchMerit = BigNumberSave.From(GameEconomy.PendingBatchMerit),
                     yeopjeon = GameEconomy.Yeopjeon,
                     hyang = GameEconomy.Hyang,
                     purifiedWater = GameEconomy.PurifiedWater,
@@ -169,6 +182,7 @@ namespace Yoegoe.Save
             // GameEconomy에 일괄 Set API가 없어 리플렉션 대신 공개 API 확장 필요 — 골격용 최소 반영
             GameEconomy.ApplySaveSnapshot(
                 e.merit.ToBigNumber(),
+                e.pendingBatchMerit != null ? e.pendingBatchMerit.ToBigNumber() : BigNumber.Zero,
                 e.yeopjeon,
                 e.hyang,
                 e.purifiedWater,

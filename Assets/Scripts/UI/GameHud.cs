@@ -4,16 +4,12 @@ using UnityEngine.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
 using Yoegoe.Economy;
+using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
     /// <summary>
     /// 메인 HUD (기획서/프로토타입 1장: 상단 재화 바 + 하단 슬롯바)를 코드로 직접 만든다.
-    /// 유니티 에디터에서 손으로 uGUI 배치하는 대신, 지금까지 캐릭터/기물을 만들어온 것과 같은
-    /// 방식(런타임 코드 생성)으로 만들어서 씬 파일을 손으로 안 건드려도 되게 함.
-    ///
-    /// 아직 없는 것(다음 단계): 우상단 5개 아이콘 버튼(윷놀이/상점/업적/패방/디버그) 클릭 시 화면 전환,
-    /// 공덕 더미 탭 수거, 슬롯 탭 → 상세화면. 지금은 "항상 보이는 정보 표시"까지만.
     /// </summary>
     public class GameHud : MonoBehaviour
     {
@@ -38,6 +34,8 @@ namespace Yoegoe.UI
             public Image StatusTagBg;
             public Image StaminaFill;
             public RectTransform StaminaFillRt;
+            public GameObject BatchButtonRoot;
+            public Text BatchButtonLabel;
         }
 
         private void Start()
@@ -52,8 +50,6 @@ namespace Yoegoe.UI
             RefreshSlotBar();
         }
 
-        // ---------------- 상단 재화 바 ----------------
-
         private void RefreshCurrencies()
         {
             if (meritText != null) meritText.text = "공덕 " + GameEconomy.MeritPile.ToDisplayString();
@@ -63,11 +59,8 @@ namespace Yoegoe.UI
             if (yutTokenText != null) yutTokenText.text = "윷 " + GameEconomy.YutToken + "/" + GameEconomy.YutTokenMax;
         }
 
-        // ---------------- 하단 슬롯바 ----------------
-
         private void RefreshSlotBar()
         {
-            // 새로 생긴/사라진 캐릭터가 있으면 슬롯바를 다시 그린다 (기획서 8장: 슬롯 3~4개, 소환으로 늘어남).
             bool mismatched = slotChips.Count != CharacterAgent.All.Count;
             if (!mismatched)
             {
@@ -90,7 +83,6 @@ namespace Yoegoe.UI
                     bool alert = state == ActionState.Slumped || state == ActionState.Fainted;
                     float ratio = alert ? 1f : Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
 
-                    // 왼쪽 고정, 너비만 줄임 → 오른쪽부터 깎인다.
                     var parentRt = chip.StaminaFillRt.parent as RectTransform;
                     float parentW = parentRt != null ? parentRt.rect.width : 130f;
                     if (parentW < 1f) parentW = 130f;
@@ -106,10 +98,10 @@ namespace Yoegoe.UI
                 }
 
                 RefreshStatusTag(chip);
+                RefreshBatchButton(chip);
             }
         }
 
-        /// <summary>슬롯 위 상태 딱지 — 문구·색은 CharacterStatusPresentation.</summary>
         private static void RefreshStatusTag(SlotChip chip)
         {
             if (chip.StatusTagRoot == null || chip.StatusTagText == null) return;
@@ -120,6 +112,16 @@ namespace Yoegoe.UI
 
             chip.StatusTagText.text = badge.Label;
             if (chip.StatusTagBg != null) chip.StatusTagBg.color = badge.Color;
+        }
+
+        /// <summary>7-2: 옥토끼 슬롯 위 앱 재시작 일괄 수거.</summary>
+        private static void RefreshBatchButton(SlotChip chip)
+        {
+            if (chip.BatchButtonRoot == null || chip.BatchButtonLabel == null) return;
+            bool show = GameEconomy.HasPendingBatchMerit;
+            chip.BatchButtonRoot.SetActive(show);
+            if (show)
+                chip.BatchButtonLabel.text = "일괄 수거\n" + GameEconomy.PendingBatchMerit.ToDisplayString();
         }
 
         private Transform slotBarRoot;
@@ -141,7 +143,6 @@ namespace Yoegoe.UI
                 var bg = chipGO.AddComponent<Image>();
                 bg.color = new Color(0.11f, 0.08f, 0.07f, 0.85f);
 
-                // 탭하면 상세화면 열기 (기획서 1장 "요괴 탭 → 전체화면").
                 var capturedAgent = agent;
                 var button = chipGO.AddComponent<Button>();
                 button.targetGraphic = bg;
@@ -150,7 +151,6 @@ namespace Yoegoe.UI
                     if (detailScreen != null) detailScreen.Open(capturedAgent);
                 });
 
-                // 슬롯 위 상태 딱지 (6-2 머물기 = "일하는")
                 var tagGO = new GameObject("StatusTag");
                 SetupRect(tagGO, chipRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f),
                     new Vector2(0, 4), new Vector2(72, 22));
@@ -167,6 +167,32 @@ namespace Yoegoe.UI
                 tagText.text = "일하는";
                 tagText.raycastTarget = false;
                 tagGO.SetActive(false);
+
+                GameObject batchRoot = null;
+                Text batchLabel = null;
+                // 기획 7-2: 옥토끼 슬롯 위에만 앱 재시작 일괄 수거
+                if (agent.Data != null && agent.Data.id == CharacterId.Rabbit)
+                {
+                    batchRoot = new GameObject("BatchCollect");
+                    SetupRect(batchRoot, chipRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f),
+                        new Vector2(0, 30), new Vector2(148, 44));
+                    var batchBg = batchRoot.AddComponent<Image>();
+                    batchBg.color = new Color(0.85f, 0.55f, 0.15f, 0.95f);
+                    var batchBtn = batchRoot.AddComponent<Button>();
+                    batchBtn.targetGraphic = batchBg;
+                    batchBtn.onClick.AddListener(OnBatchCollectClicked);
+                    var batchLabelGO = new GameObject("Label");
+                    SetupRect(batchLabelGO, batchRoot.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                        Vector2.zero, Vector2.zero);
+                    batchLabel = batchLabelGO.AddComponent<Text>();
+                    batchLabel.font = font;
+                    batchLabel.fontSize = 16;
+                    batchLabel.alignment = TextAnchor.MiddleCenter;
+                    batchLabel.color = Color.white;
+                    batchLabel.raycastTarget = false;
+                    batchLabel.text = "일괄 수거";
+                    batchRoot.SetActive(false);
+                }
 
                 var nameGO = new GameObject("Name");
                 SetupRect(nameGO, chipRt, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1f),
@@ -199,9 +225,17 @@ namespace Yoegoe.UI
                     StatusTagRoot = tagGO,
                     StatusTagBg = tagBg,
                     StaminaFill = barFill,
-                    StaminaFillRt = barFillRt
+                    StaminaFillRt = barFillRt,
+                    BatchButtonRoot = batchRoot,
+                    BatchButtonLabel = batchLabel
                 });
             }
+        }
+
+        private static void OnBatchCollectClicked()
+        {
+            if (!GameEconomy.TryClaimBatchMerit()) return;
+            GameSaveBridge.SaveFromWorld();
         }
 
         // ---------------- 빌드 ----------------
@@ -288,7 +322,7 @@ namespace Yoegoe.UI
         {
             var slotGO = new GameObject("SlotBar");
             var slotRt = SetupRect(slotGO, canvasTf, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0f),
-                new Vector2(0, 24), new Vector2(-40, 130));
+                new Vector2(0, 24), new Vector2(-40, 160));
             var layout = slotGO.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 12;
             layout.childAlignment = TextAnchor.MiddleCenter;

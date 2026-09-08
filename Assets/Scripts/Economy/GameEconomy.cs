@@ -15,10 +15,42 @@ namespace Yoegoe.Economy
         public static BigNumber MeritPile { get; private set; } = BigNumber.Zero;
         public static event Action<BigNumber> OnMeritChanged;
 
+        /// <summary>
+        /// 앱 재시작 일괄 수거 대기분 (7-2). 콜드스타트 시 기물 더미를 여기로 모은다.
+        /// 백그라운드 복귀만으로는 채우지 않는다.
+        /// </summary>
+        public static BigNumber PendingBatchMerit { get; private set; } = BigNumber.Zero;
+        public static event Action OnBatchMeritChanged;
+        public static bool HasPendingBatchMerit => PendingBatchMerit.Mantissa != 0;
+
         public static void AddMerit(BigNumber amount)
         {
             MeritPile += amount;
             OnMeritChanged?.Invoke(MeritPile);
+        }
+
+        public static void SetPendingBatchMerit(BigNumber amount)
+        {
+            PendingBatchMerit = amount;
+            OnBatchMeritChanged?.Invoke();
+        }
+
+        public static void AddPendingBatchMerit(BigNumber amount)
+        {
+            if (amount.Mantissa == 0) return;
+            PendingBatchMerit += amount;
+            OnBatchMeritChanged?.Invoke();
+        }
+
+        /// <summary>일괄 수거 확정 → HUD 공덕으로 이동.</summary>
+        public static bool TryClaimBatchMerit()
+        {
+            if (!HasPendingBatchMerit) return false;
+            var claim = PendingBatchMerit;
+            PendingBatchMerit = BigNumber.Zero;
+            OnBatchMeritChanged?.Invoke();
+            AddMerit(claim);
+            return true;
         }
 
         // ---------------- 엽전 ----------------
@@ -116,6 +148,7 @@ namespace Yoegoe.Economy
             if (s == null) s = StartingStateSettings.Get();
 
             MeritPile = s.startingMerit;
+            PendingBatchMerit = BigNumber.Zero;
             Yeopjeon = s.startingYeopjeon;
             Hyang = s.startingHyang;
             PurifiedWater = s.startingPurifiedWater;
@@ -135,6 +168,7 @@ namespace Yoegoe.Economy
             }
 
             OnMeritChanged?.Invoke(MeritPile);
+            OnBatchMeritChanged?.Invoke();
             OnYeopjeonChanged?.Invoke(Yeopjeon);
             OnHyangChanged?.Invoke(Hyang);
             OnPurifiedWaterChanged?.Invoke(PurifiedWater);
@@ -142,10 +176,11 @@ namespace Yoegoe.Economy
         }
 
         /// <summary>세이브 스냅샷으로 재화만 덮어쓴다 (공양물 인벤은 이후 패스).</summary>
-        public static void ApplySaveSnapshot(BigNumber merit, int yeopjeon, int hyang,
-            int purifiedWater, int yutToken, int yutTokenMax)
+        public static void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
+            int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax)
         {
             MeritPile = merit;
+            PendingBatchMerit = pendingBatch;
             Yeopjeon = yeopjeon;
             Hyang = hyang;
             PurifiedWater = purifiedWater;
@@ -153,6 +188,7 @@ namespace Yoegoe.Economy
             YutToken = Mathf.Clamp(yutToken, 0, YutTokenMax);
 
             OnMeritChanged?.Invoke(MeritPile);
+            OnBatchMeritChanged?.Invoke();
             OnYeopjeonChanged?.Invoke(Yeopjeon);
             OnHyangChanged?.Invoke(Hyang);
             OnPurifiedWaterChanged?.Invoke(PurifiedWater);

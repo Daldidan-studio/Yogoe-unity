@@ -23,6 +23,8 @@ namespace Yoegoe.Save
     public class EconomySave
     {
         public BigNumberSave merit = new BigNumberSave();
+        /// <summary>앱 재시작 일괄 수거 미수령분.</summary>
+        public BigNumberSave pendingBatchMerit = new BigNumberSave();
         public int yeopjeon;
         public int hyang;
         public int purifiedWater;
