@@ -6,12 +6,6 @@
 족자 위에서 요괴들이 스스로 돌아다니며 기물을 사용해 공덕을 생산하고,
 공양을 통해 친밀도·기력을 관리하며 성장(넋 → 혼)시킵니다.
 
-> 이 저장소는 이전에 "다시...나의 요괴들(My K-SPIRITS)" — 카드 수집 + 비주얼노벨
-> 육성 게임 — 을 개발하던 프로젝트였습니다. 해당 설계는 폐기되었고, 유니티 프로젝트
-> 셸(ProjectSettings/Packages)과 CI/CD 파이프라인만 유지한 채 게임 로직/기획을
-> "한 폭의 요괴" 설계로 전면 교체했습니다. 이전 설계의 코드/문서는
-> `Assets/_Legacy_KSpirits/`, `Docs/_legacy_kspirits/`에 참고용으로 보관되어 있습니다.
-
 ## 현재 진행
 
 - [x] BigNumber 무한 자릿수 재화 시스템 (ㄱㄴㄷ...ㅎ → ㄱㄱ,ㄴㄴ 순환 단위)
@@ -67,14 +61,12 @@ Assets/
   Resources/         StartingStateSettings.asset, ArtScaleSettings.asset  ← 숫자 조절
   Data/              Characters/, Offerings/ (.asset)
   Scenes/Main.unity
-  _Legacy_KSpirits/
 Docs/
   00_기획정리.md
   02_개발진행.md
   04_CI_배포.md
   05_기획_미확정사항.md
   코드정리.md
-  _legacy_kspirits/
 ```
 
 ### 윷놀이 미니게임 (`Minigames/Yut/`)
