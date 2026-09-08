@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -19,7 +20,7 @@ namespace Yoegoe.Characters
         public float dragThresholdPixels = 24f;
 
         [Tooltip("누른 지점 기준 캐릭터 히트 반경(월드).")]
-        public float characterHitRadius = 0.9f;
+        public float characterHitRadius = 1.2f;
 
         [Tooltip("드롭 시 기물 스냅 반경(월드).")]
         public float propDropRadius = 1.2f;
@@ -30,14 +31,15 @@ namespace Yoegoe.Characters
         private bool wasPressed;
         private Vector2 pressStartScreen;
         private Vector2 lastScreen;
-        private CharacterAgent pressCharacter; // Pending 때 후보 (드래그 가능 여부와 무관 — 탭용)
+        private CharacterAgent pressCharacter;
         private CharacterAgent dragCharacter;
+
+        private static readonly List<RaycastResult> UiRaycastHits = new List<RaycastResult>(8);
 
         private void Awake()
         {
             if (targetCamera == null) targetCamera = Camera.main;
-            if (mapDrag == null && targetCamera != null)
-                mapDrag = targetCamera.GetComponent<MapCameraDrag>();
+            ResolveMapDrag();
         }
 
         private void Update()
@@ -55,7 +57,9 @@ namespace Yoegoe.Characters
 
         private void OnPress(Vector2 screenPos)
         {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            // InputSystemUIInputModule에서 IsPointerOverGameObject()는 Update에서
+            // 항상 true처럼 나오는 경우가 있어, 좌표 기준 Raycast로 판정한다.
+            if (IsOverUI(screenPos))
             {
                 phase = Phase.Idle;
                 return;
@@ -88,8 +92,7 @@ namespace Yoegoe.Characters
                 else
                 {
                     phase = Phase.MapDrag;
-                    if (mapDrag == null && targetCamera != null)
-                        mapDrag = targetCamera.GetComponent<MapCameraDrag>();
+                    ResolveMapDrag();
                     if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
                 }
                 return;
@@ -97,8 +100,7 @@ namespace Yoegoe.Characters
 
             if (phase == Phase.MapDrag)
             {
-                if (mapDrag == null && targetCamera != null)
-                    mapDrag = targetCamera.GetComponent<MapCameraDrag>();
+                ResolveMapDrag();
                 if (mapDrag != null) mapDrag.ApplyScreenDelta(delta);
             }
             else if (phase == Phase.CharacterDrag && dragCharacter != null)
@@ -111,7 +113,6 @@ namespace Yoegoe.Characters
         {
             if (phase == Phase.Pending)
             {
-                // 거의 안 움직임 → 탭
                 if (pressCharacter != null) pressCharacter.OnTapped();
             }
             else if (phase == Phase.CharacterDrag && dragCharacter != null)
@@ -123,6 +124,14 @@ namespace Yoegoe.Characters
             phase = Phase.Idle;
             pressCharacter = null;
             dragCharacter = null;
+        }
+
+        private void ResolveMapDrag()
+        {
+            if (mapDrag != null) return;
+            if (targetCamera == null) targetCamera = Camera.main;
+            if (targetCamera != null)
+                mapDrag = targetCamera.GetComponent<MapCameraDrag>();
         }
 
         private void MoveDragCharacter(Vector2 screenPos)
@@ -166,6 +175,17 @@ namespace Yoegoe.Characters
             if (PropManager.Instance != null)
                 return PropManager.Instance.FindNearestDropTarget(agent, world, propDropRadius);
             return null;
+        }
+
+        /// <summary>해당 스크린 좌표에 레이캐스트되는 UI가 있으면 true.</summary>
+        private static bool IsOverUI(Vector2 screenPos)
+        {
+            if (EventSystem.current == null) return false;
+
+            var eventData = new PointerEventData(EventSystem.current) { position = screenPos };
+            UiRaycastHits.Clear();
+            EventSystem.current.RaycastAll(eventData, UiRaycastHits);
+            return UiRaycastHits.Count > 0;
         }
 
         private static bool TryReadPointer(out Vector2 screenPos, out bool pressed)

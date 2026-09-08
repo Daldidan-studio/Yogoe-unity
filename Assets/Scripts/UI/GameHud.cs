@@ -155,6 +155,7 @@ namespace Yoegoe.UI
                 tagText.alignment = TextAnchor.MiddleCenter;
                 tagText.color = Color.white;
                 tagText.text = "일하는";
+                tagText.raycastTarget = false;
                 tagGO.SetActive(false);
 
                 var nameGO = new GameObject("Name");
@@ -165,6 +166,7 @@ namespace Yoegoe.UI
                 nameText.fontSize = 20;
                 nameText.alignment = TextAnchor.MiddleCenter;
                 nameText.color = Color.white;
+                nameText.raycastTarget = false;
 
                 var barBgGO = new GameObject("StaminaBarBg");
                 SetupRect(barBgGO, chipRt, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
@@ -236,6 +238,7 @@ namespace Yoegoe.UI
             meritText.fontSize = 40;
             meritText.color = new Color(1f, 0.95f, 0.85f);
             meritText.alignment = TextAnchor.MiddleLeft;
+            meritText.raycastTarget = false;
 
             var rowGO = new GameObject("CurrencyRow");
             rowGO.transform.SetParent(topRt, false);
@@ -297,6 +300,7 @@ namespace Yoegoe.UI
             text.color = new Color(0.95f, 0.9f, 0.8f);
             text.alignment = TextAnchor.MiddleLeft;
             text.text = initial;
+            text.raycastTarget = false;
             return text;
         }
 

@@ -207,9 +207,14 @@ namespace Yoegoe
             var cam = Camera.main;
             if (cam == null) return;
 
+            // 배경이 없어도 패닝 컴포넌트는 카메라에 있어야 라우터가 연결할 수 있다.
+            if (cam.GetComponent<MapCameraDrag>() == null)
+                cam.gameObject.AddComponent<MapCameraDrag>();
+
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router == null) router = cam.gameObject.AddComponent<Yoegoe.Characters.MapPointerRouter>();
             router.targetCamera = cam;
+            router.mapDrag = cam.GetComponent<MapCameraDrag>();
         }
 
         private void EnsureLight()
