@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using Yoegoe.Debugging;
 
 namespace Yoegoe.Characters
@@ -20,7 +21,7 @@ namespace Yoegoe.Characters
         public float dragThresholdPixels = 24f;
 
         [Tooltip("누른 지점 기준 캐릭터 히트 반경(월드).")]
-        public float characterHitRadius = 1.2f;
+        public float characterHitRadius = 1.4f;
 
         [Tooltip("드롭 시 기물 스냅 반경(월드).")]
         public float propDropRadius = 1.2f;
@@ -61,9 +62,9 @@ namespace Yoegoe.Characters
 
         private void OnPress(Vector2 screenPos)
         {
-            // InputSystemUIInputModule에서 IsPointerOverGameObject()는 Update에서
-            // 항상 true처럼 나오는 경우가 있어, 좌표 기준 Raycast로 판정한다.
-            if (IsOverUI(screenPos))
+            // HUD 장식 Image까지 막으면 맵/캐릭터 드래그가 통째로 죽는다.
+            // 버튼·모달(전체화면 딤)만 입력 차단.
+            if (IsBlockingUi(screenPos))
             {
                 phase = Phase.Idle;
                 return;
@@ -202,36 +203,65 @@ namespace Yoegoe.Characters
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
         }
 
-        /// <summary>해당 스크린 좌표에 레이캐스트되는 UI가 있으면 true.</summary>
-        private static bool IsOverUI(Vector2 screenPos)
+        /// <summary>
+        /// 맵 입력을 막을 UI만 true.
+        /// Selectable(버튼 등) 또는 전체화면 딤 패널.
+        /// </summary>
+        private static bool IsBlockingUi(Vector2 screenPos)
         {
             if (EventSystem.current == null) return false;
 
             var eventData = new PointerEventData(EventSystem.current) { position = screenPos };
             UiRaycastHits.Clear();
             EventSystem.current.RaycastAll(eventData, UiRaycastHits);
-            return UiRaycastHits.Count > 0;
-        }
 
-        private static bool TryReadPointer(out Vector2 screenPos, out bool pressed)
-        {
-            var mouse = Mouse.current;
-            if (mouse != null)
+            for (int i = 0; i < UiRaycastHits.Count; i++)
             {
-                screenPos = mouse.position.ReadValue();
-                pressed = mouse.leftButton.isPressed;
-                return true;
+                var go = UiRaycastHits[i].gameObject;
+                if (go == null || !go.activeInHierarchy) continue;
+
+                if (go.GetComponentInParent<Selectable>() != null)
+                    return true;
+
+                // 구매/상세 등 전체화면 딤
+                var rt = go.transform as RectTransform;
+                if (rt != null
+                    && rt.anchorMin == Vector2.zero
+                    && rt.anchorMax == Vector2.one
+                    && go.GetComponent<Graphic>() != null)
+                    return true;
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// WebGL/모바일: Mouse 디바이스가 항상 있어서 터치가 무시되면 드래그가 전부 죽는다.
+        /// 손가락이 내려가 있으면 터치를 우선한다.
+        /// </summary>
+        private static bool TryReadPointer(out Vector2 screenPos, out bool pressed)
+        {
             var touchscreen = Touchscreen.current;
             if (touchscreen != null)
             {
                 var touch = touchscreen.primaryTouch;
                 var touchPhase = touch.phase.ReadValue();
-                pressed = touchPhase == UnityEngine.InputSystem.TouchPhase.Began
-                          || touchPhase == UnityEngine.InputSystem.TouchPhase.Moved
-                          || touchPhase == UnityEngine.InputSystem.TouchPhase.Stationary;
-                screenPos = touch.position.ReadValue();
+                bool touchDown = touchPhase == UnityEngine.InputSystem.TouchPhase.Began
+                                 || touchPhase == UnityEngine.InputSystem.TouchPhase.Moved
+                                 || touchPhase == UnityEngine.InputSystem.TouchPhase.Stationary;
+                if (touchDown || touch.press.isPressed)
+                {
+                    screenPos = touch.position.ReadValue();
+                    pressed = true;
+                    return true;
+                }
+            }
+
+            var mouse = Mouse.current;
+            if (mouse != null)
+            {
+                screenPos = mouse.position.ReadValue();
+                pressed = mouse.leftButton.isPressed;
                 return true;
             }
 

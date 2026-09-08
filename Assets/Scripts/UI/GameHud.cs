@@ -412,6 +412,7 @@ namespace Yoegoe.UI
                 new Vector2(24, -24), new Vector2(480, 140));
             var topBg = topGO.AddComponent<Image>();
             topBg.color = new Color(0.1f, 0.07f, 0.06f, 0.6f);
+            topBg.raycastTarget = false;
             var topLayout = topGO.AddComponent<VerticalLayoutGroup>();
             topLayout.padding = new RectOffset(16, 16, 10, 10);
             topLayout.spacing = 6;

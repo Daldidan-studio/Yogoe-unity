@@ -282,12 +282,29 @@ namespace Yoegoe
                 new Vector2(-mapWidth / 2f + margin, -mapHeight / 2f + margin),
                 new Vector2(mapWidth / 2f - margin, mapHeight / 2f - margin));
 
-            // 맵이 화면보다 큰 축만 드래그 여유. 작으면 해당 축 clamp 범위 0.
             var drag = cam.GetComponent<MapCameraDrag>();
             if (drag == null) drag = cam.gameObject.AddComponent<MapCameraDrag>();
 
             float halfExtraW = Mathf.Max(0f, mapWidth / 2f - camWidth / 2f);
             float halfExtraH = Mathf.Max(0f, mapHeight / 2f - camHeight / 2f);
+
+            // 맵이 화면 안에 완전히 들어오면 패닝 범위가 0 → 드래그가 "안 되는" 것처럼 보임.
+            // 그 경우에만 카메라를 살짝 좁혀 긴 변 기준 ~20% 패닝 여유를 만든다.
+            if (halfExtraW <= 0.01f && halfExtraH <= 0.01f)
+            {
+                float orthoByW = (mapWidth / 1.2f) / (2f * Mathf.Max(0.01f, cam.aspect));
+                float orthoByH = (mapHeight / 1.2f) / 2f;
+                float newOrtho = Mathf.Min(orthoByW, orthoByH);
+                if (newOrtho > 0.1f && newOrtho < cam.orthographicSize)
+                {
+                    cam.orthographicSize = newOrtho;
+                    camHeight = cam.orthographicSize * 2f;
+                    camWidth = camHeight * cam.aspect;
+                    halfExtraW = Mathf.Max(0f, mapWidth / 2f - camWidth / 2f);
+                    halfExtraH = Mathf.Max(0f, mapHeight / 2f - camHeight / 2f);
+                }
+            }
+
             drag.SetBounds(new Vector2(-halfExtraW, -halfExtraH), new Vector2(halfExtraW, halfExtraH));
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
