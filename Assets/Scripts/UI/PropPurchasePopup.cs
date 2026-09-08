@@ -21,7 +21,12 @@ namespace Yoegoe.UI
         private void Awake()
         {
             Instance = this;
-            Build();
+            // Build은 Start/Open에서 — Main이 font를 넣은 뒤에 그려야 한글이 보인다.
+        }
+
+        private void Start()
+        {
+            EnsureBuilt();
             root.SetActive(false);
         }
 
@@ -33,6 +38,7 @@ namespace Yoegoe.UI
         public void Open(PropSlot prop)
         {
             if (prop == null || prop.IsBuilt) return;
+            EnsureBuilt();
             target = prop;
             string name = prop.DisplayName;
             titleText.text = name + "을(를) 그릴까요?";
@@ -42,7 +48,7 @@ namespace Yoegoe.UI
 
         public void Close()
         {
-            root.SetActive(false);
+            if (root != null) root.SetActive(false);
             target = null;
         }
 
@@ -57,6 +63,14 @@ namespace Yoegoe.UI
             }
             Close();
             GameSaveBridge.SaveFromWorld();
+        }
+
+        private void EnsureBuilt()
+        {
+            if (root != null) return;
+            if (font == null)
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Build();
         }
 
         private void Build()
@@ -96,26 +110,36 @@ namespace Yoegoe.UI
             SetupRect(titleGO, box.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1),
                 new Vector2(0, -40), new Vector2(560, 80));
             titleText = titleGO.AddComponent<Text>();
-            titleText.font = font;
+            ApplyFont(titleText);
             titleText.fontSize = 36;
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.color = new Color(1f, 0.95f, 0.85f);
             titleText.raycastTarget = false;
+            titleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            titleText.verticalOverflow = VerticalWrapMode.Overflow;
 
             var costGO = new GameObject("Cost");
             SetupRect(costGO, box.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0, 10), new Vector2(560, 70));
             costText = costGO.AddComponent<Text>();
-            costText.font = font;
+            ApplyFont(costText);
             costText.fontSize = 30;
             costText.alignment = TextAnchor.MiddleCenter;
             costText.color = new Color(1f, 0.85f, 0.45f);
             costText.raycastTarget = false;
+            costText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            costText.verticalOverflow = VerticalWrapMode.Overflow;
 
             CreateActionButton(box.transform, "건설", new Vector2(-130, -120), new Color(0.35f, 0.55f, 0.3f, 1f),
                 OnBuildClicked);
             CreateActionButton(box.transform, "닫기", new Vector2(130, -120), new Color(0.4f, 0.3f, 0.28f, 1f),
                 Close);
+        }
+
+        private void ApplyFont(Text text)
+        {
+            if (text == null) return;
+            if (font != null) text.font = font;
         }
 
         private void CreateActionButton(Transform parent, string label, Vector2 pos, Color color, UnityEngine.Events.UnityAction onClick)
@@ -133,7 +157,7 @@ namespace Yoegoe.UI
             SetupRect(textGO, go.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
             var text = textGO.AddComponent<Text>();
-            text.font = font;
+            ApplyFont(text);
             text.fontSize = 32;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;

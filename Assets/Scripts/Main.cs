@@ -169,19 +169,25 @@ namespace Yoegoe
         private void CreateHud()
         {
             var detailGO = new GameObject("DetailScreen");
+            detailGO.SetActive(false);
             var detail = detailGO.AddComponent<DetailScreen>();
             detail.font = hudFont;
             detail.offerings = offerings;
+            detailGO.SetActive(true);
 
             var purchaseGO = new GameObject("PropPurchasePopup");
+            purchaseGO.SetActive(false);
             var purchase = purchaseGO.AddComponent<PropPurchasePopup>();
             purchase.font = hudFont;
+            purchaseGO.SetActive(true);
 
             var hudGO = new GameObject("Hud");
+            hudGO.SetActive(false);
             var hud = hudGO.AddComponent<GameHud>();
             hud.font = hudFont;
             hud.purifiedWaterIcon = purifiedWaterIcon;
             hud.detailScreen = detail;
+            hudGO.SetActive(true);
         }
 
         /// <summary>

@@ -32,18 +32,24 @@ namespace Yoegoe.UI
 
         private void Awake()
         {
-            Build();
+            // Build은 Start에서 — Main이 font를 넣은 뒤여야 한글이 보인다.
+        }
+
+        private void Start()
+        {
+            EnsureBuilt();
             root.SetActive(false);
         }
 
         private void Update()
         {
-            if (currentAgent == null || !root.activeSelf) return;
+            if (currentAgent == null || root == null || !root.activeSelf) return;
             RefreshStats();
         }
 
         public void Open(CharacterAgent agent)
         {
+            EnsureBuilt();
             currentAgent = agent;
             root.SetActive(true);
 
@@ -57,8 +63,16 @@ namespace Yoegoe.UI
 
         public void Close()
         {
-            root.SetActive(false);
+            if (root != null) root.SetActive(false);
             currentAgent = null;
+        }
+
+        private void EnsureBuilt()
+        {
+            if (root != null) return;
+            if (font == null)
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Build();
         }
 
         private void RefreshStats()
@@ -128,16 +142,18 @@ namespace Yoegoe.UI
             var bg = root.AddComponent<Image>();
             bg.color = new Color(0.05f, 0.03f, 0.03f, 0.92f);
 
-            // 닫기 버튼 (좌상단)
+            // 닫기 버튼 (좌상단) — 한글 "닫기" 대신 × (기본 폰트에서도 보임)
             var closeGO = new GameObject("CloseButton");
-            SetupRect(closeGO, rootRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -24), new Vector2(64, 64));
+            SetupRect(closeGO, rootRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -24), new Vector2(72, 72));
             var closeImg = closeGO.AddComponent<Image>();
-            closeImg.color = new Color(0.3f, 0.22f, 0.18f, 0.9f);
+            closeImg.color = new Color(0.35f, 0.25f, 0.2f, 0.95f);
             var closeBtn = closeGO.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
             closeBtn.onClick.AddListener(Close);
-            var closeLabel = CreateText(closeGO.transform, "닫기", 22, TextAnchor.MiddleCenter);
-            SetupRect(closeLabel.gameObject, closeGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+
+            // 두 막대로 X 그리기 (Text/한글 폰트 의존 없음)
+            CreateCloseBar(closeGO.transform, 45f);
+            CreateCloseBar(closeGO.transform, -45f);
 
             // 이름 + 단계
             nameText = CreateText(rootRt, "", 44, TextAnchor.MiddleCenter);
@@ -211,6 +227,17 @@ namespace Yoegoe.UI
                     btn.onClick.AddListener(() => OnFeed(captured));
                 }
             }
+        }
+
+        private static void CreateCloseBar(Transform parent, float zAngle)
+        {
+            var barGO = new GameObject("XBar");
+            var rt = SetupRect(barGO, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(36, 5));
+            rt.localRotation = Quaternion.Euler(0f, 0f, zAngle);
+            var img = barGO.AddComponent<Image>();
+            img.color = new Color(1f, 0.95f, 0.9f, 1f);
+            img.raycastTarget = false;
         }
 
         private Text CreateText(Transform parent, string initial, int fontSize, TextAnchor alignment)

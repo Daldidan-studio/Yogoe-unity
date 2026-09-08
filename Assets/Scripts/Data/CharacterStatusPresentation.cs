@@ -24,12 +24,14 @@ namespace Yoegoe.Data
             public static readonly SlotBadge Hidden = new SlotBadge(false, "", Color.clear);
         }
 
-        /// <summary>하단 슬롯 위 딱지 (기획 6-2: 일하는 / 힘든 / 기절).</summary>
+        /// <summary>하단 슬롯 위 딱지 (기획 6-2: 일하는 / 힘든 / 기절). 놀기는 디버그용.</summary>
         public static SlotBadge ForSlot(ActionState state) => state switch
         {
             ActionState.Staying => new SlotBadge(true, "일하는", new Color(0.2f, 0.45f, 0.85f, 0.95f)),
             ActionState.Slumped => new SlotBadge(true, "힘든", new Color(0.9f, 0.55f, 0.15f, 0.95f)),
             ActionState.Fainted => new SlotBadge(true, "기절", new Color(0.55f, 0.2f, 0.2f, 0.95f)),
+            // 디버그: 놀기 확인용 (기획 슬롯 딱지에는 원래 없음)
+            ActionState.Playing => new SlotBadge(true, "놀기", new Color(0.85f, 0.35f, 0.75f, 0.95f)),
             _ => SlotBadge.Hidden
         };
 

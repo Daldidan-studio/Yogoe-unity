@@ -20,8 +20,11 @@ namespace Yoegoe.Characters
         [Tooltip("이보다 많이 움직이면 탭이 아니라 드래그로 확정.")]
         public float dragThresholdPixels = 24f;
 
-        [Tooltip("누른 지점 기준 캐릭터 히트 반경(월드).")]
-        public float characterHitRadius = 1.4f;
+        [Tooltip("캐릭터 스프라이트 bounds에 더하는 여유(월드). 너무 크면 근처 맵 드래그가 캐릭터로 잡힘.")]
+        public float characterHitPadding = 0.12f;
+
+        [Tooltip("스프라이트가 없을 때 쓰는 고정 히트 반경(월드).")]
+        public float characterHitRadiusFallback = 0.45f;
 
         [Tooltip("드롭 시 기물 스냅 반경(월드).")]
         public float propDropRadius = 1.2f;
@@ -168,18 +171,41 @@ namespace Yoegoe.Characters
             world.z = 0f;
 
             CharacterAgent nearest = null;
-            float nearestDist = characterHitRadius;
+            float nearestScore = float.MaxValue;
             foreach (var agent in CharacterAgent.All)
             {
                 if (agent == null) continue;
-                float d = Vector2.Distance(agent.transform.position, world);
-                if (d <= nearestDist)
+                if (!TryGetCharacterHitScore(agent, world, out float score)) continue;
+                if (score < nearestScore)
                 {
-                    nearestDist = d;
+                    nearestScore = score;
                     nearest = agent;
                 }
             }
             return nearest;
+        }
+
+        /// <summary>
+        /// 스프라이트 사각형(+패딩) 안이면 점수=중심거리, 밖이면 미히트.
+        /// 피벗(발) 기준 큰 원 히트는 근처 맵 드래그를 캐릭터로 오판한다.
+        /// </summary>
+        private bool TryGetCharacterHitScore(CharacterAgent agent, Vector3 world, out float score)
+        {
+            score = 0f;
+            var sr = agent.GetComponentInChildren<SpriteRenderer>();
+            if (sr != null && sr.sprite != null)
+            {
+                Bounds b = sr.bounds;
+                b.Expand(characterHitPadding);
+                if (!b.Contains(world)) return false;
+                score = Vector2.Distance(b.center, world);
+                return true;
+            }
+
+            float d = Vector2.Distance(agent.transform.position, world);
+            if (d > characterHitRadiusFallback) return false;
+            score = d;
+            return true;
         }
 
         private PropSlot FindDropProp(CharacterAgent agent, Vector2 screenPos)
