@@ -78,6 +78,7 @@ namespace Yoegoe.UI
                 ActionState.Staying => "기물에서 일하는 중",
                 ActionState.Slumped => "지쳐서 주저앉았다",
                 ActionState.Fainted => "기절했다",
+                ActionState.Playing => "놀고 있는 중",
                 _ => ""
             };
         }

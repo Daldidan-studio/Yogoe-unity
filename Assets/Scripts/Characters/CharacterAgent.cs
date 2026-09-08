@@ -25,6 +25,7 @@ namespace Yoegoe.Characters
         [SerializeField] private SpriteRenderer spriteRenderer; // 없어도 무방, 나중에 아트 연결용
 
         private const float StayDurationSeconds = 5f * 60f;
+        private const float PlayDurationSeconds = 5f * 60f; // 6-2 놀기
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float WanderRetrySeconds = 30f;
 
@@ -117,6 +118,7 @@ namespace Yoegoe.Characters
                 ActionState.Staying => new Color(0.25f, 0.55f, 1f), // 파랑 = 기물에서 일하는 중 (정상)
                 ActionState.Slumped => Color.yellow,
                 ActionState.Fainted => Color.red,
+                ActionState.Playing => new Color(1f, 0.45f, 0.85f), // 분홍 = 놀기
                 _ => Color.white
             };
         }
@@ -153,6 +155,7 @@ namespace Yoegoe.Characters
                 case ActionState.Staying: TickStaying(dt); break;
                 case ActionState.Slumped: TickSlumped(dt); break;
                 case ActionState.Fainted: /* 외부(공양)에서만 깨어남 */ break;
+                case ActionState.Playing: TickPlaying(dt); break;
             }
 
             UpdateWalkAnimation(dt);
@@ -315,7 +318,8 @@ namespace Yoegoe.Characters
                 // 상태 애니(앉기·기절 등)는 가만히 있어도 프레임 순환
                 bool loopWhileIdle = Stats.State == ActionState.Staying
                     || Stats.State == ActionState.Slumped
-                    || Stats.State == ActionState.Fainted;
+                    || Stats.State == ActionState.Fainted
+                    || Stats.State == ActionState.Playing;
                 if (loopWhileIdle)
                 {
                     animTimer += dt;
@@ -346,6 +350,9 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Staying:
                     if (HasFrames(Data.stay)) return Data.stay;
+                    break;
+                case ActionState.Playing:
+                    if (HasFrames(Data.idle)) return Data.idle;
                     break;
                 case ActionState.Slumped:
                     if (HasFrames(Data.slumped)) return Data.slumped;
@@ -530,6 +537,77 @@ namespace Yoegoe.Characters
             }
         }
 
+        // ---------------- Playing (놀기, 6-2) ----------------
+
+        /// <summary>
+        /// 기물이 아닌 곳에 내려놓았을 때 호출 (드래그 드롭). 기물 점유를 풀고 5분간 맵을 돌아다닌다.
+        /// 기력 소모·생산 없음. 혼잣말은 유지. Docs/06_행동룰.md
+        /// </summary>
+        public void EnterPlaying()
+        {
+            if (Stats.Stage == GrowthStage.Neok) return;
+            if (Stats.State == ActionState.Fainted) return; // 기절은 드래그 불가
+
+            ClearWalkDestination();
+            LeaveCurrentProp();
+            isWandering = false;
+            wanderTarget = null;
+            Stats.State = ActionState.Playing;
+            Stats.StateTimer = 0f;
+        }
+
+        private void TickPlaying(float dt)
+        {
+            Stats.StateTimer += dt;
+            if (Stats.StateTimer >= PlayDurationSeconds)
+            {
+                EnterWalking();
+                return;
+            }
+
+            // 목적지 없이 맵을 떠돈다. 가끔 한곳에 멈춰 쉬는 연출은 wander 도착 시 짧은 대기로 대체.
+            if (wanderTarget == null || Vector3.Distance(transform.position, wanderTarget.Value) < 0.05f)
+            {
+                // 도착 후 1~3초 쉬는 느낌: 다음 타겟을 바로 안 고르고 타이머만 쓰려면 복잡해지므로
+                // 랜덤 지점으로 계속 이동 (기력 소모 없음).
+                wanderTarget = MapBounds.RandomPoint(transform.position.z);
+            }
+            transform.position = MapBounds.Clamp(
+                Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
+            ResolveSeparation(dt);
+        }
+
+        /// <summary>
+        /// 놀기·걷기 중 기물에 올려 앉히기. 성공 시 머물기 5분이 새로 시작된다.
+        /// 이미 다른 요괴가 앉아 있거나 엔딩기물 제한이면 false.
+        /// </summary>
+        public bool TrySitOnProp(PropSlot prop)
+        {
+            if (prop == null || Stats.Stage == GrowthStage.Neok) return false;
+            if (Stats.State == ActionState.Fainted) return false;
+
+            ClearWalkDestination();
+            LeaveCurrentProp();
+
+            if (!prop.CanBeUsedBy(this)) return false;
+            if (!prop.TryOccupy(this)) return false;
+
+            currentProp = prop;
+            EnterStaying();
+            return true;
+        }
+
+        private void ClearWalkDestination()
+        {
+            if (destination != null)
+            {
+                destination.ReleaseReservation(this);
+                destination = null;
+            }
+            isWandering = false;
+            wanderTarget = null;
+        }
+
         // ---------------- Slumped / Fainted ----------------
 
         private void EnterSlumped()
@@ -579,6 +657,7 @@ namespace Yoegoe.Characters
                 case ActionState.Staying: c = Color.blue; break;
                 case ActionState.Slumped: c = Color.yellow; break;
                 case ActionState.Fainted: c = Color.red; break;
+                case ActionState.Playing: c = new Color(1f, 0.45f, 0.85f); break;
                 default: c = Color.white; break;
             }
             Gizmos.color = c;
