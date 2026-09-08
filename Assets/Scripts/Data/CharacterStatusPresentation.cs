@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Yoegoe.Data
 {
     /// <summary>
-    /// ActionState → UI 표시(슬롯 딱지 / 상세 문구 / 디버그 점 색) 매핑.
+    /// ActionState → UI 표시(슬롯 딱지 / 상세 문구 / 기력바 색) 매핑.
     /// 원본 상태는 CharacterAgent.Stats.State, 문구·색만 여기서 관리한다.
     /// </summary>
     public static class CharacterStatusPresentation
@@ -42,17 +42,6 @@ namespace Yoegoe.Data
             ActionState.Fainted => "기절했다",
             ActionState.Playing => "놀고 있는 중",
             _ => ""
-        };
-
-        /// <summary>캐릭터 머리 위 디버그 점 색.</summary>
-        public static Color ForDebugDot(ActionState state) => state switch
-        {
-            ActionState.Walking => Color.green,
-            ActionState.Staying => new Color(0.25f, 0.55f, 1f),
-            ActionState.Slumped => Color.yellow,
-            ActionState.Fainted => Color.red,
-            ActionState.Playing => new Color(1f, 0.45f, 0.85f),
-            _ => Color.white
         };
 
         private static readonly Color StaminaHealthy = new Color(0.35f, 0.75f, 0.4f, 1f);

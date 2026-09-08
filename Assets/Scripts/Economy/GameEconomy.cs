@@ -141,6 +141,24 @@ namespace Yoegoe.Economy
             OnYutTokenChanged?.Invoke(YutToken);
         }
 
+        /// <summary>세이브 스냅샷으로 재화만 덮어쓴다 (공양물 인벤은 이후 패스).</summary>
+        public static void ApplySaveSnapshot(BigNumber merit, int yeopjeon, int hyang,
+            int purifiedWater, int yutToken, int yutTokenMax)
+        {
+            MeritPile = merit;
+            Yeopjeon = yeopjeon;
+            Hyang = hyang;
+            PurifiedWater = purifiedWater;
+            YutTokenMax = Mathf.Max(1, yutTokenMax);
+            YutToken = Mathf.Clamp(yutToken, 0, YutTokenMax);
+
+            OnMeritChanged?.Invoke(MeritPile);
+            OnYeopjeonChanged?.Invoke(Yeopjeon);
+            OnHyangChanged?.Invoke(Hyang);
+            OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            OnYutTokenChanged?.Invoke(YutToken);
+        }
+
         public static void ResetForTesting()
         {
             ApplyStartingState(StartingStateSettings.Get());

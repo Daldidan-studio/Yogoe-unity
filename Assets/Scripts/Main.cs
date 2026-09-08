@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -6,6 +7,7 @@ using Yoegoe.Characters;
 using Yoegoe.Data;
 using Yoegoe.Debugging;
 using Yoegoe.Economy;
+using Yoegoe.Save;
 using Yoegoe.UI;
 
 namespace Yoegoe
@@ -131,18 +133,31 @@ namespace Yoegoe
             CreateHud();
         }
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-        [DllImport("__Internal")]
-        static extern void YogoeHideLoadingOverlay();
-#endif
-
-        private void Start()
+        private IEnumerator Start()
         {
-            // 빌드 씬은 Main — 로딩 오버레이를 아래로 내리며 게임을 드러낸다.
+            // CharacterAgent.Start(기본 스탯)가 끝난 뒤 세이브를 덮어써야 복원이 유지된다.
+            yield return null;
+            GameSaveBridge.TryLoadSimulateAndApply();
+
 #if UNITY_WEBGL && !UNITY_EDITOR
             YogoeHideLoadingOverlay();
 #endif
         }
+
+        private void OnApplicationPause(bool pause)
+        {
+            if (pause) GameSaveBridge.SaveFromWorld();
+        }
+
+        private void OnApplicationQuit()
+        {
+            GameSaveBridge.SaveFromWorld();
+        }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        static extern void YogoeHideLoadingOverlay();
+#endif
 
         private void CreateHud()
         {

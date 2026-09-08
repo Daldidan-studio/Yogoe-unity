@@ -62,6 +62,26 @@ namespace Yoegoe.Characters
             if (Occupant == agent) Occupant = null;
         }
 
+        /// <summary>세이브 로드용. 더미만 덮어쓴다.</summary>
+        public void SetPendingMeritFromSave(BigNumber amount)
+        {
+            PendingMerit = amount;
+        }
+
+        /// <summary>세이브 복원 전 점유만 비운다 (더미는 유지).</summary>
+        public void ClearOccupantForSaveRestore()
+        {
+            Occupant = null;
+            ReservedBy = null;
+        }
+
+        /// <summary>세이브 복원용 강제 점유.</summary>
+        public void ForceOccupyForSaveRestore(CharacterAgent agent)
+        {
+            Occupant = agent;
+            ReservedBy = null;
+        }
+
         /// <summary>7-1: 머물기 중 생산분을 기물 더미에 적립. HUD 지갑으로는 바로 안 들어간다.</summary>
         public void AddToMeritPile(BigNumber amount)
         {

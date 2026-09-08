@@ -28,11 +28,6 @@ namespace Yoegoe.Characters
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float WanderRetrySeconds = 30f;
 
-        [Header("디버그: 기력 소모 배속 (테스트용, 확인 끝나면 1로 되돌릴 것)")]
-        [Tooltip("1 = 기획서 그대로(1분당 3, 20초당 1). 8이면 8배 빨리 줄어서 2.5초당 1점 — " +
-                 "눈으로 바로 확인하기 위한 임시값. 확인 끝나면 1로 되돌려주세요.")]
-        public float staminaDrainMultiplier = 8f;
-
         [Header("혼잣말 (6-4장)")]
         [Tooltip("혼잣말 말풍선에 쓸 한글 폰트. 비워두면 유니티 기본 폰트로 나와서 한글이 깨질 수 있음.")]
         public Font bubbleFont;
@@ -77,48 +72,8 @@ namespace Yoegoe.Characters
         private void OnDisable()
         {
             ActiveAgents.Remove(this);
-            if (stateDot != null) Destroy(stateDot.gameObject);
             if (bubbleBg != null) Destroy(bubbleBg.gameObject);
             if (bubbleTextMesh != null) Destroy(bubbleTextMesh.gameObject);
-        }
-
-        // ---------------- 상태 디버그 표시 (에디터 Gizmo는 WebGL 빌드에선 안 보여서 따로 만듦) ----------------
-        private SpriteRenderer stateDot;
-        private static Sprite sharedDotSprite;
-
-        private static Sprite GetSharedDotSprite()
-        {
-            if (sharedDotSprite != null) return sharedDotSprite;
-            var tex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Point;
-            tex.wrapMode = TextureWrapMode.Clamp;
-            var pixels = new Color[64];
-            for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
-            tex.SetPixels(pixels);
-            tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-            sharedDotSprite = Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 8f);
-            return sharedDotSprite;
-        }
-
-        /// <summary>
-        /// 지금 뭘 하고 있는지(걷기=초록/머물기=파랑/주저앉기=노랑/기절=빨강)를 캐릭터 머리 위에
-        /// 작은 점으로 항상 표시한다. Scene 뷰 Gizmo와 달리 실제 빌드(WebGL 포함)에서도 보여서,
-        /// "멈춰 보이는 게 버그인지 원래 일하는 중(머물기)인지" 눈으로 바로 구분할 수 있게 하기 위함.
-        /// </summary>
-        private void UpdateStateDot()
-        {
-            if (stateDot == null)
-            {
-                var dotGO = new GameObject(gameObject.name + "_StateDot");
-                stateDot = dotGO.AddComponent<SpriteRenderer>();
-                stateDot.sprite = GetSharedDotSprite();
-                stateDot.sortingOrder = 1000;
-                dotGO.transform.localScale = Vector3.one * 0.12f;
-            }
-
-            float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
-            stateDot.transform.position = transform.position + Vector3.up * (spriteTop + 0.15f);
-            stateDot.color = CharacterStatusPresentation.ForDebugDot(Stats.State);
         }
 
         private void Start()
@@ -149,7 +104,6 @@ namespace Yoegoe.Characters
             if (IsBeingDragged)
             {
                 UpdateSortingOrder();
-                UpdateStateDot();
                 return;
             }
 
@@ -160,7 +114,6 @@ namespace Yoegoe.Characters
             {
                 CatchUpAfterPause(dt);
                 UpdateSortingOrder();
-                UpdateStateDot();
                 return;
             }
 
@@ -175,7 +128,6 @@ namespace Yoegoe.Characters
 
             UpdateWalkAnimation(dt);
             UpdateSortingOrder();
-            UpdateStateDot();
             if (Stats.State != ActionState.Fainted) UpdateMonologue(dt);
         }
 
@@ -561,7 +513,7 @@ namespace Yoegoe.Characters
         private void TickStaying(float dt)
         {
             Stats.StateTimer += dt;
-            Stats.Stamina -= dt / 20f * staminaDrainMultiplier; // 6-2: 1분당 3 소모 = 20초당 1 (디버그 배속 적용)
+            Stats.Stamina -= dt / 20f; // 6-2: 1분당 3 소모 = 20초당 1
 
             if (Stats.Stamina <= 0f)
             {
@@ -745,6 +697,46 @@ namespace Yoegoe.Characters
             {
                 Stats.State = ActionState.Fainted;
                 Stats.StateTimer = 0f;
+            }
+        }
+
+        // ---------------- 세이브 복원 ----------------
+
+        /// <summary>오프라인 시뮬 결과를 월드에 붙일 때 호출. 점유 기물이 있으면 강제 앉힌다.</summary>
+        public void ApplySaveSnapshot(
+            GrowthStage stage,
+            float intimacy,
+            float stamina,
+            ActionState state,
+            float stateTimer,
+            Vector3 worldPos,
+            PropSlot occupyProp)
+        {
+            ClearWalkDestination();
+            if (currentProp != null)
+            {
+                currentProp.Vacate(this);
+                currentProp = null;
+            }
+
+            Stats.Stage = stage;
+            Stats.Intimacy = intimacy;
+            Stats.Stamina = stamina;
+            Stats.State = state;
+            Stats.StateTimer = stateTimer;
+            transform.position = MapBounds.Clamp(worldPos);
+
+            if (occupyProp != null
+                && (state == ActionState.Staying
+                    || state == ActionState.Slumped
+                    || state == ActionState.Fainted))
+            {
+                occupyProp.ForceOccupyForSaveRestore(this);
+                currentProp = occupyProp;
+                transform.position = MapBounds.Clamp(new Vector3(
+                    occupyProp.transform.position.x,
+                    occupyProp.transform.position.y,
+                    transform.position.z));
             }
         }
 
