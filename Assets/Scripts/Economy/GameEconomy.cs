@@ -11,7 +11,7 @@ namespace Yoegoe.Economy
     /// </summary>
     public static class GameEconomy
     {
-        // ---------------- 공덕 (7장, 무한 확장) ----------------
+        // ---------------- 공덕 (플레이어 지갑 — 수거된 공덕. 기물 더미는 PropSlot.PendingMerit) ----------------
         public static BigNumber MeritPile { get; private set; } = BigNumber.Zero;
         public static event Action<BigNumber> OnMeritChanged;
 

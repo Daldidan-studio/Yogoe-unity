@@ -25,6 +25,7 @@ namespace Yoegoe.UI
         private Text nameText;
         private Text staminaText;
         private Image staminaFill;
+        private RectTransform staminaFillRt;
         private Text heartsText;
         private Text descriptionText;
         private Text statusText;
@@ -64,7 +65,22 @@ namespace Yoegoe.UI
         {
             var stats = currentAgent.Stats;
             staminaText.text = "기력 " + Mathf.RoundToInt(stats.Stamina);
-            staminaFill.fillAmount = Mathf.Clamp01(stats.Stamina / 100f);
+            float ratio = Mathf.Clamp01(stats.Stamina / 100f);
+            if (staminaFillRt != null)
+            {
+                var parentRt = staminaFillRt.parent as RectTransform;
+                float parentW = parentRt != null ? parentRt.rect.width : 500f;
+                if (parentW < 1f) parentW = 500f;
+
+                staminaFillRt.anchorMin = new Vector2(0f, 0f);
+                staminaFillRt.anchorMax = new Vector2(0f, 1f);
+                staminaFillRt.pivot = new Vector2(0f, 0.5f);
+                staminaFillRt.anchoredPosition = Vector2.zero;
+                staminaFillRt.sizeDelta = new Vector2(parentW * ratio, 0f);
+                staminaFillRt.localScale = Vector3.one;
+            }
+            if (staminaFill != null)
+                staminaFill.color = CharacterStatusPresentation.ForStaminaBar(stats.State, Time.unscaledTime);
 
             // 20칸, 하트 1개 = 5점 (기획서 1장).
             int filled = Mathf.Clamp(Mathf.RoundToInt(stats.Intimacy / 5f), 0, 20);
@@ -141,11 +157,12 @@ namespace Yoegoe.UI
             var staminaBg = staminaBgGO.AddComponent<Image>();
             staminaBg.color = new Color(0.25f, 0.2f, 0.18f, 1f);
             var staminaFillGO = new GameObject("StaminaBarFill");
-            SetupRect(staminaFillGO, staminaBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0, 0.5f), Vector2.zero, Vector2.zero);
+            var staminaFillRt = SetupRect(staminaFillGO, staminaBgGO.transform, Vector2.zero, Vector2.one,
+                new Vector2(0, 0.5f), Vector2.zero, Vector2.zero);
             staminaFill = staminaFillGO.AddComponent<Image>();
             staminaFill.color = new Color(0.35f, 0.75f, 0.4f, 1f);
-            staminaFill.type = Image.Type.Filled;
-            staminaFill.fillMethod = Image.FillMethod.Horizontal;
+            staminaFill.raycastTarget = false;
+            this.staminaFillRt = staminaFillRt;
             staminaText = CreateText(staminaBgGO.transform, "", 20, TextAnchor.MiddleCenter);
             SetupRect(staminaText.gameObject, staminaBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
 

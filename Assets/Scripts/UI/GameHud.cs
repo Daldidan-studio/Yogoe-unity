@@ -37,6 +37,7 @@ namespace Yoegoe.UI
             public GameObject StatusTagRoot;
             public Image StatusTagBg;
             public Image StaminaFill;
+            public RectTransform StaminaFillRt;
         }
 
         private void Start()
@@ -83,14 +84,23 @@ namespace Yoegoe.UI
                 string stageLabel = chip.Agent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
                 string name = chip.Agent.Data != null ? chip.Agent.Data.displayName : "?";
                 chip.NameText.text = name + " · " + stageLabel;
-                if (chip.StaminaFill != null)
+                if (chip.StaminaFill != null && chip.StaminaFillRt != null)
                 {
                     var state = chip.Agent.Stats.State;
                     bool alert = state == ActionState.Slumped || state == ActionState.Fainted;
-                    // 기력 0이면 fill이 비어 번쩍임이 안 보이므로, 주저/기절은 바 전체를 경고색으로 깜빡인다.
-                    chip.StaminaFill.fillAmount = alert
-                        ? 1f
-                        : Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
+                    float ratio = alert ? 1f : Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
+
+                    // 왼쪽 고정, 너비만 줄임 → 오른쪽부터 깎인다.
+                    var parentRt = chip.StaminaFillRt.parent as RectTransform;
+                    float parentW = parentRt != null ? parentRt.rect.width : 130f;
+                    if (parentW < 1f) parentW = 130f;
+
+                    chip.StaminaFillRt.anchorMin = new Vector2(0f, 0f);
+                    chip.StaminaFillRt.anchorMax = new Vector2(0f, 1f);
+                    chip.StaminaFillRt.pivot = new Vector2(0f, 0.5f);
+                    chip.StaminaFillRt.anchoredPosition = Vector2.zero;
+                    chip.StaminaFillRt.sizeDelta = new Vector2(parentW * ratio, 0f);
+                    chip.StaminaFillRt.localScale = Vector3.one;
                     chip.StaminaFill.color = CharacterStatusPresentation.ForStaminaBar(
                         state, Time.unscaledTime);
                 }
@@ -175,12 +185,11 @@ namespace Yoegoe.UI
                 barBg.color = new Color(0.25f, 0.2f, 0.18f, 1f);
 
                 var barFillGO = new GameObject("StaminaBarFill");
-                SetupRect(barFillGO, barBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
+                var barFillRt = SetupRect(barFillGO, barBgGO.transform, Vector2.zero, Vector2.one,
+                    new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
                 var barFill = barFillGO.AddComponent<Image>();
                 barFill.color = new Color(0.35f, 0.75f, 0.4f, 1f);
-                barFill.type = Image.Type.Filled;
-                barFill.fillMethod = Image.FillMethod.Horizontal;
-                barFill.fillAmount = 1f;
+                barFill.raycastTarget = false;
 
                 slotChips.Add(new SlotChip
                 {
@@ -189,7 +198,8 @@ namespace Yoegoe.UI
                     StatusTagText = tagText,
                     StatusTagRoot = tagGO,
                     StatusTagBg = tagBg,
-                    StaminaFill = barFill
+                    StaminaFill = barFill,
+                    StaminaFillRt = barFillRt
                 });
             }
         }

@@ -25,6 +25,9 @@ namespace Yoegoe.Characters
         [Tooltip("드롭 시 기물 스냅 반경(월드).")]
         public float propDropRadius = 1.2f;
 
+        [Tooltip("탭으로 공덕 수거할 때 기물 히트 반경(월드).")]
+        public float propTapRadius = 1.0f;
+
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag }
 
         private Phase phase = Phase.Idle;
@@ -33,6 +36,7 @@ namespace Yoegoe.Characters
         private Vector2 lastScreen;
         private CharacterAgent pressCharacter;
         private CharacterAgent dragCharacter;
+        private PropSlot pressProp;
 
         private static readonly List<RaycastResult> UiRaycastHits = new List<RaycastResult>(8);
 
@@ -68,6 +72,7 @@ namespace Yoegoe.Characters
             pressStartScreen = screenPos;
             lastScreen = screenPos;
             pressCharacter = FindNearestCharacter(screenPos);
+            pressProp = FindNearestProp(screenPos);
             dragCharacter = null;
             phase = Phase.Pending;
         }
@@ -113,7 +118,11 @@ namespace Yoegoe.Characters
         {
             if (phase == Phase.Pending)
             {
-                if (pressCharacter != null) pressCharacter.OnTapped();
+                // 7-2: 더미 있는 기물 탭 → 수거. 없으면 캐릭터 혼잣말.
+                if (pressProp != null && pressProp.HasPendingMerit)
+                    pressProp.TryCollectMerit();
+                else if (pressCharacter != null)
+                    pressCharacter.OnTapped();
             }
             else if (phase == Phase.CharacterDrag && dragCharacter != null)
             {
@@ -124,6 +133,7 @@ namespace Yoegoe.Characters
             phase = Phase.Idle;
             pressCharacter = null;
             dragCharacter = null;
+            pressProp = null;
         }
 
         private void ResolveMapDrag()
@@ -175,6 +185,15 @@ namespace Yoegoe.Characters
             if (PropManager.Instance != null)
                 return PropManager.Instance.FindNearestDropTarget(agent, world, propDropRadius);
             return null;
+        }
+
+        private PropSlot FindNearestProp(Vector2 screenPos)
+        {
+            if (targetCamera == null || PropManager.Instance == null) return null;
+            float depth = -targetCamera.transform.position.z;
+            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            world.z = 0f;
+            return PropManager.Instance.FindNearestProp(world, propTapRadius);
         }
 
         /// <summary>해당 스크린 좌표에 레이캐스트되는 UI가 있으면 true.</summary>

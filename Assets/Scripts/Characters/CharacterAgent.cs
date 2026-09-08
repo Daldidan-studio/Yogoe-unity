@@ -1,6 +1,5 @@
 using UnityEngine;
 using Yoegoe.Data;
-using Yoegoe.Economy;
 
 namespace Yoegoe.Characters
 {
@@ -576,7 +575,8 @@ namespace Yoegoe.Characters
                 double perMinute = currentProp.GetBaseProductionThisLevel()
                                     * GetIntimacyCorrection()
                                     * GetEndingPropCorrection();
-                GameEconomy.AddMerit(perMinute / 60.0 * dt);
+                // 7-2: HUD가 아니라 기물 더미에 쌓임. 탭 수거 시 GameEconomy로 이동.
+                currentProp.AddToMeritPile(perMinute / 60.0 * dt);
             }
 
             if (Stats.StateTimer >= StayDurationSeconds)

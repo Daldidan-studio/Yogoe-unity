@@ -65,5 +65,23 @@ namespace Yoegoe.Characters
             }
             return best;
         }
+
+        /// <summary>탭/수거용: worldPos에 가장 가까운 기물.</summary>
+        public PropSlot FindNearestProp(Vector3 worldPos, float maxRadius)
+        {
+            PropSlot best = null;
+            float bestDist = maxRadius;
+            foreach (var p in allProps)
+            {
+                if (p == null) continue;
+                float d = Vector2.Distance(p.transform.position, worldPos);
+                if (d <= bestDist)
+                {
+                    bestDist = d;
+                    best = p;
+                }
+            }
+            return best;
+        }
     }
 }
