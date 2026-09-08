@@ -33,6 +33,7 @@ namespace Yoegoe.Characters
         {
             var candidates = allProps.Where(p =>
                 p != null &&
+                p.IsBuilt &&
                 !p.IsOccupied &&
                 !p.IsReserved &&
                 p != exclude &&
@@ -51,6 +52,7 @@ namespace Yoegoe.Characters
             foreach (var p in allProps)
             {
                 if (p == null) continue;
+                if (!p.IsBuilt) continue;
                 if (!p.CanBeUsedBy(requester)) continue;
                 if (p.IsOccupied) continue;
                 // 예약만 된 자리(다른 요괴가 오는 중)는 앉히지 않음

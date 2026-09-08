@@ -118,8 +118,14 @@ namespace Yoegoe.Characters
         {
             if (phase == Phase.Pending)
             {
+                // 8장: 미건립 자물쇠 탭 → 구매 팝업
+                if (pressProp != null && !pressProp.IsBuilt)
+                {
+                    var popup = Yoegoe.UI.PropPurchasePopup.Instance;
+                    if (popup != null) popup.Open(pressProp);
+                }
                 // 7-2: 더미 있는 기물 탭 → 수거. 없으면 캐릭터 혼잣말.
-                if (pressProp != null && pressProp.HasPendingMerit)
+                else if (pressProp != null && pressProp.HasPendingMerit)
                     pressProp.TryCollectMerit();
                 else if (pressCharacter != null)
                     pressCharacter.OnTapped();

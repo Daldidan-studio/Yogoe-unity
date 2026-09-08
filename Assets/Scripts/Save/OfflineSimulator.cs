@@ -161,7 +161,7 @@ namespace Yoegoe.Save
         {
             if (string.IsNullOrEmpty(agent.occupiedPropId) || data.props == null) return;
             var prop = FindProp(data, agent.occupiedPropId);
-            if (prop == null) return;
+            if (prop == null || !prop.isBuilt) return;
 
             double basePerMin = prop.baseProductionPerMinute;
             if (basePerMin <= 0) basePerMin = 100;

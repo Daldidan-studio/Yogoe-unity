@@ -9,12 +9,16 @@ namespace Yoegoe.Characters
     /// <summary>
     /// 씬에 배치된 기물 하나.
     /// 공덕은 기물별 더미에 쌓이고, 탭으로 수거한다 (기획 7-1·7-2).
+    /// 미건립(자물쇠)은 걷기·생산·점유 대상이 아니다 (기획 8장).
     /// </summary>
     [DisallowMultipleComponent]
     public class PropSlot : MonoBehaviour
     {
         public PropData data;
         [Min(1)] public int level = 1;
+
+        /// <summary>건립 여부. prebuilt면 시작 true, 자물쇠는 구매 후 true.</summary>
+        public bool IsBuilt { get; private set; }
 
         public CharacterAgent Occupant { get; private set; }
         public bool IsOccupied => Occupant != null;
@@ -24,18 +28,58 @@ namespace Yoegoe.Characters
 
         /// <summary>아직 수거하지 않은 기물 공덕 더미 (7-2).</summary>
         public BigNumber PendingMerit { get; private set; } = BigNumber.Zero;
-        public bool HasPendingMerit => PendingMerit.Mantissa != 0;
+        public bool HasPendingMerit => IsBuilt && PendingMerit.Mantissa != 0;
 
         private TextMesh pileLabel;
+        private TextMesh lockLabel;
+        private SpriteRenderer spriteRenderer;
+        private Renderer meshRenderer;
+        private Sprite builtSprite;
+        private Color builtTint = Color.white;
         private static Font sharedPileFont;
+
+        public event Action<PropSlot> OnBuilt;
+        public event Action<PropSlot> OnLevelUp;
+
+        private void Awake()
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+            meshRenderer = GetComponent<Renderer>();
+        }
 
         private void OnEnable() => PropManager.Instance?.Register(this);
         private void OnDisable() => PropManager.Instance?.Unregister(this);
 
-        private void LateUpdate() => RefreshPileLabel();
+        private void LateUpdate()
+        {
+            RefreshPileLabel();
+            RefreshLockVisual();
+        }
+
+        /// <summary>Main 스폰 직후 호출. prebuilt면 즉시 건립.</summary>
+        public void ConfigureBuiltState(bool built)
+        {
+            IsBuilt = built;
+            if (built)
+                ApplyBuiltVisual();
+            else
+                ApplyLockVisual();
+        }
+
+        public void Build()
+        {
+            if (IsBuilt) return;
+            IsBuilt = true;
+            level = Math.Max(1, level);
+            ApplyBuiltVisual();
+            OnBuilt?.Invoke(this);
+        }
+
+        public void NotifyLevelUp() => OnLevelUp?.Invoke(this);
 
         public bool TryReserve(CharacterAgent agent)
         {
+            if (!IsBuilt) return false;
             if (IsOccupied) return false;
             if (IsReserved && ReservedBy != agent) return false;
             ReservedBy = agent;
@@ -49,6 +93,7 @@ namespace Yoegoe.Characters
 
         public bool TryOccupy(CharacterAgent agent)
         {
+            if (!IsBuilt) return false;
             if (IsOccupied) return false;
             if (IsReserved && ReservedBy != agent) return false;
             Occupant = agent;
@@ -68,6 +113,21 @@ namespace Yoegoe.Characters
             PendingMerit = amount;
         }
 
+        /// <summary>세이브 복원용 건립/레벨.</summary>
+        public void ApplySaveBuiltState(bool built, int savedLevel)
+        {
+            level = Mathf.Max(1, savedLevel);
+            if (built && !IsBuilt)
+                Build();
+            else if (!built && IsBuilt)
+            {
+                IsBuilt = false;
+                ApplyLockVisual();
+            }
+            else if (built)
+                ApplyBuiltVisual();
+        }
+
         /// <summary>세이브 복원 전 점유만 비운다 (더미는 유지).</summary>
         public void ClearOccupantForSaveRestore()
         {
@@ -78,6 +138,7 @@ namespace Yoegoe.Characters
         /// <summary>세이브 복원용 강제 점유.</summary>
         public void ForceOccupyForSaveRestore(CharacterAgent agent)
         {
+            if (!IsBuilt) return;
             Occupant = agent;
             ReservedBy = null;
         }
@@ -85,7 +146,7 @@ namespace Yoegoe.Characters
         /// <summary>7-1: 머물기 중 생산분을 기물 더미에 적립. HUD 지갑으로는 바로 안 들어간다.</summary>
         public void AddToMeritPile(BigNumber amount)
         {
-            if (amount.Mantissa == 0) return;
+            if (!IsBuilt || amount.Mantissa == 0) return;
             PendingMerit += amount;
         }
 
@@ -131,15 +192,93 @@ namespace Yoegoe.Characters
 
         public double GetBaseProductionThisLevel()
         {
-            if (data == null) return 0;
+            if (!IsBuilt || data == null) return 0;
             return data.baseProductionPerMinute * Math.Pow(1.1, level - 1);
         }
 
         public bool CanBeUsedBy(CharacterAgent agent)
         {
+            if (!IsBuilt) return false;
             if (data == null || agent == null || agent.Data == null) return true;
             if (data.isEndingProp && data.owner != agent.Data.id) return false;
             return true;
+        }
+
+        public string DisplayName => data != null && !string.IsNullOrEmpty(data.displayName)
+            ? data.displayName
+            : name;
+
+        /// <summary>Main이 건립 시 쓸 스프라이트·틴트를 기억.</summary>
+        public void SetBuiltAppearance(Sprite sprite, Color tint)
+        {
+            builtSprite = sprite;
+            builtTint = tint;
+        }
+
+        private void ApplyBuiltVisual()
+        {
+            if (lockLabel != null) lockLabel.gameObject.SetActive(false);
+
+            if (spriteRenderer != null)
+            {
+                if (builtSprite != null) spriteRenderer.sprite = builtSprite;
+                spriteRenderer.color = Color.white;
+                spriteRenderer.enabled = true;
+            }
+            if (meshRenderer != null && !(meshRenderer is SpriteRenderer))
+            {
+                meshRenderer.enabled = true;
+                if (meshRenderer.material != null)
+                    meshRenderer.material.color = builtTint;
+            }
+        }
+
+        private void ApplyLockVisual()
+        {
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = new Color(0.35f, 0.35f, 0.4f, 0.55f);
+                if (builtSprite != null) spriteRenderer.sprite = builtSprite;
+            }
+            if (meshRenderer != null && !(meshRenderer is SpriteRenderer))
+            {
+                meshRenderer.enabled = true;
+                if (meshRenderer.material != null)
+                    meshRenderer.material.color = new Color(0.25f, 0.25f, 0.3f, 0.8f);
+            }
+            EnsureLockLabel();
+            lockLabel.gameObject.SetActive(true);
+            lockLabel.text = "자물쇠";
+            lockLabel.transform.position = transform.position + Vector3.up * 0.55f;
+        }
+
+        private void RefreshLockVisual()
+        {
+            if (IsBuilt)
+            {
+                if (lockLabel != null) lockLabel.gameObject.SetActive(false);
+                return;
+            }
+            EnsureLockLabel();
+            lockLabel.gameObject.SetActive(true);
+            lockLabel.transform.position = transform.position + Vector3.up * 0.55f;
+        }
+
+        private void EnsureLockLabel()
+        {
+            if (lockLabel != null) return;
+            var go = new GameObject(name + "_Lock");
+            lockLabel = go.AddComponent<TextMesh>();
+            lockLabel.anchor = TextAnchor.MiddleCenter;
+            lockLabel.alignment = TextAlignment.Center;
+            lockLabel.characterSize = 0.07f;
+            lockLabel.fontSize = 42;
+            lockLabel.color = new Color(0.9f, 0.85f, 0.7f, 1f);
+            if (sharedPileFont == null)
+                sharedPileFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (sharedPileFont != null) lockLabel.font = sharedPileFont;
+            var mr = go.GetComponent<MeshRenderer>();
+            if (mr != null) mr.sortingOrder = 480;
         }
 
         private void RefreshPileLabel()
@@ -153,7 +292,6 @@ namespace Yoegoe.Characters
 
             EnsurePileLabel();
             pileLabel.gameObject.SetActive(true);
-            // 단계만큼 ●, 옆에 더미 수치 (날아가는 연출 전 MVP)
             pileLabel.text = new string('*', stage) + "\n" + FormatPileAmount(PendingMerit);
             pileLabel.transform.position = transform.position + Vector3.up * 0.85f;
         }
@@ -162,7 +300,6 @@ namespace Yoegoe.Characters
         {
             double v = Math.Abs(amount.ToDouble());
             if (v < 1000) return Mathf.RoundToInt((float)v).ToString();
-            // TextMesh 기본 폰트는 한글 ㄱ 단위가 깨질 수 있어 초반은 숫자, 이후는 지수 표기
             return amount.ToDisplayString();
         }
 
@@ -187,7 +324,10 @@ namespace Yoegoe.Characters
 #if UNITY_EDITOR
         private void OnDrawGizmos()
         {
-            Gizmos.color = IsOccupied ? new Color(1f, 0.5f, 0f) : IsReserved ? Color.yellow : Color.cyan;
+            Gizmos.color = !IsBuilt ? Color.gray
+                : IsOccupied ? new Color(1f, 0.5f, 0f)
+                : IsReserved ? Color.yellow
+                : Color.cyan;
             Gizmos.DrawWireCube(transform.position, Vector3.one * 0.5f);
         }
 #endif

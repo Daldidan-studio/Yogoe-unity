@@ -119,12 +119,19 @@ namespace Yoegoe
             var propManagerGO = new GameObject("PropManager");
             propManagerGO.AddComponent<PropManager>();
 
-            // 배경은 PPU 원본(~9×4 유닛). cover로 키우지 않으므로 기물·캐릭터도 그 안에 배치.
-            CreateProp("돌사자", new Vector3(-2.1f, 1.2f, 0), new Color(0.5f, 0.5f, 0.5f), propSpriteStoneLion);
-            CreateProp("초가집", new Vector3(-0.6f, -0.2f, 0), new Color(0.55f, 0.45f, 0.35f), propSpriteThatchedHut);
-            CreateProp("그네", new Vector3(2.0f, 0.8f, 0), new Color(0.5f, 0.4f, 0.3f), propSpriteSwing);
-            CreateProp("솟대문", new Vector3(-1.9f, -1.3f, 0), new Color(0.6f, 0.55f, 0.5f), propSpriteGate);
-            CreateProp("우물", new Vector3(1.6f, -1.4f, 0), new Color(0.4f, 0.45f, 0.55f), propSpriteWell);
+            // 기획 8장 시작: 우물·돌사자·떡절구 건립, 나머지 자물쇠
+            CreateProp("돌사자", new Vector3(-2.1f, 1.2f, 0), new Color(0.5f, 0.5f, 0.5f),
+                propSpriteStoneLion, prebuilt: true);
+            CreateProp("초가집", new Vector3(-0.6f, -0.2f, 0), new Color(0.55f, 0.45f, 0.35f),
+                propSpriteThatchedHut, prebuilt: false);
+            CreateProp("그네", new Vector3(2.0f, 0.8f, 0), new Color(0.5f, 0.4f, 0.3f),
+                propSpriteSwing, prebuilt: false);
+            CreateProp("솟대문", new Vector3(-1.9f, -1.3f, 0), new Color(0.6f, 0.55f, 0.5f),
+                propSpriteGate, prebuilt: false);
+            CreateProp("우물", new Vector3(1.6f, -1.4f, 0), new Color(0.4f, 0.45f, 0.55f),
+                propSpriteWell, prebuilt: true);
+            CreateProp("떡절구", new Vector3(0.5f, 1.35f, 0), new Color(0.75f, 0.55f, 0.35f),
+                null, prebuilt: true, endingProp: true, endingOwner: CharacterId.Rabbit);
 
             CreateCharacter("옥토끼", new Vector3(-1f, 0.5f, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0f, 0.5f, 0), Color.black, samjokOData);
@@ -166,6 +173,10 @@ namespace Yoegoe
             detail.font = hudFont;
             detail.offerings = offerings;
 
+            var purchaseGO = new GameObject("PropPurchasePopup");
+            var purchase = purchaseGO.AddComponent<PropPurchasePopup>();
+            purchase.font = hudFont;
+
             var hudGO = new GameObject("Hud");
             var hud = hudGO.AddComponent<GameHud>();
             hud.font = hudFont;
@@ -180,7 +191,7 @@ namespace Yoegoe
         /// </summary>
         private void EnsureEventSystem()
         {
-            if (FindObjectOfType<EventSystem>() != null) return;
+            if (FindAnyObjectByType<EventSystem>() != null) return;
             var esGo = new GameObject("EventSystem");
             esGo.AddComponent<EventSystem>();
             esGo.AddComponent<InputSystemUIInputModule>();
@@ -228,7 +239,7 @@ namespace Yoegoe
 
         private void EnsureLight()
         {
-            if (FindObjectOfType<Light>() != null) return;
+            if (FindAnyObjectByType<Light>() != null) return;
             var lightGO = new GameObject("Directional Light");
             var light = lightGO.AddComponent<Light>();
             light.type = LightType.Directional;
@@ -292,13 +303,13 @@ namespace Yoegoe
             renderer.material = mat;
         }
 
-        private void CreateProp(string name, Vector3 pos, Color color, Sprite sprite = null)
+        private void CreateProp(string name, Vector3 pos, Color color, Sprite sprite = null,
+            bool prebuilt = true, bool endingProp = false, CharacterId endingOwner = CharacterId.Rabbit)
         {
             GameObject go;
 
             if (sprite != null)
             {
-                // 실제 기물 그림이 있으면 큐브 대신 SpriteRenderer로 생성.
                 go = new GameObject("Prop_" + name);
                 go.transform.position = pos;
                 go.transform.localScale = Vector3.one * Scale.propScale;
@@ -323,9 +334,15 @@ namespace Yoegoe
             var data = ScriptableObject.CreateInstance<PropData>();
             data.propId = name;
             data.displayName = name;
+            data.icon = sprite;
             data.baseProductionPerMinute = 100;
-            data.isPrebuilt = true;
+            data.isPrebuilt = prebuilt;
+            data.isEndingProp = endingProp;
+            data.owner = endingOwner;
+            data.hasUniqueEndingAnimation = endingProp && endingOwner == CharacterId.Rabbit;
             slot.data = data;
+            slot.SetBuiltAppearance(sprite, color);
+            slot.ConfigureBuiltState(prebuilt);
         }
 
         private void CreateCharacter(string name, Vector3 pos, Color color, CharacterData realData)

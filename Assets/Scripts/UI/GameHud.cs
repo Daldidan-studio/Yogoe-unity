@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
@@ -23,6 +24,16 @@ namespace Yoegoe.UI
         private Text purifiedWaterText;
         private Text yutTokenText;
 
+        private GameObject upgradeButtonRoot;
+        private RectTransform upgradeButtonRt;
+        private Image upgradeIconImage;
+        private Text upgradeNameText;
+        private Text upgradeCostText;
+        private bool upgradeHoldActive;
+        private float upgradeHoldTimer;
+        private const float UpgradeHoldInitialDelay = 0.35f;
+        private const float UpgradeHoldInterval = 0.12f;
+
         private readonly List<SlotChip> slotChips = new List<SlotChip>();
 
         private class SlotChip
@@ -42,12 +53,15 @@ namespace Yoegoe.UI
         {
             BuildCanvas();
             RefreshCurrencies();
+            RefreshUpgradeButton();
         }
 
         private void Update()
         {
             RefreshCurrencies();
             RefreshSlotBar();
+            RefreshUpgradeButton();
+            TickUpgradeHold();
         }
 
         private void RefreshCurrencies()
@@ -238,6 +252,84 @@ namespace Yoegoe.UI
             GameSaveBridge.SaveFromWorld();
         }
 
+        // ---------------- 우하단 업그레이드 (8장) ----------------
+
+        private void RefreshUpgradeButton()
+        {
+            if (upgradeButtonRoot == null) return;
+
+            var target = PropEconomy.FindCheapestUpgradeTarget();
+            if (target == null)
+            {
+                upgradeButtonRoot.SetActive(false);
+                upgradeHoldActive = false;
+                return;
+            }
+
+            upgradeButtonRoot.SetActive(true);
+            var cost = PropEconomy.GetUpgradeCost(target);
+            bool canAfford = GameEconomy.MeritPile >= cost;
+
+            if (upgradeNameText != null)
+                upgradeNameText.text = target.DisplayName;
+            if (upgradeCostText != null)
+            {
+                upgradeCostText.text = cost.ToDisplayString();
+                upgradeCostText.color = canAfford
+                    ? new Color(1f, 0.92f, 0.55f)
+                    : new Color(0.75f, 0.4f, 0.35f);
+            }
+
+            if (upgradeIconImage != null)
+            {
+                var icon = target.data != null ? target.data.icon : null;
+                upgradeIconImage.sprite = icon;
+                upgradeIconImage.enabled = icon != null;
+                if (icon == null)
+                    upgradeIconImage.color = new Color(0.55f, 0.45f, 0.3f, 1f);
+                else
+                    upgradeIconImage.color = Color.white;
+            }
+        }
+
+        private void TickUpgradeHold()
+        {
+            if (!upgradeHoldActive) return;
+            upgradeHoldTimer -= Time.unscaledDeltaTime;
+            if (upgradeHoldTimer > 0f) return;
+            if (!TryPerformUpgrade())
+            {
+                upgradeHoldActive = false;
+                return;
+            }
+            upgradeHoldTimer = UpgradeHoldInterval;
+        }
+
+        private void OnUpgradePointerDown()
+        {
+            upgradeHoldActive = true;
+            upgradeHoldTimer = UpgradeHoldInitialDelay;
+            TryPerformUpgrade();
+        }
+
+        private void OnUpgradePointerUp()
+        {
+            upgradeHoldActive = false;
+        }
+
+        private bool TryPerformUpgrade()
+        {
+            var upgraded = PropEconomy.TryUpgradeCheapest();
+            if (upgraded == null) return false;
+
+            PropUpgradeFx.SpawnWorld(upgraded.transform.position, "+1 급", font);
+            if (upgradeButtonRt != null)
+                PropUpgradeFx.SpawnUi(upgradeButtonRt, upgraded.DisplayName + " +1급", font);
+            GameSaveBridge.SaveFromWorld();
+            RefreshUpgradeButton();
+            return true;
+        }
+
         // ---------------- 빌드 ----------------
 
         private void BuildCanvas()
@@ -257,6 +349,60 @@ namespace Yoegoe.UI
 
             BuildTopBar(canvasGO.transform);
             BuildSlotBar(canvasGO.transform);
+            BuildUpgradeButton(canvasGO.transform);
+        }
+
+        private void BuildUpgradeButton(Transform canvasTf)
+        {
+            upgradeButtonRoot = new GameObject("UpgradeButton");
+            upgradeButtonRt = SetupRect(upgradeButtonRoot, canvasTf,
+                new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0),
+                new Vector2(-28, 200), new Vector2(200, 96));
+            var bg = upgradeButtonRoot.AddComponent<Image>();
+            bg.color = new Color(0.18f, 0.12f, 0.08f, 0.92f);
+
+            var btn = upgradeButtonRoot.AddComponent<Button>();
+            btn.targetGraphic = bg;
+
+            var trigger = upgradeButtonRoot.AddComponent<EventTrigger>();
+            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            down.callback.AddListener(_ => OnUpgradePointerDown());
+            trigger.triggers.Add(down);
+            var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+            up.callback.AddListener(_ => OnUpgradePointerUp());
+            trigger.triggers.Add(up);
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => OnUpgradePointerUp());
+            trigger.triggers.Add(exit);
+
+            var iconGO = new GameObject("Icon");
+            SetupRect(iconGO, upgradeButtonRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f),
+                new Vector2(12, 0), new Vector2(56, 56));
+            upgradeIconImage = iconGO.AddComponent<Image>();
+            upgradeIconImage.preserveAspect = true;
+            upgradeIconImage.raycastTarget = false;
+
+            var nameGO = new GameObject("Name");
+            SetupRect(nameGO, upgradeButtonRt, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1),
+                new Vector2(20, -8), new Vector2(-70, 28));
+            upgradeNameText = nameGO.AddComponent<Text>();
+            upgradeNameText.font = font;
+            upgradeNameText.fontSize = 20;
+            upgradeNameText.alignment = TextAnchor.MiddleLeft;
+            upgradeNameText.color = Color.white;
+            upgradeNameText.raycastTarget = false;
+
+            var costGO = new GameObject("Cost");
+            SetupRect(costGO, upgradeButtonRt, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0),
+                new Vector2(20, 10), new Vector2(-70, 32));
+            upgradeCostText = costGO.AddComponent<Text>();
+            upgradeCostText.font = font;
+            upgradeCostText.fontSize = 24;
+            upgradeCostText.alignment = TextAnchor.MiddleLeft;
+            upgradeCostText.color = new Color(1f, 0.92f, 0.55f);
+            upgradeCostText.raycastTarget = false;
+
+            upgradeButtonRoot.SetActive(false);
         }
 
         private void BuildTopBar(Transform canvasTf)

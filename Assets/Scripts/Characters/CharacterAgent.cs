@@ -281,6 +281,23 @@ namespace Yoegoe.Characters
             monologueTimer = Random.Range(MonologueMinInterval, MonologueMaxInterval);
         }
 
+        private static Sprite sharedBubbleSprite;
+
+        /// <summary>말풍선 배경용 1색 스프라이트 (디버그 점 제거 후에도 말풍선이 씀).</summary>
+        private static Sprite GetSharedDotSprite()
+        {
+            if (sharedBubbleSprite != null) return sharedBubbleSprite;
+            var tex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            var pixels = new Color[64];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
+            tex.SetPixels(pixels);
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+            sharedBubbleSprite = Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 8f);
+            return sharedBubbleSprite;
+        }
+
         private void EnsureBubble()
         {
             if (bubbleTextMesh != null) return;

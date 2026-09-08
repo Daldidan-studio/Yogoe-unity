@@ -30,6 +30,8 @@ namespace Yoegoe.Save
         public int purifiedWater;
         public int yutToken;
         public int yutTokenMax = 5;
+        /// <summary>플레이어가 구매한 기물 수 (prebuilt 제외). 다음 구매 비용 n = 이 값+1.</summary>
+        public int propsPurchasedCount;
     }
 
     [Serializable]
@@ -37,6 +39,8 @@ namespace Yoegoe.Save
     {
         public string propId;
         public int level = 1;
+        /// <summary>건립 여부. 구세이브에 필드 없으면 true로 취급(기본값).</summary>
+        public bool isBuilt = true;
         public BigNumberSave pendingMerit = new BigNumberSave();
         /// <summary>오프라인 생산 계산용 (저장 시점 스냅샷).</summary>
         public double baseProductionPerMinute = 100;

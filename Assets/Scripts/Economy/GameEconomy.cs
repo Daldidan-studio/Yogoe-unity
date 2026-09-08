@@ -29,6 +29,31 @@ namespace Yoegoe.Economy
             OnMeritChanged?.Invoke(MeritPile);
         }
 
+        public static bool TrySpendMerit(BigNumber amount)
+        {
+            if (amount.Mantissa < 0) return false;
+            if (MeritPile < amount) return false;
+            MeritPile -= amount;
+            OnMeritChanged?.Invoke(MeritPile);
+            return true;
+        }
+
+        /// <summary>플레이어가 구매로 지은 기물 수 (prebuilt 제외). 다음 구매 n = 이 값 + 1.</summary>
+        public static int PropsPurchasedCount { get; private set; }
+        public static event Action OnPropsPurchasedCountChanged;
+
+        public static void IncrementPropsPurchasedCount()
+        {
+            PropsPurchasedCount++;
+            OnPropsPurchasedCountChanged?.Invoke();
+        }
+
+        public static void SetPropsPurchasedCount(int count)
+        {
+            PropsPurchasedCount = Math.Max(0, count);
+            OnPropsPurchasedCountChanged?.Invoke();
+        }
+
         public static void SetPendingBatchMerit(BigNumber amount)
         {
             PendingBatchMerit = amount;
@@ -149,6 +174,7 @@ namespace Yoegoe.Economy
 
             MeritPile = s.startingMerit;
             PendingBatchMerit = BigNumber.Zero;
+            PropsPurchasedCount = 0;
             Yeopjeon = s.startingYeopjeon;
             Hyang = s.startingHyang;
             PurifiedWater = s.startingPurifiedWater;
@@ -169,6 +195,7 @@ namespace Yoegoe.Economy
 
             OnMeritChanged?.Invoke(MeritPile);
             OnBatchMeritChanged?.Invoke();
+            OnPropsPurchasedCountChanged?.Invoke();
             OnYeopjeonChanged?.Invoke(Yeopjeon);
             OnHyangChanged?.Invoke(Hyang);
             OnPurifiedWaterChanged?.Invoke(PurifiedWater);
@@ -177,10 +204,12 @@ namespace Yoegoe.Economy
 
         /// <summary>세이브 스냅샷으로 재화만 덮어쓴다 (공양물 인벤은 이후 패스).</summary>
         public static void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
-            int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax)
+            int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax,
+            int propsPurchasedCount = 0)
         {
             MeritPile = merit;
             PendingBatchMerit = pendingBatch;
+            PropsPurchasedCount = Math.Max(0, propsPurchasedCount);
             Yeopjeon = yeopjeon;
             Hyang = hyang;
             PurifiedWater = purifiedWater;
@@ -189,6 +218,7 @@ namespace Yoegoe.Economy
 
             OnMeritChanged?.Invoke(MeritPile);
             OnBatchMeritChanged?.Invoke();
+            OnPropsPurchasedCountChanged?.Invoke();
             OnYeopjeonChanged?.Invoke(Yeopjeon);
             OnHyangChanged?.Invoke(Hyang);
             OnPurifiedWaterChanged?.Invoke(PurifiedWater);

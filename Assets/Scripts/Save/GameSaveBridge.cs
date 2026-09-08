@@ -38,7 +38,7 @@ namespace Yoegoe.Save
         /// <summary>모든 기물 PendingMerit를 일괄 수거 대기분으로 옮긴다.</summary>
         public static void SweepPropPilesIntoBatch()
         {
-            foreach (var p in UnityEngine.Object.FindObjectsOfType<PropSlot>())
+            foreach (var p in UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None))
             {
                 if (p == null || !p.HasPendingMerit) continue;
                 GameEconomy.AddPendingBatchMerit(p.TakePendingMerit());
@@ -64,12 +64,13 @@ namespace Yoegoe.Save
                     hyang = GameEconomy.Hyang,
                     purifiedWater = GameEconomy.PurifiedWater,
                     yutToken = GameEconomy.YutToken,
-                    yutTokenMax = GameEconomy.YutTokenMax
+                    yutTokenMax = GameEconomy.YutTokenMax,
+                    propsPurchasedCount = GameEconomy.PropsPurchasedCount
                 }
             };
 
             // Props
-            var props = UnityEngine.Object.FindObjectsOfType<PropSlot>();
+            var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
             data.props = new PropSave[props.Length];
             for (int i = 0; i < props.Length; i++)
             {
@@ -79,6 +80,7 @@ namespace Yoegoe.Save
                 {
                     propId = id,
                     level = p.level,
+                    isBuilt = p.IsBuilt,
                     pendingMerit = BigNumberSave.From(p.PendingMerit),
                     baseProductionPerMinute = p.data != null ? p.data.baseProductionPerMinute : 100,
                     isEndingProp = p.data != null && p.data.isEndingProp,
@@ -120,7 +122,7 @@ namespace Yoegoe.Save
             ApplyEconomy(data.economy);
 
             // Props — 점유 초기화 후 더미·레벨 반영
-            var props = UnityEngine.Object.FindObjectsOfType<PropSlot>();
+            var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
             foreach (var p in props)
                 p.ClearOccupantForSaveRestore();
 
@@ -133,7 +135,7 @@ namespace Yoegoe.Save
                     {
                         string id = p.data != null ? p.data.propId : p.name;
                         if (id != ps.propId) continue;
-                        p.level = Mathf.Max(1, ps.level);
+                        p.ApplySaveBuiltState(ps.isBuilt, ps.level);
                         p.SetPendingMeritFromSave(ps.pendingMerit.ToBigNumber());
                         break;
                     }
@@ -187,12 +189,13 @@ namespace Yoegoe.Save
                 e.hyang,
                 e.purifiedWater,
                 e.yutToken,
-                e.yutTokenMax);
+                e.yutTokenMax,
+                e.propsPurchasedCount);
         }
 
         private static string FindOccupiedPropId(CharacterAgent agent)
         {
-            foreach (var p in UnityEngine.Object.FindObjectsOfType<PropSlot>())
+            foreach (var p in UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None))
             {
                 if (p.Occupant == agent)
                 {
