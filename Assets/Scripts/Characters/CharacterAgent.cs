@@ -86,6 +86,12 @@ namespace Yoegoe.Characters
         private const float NeokBobSpeed = 2.4f;
         private bool evolvingToHon;
 
+        CharacterRequestState requests;
+        public CharacterRequestState Requests => requests ?? (requests = new CharacterRequestState(this));
+        public bool HasOfferingRequest => Requests.HasOfferingRequest;
+
+        Coroutine tempSpeechRoutine;
+
         private void Awake()
         {
             if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -98,6 +104,7 @@ namespace Yoegoe.Characters
             ActiveAgents.Remove(this);
             if (bubbleBg != null) Destroy(bubbleBg.gameObject);
             if (bubbleTextMesh != null) Destroy(bubbleTextMesh.gameObject);
+            requests?.DestroyVisuals();
         }
 
         private void Start()
@@ -174,6 +181,7 @@ namespace Yoegoe.Characters
         private void Update()
         {
             float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
+            Requests.Tick(dt);
 
             if (evolvingToHon)
             {
@@ -324,6 +332,7 @@ namespace Yoegoe.Characters
 
         private void UpdateMonologue(float dt)
         {
+            if (HasOfferingRequest || Requests.HasPropRequest) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
 
             if (monologueShowing && bubbleTextMesh != null)
@@ -456,6 +465,48 @@ namespace Yoegoe.Characters
             if (bubbleBg != null) bubbleBg.gameObject.SetActive(false);
             monologueShowing = false;
             monologueTimer = Random.Range(MonologueMinInterval, MonologueMaxInterval);
+        }
+
+        public void HideMonologueForRequest() => HideMonologue();
+
+        /// <summary>요구 완료 등 짧은 대사.</summary>
+        public void ShowTempSpeech(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            if (tempSpeechRoutine != null) StopCoroutine(tempSpeechRoutine);
+            tempSpeechRoutine = StartCoroutine(TempSpeechRoutine(line));
+        }
+
+        IEnumerator TempSpeechRoutine(string line)
+        {
+            EnsureBubble();
+            bubbleTextMesh.text = line;
+            bubbleTextMesh.gameObject.SetActive(true);
+            bubbleBg.gameObject.SetActive(true);
+            var renderer = bubbleTextMesh.GetComponent<MeshRenderer>();
+            if (renderer != null)
+            {
+                renderer.sortingOrder = 1001;
+                Bounds bounds = renderer.bounds;
+                bubbleBg.transform.localScale = new Vector3(bounds.size.x + 0.3f, bounds.size.y + 0.18f, 1f);
+            }
+            monologueShowing = true;
+            monologueTimer = 3.5f;
+            float t = 0f;
+            while (t < 3.5f)
+            {
+                t += Time.deltaTime;
+                if (bubbleTextMesh != null)
+                {
+                    float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
+                    Vector3 bubblePos = transform.position + Vector3.up * (spriteTop + 0.55f);
+                    bubbleTextMesh.transform.position = bubblePos;
+                    if (bubbleBg != null) bubbleBg.transform.position = bubblePos;
+                }
+                yield return null;
+            }
+            HideMonologue();
+            tempSpeechRoutine = null;
         }
 
         private static Sprite sharedBubbleSprite;
@@ -792,16 +843,17 @@ namespace Yoegoe.Characters
                 return 0.0001f;
             }
 
+            float staminaBefore = Stats.Stamina;
             Stats.StateTimer += slice;
             Stats.Stamina -= slice * drain;
             if (Stats.Stamina < 0f) Stats.Stamina = 0f;
+            Requests.NotifyStaminaDrain(staminaBefore, Stats.Stamina);
 
             if (currentProp != null)
             {
                 double perMinute = currentProp.GetBaseProductionThisLevel()
                                     * GetIntimacyCorrection()
                                     * GetEndingPropCorrection();
-                // 7-1: HUD가 아니라 기물 더미에 쌓임. 탭 수거 시 GameEconomy로 이동.
                 currentProp.AddToMeritPile(perMinute / 60.0 * slice);
             }
 
@@ -1030,6 +1082,8 @@ namespace Yoegoe.Characters
             if (Stats.Stage == GrowthStage.Neok) return;
             if (Stats.State == ActionState.Fainted) return;
 
+            bool fromStay = Stats.State == ActionState.Staying;
+
             ClearWalkDestination();
             LeaveCurrentProp();
             isWandering = false;
@@ -1039,6 +1093,9 @@ namespace Yoegoe.Characters
             animFrame = 0;
             animTimer = 0f;
             lastPosition = transform.position;
+
+            // 10장 기물 요구: 머물다 일어남(놀기 진입)
+            if (fromStay) Requests.TryStartPropRequest();
         }
 
         private void TickPlaying(float dt)
@@ -1084,6 +1141,7 @@ namespace Yoegoe.Characters
             var p = prop.transform.position;
             transform.position = MapBounds.Clamp(new Vector3(p.x, p.y, transform.position.z));
             EnterStaying();
+            Requests.NotifySatOnProp(prop);
             return true;
         }
 
@@ -1105,6 +1163,7 @@ namespace Yoegoe.Characters
             // 6-2 기물 배정 규칙: 주저앉기·기절 중에는 현재 기물을 계속 점유한다 (Vacate 호출 안 함)
             Stats.State = ActionState.Slumped;
             Stats.StateTimer = 0f;
+            Requests.ClearAll(); // 신규 요구 없음·진행 중 요구도 정리
         }
 
         private void TickSlumped(float dt)
@@ -1123,6 +1182,7 @@ namespace Yoegoe.Characters
             {
                 Stats.State = ActionState.Fainted;
                 Stats.StateTimer = 0f;
+                Requests.ClearAll(); // 기절 시 요구 삭제 [확정]
             }
             return slice;
         }
@@ -1234,6 +1294,7 @@ namespace Yoegoe.Characters
             Stats.Intimacy = 0f;
             Stats.Stamina = Mathf.Max(Stats.Stamina, 100f);
             Stats.StateTimer = 0f;
+            Requests.ClearAll();
             transform.position = MapBounds.Clamp(neokLogicalPos.sqrMagnitude > 0.0001f
                 ? neokLogicalPos
                 : transform.position);

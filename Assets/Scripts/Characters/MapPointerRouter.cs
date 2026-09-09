@@ -283,6 +283,21 @@ namespace Yoegoe.Characters
         {
             if (agent == null) return;
 
+            // 공양물 요구 말풍선 탭 → 즉시 상세(강조)
+            if (agent.HasOfferingRequest)
+            {
+                CancelPendingMonologueTap();
+                OpenCharacterDetail(agent);
+                return;
+            }
+
+            // 기물 요구 말풍선은 탭해도 무반응
+            if (agent.Requests != null && agent.Requests.HasPropRequest)
+            {
+                CancelPendingMonologueTap();
+                return;
+            }
+
             if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
             {
                 CancelPendingMonologueTap();
@@ -290,7 +305,6 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            // 다른 캐릭터를 탭했다면 대기 중이던 단일탭은 바로 혼잣말로 확정
             if (pendingMonologueTap != null && pendingMonologueTap != agent)
                 FlushPendingMonologueTap();
 
@@ -309,7 +323,15 @@ namespace Yoegoe.Characters
         {
             var agent = pendingMonologueTap;
             pendingMonologueTap = null;
-            if (agent != null) agent.OnTapped();
+            if (agent == null) return;
+            if (agent.HasOfferingRequest)
+            {
+                OpenCharacterDetail(agent);
+                return;
+            }
+            if (agent.Requests != null && agent.Requests.HasPropRequest)
+                return;
+            agent.OnTapped();
         }
 
         void CancelPendingMonologueTap()
@@ -321,7 +343,10 @@ namespace Yoegoe.Characters
         {
             if (agent == null) return;
             if (GameHud.Instance == null || GameHud.Instance.detailScreen == null) return;
-            GameHud.Instance.detailScreen.Open(agent);
+            string highlight = null;
+            if (agent.HasOfferingRequest && agent.Requests.OfferingRequest != null)
+                highlight = agent.Requests.OfferingRequest.offeringId;
+            GameHud.Instance.detailScreen.Open(agent, highlight);
         }
 
         private void ResolveMapDrag()

@@ -81,7 +81,7 @@ namespace Yoegoe.UI
             RefreshStats();
         }
 
-        public void Open(CharacterAgent agent)
+        public void Open(CharacterAgent agent, string highlightOfferingId = null)
         {
             EnsureBuilt();
             if (portraitEvolveFx != null)
@@ -103,9 +103,12 @@ namespace Yoegoe.UI
             RefreshIdentity();
             ApplyPortraitImmediate(agent.Stats.Stage);
             RebuildPreferredRow();
-            RebuildInventoryRow();
+            RebuildInventoryRow(highlightOfferingId);
             RefreshStats();
             RefreshItemCounts();
+
+            if (!string.IsNullOrEmpty(highlightOfferingId) && inventoryPanel != null)
+                inventoryPanel.SetActive(true);
         }
 
         /// <summary>
@@ -446,9 +449,18 @@ namespace Yoegoe.UI
             if (preferred) kind = OfferingKind.Preferred;
 
             int staminaGain = offering.staminaGain > 0 ? offering.staminaGain : 20;
-            // 5-4: 일반·정화수 친밀도 0 / 선호 +0.25
             float intimacyGain = preferred ? 0.25f : 0f;
             if (isPurified) intimacyGain = 0f;
+
+            if (!isPurified
+                && currentAgent.Requests != null
+                && currentAgent.Requests.TryHandleFeed(offering, false, preferred,
+                    out int reqStamina, out float reqIntimacy, out _))
+            {
+                staminaGain = reqStamina;
+                intimacyGain = reqIntimacy;
+                if (intimacyGain > 0f) kind = OfferingKind.Preferred;
+            }
 
             currentAgent.ReceiveOffering(staminaGain, intimacyGain, kind);
             PlayGainPopup(staminaGain, intimacyGain);
@@ -546,18 +558,33 @@ namespace Yoegoe.UI
             }
         }
 
-        private void RebuildInventoryRow()
+        private void RebuildInventoryRow(string highlightOfferingId = null)
         {
             if (inventoryRow == null) return;
             ClearChildren(inventoryRow);
             PruneDeadCountBadges();
             if (offerings == null) return;
 
+            // 요구 공양을 앞으로(강조 슬롯)
+            if (!string.IsNullOrEmpty(highlightOfferingId))
+            {
+                foreach (var offering in offerings)
+                {
+                    if (offering == null || IsPurified(offering)) continue;
+                    if (!string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: true);
+                }
+            }
+
             foreach (var offering in offerings)
             {
                 if (offering == null) continue;
                 if (IsPurified(offering)) continue;
-                CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering);
+                if (!string.IsNullOrEmpty(highlightOfferingId)
+                    && string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+                CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: false);
             }
         }
 
@@ -566,7 +593,7 @@ namespace Yoegoe.UI
             offeringCountBadges.RemoveAll(b => b.Label == null);
         }
 
-        private void CreatePreferredChip(Transform parent, string label, Sprite icon, OfferingData feedTarget)
+        private void CreatePreferredChip(Transform parent, string label, Sprite icon, OfferingData feedTarget, bool highlight = false)
         {
             var itemGO = new GameObject("Pref_" + (label ?? "?"));
             itemGO.transform.SetParent(parent, false);
@@ -588,7 +615,9 @@ namespace Yoegoe.UI
             circleLe.preferredWidth = 72;
             circleLe.preferredHeight = 72;
             var circleImg = circleGO.AddComponent<Image>();
-            circleImg.color = new Color(0.95f, 0.95f, 0.97f, 1f);
+            circleImg.color = highlight
+                ? new Color(1f, 0.92f, 0.45f, 1f)
+                : new Color(0.95f, 0.95f, 0.97f, 1f);
 
             var iconGO = new GameObject("Icon");
             SetupRect(iconGO, circleGO.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),

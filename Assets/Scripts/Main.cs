@@ -272,6 +272,13 @@ namespace Yoegoe
             evo.font = hudFont;
             evoGO.SetActive(true);
 
+            var giftGO = new GameObject("GiftBundlePopup");
+            giftGO.SetActive(false);
+            var gift = giftGO.AddComponent<GiftBundlePopup>();
+            gift.font = hudFont;
+            gift.offerings = offerings;
+            giftGO.SetActive(true);
+
             var hudGO = new GameObject("Hud");
             hudGO.SetActive(false);
             var hud = hudGO.AddComponent<GameHud>();

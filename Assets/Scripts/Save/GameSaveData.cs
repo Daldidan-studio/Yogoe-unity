@@ -32,6 +32,10 @@ namespace Yoegoe.Save
         public int yutTokenMax = 5;
         /// <summary>플레이어가 구매한 기물 수 (prebuilt 제외). 다음 구매 비용 n = 이 값+1.</summary>
         public int propsPurchasedCount;
+        /// <summary>선물꾸러미 연속 빈손 / 첫 확정 / 광고보상권.</summary>
+        public int giftMissStreak;
+        public bool giftFirstGrantDone;
+        public int adRewardTickets;
     }
 
     [Serializable]

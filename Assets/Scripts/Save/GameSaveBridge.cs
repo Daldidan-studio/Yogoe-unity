@@ -73,9 +73,13 @@ namespace Yoegoe.Save
                     purifiedWater = GameEconomy.PurifiedWater,
                     yutToken = GameEconomy.YutToken,
                     yutTokenMax = GameEconomy.YutTokenMax,
-                    propsPurchasedCount = GameEconomy.PropsPurchasedCount
+                    propsPurchasedCount = GameEconomy.PropsPurchasedCount,
+                    giftMissStreak = 0,
+                    giftFirstGrantDone = false,
+                    adRewardTickets = 0
                 }
             };
+            GiftBundle.CaptureToSave(out data.economy.giftMissStreak, out data.economy.giftFirstGrantDone, out data.economy.adRewardTickets);
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -221,6 +225,7 @@ namespace Yoegoe.Save
                 e.yutToken,
                 e.yutTokenMax,
                 e.propsPurchasedCount);
+            GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
         }
 
         private static string FindOccupiedPropId(CharacterAgent agent)
