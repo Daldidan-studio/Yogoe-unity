@@ -275,7 +275,7 @@ namespace Yoegoe.UI
             if (chip.HasLastBatchAmount && amount.Equals(chip.LastBatchAmount)) return;
             chip.HasLastBatchAmount = true;
             chip.LastBatchAmount = amount;
-            chip.LastBatchLabel = "일괄 수거\n" + amount.ToDisplayString();
+            chip.LastBatchLabel = "일괄 수거\n" + amount.ToDisplayString() + "\n(광고×3)";
             chip.BatchButtonLabel.text = chip.LastBatchLabel;
         }
 
@@ -330,7 +330,7 @@ namespace Yoegoe.UI
                 {
                     batchRoot = new GameObject("BatchCollect");
                     SetupRect(batchRoot, chipRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f),
-                        new Vector2(0, 30), new Vector2(148, 44));
+                        new Vector2(0, 30), new Vector2(148, 56));
                     var batchBg = batchRoot.AddComponent<Image>();
                     batchBg.color = new Color(0.85f, 0.55f, 0.15f, 0.95f);
                     var batchBtn = batchRoot.AddComponent<Button>();
@@ -342,7 +342,7 @@ namespace Yoegoe.UI
                         Vector2.zero, Vector2.zero);
                     batchLabel = batchLabelGO.AddComponent<Text>();
                     batchLabel.font = font;
-                    batchLabel.fontSize = 16;
+                    batchLabel.fontSize = 14;
                     batchLabel.alignment = TextAnchor.MiddleCenter;
                     batchLabel.color = Color.white;
                     batchLabel.raycastTarget = false;
@@ -434,17 +434,27 @@ namespace Yoegoe.UI
         {
             // 콜드스타트 Sweep 이후 다시 쌓인 더미도 함께 수거해 기물 위 숫자가 남기지 않는다.
             GameSaveBridge.SweepPropPilesIntoBatch();
+            if (!GameEconomy.HasPendingBatchMerit) return;
+            if (BatchCollectPopup.Instance != null)
+                BatchCollectPopup.Instance.Open(from);
+            else
+                ClaimBatchWithoutPopup(from);
+        }
+
+        /// <summary>팝업 없을 때 폴백 (1배).</summary>
+        void ClaimBatchWithoutPopup(RectTransform from)
+        {
             var before = GameEconomy.MeritPile;
-            if (!GameEconomy.TryClaimBatchMerit()) return;
+            if (!GameEconomy.TryClaimBatchMerit(1)) return;
             var after = GameEconomy.MeritPile;
             GameSaveBridge.SaveFromWorld();
-
             BeginMeritCountUp(before, after);
-            if (hudCanvas != null && from != null && meritTextRt != null)
-                PlayMeritCollectFx(from);
+            if (from != null) PlayMeritCollectFx(from);
         }
 
         /// <summary>공덕 HUD 숫자를 from→to로 단계적으로 올린다 (일괄 수거 연출).</summary>
+        public void BeginMeritCountUpPublic(BigNumber from, BigNumber to) => BeginMeritCountUp(from, to);
+
         private void BeginMeritCountUp(BigNumber from, BigNumber to)
         {
             if (meritText == null) return;

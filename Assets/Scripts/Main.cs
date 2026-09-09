@@ -284,6 +284,12 @@ namespace Yoegoe
             gift.offerings = offerings;
             giftGO.SetActive(true);
 
+            var batchGO = new GameObject("BatchCollectPopup");
+            batchGO.SetActive(false);
+            var batch = batchGO.AddComponent<BatchCollectPopup>();
+            batch.font = hudFont;
+            batchGO.SetActive(true);
+
             var hudGO = new GameObject("Hud");
             hudGO.SetActive(false);
             var hud = hudGO.AddComponent<GameHud>();
