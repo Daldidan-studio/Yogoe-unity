@@ -274,8 +274,11 @@ namespace Yoegoe.Characters
         {
             if (phase == Phase.Pending)
             {
-                // 자물쇠는 캐릭터보다 우선 + 넉넉한 판정 (너무 타이트하면 구매 불가)
-                if (pressProp != null && !pressProp.IsBuilt && IsNearProp(pressProp, screenPos, lockTapRadius))
+                // 자물쇠는 캐릭터보다 우선. pressProp는 press 시점에 이미 lockTapRadius 안에서
+                // 찾은 것이고(OnHold가 이 경우 절대 MapDrag로 빠지지 않게 막아둠), release 시점
+                // 손 위치로 다시 반경 검사를 하면 살짝 흔들린 것만으로도(특히 줌아웃 상태) 오탐 실패해
+                // 구매가 안 뜨는 문제가 있었다 — press 시점 판정만 신뢰한다.
+                if (pressProp != null && !pressProp.IsBuilt)
                 {
                     CancelPendingMonologueTap();
                     PropPurchaseRequested?.Invoke(pressProp);
