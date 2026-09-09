@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace KSpirits.Minigames.Yut
+namespace Yoegoe.Minigames.Yut
 {
     /// <summary>윷 던지기 결과값. 정수는 이동 칸 수(빽도는 -1).</summary>
     public enum YutThrowResult

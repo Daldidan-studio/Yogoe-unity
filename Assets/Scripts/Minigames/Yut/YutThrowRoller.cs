@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace KSpirits.Minigames.Yut
+namespace Yoegoe.Minigames.Yut
 {
     /// <summary>윷 던지기 1회의 판정 결과와, 보너스 던지기(모/윷) 부여 여부.</summary>
     public readonly struct YutThrowOutcome

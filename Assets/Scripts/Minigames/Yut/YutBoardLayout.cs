@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace KSpirits.Minigames.Yut
+namespace Yoegoe.Minigames.Yut
 {
     /// <summary>
     /// 전통 윷판 29발 좌표(바깥 둘레 20 + 대각선 지름길 8 + 중앙 방 1).

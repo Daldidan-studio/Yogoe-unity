@@ -1,4 +1,4 @@
-namespace KSpirits.Minigames.Yut
+namespace Yoegoe.Minigames.Yut
 {
     /// <summary>
     /// 윷판의 두 대각선(참↔뒷모, 모↔찌모)이 방(중앙)에서 교차하며 나누는 4개 삼각형 구역.
