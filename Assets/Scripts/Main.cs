@@ -341,8 +341,9 @@ namespace Yoegoe
             if (router == null) router = cam.gameObject.AddComponent<Yoegoe.Characters.MapPointerRouter>();
             router.targetCamera = cam;
             router.mapDrag = cam.GetComponent<MapCameraDrag>();
-            // 기물 PNG(스프라이트 bounds) 안에서만 드롭 판정
-            router.propDropRadius = 0f;
+            // 기물 드롭·자물쇠: 스프라이트 기준 + 약간의 여유(초가집 등 작은 히트박스 보정)
+            router.propDropRadius = 0.15f;
+            router.lockTapRadius = 0.28f;
         }
 
         private void EnsureLight()

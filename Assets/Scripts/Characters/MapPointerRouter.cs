@@ -34,14 +34,14 @@ namespace Yoegoe.Characters
         [Tooltip("스프라이트가 없을 때 쓰는 고정 히트 반경(월드).")]
         public float characterHitRadiusFallback = 0.45f;
 
-        [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG(스프라이트) 박스 안에 있을 때만 앉힘.")]
-        public float propDropRadius = 0f;
+        [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG 박스 안만.")]
+        public float propDropRadius = 0.15f;
 
         [Tooltip("기물 탭(공덕 수거) 시 스프라이트 bounds 바깥 여유(월드).")]
         public float propTapRadius = 0.12f;
 
-        [Tooltip("자물쇠(미건립) 탭. 0이면 스프라이트 PNG bounds 안만.")]
-        public float lockTapRadius = 0f;
+        [Tooltip("자물쇠(미건립) 탭 여유. 0이면 bounds 안만 — 초가집처럼 작고 캐릭터와 겹치면 구매가 잘 안 됨.")]
+        public float lockTapRadius = 0.28f;
 
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
@@ -210,7 +210,11 @@ namespace Yoegoe.Characters
                 float moved = Vector2.Distance(screenPos, pressStartScreen);
                 float held = Time.unscaledTime - pressUnscaledTime;
 
-                if (pressCharacter != null && pressCharacter.CanBeDraggedByPlayer)
+                // 미건립 기물 위에서는 캐릭터 드래그로 뺏지 않음(초가집 등 중앙 기물)
+                bool pressingLockedProp = pressProp != null && !pressProp.IsBuilt;
+                if (!pressingLockedProp
+                    && pressCharacter != null
+                    && pressCharacter.CanBeDraggedByPlayer)
                 {
                     if (held >= longPressSeconds || moved > dragThresholdPixels)
                         BeginCharacterDrag(screenPos);
