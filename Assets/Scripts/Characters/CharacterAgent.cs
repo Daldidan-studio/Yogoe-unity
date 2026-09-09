@@ -473,11 +473,35 @@ namespace Yoegoe.Characters
         public void ShowTempSpeech(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
-            if (tempSpeechRoutine != null) StopCoroutine(tempSpeechRoutine);
-            tempSpeechRoutine = StartCoroutine(TempSpeechRoutine(line));
+            ShowTempSpeechSequence(new[] { line }, null);
         }
 
-        IEnumerator TempSpeechRoutine(string line)
+        /// <summary>대사를 순서대로 표시한 뒤 onComplete 호출. 요구→꾸러미 연출용.</summary>
+        public void ShowTempSpeechSequence(string[] lines, System.Action onComplete)
+        {
+            if (lines == null || lines.Length == 0)
+            {
+                onComplete?.Invoke();
+                return;
+            }
+            if (tempSpeechRoutine != null) StopCoroutine(tempSpeechRoutine);
+            tempSpeechRoutine = StartCoroutine(TempSpeechSequenceRoutine(lines, onComplete));
+        }
+
+        IEnumerator TempSpeechSequenceRoutine(string[] lines, System.Action onComplete)
+        {
+            const float secondsPerLine = 2.8f;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (string.IsNullOrEmpty(line)) continue;
+                yield return TempSpeechRoutine(line, secondsPerLine, hideAtEnd: true);
+            }
+            tempSpeechRoutine = null;
+            onComplete?.Invoke();
+        }
+
+        IEnumerator TempSpeechRoutine(string line, float duration, bool hideAtEnd)
         {
             EnsureBubble();
             bubbleTextMesh.text = line;
@@ -491,9 +515,9 @@ namespace Yoegoe.Characters
                 bubbleBg.transform.localScale = new Vector3(bounds.size.x + 0.3f, bounds.size.y + 0.18f, 1f);
             }
             monologueShowing = true;
-            monologueTimer = 3.5f;
+            monologueTimer = duration;
             float t = 0f;
-            while (t < 3.5f)
+            while (t < duration)
             {
                 t += Time.deltaTime;
                 if (bubbleTextMesh != null)
@@ -505,8 +529,7 @@ namespace Yoegoe.Characters
                 }
                 yield return null;
             }
-            HideMonologue();
-            tempSpeechRoutine = null;
+            if (hideAtEnd) HideMonologue();
         }
 
         private static Sprite sharedBubbleSprite;

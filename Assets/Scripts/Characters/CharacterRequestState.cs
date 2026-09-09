@@ -144,15 +144,22 @@ namespace Yoegoe.Characters
             if (matches)
             {
                 staminaGain = 30;
-                intimacyGain = 0.25f; // 선호 공양
+                intimacyGain = 0.25f; // 선호 공양(요구 추가분 없음)
                 fulfilledRequest = true;
                 ClearOfferingRequest();
                 CooldownUntil = Time.time + OfferingCooldownSeconds;
-                if (GiftBundle.RollAfterRequestFulfilled())
+                // 고마워 → 꾸러미 판정 → 당첨 시에만 추가 대사 → 팝업
+                bool gift = GiftBundle.RollAfterRequestFulfilled();
+                if (gift)
                 {
-                    owner.ShowTempSpeech("이거… 챙겨뒀어.");
-                    if (GiftBundlePopup.Instance != null)
-                        GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                    owner.ShowTempSpeechSequence(
+                        new[] { "너무 맛있어. 고마워." },
+                        () =>
+                        {
+                            owner.ShowTempSpeech("이거… 챙겨뒀어.");
+                            if (GiftBundlePopup.Instance != null)
+                                GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                        });
                 }
                 else
                 {
@@ -173,11 +180,17 @@ namespace Yoegoe.Characters
         {
             if (!HasPropRequest || prop == null || prop != PropRequest) return;
             ClearPropRequest();
-            if (GiftBundle.RollAfterRequestFulfilled())
+            bool gift = GiftBundle.RollAfterRequestFulfilled();
+            if (gift)
             {
-                owner.ShowTempSpeech("이거… 챙겨뒀어.");
-                if (GiftBundlePopup.Instance != null)
-                    GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                owner.ShowTempSpeechSequence(
+                    new[] { "지금 하고 싶은 걸 어떻게 알았지? 고마워." },
+                    () =>
+                    {
+                        owner.ShowTempSpeech("이거… 챙겨뒀어.");
+                        if (GiftBundlePopup.Instance != null)
+                            GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                    });
             }
             else
             {

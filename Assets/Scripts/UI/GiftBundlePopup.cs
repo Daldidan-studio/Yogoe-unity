@@ -13,6 +13,8 @@ namespace Yoegoe.UI
 
         public Font font;
         public OfferingData[] offerings;
+        public Sprite closedChestSprite;
+        public Sprite openChestSprite;
 
         GameObject root;
         GameObject closedView;
@@ -98,44 +100,37 @@ namespace Yoegoe.UI
             closedBtn.targetGraphic = dim;
             closedBtn.onClick.AddListener(OnTapClosed);
 
-            var box = MakeBox(closedView.transform, new Vector2(520, 420));
-            titleText = MakeText(box, "선물꾸러미", 36, new Vector2(0, 80));
-            MakeText(box, "탭하여 열기", 26, new Vector2(0, -40), new Color(1f, 0.85f, 0.55f));
+            EnsureChestSprites();
 
-            // 닫힌 상자 느낌
-            var chest = new GameObject("Chest");
-            var chestRt = chest.AddComponent<RectTransform>();
-            chestRt.SetParent(box, false);
-            chestRt.anchorMin = chestRt.anchorMax = chestRt.pivot = new Vector2(0.5f, 0.5f);
-            chestRt.anchoredPosition = new Vector2(0, 10);
-            chestRt.sizeDelta = new Vector2(140, 110);
-            var chestImg = chest.AddComponent<Image>();
-            chestImg.color = new Color(0.75f, 0.55f, 0.25f, 1f);
-            chestImg.raycastTarget = false;
+            var box = MakeBox(closedView.transform, new Vector2(520, 460));
+            titleText = MakeText(box, "선물꾸러미", 36, new Vector2(0, 170));
+            MakeText(box, "탭하여 열기", 26, new Vector2(0, -170), new Color(1f, 0.85f, 0.55f));
+            MakeChestImage(box, "ClosedChest", closedChestSprite, new Vector2(0, 0), new Vector2(220, 220));
 
             openView = new GameObject("Open");
             Stretch(openView, rootRt);
             openView.SetActive(false);
-            var openBox = MakeBox(openView.transform, new Vector2(560, 480));
-            MakeText(openBox, "획득!", 34, new Vector2(0, 150));
+            var openBox = MakeBox(openView.transform, new Vector2(560, 560));
+            MakeText(openBox, "획득!", 34, new Vector2(0, 220));
+            MakeChestImage(openBox, "OpenChest", openChestSprite, new Vector2(0, 40), new Vector2(240, 240));
 
             var iconGO = new GameObject("RewardIcon");
             var iconRt = iconGO.AddComponent<RectTransform>();
             iconRt.SetParent(openBox, false);
             iconRt.anchorMin = iconRt.anchorMax = iconRt.pivot = new Vector2(0.5f, 0.5f);
-            iconRt.anchoredPosition = new Vector2(0, 40);
-            iconRt.sizeDelta = new Vector2(120, 120);
+            iconRt.anchoredPosition = new Vector2(0, 55);
+            iconRt.sizeDelta = new Vector2(96, 96);
             rewardIcon = iconGO.AddComponent<Image>();
             rewardIcon.preserveAspect = true;
             rewardIcon.raycastTarget = false;
 
-            rewardText = MakeText(openBox, "", 30, new Vector2(0, -70));
+            rewardText = MakeText(openBox, "", 30, new Vector2(0, -120));
 
             var ok = new GameObject("BtnOk");
             var okRt = ok.AddComponent<RectTransform>();
             okRt.SetParent(openBox, false);
             okRt.anchorMin = okRt.anchorMax = okRt.pivot = new Vector2(0.5f, 0.5f);
-            okRt.anchoredPosition = new Vector2(0, -160);
+            okRt.anchoredPosition = new Vector2(0, -210);
             okRt.sizeDelta = new Vector2(240, 70);
             var okImg = ok.AddComponent<Image>();
             okImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
@@ -143,6 +138,37 @@ namespace Yoegoe.UI
             okBtn.targetGraphic = okImg;
             okBtn.onClick.AddListener(OnDismiss);
             MakeText(okRt, "확인", 30, Vector2.zero);
+        }
+
+        void EnsureChestSprites()
+        {
+            if (closedChestSprite == null)
+                closedChestSprite = Resources.Load<Sprite>("UI/GiftChest_Closed");
+            if (openChestSprite == null)
+                openChestSprite = Resources.Load<Sprite>("UI/GiftChest_Open");
+        }
+
+        static void MakeChestImage(Transform parent, string name, Sprite sprite, Vector2 pos, Vector2 size)
+        {
+            var go = new GameObject(name);
+            var rt = go.AddComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            var img = go.AddComponent<Image>();
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+            }
+            else
+            {
+                // 에셋 로드 실패 시 임시 박스
+                img.color = new Color(0.72f, 0.48f, 0.22f, 1f);
+            }
         }
 
         static RectTransform Stretch(GameObject go, Transform parent)

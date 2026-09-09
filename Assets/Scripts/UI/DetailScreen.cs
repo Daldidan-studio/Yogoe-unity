@@ -452,6 +452,7 @@ namespace Yoegoe.UI
             float intimacyGain = preferred ? 0.25f : 0f;
             if (isPurified) intimacyGain = 0f;
 
+            bool clearedOfferingRequest = false;
             if (!isPurified
                 && currentAgent.Requests != null
                 && currentAgent.Requests.TryHandleFeed(offering, false, preferred,
@@ -460,11 +461,16 @@ namespace Yoegoe.UI
                 staminaGain = reqStamina;
                 intimacyGain = reqIntimacy;
                 if (intimacyGain > 0f) kind = OfferingKind.Preferred;
+                // 요구 맞춤/다른 공양 모두 요구 삭제 → 인벤 하이라이트도 제거
+                clearedOfferingRequest = true;
             }
 
             currentAgent.ReceiveOffering(staminaGain, intimacyGain, kind);
             PlayGainPopup(staminaGain, intimacyGain);
             RefreshStats();
+            RefreshItemCounts();
+            if (clearedOfferingRequest)
+                RebuildInventoryRow();
             if (currentAgent.Stats.Stage == GrowthStage.Hon)
                 GameSaveBridge.SaveFromWorld();
             return true;
