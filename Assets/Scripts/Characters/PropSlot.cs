@@ -260,7 +260,6 @@ namespace Yoegoe.Characters
             }
             EnsureLockLabel();
             lockLabel.gameObject.SetActive(true);
-            lockLabel.text = "자물쇠";
             lockLabel.transform.position = transform.position + Vector3.up * 0.55f;
         }
 
