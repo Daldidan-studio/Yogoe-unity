@@ -36,6 +36,11 @@ namespace Yoegoe.Save
         public int giftMissStreak;
         public bool giftFirstGrantDone;
         public int adRewardTickets;
+
+        /// <summary>12장 고가구점: 좌·우 공양 id, 다음 자동 갱신 UTC ticks.</summary>
+        public string shopLeftOfferingId = "";
+        public string shopRightOfferingId = "";
+        public long shopNextRefreshUtcTicks;
     }
 
     [Serializable]

@@ -201,6 +201,7 @@ namespace Yoegoe.Economy
             OnPurifiedWaterChanged?.Invoke(PurifiedWater);
             OnYutTokenChanged?.Invoke(YutToken);
             GiftBundle.ResetFromSave(0, false, 0);
+            ShopStock.ResetFromSave("", "", 0);
         }
 
         /// <summary>세이브 스냅샷으로 재화만 덮어쓴다 (공양물 인벤은 이후 패스).</summary>

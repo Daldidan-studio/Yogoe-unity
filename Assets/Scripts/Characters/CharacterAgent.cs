@@ -889,6 +889,16 @@ namespace Yoegoe.Characters
             return slice;
         }
 
+        /// <summary>7-1: 머물기·생산 중일 때만 분당 생산량. 상점 리셋 비용용.</summary>
+        public double GetProductionPerMinuteIfStaying()
+        {
+            if (Stats.Stage == GrowthStage.Neok) return 0;
+            if (Stats.State != ActionState.Staying || currentProp == null) return 0;
+            return currentProp.GetBaseProductionThisLevel()
+                   * GetIntimacyCorrection()
+                   * GetEndingPropCorrection();
+        }
+
         /// <summary>7-1: 친밀도 보정 = 1 + 친밀도/100. 넋은 친밀도 없음 → ×1.</summary>
         private double GetIntimacyCorrection()
         {

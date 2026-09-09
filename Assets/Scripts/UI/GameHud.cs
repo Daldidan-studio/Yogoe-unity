@@ -790,15 +790,38 @@ namespace Yoegoe.UI
             {
                 var iconGO = new GameObject("Icon");
                 iconGO.transform.SetParent(pwGO.transform, false);
-                var iconRt = iconGO.AddComponent<RectTransform>();
-                iconRt.sizeDelta = new Vector2(28, 28);
-                var img = iconGO.AddComponent<Image>();
-                img.sprite = purifiedWaterIcon;
-                img.preserveAspect = true;
+                iconGO.AddComponent<LayoutElement>().preferredWidth = 28;
+                var icon = iconGO.AddComponent<Image>();
+                icon.sprite = purifiedWaterIcon;
+                icon.preserveAspect = true;
+                icon.raycastTarget = false;
             }
             purifiedWaterText = CreateChipText(pwGO.transform, "0");
 
             yutTokenText = CreateChipText(rowGO.transform, "윷 0/0");
+
+            // 우상단 상점 버튼
+            var shopBtnGO = new GameObject("ShopButton");
+            var shopRt = SetupRect(shopBtnGO, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
+                new Vector2(-24, -24), new Vector2(120, 64));
+            var shopImg = shopBtnGO.AddComponent<Image>();
+            shopImg.color = new Color(0.35f, 0.25f, 0.18f, 0.92f);
+            var shopBtn = shopBtnGO.AddComponent<Button>();
+            shopBtn.targetGraphic = shopImg;
+            shopBtn.onClick.AddListener(() =>
+            {
+                if (ShopScreen.Instance != null) ShopScreen.Instance.Open();
+            });
+            var shopLabelGO = new GameObject("Label");
+            SetupRect(shopLabelGO, shopRt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            var shopLabel = shopLabelGO.AddComponent<Text>();
+            shopLabel.font = font;
+            shopLabel.fontSize = 26;
+            shopLabel.alignment = TextAnchor.MiddleCenter;
+            shopLabel.color = new Color(1f, 0.95f, 0.85f);
+            shopLabel.text = "상점";
+            shopLabel.raycastTarget = false;
         }
 
         private void BuildSlotBar(Transform canvasTf)

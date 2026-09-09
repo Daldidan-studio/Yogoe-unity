@@ -75,7 +75,7 @@ namespace Yoegoe.UI
             if (!CharacterSummon.CanSummonGorani())
             {
                 Close();
-                if (ShopStubPopup.Instance != null) ShopStubPopup.Instance.Open();
+                if (ShopScreen.Instance != null) ShopScreen.Instance.Open();
                 return;
             }
 

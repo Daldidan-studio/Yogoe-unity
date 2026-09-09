@@ -80,6 +80,7 @@ namespace Yoegoe.Save
                 }
             };
             GiftBundle.CaptureToSave(out data.economy.giftMissStreak, out data.economy.giftFirstGrantDone, out data.economy.adRewardTickets);
+            ShopStock.CaptureToSave(out data.economy.shopLeftOfferingId, out data.economy.shopRightOfferingId, out data.economy.shopNextRefreshUtcTicks);
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -226,6 +227,7 @@ namespace Yoegoe.Save
                 e.yutTokenMax,
                 e.propsPurchasedCount);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
+            ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
         }
 
         private static string FindOccupiedPropId(CharacterAgent agent)

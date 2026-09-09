@@ -125,6 +125,8 @@ namespace Yoegoe
 
             CharacterCatalog.EnsureLoaded();
             CharacterCatalog.SetOfferings(offerings);
+            ShopStock.SetCatalog(offerings);
+            ShopStock.EnsureFresh(DateTime.UtcNow);
 
             EnsureCamera();
             EnsureLight();
@@ -260,10 +262,13 @@ namespace Yoegoe
             ceremony.font = hudFont;
             ceremony.goraniData = goraniData;
 
-            var shopGO = new GameObject("ShopStubPopup");
+            var shopGO = new GameObject("ShopScreen");
             shopGO.SetActive(false);
-            var shop = shopGO.AddComponent<ShopStubPopup>();
+            var shop = shopGO.AddComponent<ShopScreen>();
             shop.font = hudFont;
+            shop.offerings = offerings;
+            shop.shopBackground = Resources.Load<Sprite>("UI/ShopInterior");
+            shop.imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
             shopGO.SetActive(true);
 
             var evoGO = new GameObject("EvolutionConfirmPopup");
