@@ -138,6 +138,7 @@ namespace Yoegoe.Characters
             PropRequest = pick;
             PropExpireAt = Time.time + PropDurationSeconds;
             EnsurePropIcon();
+            HideMonologueIfAny();
         }
 
         public void ClearOfferingRequest()
