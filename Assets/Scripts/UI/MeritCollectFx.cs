@@ -29,16 +29,27 @@ namespace Yoegoe.UI
             Spawn(UiToWorld(from), UiToWorld(to), to);
         }
 
+        /// <summary>기물 탭 수거: 퍼지는 연출 없이 공덕바로 곧장 빠르게 날아간다.</summary>
         public static void PlayFromWorld(Canvas canvas, Vector3 worldPos, RectTransform to, Camera worldCam = null)
         {
             if (to == null) return;
-            Spawn(worldPos, UiToWorld(to, worldCam), to);
+            SpawnQuick(worldPos, UiToWorld(to, worldCam), to);
         }
 
         private static void Spawn(Vector3 origin, Vector3 gather, RectTransform punchTarget)
         {
             var host = new GameObject("MeritCollectFx_World");
             host.AddComponent<Runner>().Begin(origin, gather, punchTarget);
+        }
+
+        private const int QuickItemCount = 3;
+        private const float QuickFlyDuration = 0.18f;
+        private const float QuickStagger = 0.025f;
+
+        private static void SpawnQuick(Vector3 origin, Vector3 gather, RectTransform punchTarget)
+        {
+            var host = new GameObject("MeritCollectFx_Quick");
+            host.AddComponent<QuickRunner>().Begin(origin, gather, punchTarget);
         }
 
         private static Vector3 UiToWorld(RectTransform ui, Camera worldCam = null)
@@ -338,6 +349,152 @@ namespace Yoegoe.UI
             {
                 float u = 1f - t;
                 return u * u * a + 2f * u * t * b + t * t * c;
+            }
+        }
+
+        /// <summary>퍼짐·호버링 없이 시작점 → 공덕바로 곧장 빠르게 날아가는 단순 연출.</summary>
+        private sealed class QuickRunner : MonoBehaviour
+        {
+            private struct Item
+            {
+                public Transform Tr;
+                public SpriteRenderer Sr;
+                public Vector3 Origin;
+                public Vector3 BaseScale;
+                public float StartDelay;
+                public float Elapsed;
+                public bool Arrived;
+                public Color BaseColor;
+            }
+
+            private Item[] items;
+            private RectTransform punchTarget;
+            private Vector3 gatherPos;
+            private Vector3 punchBaseScale = Vector3.one;
+            private float punchT = -1f;
+            private float hardLife;
+
+            public void Begin(Vector3 origin, Vector3 gather, RectTransform punch)
+            {
+                punchTarget = punch;
+                gatherPos = gather;
+                hardLife = 2f;
+                if (punchTarget != null) punchBaseScale = punchTarget.localScale;
+
+                var sprite = PetalSprite();
+                items = new Item[QuickItemCount];
+
+                for (int i = 0; i < QuickItemCount; i++)
+                {
+                    var go = new GameObject("MeritQuick_" + i);
+                    go.transform.SetParent(transform, false);
+                    go.transform.position = origin;
+                    go.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
+
+                    float size = Random.Range(0.4f, 0.55f);
+                    Vector3 baseScale = new Vector3(size, size, 1f);
+                    go.transform.localScale = baseScale;
+
+                    var sr = go.AddComponent<SpriteRenderer>();
+                    sr.sprite = sprite;
+                    sr.sortingOrder = 650 + i;
+                    Color c = Color.HSVToRGB(Random.Range(0.92f, 1.02f) % 1f, Random.Range(0.35f, 0.6f), 1f);
+                    c.a = 0.95f;
+                    sr.color = c;
+
+                    items[i] = new Item
+                    {
+                        Tr = go.transform,
+                        Sr = sr,
+                        Origin = origin,
+                        BaseScale = baseScale,
+                        StartDelay = i * QuickStagger,
+                        BaseColor = c
+                    };
+                }
+            }
+
+            private void OnDestroy()
+            {
+                if (punchTarget != null)
+                    punchTarget.localScale = punchBaseScale;
+            }
+
+            private void Update()
+            {
+                if (items == null)
+                {
+                    Destroy(gameObject);
+                    return;
+                }
+
+                float dt = Time.unscaledDeltaTime;
+                hardLife -= dt;
+                if (hardLife <= 0f)
+                {
+                    Destroy(gameObject);
+                    return;
+                }
+
+                bool anyAlive = false;
+                for (int i = 0; i < items.Length; i++)
+                {
+                    var it = items[i];
+                    if (it.Tr == null) continue;
+
+                    it.Elapsed += dt;
+                    float t = it.Elapsed - it.StartDelay;
+                    if (t < 0f)
+                    {
+                        items[i] = it;
+                        anyAlive = true;
+                        continue;
+                    }
+
+                    float u = Mathf.Clamp01(t / QuickFlyDuration);
+                    float e = 1f - (1f - u) * (1f - u); // 빠르게 출발해서 슉 도착
+                    it.Tr.position = Vector3.LerpUnclamped(it.Origin, gatherPos, e);
+
+                    float shrink = Mathf.Lerp(1f, 0.3f, u);
+                    it.Tr.localScale = it.BaseScale * shrink;
+                    if (it.Sr != null)
+                    {
+                        var c = it.BaseColor;
+                        c.a = Mathf.Lerp(it.BaseColor.a, 0.15f, u * u);
+                        it.Sr.color = c;
+                    }
+
+                    if (u >= 1f && !it.Arrived)
+                    {
+                        it.Arrived = true;
+                        punchT = 0f;
+                        Destroy(it.Tr.gameObject);
+                        it.Tr = null;
+                        it.Sr = null;
+                    }
+                    else
+                    {
+                        anyAlive = true;
+                    }
+
+                    items[i] = it;
+                }
+
+                if (punchT >= 0f && punchTarget != null)
+                {
+                    punchT += dt;
+                    float pt = Mathf.Clamp01(punchT / PunchDur);
+                    float scale = 1f + Mathf.Sin(pt * Mathf.PI) * PunchAmp * (1f - pt * 0.3f);
+                    punchTarget.localScale = punchBaseScale * scale;
+                    if (pt >= 1f)
+                    {
+                        punchTarget.localScale = punchBaseScale;
+                        punchT = -1f;
+                    }
+                }
+
+                if (!anyAlive && punchT < 0f)
+                    Destroy(gameObject);
             }
         }
     }
