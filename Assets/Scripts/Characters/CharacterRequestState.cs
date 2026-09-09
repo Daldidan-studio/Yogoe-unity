@@ -1,7 +1,6 @@
 using UnityEngine;
 using Yoegoe.Data;
 using Yoegoe.Economy;
-using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
@@ -13,6 +12,12 @@ namespace Yoegoe.Characters
         public const float PropDurationSeconds = 30f;
         /// <summary>요구 기물에 올려둔 뒤, 이 시간 이상 머물러야 완료(즉시 빼기 악용 방지).</summary>
         public const float PropFulfillSitSeconds = 3f;
+
+        /// <summary>
+        /// 요구 완료 보상으로 선물꾸러미 당첨. UI(GiftBundlePopup)가 구독해서 팝업을 연다 —
+        /// 이 클래스는 UI를 모른다.
+        /// </summary>
+        public static event System.Action<string> GiftBundleAwarded;
 
         static readonly int[] OfferingBoundaries = { 70, 60, 50, 40, 30, 20, 10 };
 
@@ -180,8 +185,7 @@ namespace Yoegoe.Characters
                     () =>
                     {
                         owner.ShowTempSpeech("이거… 챙겨뒀어.");
-                        if (GiftBundlePopup.Instance != null)
-                            GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                        GiftBundleAwarded?.Invoke("선물꾸러미");
                     });
             }
             else
@@ -221,8 +225,7 @@ namespace Yoegoe.Characters
                         () =>
                         {
                             owner.ShowTempSpeech("이거… 챙겨뒀어.");
-                            if (GiftBundlePopup.Instance != null)
-                                GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                            GiftBundleAwarded?.Invoke("선물꾸러미");
                         });
                 }
                 else

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using Yoegoe.Characters;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 
@@ -30,6 +31,9 @@ namespace Yoegoe.UI
         bool opening;
 
         void Awake() => Instance = this;
+
+        void OnEnable() => CharacterRequestState.GiftBundleAwarded += OpenForReward;
+        void OnDisable() => CharacterRequestState.GiftBundleAwarded -= OpenForReward;
 
         void Start()
         {

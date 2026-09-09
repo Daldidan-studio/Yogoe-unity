@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.Save;

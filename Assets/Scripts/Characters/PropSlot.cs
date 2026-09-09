@@ -174,18 +174,21 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 7-2: 기물 탭 수거. 더미를 비우고 플레이어 공덕(HUD)에 더한다.
         /// </summary>
+        /// <summary>
+        /// 기물 수거 연출 지점 통지. UI(GameHud)가 구독해서 실제 이펙트를 재생한다 —
+        /// 이 클래스는 UI를 모른다.
+        /// </summary>
+        public static event System.Action<Vector3> MeritCollectedAtWorld;
+
         public bool TryCollectMerit()
         {
             if (!HasPendingMerit) return false;
             var collected = TakePendingMerit();
             GameEconomy.AddMerit(collected);
-            if (Yoegoe.UI.GameHud.Instance != null)
-            {
-                Vector3 fxPos = transform.position + Vector3.up * 0.4f;
-                if (spriteRenderer != null && spriteRenderer.sprite != null)
-                    fxPos = new Vector3(transform.position.x, spriteRenderer.bounds.max.y + 0.15f, transform.position.z);
-                Yoegoe.UI.GameHud.Instance.PlayMeritCollectFxFromWorld(fxPos);
-            }
+            Vector3 fxPos = transform.position + Vector3.up * 0.4f;
+            if (spriteRenderer != null && spriteRenderer.sprite != null)
+                fxPos = new Vector3(transform.position.x, spriteRenderer.bounds.max.y + 0.15f, transform.position.z);
+            MeritCollectedAtWorld?.Invoke(fxPos);
             return true;
         }
 

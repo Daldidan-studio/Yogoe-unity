@@ -24,6 +24,9 @@ namespace Yoegoe.UI
             // Build은 Start/Open에서 — Main이 font를 넣은 뒤에 그려야 한글이 보인다.
         }
 
+        private void OnEnable() => MapPointerRouter.PropPurchaseRequested += Open;
+        private void OnDisable() => MapPointerRouter.PropPurchaseRequested -= Open;
+
         private void Start()
         {
             EnsureBuilt();

@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using Yoegoe.Characters;
 
 namespace Yoegoe.UI
 {
@@ -15,6 +16,9 @@ namespace Yoegoe.UI
         Action onConfirm;
 
         void Awake() => Instance = this;
+
+        void OnEnable() => CharacterAgent.EvolutionConfirmRequested += Open;
+        void OnDisable() => CharacterAgent.EvolutionConfirmRequested -= Open;
 
         void Start()
         {

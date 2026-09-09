@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using UnityEngine;
+using Yoegoe.Core;
 using Yoegoe.Data;
 
 namespace Yoegoe.Characters
@@ -17,6 +19,13 @@ namespace Yoegoe.Characters
         private Vector3? neokDriftTarget;
         private float neokBobPhase;
         private bool evolvingToHon;
+
+        /// <summary>
+        /// 진화 연출 종료 후 확인 창을 요청한다 (message, onConfirmed).
+        /// UI(EvolutionConfirmPopup)가 구독해서 실제 팝업을 띄운다 — CharacterAgent는 UI를 모른다.
+        /// 구독자가 없으면 EvolveToHonFxRoutine이 짧은 대기 후 자동 진행한다.
+        /// </summary>
+        public static event Action<string, Action> EvolutionConfirmRequested;
 
         /// <summary>소환 직후 넋 상태로 고정 (Start보다 먼저 호출).</summary>
         public void ApplyFreshNeokSummon()
@@ -68,7 +77,7 @@ namespace Yoegoe.Characters
         private IEnumerator EvolveToHonFxRoutine()
         {
             evolvingToHon = true;
-            Yoegoe.UI.CeremonyGate.Begin();
+            CeremonyGate.Begin();
 
             var focus = Yoegoe.Debugging.MapCameraFocus.Instance;
             if (focus != null)
@@ -139,9 +148,9 @@ namespace Yoegoe.Characters
             string msg = who + "가 혼으로 진화했다.";
 
             bool confirmed = false;
-            if (Yoegoe.UI.EvolutionConfirmPopup.Instance != null)
+            if (EvolutionConfirmRequested != null)
             {
-                Yoegoe.UI.EvolutionConfirmPopup.Instance.Open(msg, () => confirmed = true);
+                EvolutionConfirmRequested.Invoke(msg, () => confirmed = true);
                 while (!confirmed) yield return null;
             }
             else
@@ -154,7 +163,7 @@ namespace Yoegoe.Characters
 
             EnterWalking();
             evolvingToHon = false;
-            Yoegoe.UI.CeremonyGate.End();
+            CeremonyGate.End();
             Yoegoe.Save.GameSaveBridge.SaveFromWorld();
         }
 

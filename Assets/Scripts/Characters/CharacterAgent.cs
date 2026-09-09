@@ -1,4 +1,5 @@
 using UnityEngine;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Save;
 
@@ -125,7 +126,7 @@ namespace Yoegoe.Characters
             }
 
             // 소환·진화 연출 중 맵 AI/부유 정지
-            if (Yoegoe.UI.CeremonyGate.BlocksWorldInput)
+            if (CeremonyGate.BlocksWorldInput)
             {
                 UpdateSortingOrder();
                 return;

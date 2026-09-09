@@ -94,9 +94,27 @@ namespace Yoegoe.UI
             Instance = this;
         }
 
+        private void OnEnable()
+        {
+            MapPointerRouter.CharacterDetailRequested += HandleCharacterDetailRequested;
+            PropSlot.MeritCollectedAtWorld += PlayMeritCollectFxFromWorld;
+        }
+
+        private void OnDisable()
+        {
+            MapPointerRouter.CharacterDetailRequested -= HandleCharacterDetailRequested;
+            PropSlot.MeritCollectedAtWorld -= PlayMeritCollectFxFromWorld;
+        }
+
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        private void HandleCharacterDetailRequested(CharacterAgent agent, string highlight)
+        {
+            if (detailScreen == null) return;
+            detailScreen.Open(agent, highlight);
         }
 
         private void Start()

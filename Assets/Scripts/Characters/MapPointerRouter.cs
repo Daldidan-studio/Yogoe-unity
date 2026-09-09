@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using Yoegoe.Core;
 using Yoegoe.Debugging;
-using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
@@ -16,6 +16,17 @@ namespace Yoegoe.Characters
     /// </summary>
     public class MapPointerRouter : MonoBehaviour
     {
+        /// <summary>
+        /// 캐릭터 상세화면을 열어달라는 요청 (agent, 하이라이트할 offeringId).
+        /// UI(GameHud)가 구독해서 실제 DetailScreen을 연다 — 이 클래스는 UI를 모른다.
+        /// </summary>
+        public static event System.Action<CharacterAgent, string> CharacterDetailRequested;
+
+        /// <summary>
+        /// 잠긴 기물 탭 → 구매 팝업 요청. UI(PropPurchasePopup)가 구독한다 — 이 클래스는 UI를 모른다.
+        /// </summary>
+        public static event System.Action<PropSlot> PropPurchaseRequested;
+
         public Camera targetCamera;
         public MapCameraDrag mapDrag;
 
@@ -257,8 +268,7 @@ namespace Yoegoe.Characters
                 if (pressProp != null && !pressProp.IsBuilt && IsNearProp(pressProp, screenPos, lockTapRadius))
                 {
                     CancelPendingMonologueTap();
-                    var popup = PropPurchasePopup.Instance;
-                    if (popup != null) popup.Open(pressProp);
+                    PropPurchaseRequested?.Invoke(pressProp);
                 }
                 else if (pressProp != null && pressProp.HasPendingMerit
                          && IsNearProp(pressProp, screenPos, propTapRadius))
@@ -349,11 +359,10 @@ namespace Yoegoe.Characters
         static void OpenCharacterDetail(CharacterAgent agent)
         {
             if (agent == null) return;
-            if (GameHud.Instance == null || GameHud.Instance.detailScreen == null) return;
             string highlight = null;
             if (agent.HasOfferingRequest && agent.Requests.OfferingRequest != null)
                 highlight = agent.Requests.OfferingRequest.offeringId;
-            GameHud.Instance.detailScreen.Open(agent, highlight);
+            CharacterDetailRequested?.Invoke(agent, highlight);
         }
 
         private void ResolveMapDrag()
