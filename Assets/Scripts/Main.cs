@@ -424,9 +424,8 @@ namespace Yoegoe
 
             // 전체맵이 overviewOffset만큼 밀렸으면 카메라 패닝 중심도 같이 이동
             Vector2 panCenter = overview != null ? overviewOffset : Vector2.zero;
-            drag.SetBounds(
-                new Vector2(panCenter.x - halfExtraW, panCenter.y - halfExtraH),
-                new Vector2(panCenter.x + halfExtraW, panCenter.y + halfExtraH));
+            drag.SetContentRect(panCenter, panW * 0.5f, panH * 0.5f);
+            drag.SetOrthoLimits(1.4f, Mathf.Max(cam.orthographicSize * 1.05f, cam.orthographicSize));
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router != null) router.mapDrag = drag;

@@ -11,8 +11,8 @@ namespace Yoegoe.Characters
     /// <summary>
     /// 맵 포인터 제스처 단일 진입점.
     /// 캐릭터: 길게 누르기(또는 임계 이동) → 들어올림 드래그.
-    /// 맵: 임계 이동 후 패닝. 거의 안 움직이면 탭.
-    /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말.
+    /// 맵: 임계 이동 후 패닝. 두 손가락 핀치·마우스 휠 → 줌.
+    /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말/넋 리액션.
     /// </summary>
     public class MapPointerRouter : MonoBehaviour
     {
@@ -40,7 +40,7 @@ namespace Yoegoe.Characters
         [Tooltip("기물 탭(자물쇠 구매·공덕 수거) 시 스프라이트 bounds 바깥 여유(월드). 너무 크면 멀리서도 구매 팝업이 뜸.")]
         public float propTapRadius = 0.12f;
 
-        private enum Phase { Idle, Pending, MapDrag, CharacterDrag }
+        private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
         private Phase phase = Phase.Idle;
         private bool wasPressed;
@@ -54,6 +54,9 @@ namespace Yoegoe.Characters
         /// <summary>첫 탭 후 더블탭 대기 중인 캐릭터. 창이 지나면 혼잣말.</summary>
         private CharacterAgent pendingMonologueTap;
         private float pendingMonologueDeadline;
+
+        bool pinchActive;
+        float lastPinchDistance;
 
         private static readonly List<RaycastResult> UiRaycastHits = new List<RaycastResult>(8);
 
@@ -69,6 +72,10 @@ namespace Yoegoe.Characters
 
             if (CeremonyGate.BlocksWorldInput) return;
 
+            // 핀치·휠은 단일 포인터 제스처보다 우선
+            if (TryHandlePinchZoom()) return;
+            TryHandleScrollZoom();
+
             if (!TryReadPointer(out Vector2 screenPos, out bool pressed)) return;
 
             bool justPressed = pressed && !wasPressed;
@@ -78,6 +85,99 @@ namespace Yoegoe.Characters
             if (justPressed) OnPress(screenPos);
             else if (pressed && phase != Phase.Idle) OnHold(screenPos);
             else if (justReleased) OnRelease(screenPos);
+        }
+
+        /// <summary>두 손가락 핀치 → 맵 줌.</summary>
+        bool TryHandlePinchZoom()
+        {
+            var ts = Touchscreen.current;
+            if (ts == null) return false;
+
+            int n = 0;
+            Vector2 p0 = default;
+            Vector2 p1 = default;
+            int touchCount = ts.touches.Count;
+            for (int i = 0; i < touchCount; i++)
+            {
+                var touch = ts.touches[i];
+                var ph = touch.phase.ReadValue();
+                if (ph == UnityEngine.InputSystem.TouchPhase.None
+                    || ph == UnityEngine.InputSystem.TouchPhase.Ended
+                    || ph == UnityEngine.InputSystem.TouchPhase.Canceled)
+                    continue;
+
+                Vector2 pos = touch.position.ReadValue();
+                if (n == 0) p0 = pos;
+                else if (n == 1) p1 = pos;
+                n++;
+                if (n >= 2) break;
+            }
+
+            if (n < 2)
+            {
+                if (pinchActive)
+                {
+                    pinchActive = false;
+                    phase = Phase.Idle;
+                }
+                return false;
+            }
+
+            float dist = Vector2.Distance(p0, p1);
+            if (dist < 8f) return true;
+
+            Vector2 mid = (p0 + p1) * 0.5f;
+
+            if (!pinchActive)
+            {
+                pinchActive = true;
+                lastPinchDistance = dist;
+                AbortSingleFingerGesture();
+                phase = Phase.PinchZoom;
+                return true;
+            }
+
+            if (lastPinchDistance > 0.01f)
+            {
+                // 손가락을 벌리면 dist↑ → 확대(ortho↓) → ratio = last/dist
+                float ratio = lastPinchDistance / dist;
+                ratio = Mathf.Clamp(ratio, 0.85f, 1.18f);
+                ResolveMapDrag();
+                if (mapDrag != null) mapDrag.ZoomByRatio(mid, ratio);
+            }
+
+            lastPinchDistance = dist;
+            phase = Phase.PinchZoom;
+            wasPressed = true;
+            return true;
+        }
+
+        /// <summary>에디터·데스크톱 WebGL용 마우스 휠 줌.</summary>
+        void TryHandleScrollZoom()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+            float scroll = mouse.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) < 0.01f) return;
+            if (IsBlockingUi(mouse.position.ReadValue())) return;
+
+            ResolveMapDrag();
+            if (mapDrag == null) return;
+
+            float ratio = scroll > 0f ? 0.90f : 1.11f;
+            mapDrag.ZoomByRatio(mouse.position.ReadValue(), ratio);
+        }
+
+        void AbortSingleFingerGesture()
+        {
+            CancelPendingMonologueTap();
+            if (phase == Phase.CharacterDrag && dragCharacter != null)
+            {
+                dragCharacter.EndPlayerDrag(null);
+                dragCharacter = null;
+            }
+            pressCharacter = null;
+            pressProp = null;
         }
 
         private void OnPress(Vector2 screenPos)
