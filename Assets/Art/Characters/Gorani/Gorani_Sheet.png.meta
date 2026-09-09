@@ -85,11 +85,24 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 0
+    overridden: 1
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 1
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -100,10 +113,10 @@ TextureImporter:
       name: Gorani_Down_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 258
-        width: 51
-        height: 46
+        x: 16
+        y: 253
+        width: 27
+        height: 44
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -112,8 +125,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: b76b04ea9aca410cab6d1d838d0fc087
-      internalID: 1403446323
+      spriteID: 23c09a9d1ff04c5183b30b18e29b6dd2
+      internalID: 1575358166
       vertices: []
       indices: 
       edges: []
@@ -122,10 +135,10 @@ TextureImporter:
       name: Gorani_Down_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 258
-        width: 51
-        height: 46
+        x: 63
+        y: 253
+        width: 26
+        height: 44
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,8 +147,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: faf0cc7d6f63418f85f6321c054470ee
-      internalID: -1005379663
+      spriteID: 82c35f43c73c4dd9860017a0076aadbb
+      internalID: 356361538
       vertices: []
       indices: 
       edges: []
@@ -144,10 +157,10 @@ TextureImporter:
       name: Gorani_Down_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 258
-        width: 51
-        height: 46
+        x: 112
+        y: 253
+        width: 28
+        height: 44
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -156,8 +169,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 179a83c1ac8243fc9f132ccd73b3c2b5
-      internalID: -1742624623
+      spriteID: 2d3d1ef27ed3415daba9e1ee2dcb2093
+      internalID: -1862808329
       vertices: []
       indices: 
       edges: []
@@ -166,10 +179,10 @@ TextureImporter:
       name: Gorani_Down_3
       rect:
         serializedVersion: 2
-        x: 153
-        y: 258
-        width: 51
-        height: 46
+        x: 162
+        y: 253
+        width: 26
+        height: 44
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -178,8 +191,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 96e5f04087b5478f87581cd5cb2a0a03
-      internalID: -67772816
+      spriteID: 4d85168e0f514b41acb96b3db254ed15
+      internalID: -806383402
       vertices: []
       indices: 
       edges: []
@@ -188,10 +201,10 @@ TextureImporter:
       name: Gorani_Right_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 215
-        width: 51
-        height: 43
+        x: 16
+        y: 209
+        width: 28
+        height: 41
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -200,8 +213,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 737be7638cee41da95aa742919344b58
-      internalID: 1033814394
+      spriteID: c577b4c1af884045ab4c54197502db64
+      internalID: 590706626
       vertices: []
       indices: 
       edges: []
@@ -210,10 +223,10 @@ TextureImporter:
       name: Gorani_Right_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 215
-        width: 51
-        height: 43
+        x: 64
+        y: 209
+        width: 27
+        height: 41
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -222,8 +235,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 91aef4f58b384ecbaec99958b8670817
-      internalID: 1382233519
+      spriteID: db13683238c94136ae5027a7fbd3fdfb
+      internalID: 1369796370
       vertices: []
       indices: 
       edges: []
@@ -232,10 +245,10 @@ TextureImporter:
       name: Gorani_Right_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 215
-        width: 51
-        height: 43
+        x: 112
+        y: 209
+        width: 28
+        height: 41
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -244,8 +257,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 568f7b0e836f4b6c8a7568e98bae0152
-      internalID: 82463401
+      spriteID: 88609b26de4445018a297705b7f33489
+      internalID: -1660617215
       vertices: []
       indices: 
       edges: []
@@ -254,10 +267,10 @@ TextureImporter:
       name: Gorani_Right_3
       rect:
         serializedVersion: 2
-        x: 153
-        y: 215
-        width: 51
-        height: 43
+        x: 162
+        y: 209
+        width: 27
+        height: 41
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -266,8 +279,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 2ce52c2810ef44d28cddb30c1b9fd1ce
-      internalID: 918811526
+      spriteID: fca8314b2e044eba808ebc0813c11d8f
+      internalID: 968786481
       vertices: []
       indices: 
       edges: []
@@ -276,10 +289,10 @@ TextureImporter:
       name: Gorani_Up_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 172
-        width: 51
-        height: 43
+        x: 16
+        y: 163
+        width: 27
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -288,8 +301,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 4f436332708a48479e15a50fccd23897
-      internalID: -212082845
+      spriteID: eebdd2ac63c9438095a685678a9209c3
+      internalID: 956348238
       vertices: []
       indices: 
       edges: []
@@ -298,10 +311,10 @@ TextureImporter:
       name: Gorani_Up_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 172
-        width: 51
-        height: 43
+        x: 64
+        y: 163
+        width: 27
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -310,8 +323,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d84b274319de47b1a466870931fa89f9
-      internalID: 1348270599
+      spriteID: a8c8dc98656f460391c70e25cb344554
+      internalID: -1925000231
       vertices: []
       indices: 
       edges: []
@@ -320,10 +333,10 @@ TextureImporter:
       name: Gorani_Up_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 172
-        width: 51
-        height: 43
+        x: 113
+        y: 163
+        width: 28
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -332,8 +345,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 38f37073637f4688bdab745ebe8e98e6
-      internalID: 1623205377
+      spriteID: 335d62a7790b4c909ce88e003a94e353
+      internalID: 1095990589
       vertices: []
       indices: 
       edges: []
@@ -342,10 +355,10 @@ TextureImporter:
       name: Gorani_Up_3
       rect:
         serializedVersion: 2
-        x: 153
-        y: 172
-        width: 51
-        height: 43
+        x: 162
+        y: 163
+        width: 27
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -354,8 +367,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 3b7e319061eb467eae61b2aac696db3d
-      internalID: -180422231
+      spriteID: 6218d7275b4b423898155ef2da6d3606
+      internalID: -1915776523
       vertices: []
       indices: 
       edges: []
@@ -364,10 +377,10 @@ TextureImporter:
       name: Gorani_Idle_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 129
-        width: 51
-        height: 43
+        x: 15
+        y: 119
+        width: 28
+        height: 41
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -376,8 +389,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: e56c7b206f9942a8b33a200a8f2ce4f5
-      internalID: -1999892526
+      spriteID: 36662778392a4dee9cf216d4805bf1bd
+      internalID: 154874108
       vertices: []
       indices: 
       edges: []
@@ -386,10 +399,10 @@ TextureImporter:
       name: Gorani_Idle_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 129
-        width: 51
-        height: 43
+        x: 63
+        y: 118
+        width: 27
+        height: 40
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -398,8 +411,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 6b10f8c809dc4e46a266528c496f50c0
-      internalID: 1878612105
+      spriteID: 79b8b758d2624d06868ab62834ceb0c4
+      internalID: -612671906
       vertices: []
       indices: 
       edges: []
@@ -408,10 +421,10 @@ TextureImporter:
       name: Gorani_Idle_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 129
-        width: 51
-        height: 43
+        x: 112
+        y: 120
+        width: 28
+        height: 35
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -420,8 +433,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: bac1d0cf3fbe448696eee7512ebd1046
-      internalID: 346176502
+      spriteID: ee88c6243f40456c84ed88f95ea8b770
+      internalID: -1946949557
       vertices: []
       indices: 
       edges: []
@@ -430,10 +443,10 @@ TextureImporter:
       name: Gorani_Idle_3
       rect:
         serializedVersion: 2
-        x: 153
-        y: 129
-        width: 51
-        height: 43
+        x: 161
+        y: 119
+        width: 28
+        height: 41
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -442,8 +455,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 97ac1889e2e24a0db1b5f5ac09847e01
-      internalID: 1086563004
+      spriteID: 2e8aa6fa16ca46678c8357f8b844b29e
+      internalID: -1591800371
       vertices: []
       indices: 
       edges: []
@@ -452,10 +465,10 @@ TextureImporter:
       name: Gorani_Slumped_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 86
-        width: 51
-        height: 43
+        x: 16
+        y: 75
+        width: 25
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -464,8 +477,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 056c60d7ac7d4da0a6441d5e9255f3a0
-      internalID: -1169736016
+      spriteID: 9c58b17dece14f3ba2029c7c41048bef
+      internalID: -457666793
       vertices: []
       indices: 
       edges: []
@@ -474,10 +487,10 @@ TextureImporter:
       name: Gorani_Slumped_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 86
-        width: 51
-        height: 43
+        x: 64
+        y: 75
+        width: 25
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -486,8 +499,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: fee46bf17a6a458199e503bcdccab1cf
-      internalID: -1317570557
+      spriteID: 47157935540f4581a676069d7ab3052a
+      internalID: -15248567
       vertices: []
       indices: 
       edges: []
@@ -496,10 +509,10 @@ TextureImporter:
       name: Gorani_Slumped_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 86
-        width: 51
-        height: 43
+        x: 113
+        y: 75
+        width: 25
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -508,8 +521,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7ab7f5381031472f8dced98091441070
-      internalID: -1931245234
+      spriteID: 26cae986fdfd4ef49de2d50b3e7f48de
+      internalID: 429878427
       vertices: []
       indices: 
       edges: []
@@ -518,10 +531,10 @@ TextureImporter:
       name: Gorani_Slumped_3
       rect:
         serializedVersion: 2
-        x: 153
-        y: 86
-        width: 51
-        height: 43
+        x: 162
+        y: 75
+        width: 26
+        height: 42
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -530,8 +543,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 5e656920704146dfbec5d49c71819672
-      internalID: -485256168
+      spriteID: 0f5e2ef6762b4a569a7507eee577237a
+      internalID: -1525444794
       vertices: []
       indices: 
       edges: []
@@ -540,10 +553,10 @@ TextureImporter:
       name: Gorani_Fainted_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 43
-        width: 51
-        height: 43
+        x: 6
+        y: 46
+        width: 46
+        height: 26
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -552,8 +565,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 09b69357a1064ea3af6898393d91e444
-      internalID: 1549372081
+      spriteID: b5f10647610b49fc98825de7a539ef97
+      internalID: -1666260527
       vertices: []
       indices: 
       edges: []
@@ -562,10 +575,10 @@ TextureImporter:
       name: Gorani_Fainted_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 43
-        width: 51
-        height: 43
+        x: 54
+        y: 46
+        width: 46
+        height: 26
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -574,8 +587,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 576fd8a34b9149519f82841645509344
-      internalID: -1218993152
+      spriteID: 18c7b17a894e426090c3c29aadd66745
+      internalID: -1347099091
       vertices: []
       indices: 
       edges: []
@@ -584,10 +597,10 @@ TextureImporter:
       name: Gorani_Fainted_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 43
-        width: 51
-        height: 43
+        x: 103
+        y: 46
+        width: 46
+        height: 26
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -596,8 +609,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 75669447b3d64bd8a7b9deff9b592dff
-      internalID: 1116322727
+      spriteID: fc5fa5f18abb40e0ab767ecaccb02676
+      internalID: -863306048
       vertices: []
       indices: 
       edges: []
@@ -607,9 +620,9 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 153
-        y: 43
-        width: 51
-        height: 43
+        y: 46
+        width: 46
+        height: 26
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -618,8 +631,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 49417b26b1c14ab7aefb9f9e7fd9bcce
-      internalID: -506083512
+      spriteID: b11cfb40645742a38757baa9f440aaae
+      internalID: 1737300097
       vertices: []
       indices: 
       edges: []
@@ -628,10 +641,10 @@ TextureImporter:
       name: Gorani_Stay_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 51
-        height: 43
+        x: 14
+        y: 6
+        width: 30
+        height: 37
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -640,8 +653,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 115cf8154d7543e59fb559552aa76c09
-      internalID: 1122302853
+      spriteID: c8e35099ac544ce8ac832d1cfe3451a6
+      internalID: -1463015256
       vertices: []
       indices: 
       edges: []
@@ -650,10 +663,10 @@ TextureImporter:
       name: Gorani_Stay_1
       rect:
         serializedVersion: 2
-        x: 51
-        y: 0
-        width: 51
-        height: 43
+        x: 61
+        y: 6
+        width: 31
+        height: 37
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -662,8 +675,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: c67a00482f7c44c0929e44914f2e5474
-      internalID: -825008144
+      spriteID: bacdffbf81244666b8ea467b2c6117dd
+      internalID: -1704995118
       vertices: []
       indices: 
       edges: []
@@ -672,10 +685,10 @@ TextureImporter:
       name: Gorani_Stay_2
       rect:
         serializedVersion: 2
-        x: 102
-        y: 0
-        width: 51
-        height: 43
+        x: 110
+        y: 5
+        width: 32
+        height: 35
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -684,8 +697,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: caf3eadf3a804efc9a483306e4815576
-      internalID: 1687123277
+      spriteID: 8eef336aaed4485db48ca48bd3ec221a
+      internalID: 1079142391
       vertices: []
       indices: 
       edges: []
@@ -694,10 +707,10 @@ TextureImporter:
       name: Gorani_Stay_3
       rect:
         serializedVersion: 2
-        x: 153
-        y: 0
-        width: 51
-        height: 43
+        x: 161
+        y: 5
+        width: 29
+        height: 38
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -706,8 +719,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 95bb5279665c480b8a686309923c470f
-      internalID: -1390377724
+      spriteID: caaad37c118b445c8a1d91230a0d086f
+      internalID: -1084903637
       vertices: []
       indices: 
       edges: []
@@ -716,7 +729,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 86f315b91a524e2e963073376ee5fe82
+    spriteID: cf728646e9fc4c1e869dc95704cb2866
     internalID: 0
     vertices: []
     indices: 
@@ -724,34 +737,34 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     nameFileIdTable:
-      Gorani_Down_0: 1403446323
-      Gorani_Down_1: -1005379663
-      Gorani_Down_2: -1742624623
-      Gorani_Down_3: -67772816
-      Gorani_Right_0: 1033814394
-      Gorani_Right_1: 1382233519
-      Gorani_Right_2: 82463401
-      Gorani_Right_3: 918811526
-      Gorani_Up_0: -212082845
-      Gorani_Up_1: 1348270599
-      Gorani_Up_2: 1623205377
-      Gorani_Up_3: -180422231
-      Gorani_Idle_0: -1999892526
-      Gorani_Idle_1: 1878612105
-      Gorani_Idle_2: 346176502
-      Gorani_Idle_3: 1086563004
-      Gorani_Slumped_0: -1169736016
-      Gorani_Slumped_1: -1317570557
-      Gorani_Slumped_2: -1931245234
-      Gorani_Slumped_3: -485256168
-      Gorani_Fainted_0: 1549372081
-      Gorani_Fainted_1: -1218993152
-      Gorani_Fainted_2: 1116322727
-      Gorani_Fainted_3: -506083512
-      Gorani_Stay_0: 1122302853
-      Gorani_Stay_1: -825008144
-      Gorani_Stay_2: 1687123277
-      Gorani_Stay_3: -1390377724
+      Gorani_Down_0: 1575358166
+      Gorani_Down_1: 356361538
+      Gorani_Down_2: -1862808329
+      Gorani_Down_3: -806383402
+      Gorani_Right_0: 590706626
+      Gorani_Right_1: 1369796370
+      Gorani_Right_2: -1660617215
+      Gorani_Right_3: 968786481
+      Gorani_Up_0: 956348238
+      Gorani_Up_1: -1925000231
+      Gorani_Up_2: 1095990589
+      Gorani_Up_3: -1915776523
+      Gorani_Idle_0: 154874108
+      Gorani_Idle_1: -612671906
+      Gorani_Idle_2: -1946949557
+      Gorani_Idle_3: -1591800371
+      Gorani_Slumped_0: -457666793
+      Gorani_Slumped_1: -15248567
+      Gorani_Slumped_2: 429878427
+      Gorani_Slumped_3: -1525444794
+      Gorani_Fainted_0: -1666260527
+      Gorani_Fainted_1: -1347099091
+      Gorani_Fainted_2: -863306048
+      Gorani_Fainted_3: 1737300097
+      Gorani_Stay_0: -1463015256
+      Gorani_Stay_1: -1704995118
+      Gorani_Stay_2: 1079142391
+      Gorani_Stay_3: -1084903637
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

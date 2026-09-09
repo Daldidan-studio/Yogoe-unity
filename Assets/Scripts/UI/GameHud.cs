@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
@@ -18,7 +19,9 @@ namespace Yoegoe.UI
         public Sprite purifiedWaterIcon;
         public DetailScreen detailScreen;
 
+        private Canvas hudCanvas;
         private Text meritText;
+        private RectTransform meritTextRt;
         private Text yeopjeonText;
         private Text hyangText;
         private Text purifiedWaterText;
@@ -211,7 +214,8 @@ namespace Yoegoe.UI
                     batchBg.color = new Color(0.85f, 0.55f, 0.15f, 0.95f);
                     var batchBtn = batchRoot.AddComponent<Button>();
                     batchBtn.targetGraphic = batchBg;
-                    batchBtn.onClick.AddListener(OnBatchCollectClicked);
+                    var batchRt = batchRoot.GetComponent<RectTransform>();
+                    batchBtn.onClick.AddListener(() => OnBatchCollectClicked(batchRt));
                     var batchLabelGO = new GameObject("Label");
                     SetupRect(batchLabelGO, batchRoot.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                         Vector2.zero, Vector2.zero);
@@ -305,12 +309,15 @@ namespace Yoegoe.UI
             });
         }
 
-        private static void OnBatchCollectClicked()
+        private void OnBatchCollectClicked(RectTransform from)
         {
             // 콜드스타트 Sweep 이후 다시 쌓인 더미도 함께 수거해 기물 위 숫자가 남기지 않는다.
             GameSaveBridge.SweepPropPilesIntoBatch();
             if (!GameEconomy.TryClaimBatchMerit()) return;
             GameSaveBridge.SaveFromWorld();
+
+            if (hudCanvas != null && from != null && meritTextRt != null)
+                MeritCollectFx.Play(hudCanvas, from, meritTextRt, font);
         }
 
         // ---------------- 우하단 업그레이드 (8장) ----------------
@@ -400,6 +407,7 @@ namespace Yoegoe.UI
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 500;
+            hudCanvas = canvas;
 
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -409,8 +417,43 @@ namespace Yoegoe.UI
             canvasGO.AddComponent<GraphicRaycaster>();
 
             BuildTopBar(canvasGO.transform);
+            BuildTempResetButton(canvasGO.transform);
             BuildSlotBar(canvasGO.transform);
             BuildUpgradeButton(canvasGO.transform);
+        }
+
+        /// <summary>임시: 세이브 삭제 후 씬 리로드. 웹/에디터 공통.</summary>
+        private void BuildTempResetButton(Transform canvasTf)
+        {
+            var go = new GameObject("TempResetButton");
+            SetupRect(go, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
+                new Vector2(-24, -24), new Vector2(160, 56));
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(0.55f, 0.18f, 0.16f, 0.92f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.onClick.AddListener(OnTempResetClicked);
+
+            var labelGO = new GameObject("Label");
+            SetupRect(labelGO, go.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            var label = labelGO.AddComponent<Text>();
+            label.font = font;
+            label.fontSize = 22;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.text = "초기화";
+            label.raycastTarget = false;
+        }
+
+        private static void OnTempResetClicked()
+        {
+            GameSaveService.DeleteSave();
+            var scene = SceneManager.GetActiveScene();
+            if (scene.buildIndex >= 0)
+                SceneManager.LoadScene(scene.buildIndex);
+            else
+                SceneManager.LoadScene(scene.name);
         }
 
         private void BuildUpgradeButton(Transform canvasTf)
@@ -485,6 +528,8 @@ namespace Yoegoe.UI
             var meritGO = new GameObject("MeritText");
             meritGO.AddComponent<LayoutElement>().preferredHeight = 48;
             meritGO.transform.SetParent(topRt, false);
+            meritTextRt = meritGO.GetComponent<RectTransform>();
+            if (meritTextRt == null) meritTextRt = meritGO.AddComponent<RectTransform>();
             meritText = meritGO.AddComponent<Text>();
             meritText.font = font;
             meritText.fontSize = 40;

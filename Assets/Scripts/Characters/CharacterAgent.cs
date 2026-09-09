@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using Yoegoe.Data;
 using Yoegoe.Save;
@@ -72,6 +73,7 @@ namespace Yoegoe.Characters
         private const float NeokDriftSpeed = 0.7f;
         private const float NeokBobAmplitude = 0.14f;
         private const float NeokBobSpeed = 2.4f;
+        private bool evolvingToHon;
 
         private void Awake()
         {
@@ -161,6 +163,12 @@ namespace Yoegoe.Characters
         private void Update()
         {
             float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
+
+            if (evolvingToHon)
+            {
+                UpdateSortingOrder();
+                return;
+            }
 
             if (Stats.Stage == GrowthStage.Neok)
             {
@@ -926,7 +934,7 @@ namespace Yoegoe.Characters
             if (Stats.Stage == GrowthStage.Hon)
                 CharacterSpawner.EnsureHonVisual(this);
             else if (Stats.Stage == GrowthStage.Neok && Stats.Stamina >= 100f - 0.001f)
-                EvolveToHon();
+                EvolveToHon(playFx: false);
 
             if (occupyProp != null
                 && (state == ActionState.Staying
@@ -979,24 +987,112 @@ namespace Yoegoe.Characters
             spriteRenderer = sr;
         }
 
-        /// <summary>넋 → 혼. 친밀도 0부터, 기력은 유지한 채 행동 시작.</summary>
-        public void EvolveToHon()
+        /// <summary>넋 → 혼. 친밀도 0부터. playFx면 넋 페이드아웃 후 혼 페이드인.</summary>
+        public void EvolveToHon(bool playFx = true)
         {
-            if (Stats.Stage != GrowthStage.Neok) return;
+            if (Stats.Stage != GrowthStage.Neok || evolvingToHon) return;
 
             Stats.Stage = GrowthStage.Hon;
             Stats.Intimacy = 0f;
             Stats.Stamina = Mathf.Max(Stats.Stamina, 100f);
             Stats.StateTimer = 0f;
-            // 부유 오프셋 제거 후 논리 좌표로 착지
             transform.position = MapBounds.Clamp(neokLogicalPos.sqrMagnitude > 0.0001f
                 ? neokLogicalPos
                 : transform.position);
             lastPosition = transform.position;
+
+            if (playFx && isActiveAndEnabled && gameObject.activeInHierarchy)
+            {
+                StartCoroutine(EvolveToHonFxRoutine());
+            }
+            else
+            {
+                CharacterSpawner.EnsureHonVisual(this);
+                EnterWalking();
+                ApplyAnimationFrameImmediate();
+            }
+
+            Debug.Log($"[CharacterAgent] {Data?.displayName ?? name} 넋→혼 진화");
+        }
+
+        private IEnumerator EvolveToHonFxRoutine()
+        {
+            evolvingToHon = true;
+
+            var meshRenderer = GetComponent<MeshRenderer>();
+            Vector3 neokScale = transform.localScale;
+            const float fadeOut = 0.4f;
+            float t = 0f;
+            while (t < fadeOut)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / fadeOut);
+                float e = u * u; // 빠르게 사라짐
+                transform.localScale = Vector3.Lerp(neokScale, Vector3.zero, e);
+                SetMeshAlpha(meshRenderer, 1f - u);
+                yield return null;
+            }
+
+            transform.localScale = Vector3.zero;
             CharacterSpawner.EnsureHonVisual(this);
+
+            var scaleSettings = ArtScaleSettings.GetOrDefault();
+            Vector3 honScale = Vector3.one * scaleSettings.characterScale;
+            if (spriteRenderer != null)
+            {
+                var c = spriteRenderer.color;
+                c.a = 0f;
+                spriteRenderer.color = c;
+            }
+            transform.localScale = honScale * 0.75f;
+
+            const float fadeIn = 0.55f;
+            t = 0f;
+            while (t < fadeIn)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / fadeIn));
+                transform.localScale = Vector3.Lerp(honScale * 0.75f, honScale, u);
+                if (spriteRenderer != null)
+                {
+                    var c = spriteRenderer.color;
+                    c.a = u;
+                    spriteRenderer.color = c;
+                }
+                UpdateSortingOrder();
+                yield return null;
+            }
+
+            transform.localScale = honScale;
+            if (spriteRenderer != null)
+            {
+                var c = spriteRenderer.color;
+                c.a = 1f;
+                spriteRenderer.color = c;
+            }
+
             EnterWalking();
             ApplyAnimationFrameImmediate();
-            Debug.Log($"[CharacterAgent] {Data?.displayName ?? name} 넋→혼 진화");
+            evolvingToHon = false;
+        }
+
+        private static void SetMeshAlpha(MeshRenderer meshRenderer, float alpha)
+        {
+            if (meshRenderer == null) return;
+            var mat = meshRenderer.material;
+            if (mat == null) return;
+            if (mat.HasProperty("_BaseColor"))
+            {
+                var c = mat.GetColor("_BaseColor");
+                c.a = alpha;
+                mat.SetColor("_BaseColor", c);
+            }
+            if (mat.HasProperty("_Color"))
+            {
+                var c = mat.color;
+                c.a = alpha;
+                mat.color = c;
+            }
         }
 
         /// <summary>넋 도깨비불: 맵을 천천히 떠돌며 위아래로 둥둥.</summary>

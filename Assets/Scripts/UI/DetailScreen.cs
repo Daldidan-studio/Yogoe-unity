@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
@@ -31,6 +32,11 @@ namespace Yoegoe.UI
         private Text heartsText;
         private Text descriptionText;
         private Text statusText;
+        private Sprite neokPlaceholderSprite;
+        private GrowthStage lastPortraitStage = GrowthStage.Hon;
+        private Coroutine portraitEvolveFx;
+        private RectTransform portraitRt;
+        private Vector3 portraitBaseScale = Vector3.one;
 
         private void Awake()
         {
@@ -52,14 +58,20 @@ namespace Yoegoe.UI
         public void Open(CharacterAgent agent)
         {
             EnsureBuilt();
+            if (portraitEvolveFx != null)
+            {
+                StopCoroutine(portraitEvolveFx);
+                portraitEvolveFx = null;
+            }
+
             currentAgent = agent;
             root.SetActive(true);
 
             var data = agent.Data;
-            RefreshIdentity();
             descriptionText.text = data != null ? data.detailDescription : "";
-            portraitImage.sprite = data != null ? FirstSprite(data) : null;
-            portraitImage.preserveAspect = true;
+            lastPortraitStage = agent.Stats.Stage;
+            RefreshIdentity();
+            ApplyPortraitImmediate(agent.Stats.Stage);
             RefreshStats();
         }
 
@@ -72,8 +84,115 @@ namespace Yoegoe.UI
             nameText.text = name + " · " + stage;
         }
 
+        /// <summary>넋→혼이면 페이드 연출, 그 외에는 즉시 반영.</summary>
+        private void RefreshPortrait()
+        {
+            if (portraitImage == null || currentAgent == null) return;
+            if (portraitEvolveFx != null) return;
+
+            var stage = currentAgent.Stats.Stage;
+            if (lastPortraitStage == GrowthStage.Neok && stage == GrowthStage.Hon)
+            {
+                portraitEvolveFx = StartCoroutine(PortraitEvolveFxRoutine());
+                lastPortraitStage = stage;
+                return;
+            }
+
+            lastPortraitStage = stage;
+            ApplyPortraitImmediate(stage);
+        }
+
+        private void ApplyPortraitImmediate(GrowthStage stage)
+        {
+            if (portraitImage == null) return;
+            if (portraitRt != null) portraitRt.localScale = portraitBaseScale;
+
+            if (stage == GrowthStage.Neok)
+            {
+                portraitImage.sprite = GetNeokPlaceholderSprite();
+                portraitImage.color = new Color(0.45f, 0.85f, 1f, 1f);
+            }
+            else
+            {
+                portraitImage.sprite = currentAgent != null ? FirstSprite(currentAgent.Data) : null;
+                portraitImage.color = Color.white;
+            }
+            portraitImage.preserveAspect = true;
+        }
+
+        private IEnumerator PortraitEvolveFxRoutine()
+        {
+            // 1) 넋 초상 페이드아웃
+            Color neokColor = portraitImage.color;
+            Vector3 startScale = portraitRt != null ? portraitRt.localScale : Vector3.one;
+            const float fadeOut = 0.35f;
+            float t = 0f;
+            while (t < fadeOut)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / fadeOut);
+                float e = u * u;
+                var c = neokColor;
+                c.a = 1f - e;
+                portraitImage.color = c;
+                if (portraitRt != null)
+                    portraitRt.localScale = Vector3.Lerp(startScale, startScale * 0.7f, e);
+                yield return null;
+            }
+
+            // 2) 혼 스프라이트로 교체 후 페이드인
+            portraitImage.sprite = FirstSprite(currentAgent != null ? currentAgent.Data : null);
+            portraitImage.preserveAspect = true;
+            var honColor = Color.white;
+            honColor.a = 0f;
+            portraitImage.color = honColor;
+            if (portraitRt != null) portraitRt.localScale = portraitBaseScale * 0.8f;
+
+            const float fadeIn = 0.5f;
+            t = 0f;
+            while (t < fadeIn)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / fadeIn));
+                honColor.a = u;
+                portraitImage.color = honColor;
+                if (portraitRt != null)
+                    portraitRt.localScale = Vector3.Lerp(portraitBaseScale * 0.8f, portraitBaseScale, u);
+                yield return null;
+            }
+
+            portraitImage.color = Color.white;
+            if (portraitRt != null) portraitRt.localScale = portraitBaseScale;
+            portraitEvolveFx = null;
+        }
+
+        private Sprite GetNeokPlaceholderSprite()
+        {
+            if (neokPlaceholderSprite != null) return neokPlaceholderSprite;
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            float r = size * 0.45f;
+            float cx = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cx));
+                float a = Mathf.Clamp01(1f - (d - r + 1.5f) / 1.5f);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+            tex.Apply(false, true);
+            neokPlaceholderSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            return neokPlaceholderSprite;
+        }
+
         public void Close()
         {
+            if (portraitEvolveFx != null)
+            {
+                StopCoroutine(portraitEvolveFx);
+                portraitEvolveFx = null;
+            }
             if (root != null) root.SetActive(false);
             currentAgent = null;
         }
@@ -115,6 +234,7 @@ namespace Yoegoe.UI
 
             statusText.text = CharacterStatusPresentation.ForDetail(stats.State);
             RefreshIdentity();
+            RefreshPortrait();
         }
 
         private void OnFeed(OfferingData offering)
@@ -197,6 +317,8 @@ namespace Yoegoe.UI
             SetupRect(portraitGO, rootRt, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(420, 420));
             portraitImage = portraitGO.AddComponent<Image>();
+            portraitRt = portraitGO.GetComponent<RectTransform>();
+            portraitBaseScale = portraitRt != null ? portraitRt.localScale : Vector3.one;
 
             // 기력 바
             var staminaBgGO = new GameObject("StaminaBarBg");
