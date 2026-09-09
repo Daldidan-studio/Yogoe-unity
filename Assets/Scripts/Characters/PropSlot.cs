@@ -184,7 +184,7 @@ namespace Yoegoe.Characters
         {
             if (!HasPendingMerit) return false;
             var collected = TakePendingMerit();
-            GameEconomy.AddMerit(collected);
+            GameEconomy.Instance.AddMerit(collected);
             Vector3 fxPos = transform.position + Vector3.up * 0.4f;
             if (spriteRenderer != null && spriteRenderer.sprite != null)
                 fxPos = new Vector3(transform.position.x, spriteRenderer.bounds.max.y + 0.15f, transform.position.z);

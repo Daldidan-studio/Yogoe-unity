@@ -21,7 +21,7 @@ namespace Yoegoe.Economy
         }
 
         public static BigNumber GetNextPurchaseCost() =>
-            GetPurchaseCost(GameEconomy.PropsPurchasedCount + 1);
+            GetPurchaseCost(GameEconomy.Instance.PropsPurchasedCount + 1);
 
         /// <summary>현재 레벨 L → L+1 업그레이드 비용: 500 × 1.15^(L−1). 자릿수 반올림 적용.</summary>
         public static BigNumber GetUpgradeCost(int level)
@@ -90,9 +90,9 @@ namespace Yoegoe.Economy
         {
             if (prop == null || prop.IsBuilt) return false;
             var cost = GetNextPurchaseCost();
-            if (!GameEconomy.TrySpendMerit(cost)) return false;
+            if (!GameEconomy.Instance.TrySpendMerit(cost)) return false;
             prop.Build();
-            GameEconomy.IncrementPropsPurchasedCount();
+            GameEconomy.Instance.IncrementPropsPurchasedCount();
             return true;
         }
 
@@ -100,7 +100,7 @@ namespace Yoegoe.Economy
         {
             if (prop == null || !prop.IsBuilt) return false;
             var cost = GetUpgradeCost(prop);
-            if (!GameEconomy.TrySpendMerit(cost)) return false;
+            if (!GameEconomy.Instance.TrySpendMerit(cost)) return false;
             prop.level += 1;
             prop.NotifyLevelUp();
             return true;

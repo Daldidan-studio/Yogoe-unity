@@ -239,15 +239,15 @@ namespace Yoegoe.UI
         private void RefreshItemCounts()
         {
             if (purifiedCountText != null)
-                purifiedCountText.text = "x" + GameEconomy.PurifiedWater;
+                purifiedCountText.text = "x" + GameEconomy.Instance.PurifiedWater;
 
             for (int i = 0; i < offeringCountBadges.Count; i++)
             {
                 var b = offeringCountBadges[i];
                 if (b.Label == null) continue;
                 int n = b.PurifiedWater
-                    ? GameEconomy.PurifiedWater
-                    : GameEconomy.GetOfferingCount(b.Offering);
+                    ? GameEconomy.Instance.PurifiedWater
+                    : GameEconomy.Instance.GetOfferingCount(b.Offering);
                 b.Label.text = "x" + n;
             }
         }
@@ -414,7 +414,7 @@ namespace Yoegoe.UI
         private bool OnFeedPurifiedWater()
         {
             if (currentAgent == null) return false;
-            if (!GameEconomy.TrySpendPurifiedWater(1)) return false;
+            if (!GameEconomy.Instance.TrySpendPurifiedWater(1)) return false;
 
             var pw = FindPurifiedWater();
             int gain = pw != null ? pw.staminaGain : 20;
@@ -437,9 +437,9 @@ namespace Yoegoe.UI
 
             if (isPurified)
             {
-                if (!GameEconomy.TrySpendPurifiedWater(1)) return false;
+                if (!GameEconomy.Instance.TrySpendPurifiedWater(1)) return false;
             }
-            else if (!GameEconomy.TrySpendOffering(offering, 1))
+            else if (!GameEconomy.Instance.TrySpendOffering(offering, 1))
             {
                 return false;
             }
@@ -662,7 +662,7 @@ namespace Yoegoe.UI
             var bg = badgeGO.AddComponent<Image>();
             bg.color = new Color(0.12f, 0.12f, 0.14f, 0.85f);
             bg.raycastTarget = false;
-            int n = purified ? GameEconomy.PurifiedWater : GameEconomy.GetOfferingCount(offering);
+            int n = purified ? GameEconomy.Instance.PurifiedWater : GameEconomy.Instance.GetOfferingCount(offering);
             var text = CreateText(badgeGO.transform, "x" + n, 14, TextAnchor.MiddleCenter);
             text.color = Color.white;
             SetupRect(text.gameObject, badgeGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),

@@ -54,8 +54,8 @@ namespace Yoegoe.UI
         {
             bool can = CharacterSummon.CanSummonGorani();
             costText.text = can
-                ? "향 " + CharacterSummon.HyangCost + "개 소모 (보유 " + GameEconomy.Hyang + ")"
-                : "향이 부족합니다 (필요 " + CharacterSummon.HyangCost + ", 보유 " + GameEconomy.Hyang + ")";
+                ? "향 " + CharacterSummon.HyangCost + "개 소모 (보유 " + GameEconomy.Instance.Hyang + ")"
+                : "향이 부족합니다 (필요 " + CharacterSummon.HyangCost + ", 보유 " + GameEconomy.Instance.Hyang + ")";
             if (summonButtonImage != null)
                 summonButtonImage.color = can ? SummonEnabled : SummonDisabled;
             if (summonButtonLabel != null)

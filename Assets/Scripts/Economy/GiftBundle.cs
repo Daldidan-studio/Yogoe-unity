@@ -84,7 +84,7 @@ namespace Yoegoe.Economy
             switch (kind)
             {
                 case ContentKind.PurifiedWater:
-                    GameEconomy.AddPurifiedWater(1);
+                    GameEconomy.Instance.AddPurifiedWater(1);
                     displayName = "정화수 x1";
                     if (catalog != null)
                     {
@@ -106,13 +106,13 @@ namespace Yoegoe.Economy
                     var pick = PickRandomOffering(catalog);
                     if (pick != null)
                     {
-                        GameEconomy.AddOffering(pick, 1);
+                        GameEconomy.Instance.AddOffering(pick, 1);
                         displayName = (string.IsNullOrEmpty(pick.displayName) ? pick.offeringId : pick.displayName) + " x1";
                         icon = pick.icon;
                     }
                     else
                     {
-                        GameEconomy.AddPurifiedWater(1);
+                        GameEconomy.Instance.AddPurifiedWater(1);
                         displayName = "정화수 x1";
                     }
                     break;

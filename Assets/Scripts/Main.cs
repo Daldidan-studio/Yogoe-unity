@@ -121,7 +121,8 @@ namespace Yoegoe
             Time.maximumDeltaTime = 3600f;
             lastActiveUtc = DateTime.UtcNow;
 
-            GameEconomy.ApplyStartingState(StartingStateSettings.Get());
+            var economyGO = new GameObject("GameEconomy");
+            economyGO.AddComponent<GameEconomy>().ApplyStartingState(StartingStateSettings.Get());
 
             CharacterCatalog.EnsureLoaded();
             CharacterCatalog.SetOfferings(offerings);

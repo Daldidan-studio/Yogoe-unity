@@ -120,24 +120,24 @@ namespace Yoegoe.Economy
                 fail = BuyFail.NoStock;
                 return false;
             }
-            if (!GameEconomy.TrySpendYeopjeon(OfferingPriceYeopjeon))
+            if (!GameEconomy.Instance.TrySpendYeopjeon(OfferingPriceYeopjeon))
             {
                 fail = BuyFail.NotEnoughYeopjeon;
                 return false;
             }
-            GameEconomy.AddOffering(o, 1);
+            GameEconomy.Instance.AddOffering(o, 1);
             return true;
         }
 
         public static bool TryBuyHyang(out BuyFail fail)
         {
             fail = BuyFail.None;
-            if (!GameEconomy.TrySpendYeopjeon(HyangPriceYeopjeon))
+            if (!GameEconomy.Instance.TrySpendYeopjeon(HyangPriceYeopjeon))
             {
                 fail = BuyFail.NotEnoughYeopjeon;
                 return false;
             }
-            GameEconomy.AddHyang(1);
+            GameEconomy.Instance.AddHyang(1);
             return true;
         }
 
@@ -155,7 +155,7 @@ namespace Yoegoe.Economy
         {
             cost = GetResetCostMerit();
             notEnoughMerit = false;
-            if (!GameEconomy.TrySpendMerit(cost))
+            if (!GameEconomy.Instance.TrySpendMerit(cost))
             {
                 notEnoughMerit = true;
                 return false;

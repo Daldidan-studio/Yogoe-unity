@@ -39,7 +39,7 @@ namespace Yoegoe.UI
         /// <summary>대기분 스윕 후 호출. fxFrom은 꽃잎 출발(옥토끼 일괄 버튼).</summary>
         public void Open(RectTransform fxOrigin = null)
         {
-            if (!GameEconomy.HasPendingBatchMerit) return;
+            if (!GameEconomy.Instance.HasPendingBatchMerit) return;
             EnsureBuilt();
             busy = false;
             fxFrom = fxOrigin;
@@ -57,7 +57,7 @@ namespace Yoegoe.UI
 
         void RefreshLabels()
         {
-            var amount = GameEconomy.PendingBatchMerit;
+            var amount = GameEconomy.Instance.PendingBatchMerit;
             if (amountText != null)
                 amountText.text = amount.ToDisplayString();
             if (tripleHintText != null)
@@ -101,21 +101,21 @@ namespace Yoegoe.UI
 
         void FinishClaim(int multiplier)
         {
-            if (!GameEconomy.HasPendingBatchMerit)
+            if (!GameEconomy.Instance.HasPendingBatchMerit)
             {
                 Close();
                 return;
             }
 
-            var before = GameEconomy.MeritPile;
-            if (!GameEconomy.TryClaimBatchMerit(multiplier))
+            var before = GameEconomy.Instance.MeritPile;
+            if (!GameEconomy.Instance.TryClaimBatchMerit(multiplier))
             {
                 busy = false;
                 SetButtonsInteractable(true);
                 return;
             }
 
-            var after = GameEconomy.MeritPile;
+            var after = GameEconomy.Instance.MeritPile;
             GameSaveBridge.SaveFromWorld();
 
             if (GameHud.Instance != null)

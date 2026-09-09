@@ -153,7 +153,7 @@ namespace Yoegoe.UI
                     TickMeritCountUp();
                 else
                 {
-                    var merit = GameEconomy.MeritPile;
+                    var merit = GameEconomy.Instance.MeritPile;
                     if (!hasLastMeritShown || !merit.Equals(lastMeritShown))
                     {
                         hasLastMeritShown = true;
@@ -162,26 +162,26 @@ namespace Yoegoe.UI
                     }
                 }
             }
-            if (yeopjeonText != null && GameEconomy.Yeopjeon != lastYeopjeon)
+            if (yeopjeonText != null && GameEconomy.Instance.Yeopjeon != lastYeopjeon)
             {
-                lastYeopjeon = GameEconomy.Yeopjeon;
+                lastYeopjeon = GameEconomy.Instance.Yeopjeon;
                 yeopjeonText.text = "엽전 " + lastYeopjeon;
             }
-            if (hyangText != null && GameEconomy.Hyang != lastHyang)
+            if (hyangText != null && GameEconomy.Instance.Hyang != lastHyang)
             {
-                lastHyang = GameEconomy.Hyang;
+                lastHyang = GameEconomy.Instance.Hyang;
                 hyangText.text = "향 " + lastHyang;
             }
-            if (purifiedWaterText != null && GameEconomy.PurifiedWater != lastPurifiedWater)
+            if (purifiedWaterText != null && GameEconomy.Instance.PurifiedWater != lastPurifiedWater)
             {
-                lastPurifiedWater = GameEconomy.PurifiedWater;
+                lastPurifiedWater = GameEconomy.Instance.PurifiedWater;
                 purifiedWaterText.text = lastPurifiedWater.ToString();
             }
             if (yutTokenText != null
-                && (GameEconomy.YutToken != lastYutToken || GameEconomy.YutTokenMax != lastYutTokenMax))
+                && (GameEconomy.Instance.YutToken != lastYutToken || GameEconomy.Instance.YutTokenMax != lastYutTokenMax))
             {
-                lastYutToken = GameEconomy.YutToken;
-                lastYutTokenMax = GameEconomy.YutTokenMax;
+                lastYutToken = GameEconomy.Instance.YutToken;
+                lastYutTokenMax = GameEconomy.Instance.YutTokenMax;
                 yutTokenText.text = "윷 " + lastYutToken + "/" + lastYutTokenMax;
             }
         }
@@ -281,7 +281,7 @@ namespace Yoegoe.UI
         private static void RefreshBatchButton(SlotChip chip)
         {
             if (chip.BatchButtonRoot == null || chip.BatchButtonLabel == null) return;
-            bool show = GameEconomy.HasPendingBatchMerit;
+            bool show = GameEconomy.Instance.HasPendingBatchMerit;
             if (show != chip.LastBatchVisible)
             {
                 chip.LastBatchVisible = show;
@@ -289,7 +289,7 @@ namespace Yoegoe.UI
             }
             if (!show) return;
 
-            var amount = GameEconomy.PendingBatchMerit;
+            var amount = GameEconomy.Instance.PendingBatchMerit;
             if (chip.HasLastBatchAmount && amount.Equals(chip.LastBatchAmount)) return;
             chip.HasLastBatchAmount = true;
             chip.LastBatchAmount = amount;
@@ -452,7 +452,7 @@ namespace Yoegoe.UI
         {
             // 콜드스타트 Sweep 이후 다시 쌓인 더미도 함께 수거해 기물 위 숫자가 남기지 않는다.
             GameSaveBridge.SweepPropPilesIntoBatch();
-            if (!GameEconomy.HasPendingBatchMerit) return;
+            if (!GameEconomy.Instance.HasPendingBatchMerit) return;
             if (BatchCollectPopup.Instance != null)
                 BatchCollectPopup.Instance.Open(from);
             else
@@ -462,9 +462,9 @@ namespace Yoegoe.UI
         /// <summary>팝업 없을 때 폴백 (1배).</summary>
         void ClaimBatchWithoutPopup(RectTransform from)
         {
-            var before = GameEconomy.MeritPile;
-            if (!GameEconomy.TryClaimBatchMerit(1)) return;
-            var after = GameEconomy.MeritPile;
+            var before = GameEconomy.Instance.MeritPile;
+            if (!GameEconomy.Instance.TryClaimBatchMerit(1)) return;
+            var after = GameEconomy.Instance.MeritPile;
             GameSaveBridge.SaveFromWorld();
             BeginMeritCountUp(before, after);
             if (from != null) PlayMeritCollectFx(from);
@@ -496,7 +496,7 @@ namespace Yoegoe.UI
         private void TickMeritCountUp()
         {
             // 실제 지갑이 연출 목표와 어긋나면(소비·추가 수거) 즉시 실제값으로 맞춤
-            var real = GameEconomy.MeritPile;
+            var real = GameEconomy.Instance.MeritPile;
             if (!real.Equals(meritAnimTo))
             {
                 // 목표가 더 커진 경우(연출 중 추가 수거)는 이어서 카운트
@@ -572,7 +572,7 @@ namespace Yoegoe.UI
             }
 
             var cost = PropEconomy.GetUpgradeCost(target);
-            bool canAfford = GameEconomy.MeritPile >= cost;
+            bool canAfford = GameEconomy.Instance.MeritPile >= cost;
             string name = target.DisplayName;
             bool changed = !lastUpgradeVisible
                 || target != lastUpgradeTarget

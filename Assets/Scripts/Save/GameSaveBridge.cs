@@ -42,7 +42,7 @@ namespace Yoegoe.Save
             foreach (var p in UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None))
             {
                 if (p == null || !p.HasPendingMerit) continue;
-                GameEconomy.AddPendingBatchMerit(p.TakePendingMerit());
+                GameEconomy.Instance.AddPendingBatchMerit(p.TakePendingMerit());
             }
         }
 
@@ -66,14 +66,14 @@ namespace Yoegoe.Save
                 savedAtUtcTicks = DateTime.UtcNow.Ticks,
                 economy = new EconomySave
                 {
-                    merit = BigNumberSave.From(GameEconomy.MeritPile),
-                    pendingBatchMerit = BigNumberSave.From(GameEconomy.PendingBatchMerit),
-                    yeopjeon = GameEconomy.Yeopjeon,
-                    hyang = GameEconomy.Hyang,
-                    purifiedWater = GameEconomy.PurifiedWater,
-                    yutToken = GameEconomy.YutToken,
-                    yutTokenMax = GameEconomy.YutTokenMax,
-                    propsPurchasedCount = GameEconomy.PropsPurchasedCount,
+                    merit = BigNumberSave.From(GameEconomy.Instance.MeritPile),
+                    pendingBatchMerit = BigNumberSave.From(GameEconomy.Instance.PendingBatchMerit),
+                    yeopjeon = GameEconomy.Instance.Yeopjeon,
+                    hyang = GameEconomy.Instance.Hyang,
+                    purifiedWater = GameEconomy.Instance.PurifiedWater,
+                    yutToken = GameEconomy.Instance.YutToken,
+                    yutTokenMax = GameEconomy.Instance.YutTokenMax,
+                    propsPurchasedCount = GameEconomy.Instance.PropsPurchasedCount,
                     giftMissStreak = 0,
                     giftFirstGrantDone = false,
                     adRewardTickets = 0
@@ -217,7 +217,7 @@ namespace Yoegoe.Save
         {
             if (e == null) return;
             // GameEconomy에 일괄 Set API가 없어 리플렉션 대신 공개 API 확장 필요 — 골격용 최소 반영
-            GameEconomy.ApplySaveSnapshot(
+            GameEconomy.Instance.ApplySaveSnapshot(
                 e.merit.ToBigNumber(),
                 e.pendingBatchMerit != null ? e.pendingBatchMerit.ToBigNumber() : BigNumber.Zero,
                 e.yeopjeon,

@@ -8,28 +8,42 @@ namespace Yoegoe.Economy
 {
     /// <summary>
     /// 재화·공양물 인벤토리. 시작값은 StartingStateSettings.asset 에서 적용.
+    /// Main이 부팅 시 GameObject 하나에 붙여서 만든다 (씬에 하나만 존재).
     /// </summary>
-    public static class GameEconomy
+    public class GameEconomy : MonoBehaviour
     {
+        public static GameEconomy Instance { get; private set; }
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            Instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         // ---------------- 공덕 (플레이어 지갑 — 수거된 공덕. 기물 더미는 PropSlot.PendingMerit) ----------------
-        public static BigNumber MeritPile { get; private set; } = BigNumber.Zero;
-        public static event Action<BigNumber> OnMeritChanged;
+        public BigNumber MeritPile { get; private set; } = BigNumber.Zero;
+        public event Action<BigNumber> OnMeritChanged;
 
         /// <summary>
         /// 앱 재시작 일괄 수거 대기분 (7-2). 콜드스타트 시 기물 더미를 여기로 모은다.
         /// 백그라운드 복귀만으로는 채우지 않는다.
         /// </summary>
-        public static BigNumber PendingBatchMerit { get; private set; } = BigNumber.Zero;
-        public static event Action OnBatchMeritChanged;
-        public static bool HasPendingBatchMerit => PendingBatchMerit.Mantissa != 0;
+        public BigNumber PendingBatchMerit { get; private set; } = BigNumber.Zero;
+        public event Action OnBatchMeritChanged;
+        public bool HasPendingBatchMerit => PendingBatchMerit.Mantissa != 0;
 
-        public static void AddMerit(BigNumber amount)
+        public void AddMerit(BigNumber amount)
         {
             MeritPile += amount;
             OnMeritChanged?.Invoke(MeritPile);
         }
 
-        public static bool TrySpendMerit(BigNumber amount)
+        public bool TrySpendMerit(BigNumber amount)
         {
             if (amount.Mantissa < 0) return false;
             if (MeritPile < amount) return false;
@@ -39,28 +53,28 @@ namespace Yoegoe.Economy
         }
 
         /// <summary>플레이어가 구매로 지은 기물 수 (prebuilt 제외). 다음 구매 n = 이 값 + 1.</summary>
-        public static int PropsPurchasedCount { get; private set; }
-        public static event Action OnPropsPurchasedCountChanged;
+        public int PropsPurchasedCount { get; private set; }
+        public event Action OnPropsPurchasedCountChanged;
 
-        public static void IncrementPropsPurchasedCount()
+        public void IncrementPropsPurchasedCount()
         {
             PropsPurchasedCount++;
             OnPropsPurchasedCountChanged?.Invoke();
         }
 
-        public static void SetPropsPurchasedCount(int count)
+        public void SetPropsPurchasedCount(int count)
         {
             PropsPurchasedCount = Math.Max(0, count);
             OnPropsPurchasedCountChanged?.Invoke();
         }
 
-        public static void SetPendingBatchMerit(BigNumber amount)
+        public void SetPendingBatchMerit(BigNumber amount)
         {
             PendingBatchMerit = amount;
             OnBatchMeritChanged?.Invoke();
         }
 
-        public static void AddPendingBatchMerit(BigNumber amount)
+        public void AddPendingBatchMerit(BigNumber amount)
         {
             if (amount.Mantissa == 0) return;
             PendingBatchMerit += amount;
@@ -68,7 +82,7 @@ namespace Yoegoe.Economy
         }
 
         /// <summary>일괄 수거 확정 → HUD 공덕으로 이동. multiplier=3 이면 광고/보상권 3배.</summary>
-        public static bool TryClaimBatchMerit(int multiplier = 1)
+        public bool TryClaimBatchMerit(int multiplier = 1)
         {
             if (!HasPendingBatchMerit) return false;
             if (multiplier < 1) multiplier = 1;
@@ -80,10 +94,10 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 엽전 ----------------
-        public static int Yeopjeon { get; private set; }
-        public static event Action<int> OnYeopjeonChanged;
-        public static void AddYeopjeon(int amount) { Yeopjeon += amount; OnYeopjeonChanged?.Invoke(Yeopjeon); }
-        public static bool TrySpendYeopjeon(int amount)
+        public int Yeopjeon { get; private set; }
+        public event Action<int> OnYeopjeonChanged;
+        public void AddYeopjeon(int amount) { Yeopjeon += amount; OnYeopjeonChanged?.Invoke(Yeopjeon); }
+        public bool TrySpendYeopjeon(int amount)
         {
             if (amount < 0 || Yeopjeon < amount) return false;
             Yeopjeon -= amount;
@@ -92,10 +106,10 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 향 ----------------
-        public static int Hyang { get; private set; }
-        public static event Action<int> OnHyangChanged;
-        public static void AddHyang(int amount) { Hyang += amount; OnHyangChanged?.Invoke(Hyang); }
-        public static bool TrySpendHyang(int amount)
+        public int Hyang { get; private set; }
+        public event Action<int> OnHyangChanged;
+        public void AddHyang(int amount) { Hyang += amount; OnHyangChanged?.Invoke(Hyang); }
+        public bool TrySpendHyang(int amount)
         {
             if (amount < 0 || Hyang < amount) return false;
             Hyang -= amount;
@@ -104,10 +118,10 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 정화수 ----------------
-        public static int PurifiedWater { get; private set; }
-        public static event Action<int> OnPurifiedWaterChanged;
-        public static void AddPurifiedWater(int amount) { PurifiedWater += amount; OnPurifiedWaterChanged?.Invoke(PurifiedWater); }
-        public static bool TrySpendPurifiedWater(int amount)
+        public int PurifiedWater { get; private set; }
+        public event Action<int> OnPurifiedWaterChanged;
+        public void AddPurifiedWater(int amount) { PurifiedWater += amount; OnPurifiedWaterChanged?.Invoke(PurifiedWater); }
+        public bool TrySpendPurifiedWater(int amount)
         {
             if (amount < 0 || PurifiedWater < amount) return false;
             PurifiedWater -= amount;
@@ -116,15 +130,15 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 윷 토큰 ----------------
-        public static int YutTokenMax { get; private set; } = 5;
-        public static int YutToken { get; private set; }
-        public static event Action<int> OnYutTokenChanged;
-        public static void AddYutToken(int amount)
+        public int YutTokenMax { get; private set; } = 5;
+        public int YutToken { get; private set; }
+        public event Action<int> OnYutTokenChanged;
+        public void AddYutToken(int amount)
         {
             YutToken = Math.Min(YutTokenMax, YutToken + amount);
             OnYutTokenChanged?.Invoke(YutToken);
         }
-        public static bool TrySpendYutToken(int amount)
+        public bool TrySpendYutToken(int amount)
         {
             if (amount < 0 || YutToken < amount) return false;
             YutToken -= amount;
@@ -133,17 +147,17 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 공양물 인벤토리 (정화수 제외) ----------------
-        private static readonly Dictionary<string, int> OfferingCounts = new Dictionary<string, int>();
-        public static event Action OnOfferingsChanged;
+        private readonly Dictionary<string, int> OfferingCounts = new Dictionary<string, int>();
+        public event Action OnOfferingsChanged;
 
-        public static int GetOfferingCount(OfferingData offering)
+        public int GetOfferingCount(OfferingData offering)
         {
             if (offering == null) return 0;
             string key = OfferingKey(offering);
             return OfferingCounts.TryGetValue(key, out int n) ? n : 0;
         }
 
-        public static void AddOffering(OfferingData offering, int amount)
+        public void AddOffering(OfferingData offering, int amount)
         {
             if (offering == null || amount == 0) return;
             string key = OfferingKey(offering);
@@ -152,7 +166,7 @@ namespace Yoegoe.Economy
             OnOfferingsChanged?.Invoke();
         }
 
-        public static bool TrySpendOffering(OfferingData offering, int amount)
+        public bool TrySpendOffering(OfferingData offering, int amount)
         {
             if (offering == null || amount < 0) return false;
             string key = OfferingKey(offering);
@@ -169,7 +183,7 @@ namespace Yoegoe.Economy
         }
 
         /// <summary>StartingStateSettings 기준으로 재화·인벤을 덮어쓴다. Main 부팅 시 1회 호출.</summary>
-        public static void ApplyStartingState(StartingStateSettings s)
+        public void ApplyStartingState(StartingStateSettings s)
         {
             if (s == null) s = StartingStateSettings.Get();
 
@@ -206,7 +220,7 @@ namespace Yoegoe.Economy
         }
 
         /// <summary>세이브 스냅샷으로 재화만 덮어쓴다 (공양물 인벤은 이후 패스).</summary>
-        public static void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
+        public void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
             int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax,
             int propsPurchasedCount = 0)
         {
@@ -228,7 +242,7 @@ namespace Yoegoe.Economy
             OnYutTokenChanged?.Invoke(YutToken);
         }
 
-        public static void ResetForTesting()
+        public void ResetForTesting()
         {
             ApplyStartingState(StartingStateSettings.Get());
         }

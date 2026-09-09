@@ -61,7 +61,7 @@ namespace Yoegoe.UI
                 yield return null;
             }
 
-            if (!GameEconomy.TrySpendHyang(CharacterSummon.HyangCost))
+            if (!GameEconomy.Instance.TrySpendHyang(CharacterSummon.HyangCost))
             {
                 DestroyOverlay(dim);
                 CeremonyGate.End();
@@ -71,7 +71,7 @@ namespace Yoegoe.UI
             var agent = CharacterSummon.SpawnGoraniNeok(goraniData, font, start);
             if (agent == null)
             {
-                GameEconomy.AddHyang(CharacterSummon.HyangCost);
+                GameEconomy.Instance.AddHyang(CharacterSummon.HyangCost);
                 DestroyOverlay(dim);
                 CeremonyGate.End();
                 yield break;

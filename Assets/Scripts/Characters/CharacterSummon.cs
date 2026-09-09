@@ -25,7 +25,7 @@ namespace Yoegoe.Characters
         }
 
         public static bool CanSummonGorani() =>
-            !IsPresent(CharacterId.Gorani) && GameEconomy.Hyang >= HyangCost;
+            !IsPresent(CharacterId.Gorani) && GameEconomy.Instance.Hyang >= HyangCost;
 
         /// <summary>Resources/Characters/Gorani 또는 인자로 넘긴 에셋. characters.json 적용.</summary>
         public static CharacterData ResolveGoraniData(CharacterData overrideData = null)
@@ -41,12 +41,12 @@ namespace Yoegoe.Characters
         public static CharacterAgent TrySummonGorani(CharacterData goraniData, Font bubbleFont)
         {
             if (IsPresent(CharacterId.Gorani)) return null;
-            if (!GameEconomy.TrySpendHyang(HyangCost)) return null;
+            if (!GameEconomy.Instance.TrySpendHyang(HyangCost)) return null;
 
             var agent = SpawnGoraniNeok(goraniData, bubbleFont, DefaultGoraniSpawn);
             if (agent == null)
             {
-                GameEconomy.AddHyang(HyangCost);
+                GameEconomy.Instance.AddHyang(HyangCost);
                 return null;
             }
 
