@@ -175,7 +175,7 @@ namespace Yoegoe.UI
             if (purifiedWaterText != null && GameEconomy.Instance.PurifiedWater != lastPurifiedWater)
             {
                 lastPurifiedWater = GameEconomy.Instance.PurifiedWater;
-                purifiedWaterText.text = lastPurifiedWater.ToString();
+                purifiedWaterText.text = "정화수 " + lastPurifiedWater;
             }
             if (yutTokenText != null
                 && (GameEconomy.Instance.YutToken != lastYutToken || GameEconomy.Instance.YutTokenMax != lastYutTokenMax))
@@ -812,7 +812,7 @@ namespace Yoegoe.UI
         {
             var topGO = new GameObject("TopBar");
             var topRt = SetupRect(topGO, canvasTf, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(24, -24), new Vector2(480, 140));
+                new Vector2(24, -24), new Vector2(690, 140));
             var topBg = topGO.AddComponent<Image>();
             topBg.color = new Color(0.1f, 0.07f, 0.06f, 0.6f);
             topBg.raycastTarget = false;
@@ -838,36 +838,18 @@ namespace Yoegoe.UI
 
             var rowGO = new GameObject("CurrencyRow");
             rowGO.transform.SetParent(topRt, false);
-            rowGO.AddComponent<LayoutElement>().preferredHeight = 40;
+            rowGO.AddComponent<LayoutElement>().preferredHeight = 44;
             var rowLayout = rowGO.AddComponent<HorizontalLayoutGroup>();
-            rowLayout.spacing = 14;
+            rowLayout.spacing = 10;
             rowLayout.childAlignment = TextAnchor.MiddleLeft;
             rowLayout.childControlWidth = false;
             rowLayout.childControlHeight = true;
 
-            yeopjeonText = CreateChipText(rowGO.transform, "엽전 0");
-            hyangText = CreateChipText(rowGO.transform, "향 0");
-
-            var pwGO = new GameObject("PurifiedWaterChip");
-            pwGO.transform.SetParent(rowGO.transform, false);
-            var pwLayout = pwGO.AddComponent<HorizontalLayoutGroup>();
-            pwLayout.spacing = 4;
-            pwLayout.childControlWidth = false;
-            pwLayout.childControlHeight = true;
-            pwGO.AddComponent<LayoutElement>().preferredWidth = 60;
-            if (purifiedWaterIcon != null)
-            {
-                var iconGO = new GameObject("Icon");
-                iconGO.transform.SetParent(pwGO.transform, false);
-                iconGO.AddComponent<LayoutElement>().preferredWidth = 28;
-                var icon = iconGO.AddComponent<Image>();
-                icon.sprite = purifiedWaterIcon;
-                icon.preserveAspect = true;
-                icon.raycastTarget = false;
-            }
-            purifiedWaterText = CreateChipText(pwGO.transform, "0");
-
-            yutTokenText = CreateChipText(rowGO.transform, "윷 0/0");
+            // 4종 재화가 말로만 구별돼서 헷갈린다는 피드백 — 재화별 색 아이콘 + 색 배경 칩으로 구분.
+            yeopjeonText = CreateCurrencyChip(rowGO.transform, "엽전 0", new Color(0.85f, 0.72f, 0.25f));
+            hyangText = CreateCurrencyChip(rowGO.transform, "향 0", new Color(0.75f, 0.42f, 0.85f));
+            purifiedWaterText = CreateCurrencyChip(rowGO.transform, "정화수 0", new Color(0.4f, 0.68f, 0.9f), purifiedWaterIcon);
+            yutTokenText = CreateCurrencyChip(rowGO.transform, "윷 0/0", new Color(0.55f, 0.75f, 0.35f));
 
             // 우상단 상점 버튼
             var shopBtnGO = new GameObject("ShopButton");
@@ -929,21 +911,82 @@ namespace Yoegoe.UI
             slotBarRoot = slotRt;
         }
 
-        private Text CreateChipText(Transform parent, string initial)
+        /// <summary>
+        /// 재화 칩 하나(색 배경 + 아이콘 + 텍스트). icon이 없으면 accentColor로 물들인 원 아이콘을 대신 쓴다
+        /// (엽전·향·윷 토큰용 — 정화수처럼 실제 아이콘 에셋이 없어도 색으로 바로 구별되게).
+        /// </summary>
+        private Text CreateCurrencyChip(Transform parent, string label, Color accentColor, Sprite icon = null)
         {
+            const float iconWidth = 30f;
+            const float textWidth = 100f;
+            const float spacing = 6f;
+            var padding = new RectOffset(6, 10, 4, 4);
+
             var go = new GameObject("Chip");
             go.transform.SetParent(parent, false);
-            var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 90;
-            le.preferredHeight = 32;
-            var text = go.AddComponent<Text>();
+            go.AddComponent<LayoutElement>().preferredWidth =
+                padding.left + padding.right + iconWidth + spacing + textWidth;
+
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.3f);
+            bg.raycastTarget = false;
+
+            var layout = go.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = padding;
+            layout.spacing = spacing;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = true;
+
+            var iconGO = new GameObject("Icon");
+            iconGO.transform.SetParent(go.transform, false);
+            iconGO.AddComponent<LayoutElement>().preferredWidth = iconWidth;
+            var iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = icon != null ? icon : GetCurrencyDotSprite();
+            iconImg.color = icon != null ? Color.white : accentColor;
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+
+            var textGO = new GameObject("Text");
+            textGO.transform.SetParent(go.transform, false);
+            var textLe = textGO.AddComponent<LayoutElement>();
+            textLe.preferredWidth = textWidth;
+            var text = textGO.AddComponent<Text>();
             text.font = font;
-            text.fontSize = 22;
-            text.color = new Color(0.95f, 0.9f, 0.8f);
+            text.fontSize = 28;
+            text.color = new Color(1f, 0.98f, 0.92f);
             text.alignment = TextAnchor.MiddleLeft;
-            text.text = initial;
+            text.text = label;
             text.raycastTarget = false;
             return text;
+        }
+
+        private static Sprite s_currencyDotSprite;
+
+        /// <summary>재화 아이콘용 단색 원. 실제 아트가 없는 엽전·향·윷 토큰이 accentColor로 서로 구별되게.</summary>
+        private static Sprite GetCurrencyDotSprite()
+        {
+            if (s_currencyDotSprite != null) return s_currencyDotSprite;
+
+            const int size = 32;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            var pixels = new Color[size * size];
+            float r = size / 2f;
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x + 0.5f - r;
+                float dy = y + 0.5f - r;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float alpha = Mathf.Clamp01((r - dist) / 1.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+            tex.SetPixels(pixels);
+            tex.Apply(false, true);
+            s_currencyDotSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            return s_currencyDotSprite;
         }
 
         private static RectTransform SetupRect(GameObject go, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
