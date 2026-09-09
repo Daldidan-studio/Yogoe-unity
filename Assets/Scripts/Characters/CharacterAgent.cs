@@ -148,7 +148,7 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 탭/앱이 다시 살아났을 때 벽시계로 잰 공백을 전 캐릭터에 반영한다.
-        /// 기력·공덕·상태만 따라잡고, 걷기는 목적지 도착 처리만 한다.
+        /// 기력·공덕·상태만 따라잡고, 걷기는 위치를 유지한 채 복귀 후 정상 속도로 이어간다.
         /// </summary>
         public static void CatchUpAll(float seconds)
         {
@@ -180,10 +180,9 @@ namespace Yoegoe.Characters
                         remaining -= TickPlayingSlice(remaining);
                         break;
                     case ActionState.Walking:
-                        CatchUpWalkingAfterPause();
-                        // 오프라인과 동일: 걷는 동안 생산 없음. 앉히지 못했으면 나머지 폐기.
-                        if (Stats.State == ActionState.Walking) return;
-                        break;
+                        // 오프라인과 동일: 걷는 동안 생산 없음. 순간이동하지 않고 남은 공백은 폐기.
+                        EnsureWalkingDestination();
+                        return;
                     case ActionState.Fainted:
                         return;
                     default:
@@ -192,29 +191,14 @@ namespace Yoegoe.Characters
             }
         }
 
-        /// <summary>긴 공백 동안 목적지에 도착한 것으로 보고 앉히거나, 방황 중이면 재추첨만.</summary>
-        private void CatchUpWalkingAfterPause()
+        /// <summary>
+        /// 복귀 catch-up 중 Walking이면 목적지만 보장한다.
+        /// 위치 스냅은 하지 않는다 — 화면이 보이는 상태에서 기물로 순간이동하면 UX가 깨진다.
+        /// </summary>
+        private void EnsureWalkingDestination()
         {
             if (isWandering || destination == null)
-            {
                 PickDestination();
-                return;
-            }
-
-            Vector3 targetPos = destination.transform.position;
-            transform.position = MapBounds.Clamp(new Vector3(targetPos.x, targetPos.y, transform.position.z));
-            lastPosition = transform.position;
-
-            if (destination.TryOccupy(this))
-            {
-                currentProp = destination;
-                destination = null;
-                EnterStaying();
-            }
-            else
-            {
-                PickDestination();
-            }
         }
 
         private ArtScaleSettings _artScale;
