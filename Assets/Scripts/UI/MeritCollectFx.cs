@@ -3,37 +3,36 @@ using UnityEngine;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 공덕 수거 Scatter → Hover(시차) → Gather. 월드 스프라이트만 사용 (HUD Canvas 미사용).
-    /// UI Image를 캔버스에 붙이면 전체 캔버스 리빌드가 일어나 프레임이 끊길 수 있어 분리함.
+    /// 공덕 수거: 꽃잎이 흩날리다가 시차로 빨려 들어가는 연출 (월드 스프라이트).
     /// </summary>
     public static class MeritCollectFx
     {
-        private const int ItemCount = 12;
-        private const float ScatterRadius = 1.35f;
-        private const float ScatterDuration = 0.35f;
-        private const float BaseHoverDuration = 0.1f;
-        private const float FlyDuration = 0.45f;
-        private const float StaggerInterval = 0.04f;
-        private const float PunchAmp = 0.12f;
-        private const float PunchDur = 0.12f;
-        private const float HardLifetimeSeconds = 4f;
+        private const int ItemCount = 18;
+        private const float ScatterRadius = 2.4f;
+        private const float ScatterDuration = 0.4f;
+        private const float BaseHoverDuration = 0.28f;
+        private const float FlyDuration = 0.55f;
+        private const float StaggerInterval = 0.045f;
+        private const float PunchAmp = 0.14f;
+        private const float PunchDur = 0.14f;
+        private const float HardLifetimeSeconds = 5f;
+        private const float PetalWorldHeight = 0.55f; // 조금 작게 (기존 0.95)
 
         private static Sprite s_PetalSprite;
         private static Texture2D s_PetalTex;
+        private static int s_PetalVersion;
+        private const int PetalArtVersion = 4;
 
         public static void Play(Canvas canvas, RectTransform from, RectTransform to, Font font = null)
         {
             if (from == null || to == null) return;
-            Vector3 origin = UiToWorld(from);
-            Vector3 gather = UiToWorld(to);
-            Spawn(origin, gather, to);
+            Spawn(UiToWorld(from), UiToWorld(to), to);
         }
 
         public static void PlayFromWorld(Canvas canvas, Vector3 worldPos, RectTransform to, Camera worldCam = null)
         {
             if (to == null) return;
-            Vector3 gather = UiToWorld(to, worldCam);
-            Spawn(worldPos, gather, to);
+            Spawn(worldPos, UiToWorld(to, worldCam), to);
         }
 
         private static void Spawn(Vector3 origin, Vector3 gather, RectTransform punchTarget)
@@ -59,27 +58,56 @@ namespace Yoegoe.UI
             return w;
         }
 
+        /// <summary>벚꽃/복숭아꽃 느낌의 물방울형 꽃잎 (고해상 프로시저).</summary>
         private static Sprite PetalSprite()
         {
-            if (s_PetalSprite != null) return s_PetalSprite;
-            s_PetalTex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            if (s_PetalSprite != null && s_PetalVersion == PetalArtVersion)
+                return s_PetalSprite;
+
+            if (s_PetalTex != null)
+                Object.Destroy(s_PetalTex);
+            s_PetalSprite = null;
+
+            const int w = 48;
+            const int h = 72;
+            s_PetalTex = new Texture2D(w, h, TextureFormat.RGBA32, false);
             s_PetalTex.filterMode = FilterMode.Bilinear;
             s_PetalTex.wrapMode = TextureWrapMode.Clamp;
-            var pixels = new Color[64];
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
+            var pixels = new Color[w * h];
+
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
             {
-                float nx = (x + 0.5f) / 8f * 2f - 1f;
-                float ny = (y + 0.5f) / 8f * 2f - 1f;
-                // 길쭉한 타원 꽃잎
-                float v = (nx * nx) / 0.35f + (ny * ny) / 1f;
-                pixels[y * 8 + x] = v <= 1f
-                    ? new Color(1f, 1f, 1f, 1f - v * 0.35f)
-                    : new Color(1f, 1f, 1f, 0f);
+                // 중심 원점, Y는 위가 뾰족한 꽃잎
+                float nx = (x + 0.5f) / w * 2f - 1f;
+                float ny = (y + 0.5f) / h * 2f - 1f; // -1 아래 ~ +1 위
+
+                // 물방울: 위는 좁고 아래는 둥글게
+                float widthAtY = 0.22f + 0.55f * Mathf.Pow(Mathf.Clamp01((ny + 1f) * 0.55f), 0.85f);
+                float tip = Mathf.Clamp01((-ny + 0.15f) / 0.4f); // 위쪽 뾰족
+                widthAtY *= Mathf.Lerp(1f, 0.15f, tip * tip);
+
+                float rx = Mathf.Abs(nx) / Mathf.Max(0.08f, widthAtY);
+                float inside = 1f - rx * rx;
+                if (ny < -0.92f || inside <= 0f)
+                {
+                    pixels[y * w + x] = Color.clear;
+                    continue;
+                }
+
+                // 가장자리 소프트 + 중앙 하이라이트
+                float edge = Mathf.Clamp01(inside);
+                float body = Mathf.SmoothStep(0f, 1f, edge);
+                float vein = 1f - Mathf.Abs(nx) * 0.35f;
+                float alpha = body * vein;
+                pixels[y * w + x] = new Color(1f, 1f, 1f, alpha);
             }
+
             s_PetalTex.SetPixels(pixels);
             s_PetalTex.Apply(false, true);
-            s_PetalSprite = Sprite.Create(s_PetalTex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 32f);
+            float ppu = h / PetalWorldHeight;
+            s_PetalSprite = Sprite.Create(s_PetalTex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.35f), ppu);
+            s_PetalVersion = PetalArtVersion;
             return s_PetalSprite;
         }
 
@@ -91,9 +119,12 @@ namespace Yoegoe.UI
                 public SpriteRenderer Sr;
                 public Vector3 Origin;
                 public Vector3 ScatterPos;
+                public Vector3 BaseScale;
                 public float HoverExtra;
                 public float Spin;
                 public float SpinSpeed;
+                public float FlutterPhase;
+                public float FlutterSpeed;
                 public float Life;
                 public bool Arrived;
                 public Color BaseColor;
@@ -118,26 +149,31 @@ namespace Yoegoe.UI
 
                 for (int i = 0; i < ItemCount; i++)
                 {
-                    Vector2 dir = Random.insideUnitCircle;
-                    if (dir.sqrMagnitude < 0.05f) dir = Random.insideUnitCircle.normalized;
-                    Vector3 scatter = origin + (Vector3)(dir * (ScatterRadius * Random.Range(0.45f, 1f)));
-                    scatter.y += Random.Range(0.1f, 0.45f);
-                    scatter.z = 0f;
+                    // 위로 치우친 폭발 + 원형 흩뿌림
+                    float ang = (Mathf.PI * 2f * i) / ItemCount + Random.Range(-0.25f, 0.25f);
+                    float radius = ScatterRadius * Random.Range(0.55f, 1.05f);
+                    Vector3 scatter = origin + new Vector3(Mathf.Cos(ang) * radius, Mathf.Sin(ang) * radius * 0.75f + Random.Range(0.35f, 1.1f), 0f);
 
                     var go = new GameObject("Petal_" + i);
                     go.transform.SetParent(transform, false);
                     go.transform.position = origin;
-                    float s = Random.Range(0.22f, 0.34f);
-                    go.transform.localScale = new Vector3(s * 0.55f, s, 1f);
+
+                    float size = Random.Range(0.55f, 0.8f);
+                    Vector3 baseScale = new Vector3(size * Random.Range(0.7f, 0.95f), size, 1f);
+                    go.transform.localScale = baseScale * 0.2f;
                     go.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
 
                     var sr = go.AddComponent<SpriteRenderer>();
                     sr.sprite = sprite;
-                    sr.sortingOrder = 650;
-                    Color c = Color.Lerp(
-                        new Color(1f, 0.72f, 0.78f, 0.95f),
-                        new Color(1f, 0.88f, 0.55f, 0.95f),
-                        Random.value);
+                    sr.sortingOrder = 650 + i;
+                    // 분홍~살구~연한 보라 꽃잎
+                    Color c = Color.HSVToRGB(
+                        Random.Range(0.92f, 1.02f) % 1f,
+                        Random.Range(0.35f, 0.65f),
+                        Random.Range(0.95f, 1f));
+                    c.a = 0.95f;
+                    if (Random.value > 0.55f)
+                        c = Color.Lerp(c, new Color(1f, 0.82f, 0.55f), Random.Range(0.2f, 0.5f));
                     sr.color = c;
 
                     petals[i] = new Petal
@@ -146,9 +182,12 @@ namespace Yoegoe.UI
                         Sr = sr,
                         Origin = origin,
                         ScatterPos = scatter,
+                        BaseScale = baseScale,
                         HoverExtra = i * StaggerInterval,
                         Spin = Random.Range(0f, 360f),
-                        SpinSpeed = Random.Range(-180f, 180f),
+                        SpinSpeed = Random.Range(-320f, 320f),
+                        FlutterPhase = Random.Range(0f, Mathf.PI * 2f),
+                        FlutterSpeed = Random.Range(9f, 14f),
                         BaseColor = c
                     };
                 }
@@ -183,48 +222,59 @@ namespace Yoegoe.UI
                     if (p.Tr == null) continue;
 
                     p.Life += dt;
+                    p.FlutterPhase += dt * p.FlutterSpeed;
+
                     float hoverEnd = ScatterDuration + BaseHoverDuration + p.HoverExtra;
                     float flyEnd = hoverEnd + FlyDuration;
 
                     if (p.Life < ScatterDuration)
                     {
-                        float u = EaseOutQuad(p.Life / ScatterDuration);
-                        p.Tr.position = Vector3.LerpUnclamped(p.Origin, p.ScatterPos, u);
-                        float pop = Mathf.Lerp(0.4f, 1f, u);
-                        Vector3 baseScale = new Vector3(0.55f, 1f, 1f) * Mathf.Lerp(0.22f, 0.3f, pop);
-                        p.Tr.localScale = baseScale * pop;
-                        p.Spin += p.SpinSpeed * dt * 0.35f;
+                        float u = EaseOutBack(Mathf.Clamp01(p.Life / ScatterDuration));
+                        p.Tr.position = Vector3.LerpUnclamped(p.Origin, p.ScatterPos, Mathf.Clamp01(u));
+                        ApplyFlutterScale(ref p, Mathf.Lerp(0.25f, 1f, EaseOutQuad(p.Life / ScatterDuration)), 0.6f);
+                        p.Spin += p.SpinSpeed * dt;
                         p.Tr.localRotation = Quaternion.Euler(0f, 0f, p.Spin);
                         anyAlive = true;
                     }
                     else if (p.Life < hoverEnd)
                     {
+                        // 바람 타고 빙빙 — 눈에 띄게 휘날림
                         float hoverT = p.Life - ScatterDuration;
-                        float bob = Mathf.Sin(hoverT * 7f + i) * 0.05f;
-                        float sway = Mathf.Cos(hoverT * 5f + i * 0.7f) * 0.04f;
-                        p.Tr.position = p.ScatterPos + new Vector3(sway, bob, 0f);
-                        p.Spin += p.SpinSpeed * dt * 0.2f;
-                        p.Tr.localRotation = Quaternion.Euler(0f, 0f, p.Spin);
+                        float bob = Mathf.Sin(p.FlutterPhase) * 0.18f;
+                        float sway = Mathf.Cos(p.FlutterPhase * 0.7f + i) * 0.22f;
+                        float drift = Mathf.Sin(hoverT * 1.8f + i * 0.4f) * 0.08f;
+                        p.Tr.position = p.ScatterPos + new Vector3(sway + drift, bob, 0f);
+                        ApplyFlutterScale(ref p, 1f, 1f);
+                        p.Spin += p.SpinSpeed * dt * 0.55f;
+                        p.Tr.localRotation = Quaternion.Euler(0f, 0f, p.Spin + Mathf.Sin(p.FlutterPhase) * 25f);
                         anyAlive = true;
                     }
                     else if (p.Life < flyEnd)
                     {
-                        float u = (p.Life - hoverEnd) / FlyDuration;
-                        float e = EaseInBack(Mathf.Clamp01(u));
+                        float u = Mathf.Clamp01((p.Life - hoverEnd) / FlyDuration);
+                        float e = EaseInBack(u);
                         Vector3 delta = gatherPos - p.ScatterPos;
-                        Vector3 mid = p.ScatterPos + delta * 0.4f
-                                      + new Vector3(-delta.y, delta.x, 0f).normalized
-                                      * ((i % 2 == 0 ? 1f : -1f) * 0.55f);
-                        p.Tr.position = QuadBezier(p.ScatterPos, mid, gatherPos, e);
-                        float shrink = Mathf.Lerp(1f, 0.2f, u * u);
-                        p.Tr.localScale = new Vector3(0.55f, 1f, 1f) * (0.28f * shrink);
+                        float side = (i % 2 == 0 ? 1f : -1f) * RandomSignStable(i) * Mathf.Lerp(1.1f, 0.3f, u);
+                        Vector3 mid = p.ScatterPos + delta * 0.35f
+                                      + new Vector3(-delta.y, delta.x, 0f).normalized * side;
+                        // 날아가며 살짝 더 출렁
+                        Vector3 pos = QuadBezier(p.ScatterPos, mid, gatherPos, e);
+                        pos += new Vector3(
+                            Mathf.Sin(p.FlutterPhase) * 0.12f * (1f - u),
+                            Mathf.Cos(p.FlutterPhase * 1.1f) * 0.08f * (1f - u),
+                            0f);
+                        p.Tr.position = pos;
+
+                        float shrink = Mathf.Lerp(1f, 0.35f, u * u);
+                        ApplyFlutterScale(ref p, shrink, 1f - u * 0.5f);
                         float ang = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg - 90f;
-                        p.Spin = Mathf.LerpAngle(p.Spin, ang, u);
-                        p.Tr.localRotation = Quaternion.Euler(0f, 0f, p.Spin);
+                        p.Spin = Mathf.LerpAngle(p.Spin, ang, u * 0.85f);
+                        p.Tr.localRotation = Quaternion.Euler(0f, 0f, p.Spin + Mathf.Sin(p.FlutterPhase) * 18f * (1f - u));
+
                         if (p.Sr != null)
                         {
                             var c = p.BaseColor;
-                            c.a = Mathf.Lerp(p.BaseColor.a, 0.4f, u);
+                            c.a = Mathf.Lerp(p.BaseColor.a, 0.55f, u);
                             p.Sr.color = c;
                         }
                         anyAlive = true;
@@ -259,7 +309,23 @@ namespace Yoegoe.UI
                     Destroy(gameObject);
             }
 
+            private static void ApplyFlutterScale(ref Petal p, float sizeMul, float flutterAmount)
+            {
+                // X스케일 출렁 = 바람 따라 뒤집히는 꽃잎
+                float flip = Mathf.Lerp(1f, 0.15f + Mathf.Abs(Mathf.Sin(p.FlutterPhase)) * 0.85f, flutterAmount);
+                p.Tr.localScale = new Vector3(p.BaseScale.x * sizeMul * flip, p.BaseScale.y * sizeMul, 1f);
+            }
+
+            private static int RandomSignStable(int i) => (i * 37) % 2 == 0 ? 1 : -1;
+
             private static float EaseOutQuad(float t) => 1f - (1f - t) * (1f - t);
+
+            private static float EaseOutBack(float t)
+            {
+                const float c1 = 1.70158f;
+                const float c3 = c1 + 1f;
+                return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+            }
 
             private static float EaseInBack(float t)
             {

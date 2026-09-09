@@ -742,6 +742,15 @@ namespace Yoegoe.Characters
             return ownEnding ? 2.0 : 1.0;
         }
 
+        /// <summary>전용 점유 아트 표시 중에는 캐릭터 스프라이트를 숨긴다.</summary>
+        public void SetSpriteVisible(bool visible)
+        {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            if (spriteRenderer != null)
+                spriteRenderer.enabled = visible;
+        }
+
         private void LeaveCurrentProp()
         {
             if (currentProp != null)
@@ -750,6 +759,7 @@ namespace Yoegoe.Characters
                 previousProp = currentProp; // 다음 목적지 선정 시 제외 대상
                 currentProp = null;
             }
+            SetSpriteVisible(true);
         }
 
         // ---------------- Playing (놀기, 6-2) ----------------

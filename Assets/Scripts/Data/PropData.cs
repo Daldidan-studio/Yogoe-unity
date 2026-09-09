@@ -27,5 +27,8 @@ namespace Yoegoe.Data
 
         [Tooltip("떡절구처럼 전용 애니메이션이 있는지. 없으면 '자기 엔딩 기물 앞에서 기도하기'로 통일 (8장).")]
         public bool hasUniqueEndingAnimation;
+
+        [Tooltip("주인 캐릭터가 점유 중일 때 기물에 표시할 전용 스프라이트 (예: 옥토끼+떡절구). 비우면 기본 기물 그림 유지.")]
+        public Sprite occupiedByOwnerSprite;
     }
 }

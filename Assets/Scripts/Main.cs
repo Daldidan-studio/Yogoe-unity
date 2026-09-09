@@ -53,6 +53,8 @@ namespace Yoegoe
         public Sprite propSpriteThatchedHut; // 초가집
         public Sprite propSpriteSwing;       // 그네
         public Sprite propSpriteStoneLion;   // 돌사자
+        public Sprite propSpriteMortar;      // 떡절구 (빈 기물)
+        public Sprite propSpriteMortarOccupiedRabbit; // 옥토끼 점유 연출
 
         [Header("HUD (상단 재화 바 + 하단 슬롯바)")]
         [Tooltip("한글 표시용 폰트. 비워두면 유니티 기본 폰트로 나오는데 한글이 깨질 수 있음 " +
@@ -142,7 +144,8 @@ namespace Yoegoe
             CreateProp("우물", new Vector3(1.6f, -1.4f, 0), new Color(0.4f, 0.45f, 0.55f),
                 propSpriteWell, prebuilt: true);
             CreateProp("떡절구", new Vector3(0.5f, 1.35f, 0), new Color(0.75f, 0.55f, 0.35f),
-                null, prebuilt: true, endingProp: true, endingOwner: CharacterId.Rabbit);
+                propSpriteMortar, prebuilt: true, endingProp: true, endingOwner: CharacterId.Rabbit,
+                occupiedByOwnerSprite: propSpriteMortarOccupiedRabbit);
 
             CreateCharacter("옥토끼", new Vector3(-1f, 0.5f, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0f, 0.5f, 0), Color.black, samjokOData);
@@ -416,7 +419,8 @@ namespace Yoegoe
         }
 
         private void CreateProp(string name, Vector3 pos, Color color, Sprite sprite = null,
-            bool prebuilt = true, bool endingProp = false, CharacterId endingOwner = CharacterId.Rabbit)
+            bool prebuilt = true, bool endingProp = false, CharacterId endingOwner = CharacterId.Rabbit,
+            Sprite occupiedByOwnerSprite = null)
         {
             GameObject go;
 
@@ -451,9 +455,11 @@ namespace Yoegoe
             data.isPrebuilt = prebuilt;
             data.isEndingProp = endingProp;
             data.owner = endingOwner;
-            data.hasUniqueEndingAnimation = endingProp && endingOwner == CharacterId.Rabbit;
+            data.hasUniqueEndingAnimation = endingProp && endingOwner == CharacterId.Rabbit
+                && occupiedByOwnerSprite != null;
+            data.occupiedByOwnerSprite = occupiedByOwnerSprite;
             slot.data = data;
-            slot.SetBuiltAppearance(sprite, color);
+            slot.SetBuiltAppearance(sprite, color, occupiedByOwnerSprite);
             slot.ConfigureBuiltState(prebuilt);
         }
 

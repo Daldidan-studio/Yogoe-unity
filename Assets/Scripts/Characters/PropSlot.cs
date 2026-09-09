@@ -35,8 +35,10 @@ namespace Yoegoe.Characters
         private SpriteRenderer spriteRenderer;
         private Renderer meshRenderer;
         private Sprite builtSprite;
+        private Sprite occupiedByOwnerSprite;
         private Color builtTint = Color.white;
         private static Font sharedPileFont;
+        private CharacterAgent hiddenOccupantVisual;
         private int lastPileStage = -1;
         private string lastPileAmount;
         private int lastPileRounded = int.MinValue;
@@ -104,6 +106,7 @@ namespace Yoegoe.Characters
                 ReservedBy = null;
             Occupant = agent;
             ReservedBy = null;
+            RefreshOccupancyVisual();
             return true;
         }
 
@@ -116,7 +119,11 @@ namespace Yoegoe.Characters
         /// <summary>점유 해제. 주저앉기·기절 중에는 호출하지 않는다. 더미는 기물에 남는다.</summary>
         public void Vacate(CharacterAgent agent)
         {
-            if (Occupant == agent) Occupant = null;
+            if (Occupant == agent)
+            {
+                Occupant = null;
+                RefreshOccupancyVisual();
+            }
         }
 
         /// <summary>세이브 로드용. 더미만 덮어쓴다.</summary>
@@ -145,6 +152,7 @@ namespace Yoegoe.Characters
         {
             Occupant = null;
             ReservedBy = null;
+            RefreshOccupancyVisual();
         }
 
         /// <summary>세이브 복원용 강제 점유.</summary>
@@ -153,6 +161,7 @@ namespace Yoegoe.Characters
             if (!IsBuilt) return;
             Occupant = agent;
             ReservedBy = null;
+            RefreshOccupancyVisual();
         }
 
         /// <summary>7-1: 머물기 중 생산분을 기물 더미에 적립. HUD 지갑으로는 바로 안 들어간다.</summary>
@@ -227,28 +236,68 @@ namespace Yoegoe.Characters
             : name;
 
         /// <summary>Main이 건립 시 쓸 스프라이트·틴트를 기억.</summary>
-        public void SetBuiltAppearance(Sprite sprite, Color tint)
+        public void SetBuiltAppearance(Sprite sprite, Color tint, Sprite occupiedByOwner = null)
         {
             builtSprite = sprite;
             builtTint = tint;
+            occupiedByOwnerSprite = occupiedByOwner;
+            if (data != null && occupiedByOwner != null)
+                data.occupiedByOwnerSprite = occupiedByOwner;
+        }
+
+        /// <summary>주인 전용 점유 아트가 있으면 기물 스프라이트를 바꾸고, 캐릭터 본체를 숨긴다.</summary>
+        public void RefreshOccupancyVisual()
+        {
+            bool useOccupied = ShouldShowOwnerOccupationArt();
+
+            if (spriteRenderer != null && IsBuilt)
+            {
+                Sprite next = useOccupied
+                    ? (occupiedByOwnerSprite != null ? occupiedByOwnerSprite : builtSprite)
+                    : builtSprite;
+                if (next != null) spriteRenderer.sprite = next;
+                spriteRenderer.color = Color.white;
+                spriteRenderer.enabled = true;
+            }
+
+            // 이전 숨김 복구
+            if (hiddenOccupantVisual != null && (!useOccupied || hiddenOccupantVisual != Occupant))
+            {
+                hiddenOccupantVisual.SetSpriteVisible(true);
+                hiddenOccupantVisual = null;
+            }
+
+            if (useOccupied && Occupant != null)
+            {
+                Occupant.SetSpriteVisible(false);
+                hiddenOccupantVisual = Occupant;
+            }
+        }
+
+        private bool ShouldShowOwnerOccupationArt()
+        {
+            if (!IsOccupied || Occupant == null || Occupant.Data == null) return false;
+            Sprite art = occupiedByOwnerSprite != null
+                ? occupiedByOwnerSprite
+                : (data != null ? data.occupiedByOwnerSprite : null);
+            if (art == null) return false;
+            if (data == null) return false;
+            if (!data.hasUniqueEndingAnimation) return false;
+            return data.isEndingProp && data.owner == Occupant.Data.id;
         }
 
         private void ApplyBuiltVisual()
         {
             if (lockLabel != null) lockLabel.gameObject.SetActive(false);
 
-            if (spriteRenderer != null)
-            {
-                if (builtSprite != null) spriteRenderer.sprite = builtSprite;
-                spriteRenderer.color = Color.white;
-                spriteRenderer.enabled = true;
-            }
             if (meshRenderer != null && !(meshRenderer is SpriteRenderer))
             {
                 meshRenderer.enabled = true;
                 if (meshRenderer.material != null)
                     meshRenderer.material.color = builtTint;
             }
+
+            RefreshOccupancyVisual();
         }
 
         private void ApplyLockVisual()
