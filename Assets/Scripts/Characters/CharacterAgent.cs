@@ -317,6 +317,13 @@ namespace Yoegoe.Characters
             spriteRenderer = sr;
         }
 
+        /// <summary>공양이 아닌 경로(윷놀이 말 이동 등)로 친밀도만 올릴 때 사용. 넋은 친밀도가 없어 무시.</summary>
+        public void AddIntimacy(float amount)
+        {
+            if (Stats.Stage == GrowthStage.Neok) return;
+            Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + amount);
+        }
+
 #if UNITY_EDITOR
         private void OnDrawGizmos()
         {

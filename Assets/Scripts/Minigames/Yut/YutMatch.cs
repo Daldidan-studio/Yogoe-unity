@@ -34,6 +34,11 @@ namespace Yoegoe.Minigames.Yut
         public event Action OnPiecesChanged;
         /// <summary>매치 종료. true면 플레이어 승리.</summary>
         public event Action<bool> OnMatchEnded;
+        /// <summary>
+        /// 내 말(스택이면 전원)을 실제로 옮겼을 때 그 말들의 id. 기획 11장 "말을 움직일 때마다
+        /// 그 요괴 친밀도 +0.25" — 캐릭터 스탯은 YutMatch가 몰라서 호출부(YutScreen)가 처리한다.
+        /// </summary>
+        public event Action<IReadOnlyList<string>> OnPlayerPiecesMoved;
 
         public YutMatch(IEnumerable<(string id, string displayName)> playerTeam)
         {
@@ -86,10 +91,12 @@ namespace Yoegoe.Minigames.Yut
                 : new List<YutPiece> { piece };
 
             var path = YutMoveResolver.GetPath(wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result);
+            var movedIds = group.Select(p => p.Id).ToList();
 
             if (ResolvesToFinish(path))
             {
                 foreach (var p in group) { p.Finished = true; p.NodeId = -1; }
+                OnPlayerPiecesMoved?.Invoke(movedIds);
                 OnPiecesChanged?.Invoke();
                 IsEnded = true;
                 OnMatchEnded?.Invoke(true);
@@ -102,6 +109,7 @@ namespace Yoegoe.Minigames.Yut
             bool captured = opponentPiece.OnBoard && opponentPiece.NodeId == dest;
             if (captured) opponentPiece.NodeId = -1;
 
+            OnPlayerPiecesMoved?.Invoke(movedIds);
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured;
         }

@@ -22,9 +22,12 @@ namespace Yoegoe.UI
 
         public Font font;
 
-        /// <summary>승리 보상(임시값) — 밸런스 조정 시 여기만 바꾸면 됨.</summary>
+        /// <summary>승리(완주) 보상 — 기획서 11장 확정: 향 1개 + 엽전 1개.</summary>
         const int WinHyangReward = 1;
-        const int WinYeopjeonReward = 30;
+        const int WinYeopjeonReward = 1;
+
+        /// <summary>말 이동 시 친밀도 +0.25(11장) 적용을 위한 piece id → 캐릭터 매핑.</summary>
+        readonly Dictionary<string, CharacterAgent> teamById = new Dictionary<string, CharacterAgent>();
 
         GameObject root;
         YutMiniGame miniGame;
@@ -58,17 +61,25 @@ namespace Yoegoe.UI
                 return;
             }
 
-            var team = CharacterAgent.All
+            var agents = CharacterAgent.All
                 .Where(a => a != null && a.Stats != null && a.Stats.Stage == GrowthStage.Hon)
-                .Select(a => (id: a.Data != null ? a.Data.id.ToString() : a.name,
-                              name: a.Data != null && !string.IsNullOrEmpty(a.Data.displayName) ? a.Data.displayName : a.name))
                 .ToList();
 
-            if (team.Count == 0)
+            if (agents.Count == 0)
             {
                 GameEconomy.Instance.AddYutToken(1); // 참가할 요괴가 없으면 토큰 환불
                 ShowNotice("참가할 요괴가 없습니다.", null);
                 return;
+            }
+
+            teamById.Clear();
+            var team = new List<(string id, string name)>();
+            foreach (var a in agents)
+            {
+                string id = a.Data != null ? a.Data.id.ToString() : a.name;
+                string name = a.Data != null && !string.IsNullOrEmpty(a.Data.displayName) ? a.Data.displayName : a.name;
+                teamById[id] = a;
+                team.Add((id, name));
             }
 
             BeginMatch(team);
@@ -79,6 +90,7 @@ namespace Yoegoe.UI
             match = new YutMatch(team);
             match.OnPiecesChanged += HandlePiecesChanged;
             match.OnMatchEnded += HandleMatchEnded;
+            match.OnPlayerPiecesMoved += HandlePlayerPiecesMoved;
 
             root.SetActive(true);
             miniGame.Show();
@@ -95,12 +107,21 @@ namespace Yoegoe.UI
             {
                 match.OnPiecesChanged -= HandlePiecesChanged;
                 match.OnMatchEnded -= HandleMatchEnded;
+                match.OnPlayerPiecesMoved -= HandlePlayerPiecesMoved;
                 match = null;
             }
             pendingOutcome = null;
             if (miniGame != null) miniGame.Hide();
             if (root != null) root.SetActive(false);
             GameSaveBridge.SaveFromWorld();
+        }
+
+        /// <summary>기획 11장: 말을 움직일 때마다 그 요괴 친밀도 +0.25.</summary>
+        void HandlePlayerPiecesMoved(IReadOnlyList<string> pieceIds)
+        {
+            foreach (var id in pieceIds)
+                if (teamById.TryGetValue(id, out var agent) && agent != null)
+                    agent.AddIntimacy(0.25f);
         }
 
         void HandleThrowPressed()
