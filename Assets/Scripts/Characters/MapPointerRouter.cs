@@ -13,6 +13,13 @@ namespace Yoegoe.Characters
     /// 캐릭터: 길게 누르기(또는 임계 이동) → 들어올림 드래그.
     /// 맵: 임계 이동 후 패닝. 두 손가락 핀치·마우스 휠 → 줌.
     /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말/넋 리액션.
+    ///
+    /// 설계 원칙(반복된 회귀 버그를 겪고 정리함): "무엇을 눌렀는지"는 press 시점에 딱 한 번만
+    /// 정한다(<see cref="PressTarget"/>). Hold·Release는 그 판정을 다시 계산하지 않고 그대로
+    /// 따라간다 — 특히 release 시점에 손 위치로 반경을 재검사하지 않는다. press 이후 화면이
+    /// 줌되거나 손이 살짝 흔들려도(스크린 픽셀 vs 월드 반경 단위 차이) 판정이 뒤집히지 않게 하기
+    /// 위함. 이 파일을 고칠 때 새 특수 케이스가 필요하면, 기존 분기에 조건을 덧붙이지 말고
+    /// PressTarget에 값을 추가하는 방향으로 확장할 것.
     /// </summary>
     public class MapPointerRouter : MonoBehaviour
     {
@@ -56,7 +63,11 @@ namespace Yoegoe.Characters
 
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
+        /// <summary>press 시점에 딱 한 번 정해지는 "무엇을 눌렀는지". Hold/Release는 이 값만 본다.</summary>
+        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character }
+
         private Phase phase = Phase.Idle;
+        private PressTarget pressTarget = PressTarget.Empty;
         private bool wasPressed;
         private Vector2 pressStartScreen;
         private Vector2 lastScreen;
@@ -192,6 +203,7 @@ namespace Yoegoe.Characters
             }
             pressCharacter = null;
             pressProp = null;
+            pressTarget = PressTarget.Empty;
         }
 
         private void OnPress(Vector2 screenPos)
@@ -208,7 +220,24 @@ namespace Yoegoe.Characters
             pressCharacter = FindNearestCharacter(screenPos);
             pressProp = FindNearestProp(screenPos);
             dragCharacter = null;
+            pressTarget = ClassifyPressTarget();
             phase = Phase.Pending;
+        }
+
+        /// <summary>
+        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다. 우선순위: 잠긴 기물 > 수거 대기
+        /// 기물 > 드래그 가능한 캐릭터 > 빈 맵. Hold/Release는 이 결과만 보고 판단하며, 다시
+        /// 반경을 재보거나 손 위치를 재검사하지 않는다.
+        /// </summary>
+        PressTarget ClassifyPressTarget()
+        {
+            if (pressProp != null && !pressProp.IsBuilt) return PressTarget.LockedProp;
+            if (pressProp != null && pressProp.HasPendingMerit) return PressTarget.CollectibleProp;
+            // 기절 등으로 드래그 불가한 캐릭터도 탭(상세화면 진입)은 가능해야 한다 —
+            // "기절한 요괴는 상세 화면 공양으로만 깨어난다" — 그래서 CanBeDraggedByPlayer로
+            // 걸러내지 않는다. 드래그 가능 여부는 Hold에서 따로 본다.
+            if (pressCharacter != null) return PressTarget.Character;
+            return PressTarget.Empty;
         }
 
         private void OnHold(Vector2 screenPos)
@@ -221,33 +250,44 @@ namespace Yoegoe.Characters
                 float moved = Vector2.Distance(screenPos, pressStartScreen);
                 float held = Time.unscaledTime - pressUnscaledTime;
 
-                // 미건립 기물 위에서는 캐릭터 드래그로 뺏지 않음(초가집 등 중앙 기물)
-                bool pressingLockedProp = pressProp != null && !pressProp.IsBuilt;
-                // 공덕 더미가 쌓인 기물 위엔 보통 생산 중인 요괴가 앉아있어서, 가만히 오래 누르기만
-                // 해도(움직임 없이) 수거 탭이 캐릭터 드래그로 채이는 문제가 있었다. 손가락이 실제로
-                // 움직이면(진짜 드래그 의도) 그건 정상적으로 드래그로 넘어가야 하므로, 여기서는
-                // "오래 누르기"로만 드래그가 시작되는 것만 막는다.
-                bool pressingCollectibleProp = pressProp != null && pressProp.HasPendingMerit;
-                if (!pressingLockedProp
-                    && pressCharacter != null
-                    && pressCharacter.CanBeDraggedByPlayer)
+                switch (pressTarget)
                 {
-                    bool heldLongEnough = held >= longPressSeconds && !pressingCollectibleProp;
-                    if (heldLongEnough || moved > dragThresholdPixels)
-                        BeginCharacterDrag(screenPos);
-                    return;
+                    case PressTarget.LockedProp:
+                        // 자물쇠 탭은 캐릭터·지도 드래그로 절대 전환되지 않는다 — release에서 구매 판정.
+                        return;
+
+                    case PressTarget.CollectibleProp:
+                        // 공덕 더미가 있는 기물 위엔 보통 생산 중인 요괴가 앉아있다. 가만히 오래
+                        // 누르는 것만으로는 드래그로 넘어가지 않게 해서 수거 탭이 채이지 않게 하되,
+                        // 손가락이 실제로 움직이면(진짜 드래그 의도) 정상적으로 드래그로 전환한다.
+                        if (pressCharacter != null
+                            && pressCharacter.CanBeDraggedByPlayer
+                            && moved > dragThresholdPixels)
+                            BeginCharacterDrag(screenPos);
+                        return;
+
+                    case PressTarget.Character:
+                        if (!pressCharacter.CanBeDraggedByPlayer)
+                        {
+                            // 드래그 불가 캐릭터(기절 등) 위는 지도 패닝 임계값만 적용 —
+                            // 움직임이 없으면 release에서 탭(상세화면 진입)으로 처리된다.
+                            if (moved <= dragThresholdPixels) return;
+                            phase = Phase.MapDrag;
+                            ResolveMapDrag();
+                            if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
+                            return;
+                        }
+                        if (held >= longPressSeconds || moved > dragThresholdPixels)
+                            BeginCharacterDrag(screenPos);
+                        return;
+
+                    default: // Empty — 빈 맵 위: 임계 이동 이상이면 패닝
+                        if (moved <= dragThresholdPixels) return;
+                        phase = Phase.MapDrag;
+                        ResolveMapDrag();
+                        if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
+                        return;
                 }
-
-                // 자물쇠 탭은 캐릭터보다 우선한다 — 손이 살짝 떨려 임계값을 넘어도 지도 드래그로
-                // 전환하지 않고 Pending을 유지해 OnRelease의 구매 판정까지 간다.
-                if (pressingLockedProp) return;
-
-                if (moved <= dragThresholdPixels) return;
-
-                phase = Phase.MapDrag;
-                ResolveMapDrag();
-                if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
-                return;
             }
 
             if (phase == Phase.MapDrag)
@@ -274,23 +314,25 @@ namespace Yoegoe.Characters
         {
             if (phase == Phase.Pending)
             {
-                // 자물쇠는 캐릭터보다 우선. pressProp는 press 시점에 이미 lockTapRadius 안에서
-                // 찾은 것이고(OnHold가 이 경우 절대 MapDrag로 빠지지 않게 막아둠), release 시점
-                // 손 위치로 다시 반경 검사를 하면 살짝 흔들린 것만으로도(특히 줌아웃 상태) 오탐 실패해
-                // 구매가 안 뜨는 문제가 있었다 — press 시점 판정만 신뢰한다.
-                if (pressProp != null && !pressProp.IsBuilt)
+                // press 시점 판정(pressTarget)만 신뢰한다 — release 손 위치로 반경을 다시 재는
+                // 순간, 화면 픽셀 이동과 월드 반경 단위가 안 맞아(특히 줌아웃 상태) 손이 살짝만
+                // 흔들려도 오탐 실패하는 회귀가 반복됐다.
+                switch (pressTarget)
                 {
-                    CancelPendingMonologueTap();
-                    PropPurchaseRequested?.Invoke(pressProp);
+                    case PressTarget.LockedProp:
+                        CancelPendingMonologueTap();
+                        PropPurchaseRequested?.Invoke(pressProp);
+                        break;
+
+                    case PressTarget.CollectibleProp:
+                        CancelPendingMonologueTap();
+                        pressProp.TryCollectMerit();
+                        break;
+
+                    case PressTarget.Character:
+                        HandleCharacterTap(pressCharacter);
+                        break;
                 }
-                else if (pressProp != null && pressProp.HasPendingMerit
-                         && IsNearProp(pressProp, screenPos, propTapRadius))
-                {
-                    CancelPendingMonologueTap();
-                    pressProp.TryCollectMerit();
-                }
-                else if (pressCharacter != null)
-                    HandleCharacterTap(pressCharacter);
             }
             else if (phase == Phase.CharacterDrag && dragCharacter != null)
             {
@@ -300,6 +342,7 @@ namespace Yoegoe.Characters
             }
 
             phase = Phase.Idle;
+            pressTarget = PressTarget.Empty;
             pressCharacter = null;
             dragCharacter = null;
             pressProp = null;
@@ -473,15 +516,6 @@ namespace Yoegoe.Characters
             var locked = PropManager.Instance.FindNearestUnbuiltProp(world, lockTapRadius);
             if (locked != null) return locked;
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
-        }
-
-        bool IsNearProp(PropSlot prop, Vector2 screenPos, float radius)
-        {
-            if (prop == null || targetCamera == null || PropManager.Instance == null) return false;
-            float depth = -targetCamera.transform.position.z;
-            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
-            world.z = 0f;
-            return PropManager.Instance.DistanceToProp(prop, world) <= Mathf.Max(0f, radius);
         }
 
         private static bool IsBlockingUi(Vector2 screenPos)
