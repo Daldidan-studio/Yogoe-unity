@@ -683,12 +683,12 @@ namespace Yoegoe.UI
         /// <summary>임시 디버그: 초기화(세이브) + 캐시 날리기(브라우저 캐시/IndexedDB).</summary>
         private void BuildTempDebugButtons(Transform canvasTf)
         {
-            // 우상단 세로 스택: 상점(-24,-24,h64) → 초기화 → 캐시 (간격 12)
+            // 우상단 세로 스택: 상점(-24,-24,h64) → 윷놀이(-24,-100,h64) → 초기화 → 캐시 (간격 12)
             const float x = -24f;
             const float w = 120f;
             const float h = 48f;
             const float gap = 12f;
-            const float shopBottom = -24f - 64f; // 상점 하단 y
+            const float shopBottom = -100f - 64f; // 윷놀이 버튼 하단 y
             float resetY = shopBottom - gap;
             float cacheY = resetY - h - gap;
 
@@ -891,6 +891,29 @@ namespace Yoegoe.UI
             shopLabel.color = new Color(1f, 0.95f, 0.85f);
             shopLabel.text = "상점";
             shopLabel.raycastTarget = false;
+
+            // 상점 바로 아래 윷놀이 버튼
+            var yutBtnGO = new GameObject("YutButton");
+            var yutRt = SetupRect(yutBtnGO, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
+                new Vector2(-24, -100), new Vector2(120, 64));
+            var yutImg = yutBtnGO.AddComponent<Image>();
+            yutImg.color = new Color(0.2f, 0.3f, 0.4f, 0.92f);
+            var yutBtn = yutBtnGO.AddComponent<Button>();
+            yutBtn.targetGraphic = yutImg;
+            yutBtn.onClick.AddListener(() =>
+            {
+                if (YutScreen.Instance != null) YutScreen.Instance.Open();
+            });
+            var yutLabelGO = new GameObject("Label");
+            SetupRect(yutLabelGO, yutRt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            var yutLabel = yutLabelGO.AddComponent<Text>();
+            yutLabel.font = font;
+            yutLabel.fontSize = 26;
+            yutLabel.alignment = TextAnchor.MiddleCenter;
+            yutLabel.color = new Color(1f, 0.95f, 0.85f);
+            yutLabel.text = "윷놀이";
+            yutLabel.raycastTarget = false;
         }
 
         private void BuildSlotBar(Transform canvasTf)

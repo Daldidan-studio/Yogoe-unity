@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace KSpirits.Minigames.Yut
+namespace Yoegoe.Minigames.Yut
 {
     /// <summary>
     /// 윷놀이 화면(전체화면 TrainingPanel)을 소유하는 독립 모듈.
@@ -48,7 +48,18 @@ namespace KSpirits.Minigames.Yut
         public void BindFromHierarchy()
         {
             _throwButton = transform.Find("Throw")?.GetComponent<Button>();
+            if (_throwButton == null)
+            {
+                _throwButton = CreateButton(transform, "Throw", "윷 던지기", null);
+                SetAnchor(_throwButton.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.14f, 0, 0, 0, 0);
+            }
+
             _leaveButton = transform.Find("Leave")?.GetComponent<Button>();
+            if (_leaveButton == null)
+            {
+                _leaveButton = CreateButton(transform, "Leave", "나가기", null);
+                SetAnchor(_leaveButton.GetComponent<RectTransform>(), 0.02f, 0.93f, 0.18f, 0.99f, 0, 0, 0, 0);
+            }
 
             WireButton(_throwButton, () => OnThrowPressed?.Invoke());
             WireButton(_leaveButton, () => OnLeavePressed?.Invoke());
