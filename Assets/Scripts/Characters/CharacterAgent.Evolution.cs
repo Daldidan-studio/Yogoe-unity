@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using UnityEngine;
 using Yoegoe.Core;
@@ -25,7 +24,7 @@ namespace Yoegoe.Characters
         /// UI(EvolutionConfirmPopup)가 구독해서 실제 팝업을 띄운다 — CharacterAgent는 UI를 모른다.
         /// 구독자가 없으면 EvolveToHonFxRoutine이 짧은 대기 후 자동 진행한다.
         /// </summary>
-        public static event Action<string, Action> EvolutionConfirmRequested;
+        public static event System.Action<string, System.Action> EvolutionConfirmRequested;
 
         /// <summary>소환 직후 넋 상태로 고정 (Start보다 먼저 호출).</summary>
         public void ApplyFreshNeokSummon()

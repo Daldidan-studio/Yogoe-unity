@@ -32,8 +32,10 @@ namespace Yoegoe.UI
 
         void Awake() => Instance = this;
 
-        void OnEnable() => CharacterRequestState.GiftBundleAwarded += OpenForReward;
-        void OnDisable() => CharacterRequestState.GiftBundleAwarded -= OpenForReward;
+        void OnEnable() => CharacterRequestState.GiftBundleAwarded += HandleGiftBundleAwarded;
+        void OnDisable() => CharacterRequestState.GiftBundleAwarded -= HandleGiftBundleAwarded;
+
+        void HandleGiftBundleAwarded(string reward) => OpenForReward(reward);
 
         void Start()
         {
