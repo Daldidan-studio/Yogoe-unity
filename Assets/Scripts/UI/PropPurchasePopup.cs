@@ -40,8 +40,11 @@ namespace Yoegoe.UI
 
         public void Open(PropSlot prop)
         {
+            Debug.Log("[DEBUG-LOCK] PropPurchasePopup.Open 호출됨: prop="
+                + (prop != null ? prop.name + " IsBuilt=" + prop.IsBuilt : "null"));
             if (prop == null || prop.IsBuilt) return;
             EnsureBuilt();
+            Debug.Log("[DEBUG-LOCK] PropPurchasePopup.Open: root.SetActive(true) 직전, root=" + (root != null));
             target = prop;
             string name = prop.DisplayName;
             titleText.text = name + "을(를) 그릴까요?";

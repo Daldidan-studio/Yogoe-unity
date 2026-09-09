@@ -210,6 +210,7 @@ namespace Yoegoe.Characters
         {
             if (IsBlockingUi(screenPos))
             {
+                Debug.Log("[DEBUG-LOCK] OnPress: UI가 막아서 무시됨 at " + screenPos);
                 phase = Phase.Idle;
                 return;
             }
@@ -222,6 +223,9 @@ namespace Yoegoe.Characters
             dragCharacter = null;
             pressTarget = ClassifyPressTarget();
             phase = Phase.Pending;
+            Debug.Log("[DEBUG-LOCK] OnPress: pressProp=" + (pressProp != null ? pressProp.name + " IsBuilt=" + pressProp.IsBuilt : "null")
+                + " pressCharacter=" + (pressCharacter != null ? pressCharacter.name : "null")
+                + " => pressTarget=" + pressTarget);
         }
 
         /// <summary>
@@ -312,6 +316,8 @@ namespace Yoegoe.Characters
 
         private void OnRelease(Vector2 screenPos)
         {
+            Debug.Log("[DEBUG-LOCK] OnRelease: phase=" + phase + " pressTarget=" + pressTarget
+                + " pressProp=" + (pressProp != null ? pressProp.name : "null"));
             if (phase == Phase.Pending)
             {
                 // press 시점 판정(pressTarget)만 신뢰한다 — release 손 위치로 반경을 다시 재는
@@ -321,6 +327,8 @@ namespace Yoegoe.Characters
                 {
                     case PressTarget.LockedProp:
                         CancelPendingMonologueTap();
+                        Debug.Log("[DEBUG-LOCK] OnRelease: PropPurchaseRequested 발행, 구독자 있음="
+                            + (PropPurchaseRequested != null));
                         PropPurchaseRequested?.Invoke(pressProp);
                         break;
 
