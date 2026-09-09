@@ -153,6 +153,8 @@ namespace Yoegoe.Characters
             propSitSeconds = 0f;
             if (propIcon != null) propIcon.gameObject.SetActive(false);
             if (propLabel != null) propLabel.gameObject.SetActive(false);
+            // 기물 요구 생각풍선이 가리고 있던 공양물 요구가 남아있으면 다시 띄운다.
+            if (HasOfferingRequest) EnsureOfferingIcon();
         }
 
         public void ClearAll()
@@ -280,14 +282,16 @@ namespace Yoegoe.Characters
             offeringIcon.sprite = OfferingRequest != null ? OfferingRequest.icon : null;
             offeringIcon.color = Color.white;
             offeringIcon.transform.localScale = Vector3.one * 0.45f;
-            offeringIcon.gameObject.SetActive(offeringIcon.sprite != null);
+            // 기물 요구 생각풍선이 떠 있는 동안은 공양물 요구 생각풍선을 가린다(기물 요구 우선).
+            bool canShow = !HasPropRequest;
+            offeringIcon.gameObject.SetActive(offeringIcon.sprite != null && canShow);
             // 아이콘 없으면 작은 점
             if (offeringIcon.sprite == null)
             {
                 offeringIcon.sprite = WhiteSprite();
                 offeringIcon.color = new Color(1f, 0.85f, 0.4f, 0.95f);
                 offeringIcon.transform.localScale = Vector3.one * 0.25f;
-                offeringIcon.gameObject.SetActive(true);
+                offeringIcon.gameObject.SetActive(canShow);
             }
         }
 
@@ -304,6 +308,8 @@ namespace Yoegoe.Characters
             propIcon.color = new Color(1f, 1f, 1f, 0.92f);
             propIcon.transform.localScale = Vector3.one * 0.35f;
             propIcon.gameObject.SetActive(true);
+            // 기물 요구가 우선이니 공양물 요구 생각풍선은 잠시 숨긴다(요구 자체는 유지).
+            if (offeringIcon != null) offeringIcon.gameObject.SetActive(false);
 
             if (propLabel == null)
             {

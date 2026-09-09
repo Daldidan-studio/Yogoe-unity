@@ -304,18 +304,18 @@ namespace Yoegoe.Characters
         {
             if (agent == null) return;
 
+            // 기물 요구가 우선(생각풍선도 기물 요구가 가림) — 탭해도 무반응
+            if (agent.Requests != null && agent.Requests.HasPropRequest)
+            {
+                CancelPendingMonologueTap();
+                return;
+            }
+
             // 공양물 요구 말풍선 탭 → 즉시 상세(강조)
             if (agent.HasOfferingRequest)
             {
                 CancelPendingMonologueTap();
                 OpenCharacterDetail(agent);
-                return;
-            }
-
-            // 기물 요구 말풍선은 탭해도 무반응
-            if (agent.Requests != null && agent.Requests.HasPropRequest)
-            {
-                CancelPendingMonologueTap();
                 return;
             }
 
@@ -345,13 +345,13 @@ namespace Yoegoe.Characters
             var agent = pendingMonologueTap;
             pendingMonologueTap = null;
             if (agent == null) return;
+            if (agent.Requests != null && agent.Requests.HasPropRequest)
+                return;
             if (agent.HasOfferingRequest)
             {
                 OpenCharacterDetail(agent);
                 return;
             }
-            if (agent.Requests != null && agent.Requests.HasPropRequest)
-                return;
             agent.OnTapped();
         }
 
