@@ -40,5 +40,11 @@ namespace Yoegoe.Data
 
         public int SortOrderForCharacter(float worldY) =>
             characterSortBase + Mathf.RoundToInt(-worldY * ySortMultiplier);
+
+        public static ArtScaleSettings GetOrDefault()
+        {
+            var loaded = Resources.Load<ArtScaleSettings>("ArtScaleSettings");
+            return loaded != null ? loaded : CreateInstance<ArtScaleSettings>();
+        }
     }
 }

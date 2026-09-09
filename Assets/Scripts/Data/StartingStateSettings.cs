@@ -20,8 +20,8 @@ namespace Yoegoe.Data
         public int startingMerit = 1000;
         [Tooltip("엽전. 기획서 = 0.")]
         public int startingYeopjeon = 0;
-        [Tooltip("향. 기획서 = 2 (소환에 3개 필요).")]
-        public int startingHyang = 2;
+        [Tooltip("향. 개발 중 소환 테스트용 = 3 (기획 기본 2, 3번째는 윷/상점).")]
+        public int startingHyang = 3;
         [Tooltip("정화수. 기획서 = 10.")]
         public int startingPurifiedWater = 10;
         [Tooltip("윷 토큰 시작 개수. 기획서 = 5.")]

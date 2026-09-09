@@ -32,6 +32,8 @@ namespace Yoegoe
         public CharacterData samjokOData;
         [Tooltip("구미호 CharacterData. 비워두면 구미호는 주황 캡슐로 대체 재생된다.")]
         public CharacterData gumihoData;
+        [Tooltip("고라니 CharacterData (소환용). 비워두면 Resources/Characters/Gorani 를 찾는다.")]
+        public CharacterData goraniData;
 
         [Header("화면 크기 (여기 말고 ArtScaleSettings.asset에서 조절)")]
         [Tooltip("비워두면 Resources/ArtScaleSettings 를 자동으로 찾는다. 맵·캐릭터·기물 배율은 그 에셋 하나에서 바꾼다.")]
@@ -239,6 +241,13 @@ namespace Yoegoe
             purchase.font = hudFont;
             purchaseGO.SetActive(true);
 
+            var summonGO = new GameObject("SummonPopup");
+            summonGO.SetActive(false);
+            var summon = summonGO.AddComponent<SummonPopup>();
+            summon.font = hudFont;
+            summon.goraniData = goraniData;
+            summonGO.SetActive(true);
+
             var hudGO = new GameObject("Hud");
             hudGO.SetActive(false);
             var hud = hudGO.AddComponent<GameHud>();
@@ -299,6 +308,8 @@ namespace Yoegoe
             if (router == null) router = cam.gameObject.AddComponent<Yoegoe.Characters.MapPointerRouter>();
             router.targetCamera = cam;
             router.mapDrag = cam.GetComponent<MapCameraDrag>();
+            // 기물 PNG(스프라이트 bounds) 안에서만 드롭 판정
+            router.propDropRadius = 0f;
         }
 
         private void EnsureLight()
@@ -448,62 +459,19 @@ namespace Yoegoe
 
         private void CreateCharacter(string name, Vector3 pos, Color color, CharacterData realData)
         {
-            bool hasRealArt = realData != null && HasAnySprite(realData);
-
-            GameObject go;
-            CharacterAgent agent;
-
-            if (hasRealArt)
+            if (realData != null)
             {
-                // 실제 스프라이트가 있으면 캡슐 대신 SpriteRenderer로 생성 — CharacterAgent.Awake()가
-                // 자식/자기 자신의 SpriteRenderer를 자동으로 찾아 쓰므로 별도 연결 코드 불필요.
-                go = new GameObject("Char_" + name);
-                go.transform.position = pos;
-
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = FirstSprite(realData);
-                sr.sortingOrder = Scale.SortOrderForCharacter(pos.y);
-                go.transform.localScale = Vector3.one * Scale.characterScale;
-
-                agent = go.AddComponent<CharacterAgent>();
-                agent.Data = realData; // 런타임 스텁이 아니라 실제 에셋을 그대로 사용 (걷기 애니메이션 재생됨)
-                agent.bubbleFont = hudFont; // 혼잣말 말풍선용 폰트 (한글 지원)
+                CharacterSpawner.Spawn(realData, pos, color, hudFont);
+                return;
             }
-            else
-            {
-                go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                go.name = "Char_" + name;
-                go.transform.position = pos;
-                go.transform.localScale = Vector3.one * 0.6f;
-                var col = go.GetComponent<Collider>();
-                if (col != null) Destroy(col);
 
-                ApplyUrpColor(go.GetComponent<Renderer>(), color);
-
-                agent = go.AddComponent<CharacterAgent>();
-                agent.bubbleFont = hudFont;
-
-                var data = ScriptableObject.CreateInstance<CharacterData>();
-                data.displayName = name;
-                data.startingStage = GrowthStage.Hon;
-                data.startingIntimacy = 50f;
-                data.startingStamina = 100f;
-                agent.Data = data;
-            }
-        }
-
-        private static bool HasAnySprite(CharacterData data)
-        {
-            return FirstSprite(data) != null;
-        }
-
-        private static Sprite FirstSprite(CharacterData data)
-        {
-            if (data.walkDown != null) foreach (var s in data.walkDown) if (s != null) return s;
-            if (data.walkLeft != null) foreach (var s in data.walkLeft) if (s != null) return s;
-            if (data.walkRight != null) foreach (var s in data.walkRight) if (s != null) return s;
-            if (data.walkUp != null) foreach (var s in data.walkUp) if (s != null) return s;
-            return null;
+            // 에셋 미연결 시 런타임 스텁 (이름만 표시)
+            var data = ScriptableObject.CreateInstance<CharacterData>();
+            data.displayName = name;
+            data.startingStage = GrowthStage.Hon;
+            data.startingIntimacy = 50f;
+            data.startingStamina = 100f;
+            CharacterSpawner.Spawn(data, pos, color, hudFont);
         }
     }
 }

@@ -150,6 +150,9 @@ namespace Yoegoe.Save
                 }
             }
 
+            // Agents — 세이브에만 있는 고라니 등 먼저 스폰
+            EnsureMissingAgentsFromSave(data.agents);
+
             // Agents + 기물 점유 복원
             if (data.agents != null)
             {
@@ -183,6 +186,25 @@ namespace Yoegoe.Save
                         break;
                     }
                 }
+            }
+        }
+
+        /// <summary>콜드스타트 시 세이브에 고라니가 있으면 월드에 스폰 (향 소모 없음).</summary>
+        private static void EnsureMissingAgentsFromSave(AgentSave[] agents)
+        {
+            if (agents == null) return;
+            foreach (var ags in agents)
+            {
+                if (ags == null || string.IsNullOrEmpty(ags.characterId)) continue;
+                bool isGorani = ags.characterId == CharacterId.Gorani.ToString()
+                                || ags.characterId == "고라니";
+                if (!isGorani) continue;
+                if (CharacterSummon.IsPresent(CharacterId.Gorani)) continue;
+
+                CharacterSummon.SpawnGoraniForSaveRestore(
+                    null,
+                    null,
+                    new Vector3(ags.posX, ags.posY, 0f));
             }
         }
 

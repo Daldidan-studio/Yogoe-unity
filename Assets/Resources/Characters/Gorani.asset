@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 742582bd14ebf4caca2710f6f7d14584, type: 3}
+  m_Name: Gorani
+  m_EditorClassIdentifier: 
+  id: 3
+  displayName: "고라니"
+  startingStage: 0
+  preferredOfferings: []
+  endingProp: {fileID: 0}
+  detailDescription: "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다."
+  startingIntimacy: 0
+  startingStamina: 0
+  monologueLines: []
+  walkDown:
+  - {fileID: 1403446323, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -1005379663, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -1742624623, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -67772816, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  walkLeft: []
+  walkRight:
+  - {fileID: 1033814394, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1382233519, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 82463401, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 918811526, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  walkUp:
+  - {fileID: -212082845, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1348270599, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1623205377, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -180422231, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  stay:
+  - {fileID: 1122302853, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -825008144, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1687123277, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -1390377724, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  slumped:
+  - {fileID: -1169736016, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -1317570557, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -1931245234, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -485256168, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  fainted:
+  - {fileID: 1549372081, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -1218993152, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1116322727, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: -506083512, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  idle:
+  - {fileID: -1999892526, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1878612105, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 346176502, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}
+  - {fileID: 1086563004, guid: 5b08daf68c614d32af827196b3bf5dd1, type: 3}

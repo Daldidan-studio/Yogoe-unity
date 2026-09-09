@@ -39,6 +39,7 @@ namespace Yoegoe.UI
         private class SlotChip
         {
             public CharacterAgent Agent;
+            public bool IsSummonSlot;
             public Text NameText;
             public Text StatusTagText;
             public GameObject StatusTagRoot;
@@ -75,19 +76,35 @@ namespace Yoegoe.UI
 
         private void RefreshSlotBar()
         {
-            bool mismatched = slotChips.Count != CharacterAgent.All.Count;
+            bool wantSummonSlot = !CharacterSummon.IsPresent(CharacterId.Gorani);
+            int expected = CharacterAgent.All.Count + (wantSummonSlot ? 1 : 0);
+            bool mismatched = slotChips.Count != expected;
             if (!mismatched)
             {
+                int agentIdx = 0;
                 for (int i = 0; i < slotChips.Count; i++)
                 {
-                    if (slotChips[i].Agent != CharacterAgent.All[i]) { mismatched = true; break; }
+                    var chip = slotChips[i];
+                    if (chip.IsSummonSlot)
+                    {
+                        if (!wantSummonSlot) { mismatched = true; break; }
+                        continue;
+                    }
+                    if (agentIdx >= CharacterAgent.All.Count
+                        || chip.Agent != CharacterAgent.All[agentIdx])
+                    {
+                        mismatched = true;
+                        break;
+                    }
+                    agentIdx++;
                 }
+                if (!mismatched && agentIdx != CharacterAgent.All.Count) mismatched = true;
             }
             if (mismatched) RebuildSlotBar();
 
             foreach (var chip in slotChips)
             {
-                if (chip.Agent == null) continue;
+                if (chip.IsSummonSlot || chip.Agent == null) continue;
                 string stageLabel = chip.Agent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
                 string name = chip.Agent.Data != null ? chip.Agent.Data.displayName : "?";
                 chip.NameText.text = name + " · " + stageLabel;
@@ -234,6 +251,7 @@ namespace Yoegoe.UI
                 slotChips.Add(new SlotChip
                 {
                     Agent = agent,
+                    IsSummonSlot = false,
                     NameText = nameText,
                     StatusTagText = tagText,
                     StatusTagRoot = tagGO,
@@ -244,6 +262,47 @@ namespace Yoegoe.UI
                     BatchButtonLabel = batchLabel
                 });
             }
+
+            if (!CharacterSummon.IsPresent(CharacterId.Gorani))
+                AddEmptySummonSlot();
+        }
+
+        private void AddEmptySummonSlot()
+        {
+            var chipGO = new GameObject("Slot_Summon");
+            var chipRt = SetupRect(chipGO, slotBarRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(160, 100));
+            var chipLayout = chipGO.AddComponent<LayoutElement>();
+            chipLayout.preferredWidth = 160;
+            chipLayout.preferredHeight = 100;
+
+            var bg = chipGO.AddComponent<Image>();
+            bg.color = new Color(0.08f, 0.12f, 0.14f, 0.85f);
+
+            var button = chipGO.AddComponent<Button>();
+            button.targetGraphic = bg;
+            button.onClick.AddListener(() =>
+            {
+                if (SummonPopup.Instance != null) SummonPopup.Instance.Open();
+            });
+
+            var nameGO = new GameObject("Name");
+            SetupRect(nameGO, chipRt, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            var nameText = nameGO.AddComponent<Text>();
+            nameText.font = font;
+            nameText.fontSize = 22;
+            nameText.alignment = TextAnchor.MiddleCenter;
+            nameText.color = new Color(0.7f, 0.9f, 1f, 1f);
+            nameText.raycastTarget = false;
+            nameText.text = "+ 소환";
+
+            slotChips.Add(new SlotChip
+            {
+                Agent = null,
+                IsSummonSlot = true,
+                NameText = nameText
+            });
         }
 
         private static void OnBatchCollectClicked()

@@ -26,8 +26,8 @@ namespace Yoegoe.Characters
         [Tooltip("스프라이트가 없을 때 쓰는 고정 히트 반경(월드).")]
         public float characterHitRadiusFallback = 0.45f;
 
-        [Tooltip("드롭 시 기물 스냅 반경(월드).")]
-        public float propDropRadius = 1.8f;
+        [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG(스프라이트) 박스 안에 있을 때만 앉힘.")]
+        public float propDropRadius = 0f;
 
         [Tooltip("탭으로 공덕 수거할 때 기물 히트 반경(월드).")]
         public float propTapRadius = 1.0f;

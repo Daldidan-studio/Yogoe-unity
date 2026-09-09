@@ -44,12 +44,14 @@ namespace Yoegoe.Characters
             return candidates[Random.Range(0, candidates.Count)];
         }
 
-        /// <summary>드래그 드롭용: worldPos 근처에서 앉힐 수 있는 가장 가까운 기물.
-        /// 예약만 된 빈 자리는 플레이어 드롭이 가져갈 수 있다.</summary>
+        /// <summary>드래그 드롭용: worldPos가 기물 스프라이트 bounds 안(또는 maxRadius 이내)인 가장 가까운 기물.
+        /// maxRadius=0이면 PNG 크기(스프라이트 AABB) 안에 있을 때만 매칭.</summary>
         public PropSlot FindNearestDropTarget(CharacterAgent requester, Vector3 worldPos, float maxRadius)
         {
             PropSlot best = null;
-            float bestDist = maxRadius;
+            // maxRadius=0일 때도 "아직 미선택"과 구분되도록 시작값을 크게 둔 뒤, 조건은 d <= maxRadius로 검사
+            float bestDist = float.MaxValue;
+            float limit = Mathf.Max(0f, maxRadius);
             foreach (var p in allProps)
             {
                 if (p == null) continue;
@@ -58,7 +60,7 @@ namespace Yoegoe.Characters
                 if (p.IsOccupied) continue;
 
                 float d = DistanceToPropSurface(p, worldPos);
-                if (d <= bestDist)
+                if (d <= limit && d < bestDist)
                 {
                     bestDist = d;
                     best = p;

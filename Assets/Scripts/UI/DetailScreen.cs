@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
+using Yoegoe.Economy;
+using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
@@ -54,11 +56,20 @@ namespace Yoegoe.UI
             root.SetActive(true);
 
             var data = agent.Data;
-            nameText.text = data != null ? data.displayName : "?";
+            RefreshIdentity();
             descriptionText.text = data != null ? data.detailDescription : "";
             portraitImage.sprite = data != null ? FirstSprite(data) : null;
             portraitImage.preserveAspect = true;
             RefreshStats();
+        }
+
+        private void RefreshIdentity()
+        {
+            if (currentAgent == null || nameText == null) return;
+            var data = currentAgent.Data;
+            string name = data != null ? data.displayName : "?";
+            string stage = currentAgent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
+            nameText.text = name + " · " + stage;
         }
 
         public void Close()
@@ -103,13 +114,34 @@ namespace Yoegoe.UI
             heartsText.text = sb.ToString();
 
             statusText.text = CharacterStatusPresentation.ForDetail(stats.State);
+            RefreshIdentity();
         }
 
         private void OnFeed(OfferingData offering)
         {
             if (currentAgent == null || offering == null) return;
-            currentAgent.ReceiveOffering(offering.staminaGain, offering.intimacyGain);
+
+            bool isPurified = offering.kind == OfferingKind.PurifiedWater
+                || string.Equals(offering.offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);
+
+            // 넋은 정화수만
+            if (currentAgent.Stats.Stage == GrowthStage.Neok && !isPurified)
+                return;
+
+            if (isPurified)
+            {
+                if (!GameEconomy.TrySpendPurifiedWater(1)) return;
+            }
+            else if (!GameEconomy.TrySpendOffering(offering, 1))
+            {
+                return;
+            }
+
+            var kind = isPurified ? OfferingKind.PurifiedWater : offering.kind;
+            currentAgent.ReceiveOffering(offering.staminaGain, offering.intimacyGain, kind);
             RefreshStats();
+            if (currentAgent.Stats.Stage == GrowthStage.Hon)
+                GameSaveBridge.SaveFromWorld();
         }
 
         private static Sprite FirstSprite(CharacterData data)

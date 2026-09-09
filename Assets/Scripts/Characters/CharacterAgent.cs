@@ -62,6 +62,16 @@ namespace Yoegoe.Characters
         private FacingDir facing = FacingDir.Down;
         private int animFrame;
         private float animTimer;
+        /// <summary>소환·세이브 복원이 Start 기본 스탯을 덮어쓰지 않게 막는다.</summary>
+        private bool statsAppliedExternally;
+
+        // 넋(도깨비불) 부유
+        private Vector3 neokLogicalPos;
+        private Vector3? neokDriftTarget;
+        private float neokBobPhase;
+        private const float NeokDriftSpeed = 0.7f;
+        private const float NeokBobAmplitude = 0.14f;
+        private const float NeokBobSpeed = 2.4f;
 
         private void Awake()
         {
@@ -84,13 +94,8 @@ namespace Yoegoe.Characters
             // 흔한데, AddComponent가 Awake를 즉시 실행시키기 때문에 Awake 시점엔 Data가 아직
             // null이라 초기화가 안 먹는 버그가 있었다. Start는 모든 오브젝트의 Awake가 끝난
             // 다음 프레임 이전에 실행되므로 이 시점엔 Data가 확실히 채워져 있다.
-            if (Data != null)
-            {
-                Stats.Stage = Data.startingStage;
-                var start = StartingStateSettings.Get();
-                Stats.Intimacy = start.startingIntimacy;
-                Stats.Stamina = start.startingStamina;
-            }
+            if (!statsAppliedExternally && Data != null)
+                ApplyDefaultStatsFromData();
 
             if (Stats.Stage != GrowthStage.Neok) EnterWalking();
 
@@ -98,6 +103,44 @@ namespace Yoegoe.Characters
             monologueTimer = Random.Range(2f, MonologueMinInterval);
 
             // AddComponent 직후 Data가 늦게 붙는 패턴 대비 — 첫 프레임부터 walk/idle 스프라이트 적용
+            lastPosition = transform.position;
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            ApplyAnimationFrameImmediate();
+        }
+
+        private void ApplyDefaultStatsFromData()
+        {
+            Stats.Stage = Data.startingStage;
+            if (Stats.Stage == GrowthStage.Neok)
+            {
+                // 넋: 정화수로만 기력 충전 → 100이면 혼. 시작은 기력 0·친밀도 미사용.
+                Stats.Intimacy = 0f;
+                Stats.Stamina = 0f;
+            }
+            else
+            {
+                var start = StartingStateSettings.Get();
+                Stats.Intimacy = start.startingIntimacy;
+                Stats.Stamina = start.startingStamina;
+            }
+        }
+
+        /// <summary>세이브 복원·소환 직후 Start가 스탯을 리셋하지 않도록 표시.</summary>
+        public void MarkStatsAppliedExternally() => statsAppliedExternally = true;
+
+        /// <summary>소환 직후 넋 상태로 고정 (Start보다 먼저 호출).</summary>
+        public void ApplyFreshNeokSummon()
+        {
+            statsAppliedExternally = true;
+            Stats.Stage = GrowthStage.Neok;
+            Stats.Intimacy = 0f;
+            Stats.Stamina = 0f;
+            Stats.State = ActionState.Walking;
+            Stats.StateTimer = 0f;
+            neokLogicalPos = transform.position;
+            neokDriftTarget = null;
+            neokBobPhase = Random.Range(0f, Mathf.PI * 2f);
             lastPosition = transform.position;
             if (spriteRenderer == null)
                 spriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -117,7 +160,22 @@ namespace Yoegoe.Characters
 
         private void Update()
         {
-            if (Stats.Stage == GrowthStage.Neok) return; // 넋은 상태머신 대상 아님
+            float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
+
+            if (Stats.Stage == GrowthStage.Neok)
+            {
+                // 기력 100이면 정화수가 없어도 진화 (이전에 다 먹인 채 멈춘 경우 포함)
+                if (Stats.Stamina >= 100f - 0.001f)
+                {
+                    EvolveToHon();
+                    return;
+                }
+
+                if (!IsBeingDragged)
+                    TickNeokFloat(dt);
+                UpdateSortingOrder();
+                return;
+            }
 
             if (IsBeingDragged)
             {
@@ -127,7 +185,6 @@ namespace Yoegoe.Characters
 
             // 긴 공백 정산은 Main의 벽시계 CatchUpAll이 담당한다.
             // deltaTime에 의존하면 WebGL 탭 복귀 시 스파이크가 안 오거나, 오면 이동이 텔레포트한다.
-            float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
 
             switch (Stats.State)
             {
@@ -848,6 +905,7 @@ namespace Yoegoe.Characters
             Vector3 worldPos,
             PropSlot occupyProp)
         {
+            statsAppliedExternally = true;
             ClearWalkDestination();
             if (currentProp != null)
             {
@@ -862,6 +920,13 @@ namespace Yoegoe.Characters
             Stats.StateTimer = stateTimer;
             transform.position = MapBounds.Clamp(worldPos);
             lastPosition = transform.position;
+            neokLogicalPos = transform.position;
+            neokDriftTarget = null;
+
+            if (Stats.Stage == GrowthStage.Hon)
+                CharacterSpawner.EnsureHonVisual(this);
+            else if (Stats.Stage == GrowthStage.Neok && Stats.Stamina >= 100f - 0.001f)
+                EvolveToHon();
 
             if (occupyProp != null
                 && (state == ActionState.Staying
@@ -884,20 +949,96 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 공양 처리 (5-3/5-4). 공양물 종류별 수치 계산은 공양 시스템 쪽에서 하고 여기엔 최종값만 넘긴다.
-        /// 기절 상태는 상세화면에서만 호출하도록 UI에서 막을 것 (효과 자체는 동일하게 처리함).
+        /// 넋은 정화수만 기력을 채우며, 기력 100 도달 시 즉시 혼으로 진화 (Docs/05 4항).
         /// </summary>
-        public void ReceiveOffering(int staminaGain, float intimacyGain)
+        public void ReceiveOffering(int staminaGain, float intimacyGain, OfferingKind kind = OfferingKind.General)
         {
-            Stats.Stamina = Mathf.Min(100f, Stats.Stamina + staminaGain);
+            if (Stats.Stage == GrowthStage.Neok && kind != OfferingKind.PurifiedWater)
+                return;
+
+            Stats.Stamina = Mathf.Min(100f, Stats.Stamina + Mathf.Max(0, staminaGain));
 
             if (Stats.Stage != GrowthStage.Neok)
                 Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + intimacyGain);
+
+            if (Stats.Stage == GrowthStage.Neok && Stats.Stamina >= 100f - 0.001f)
+            {
+                EvolveToHon();
+                return;
+            }
 
             if (Stats.State == ActionState.Slumped || Stats.State == ActionState.Fainted)
             {
                 LeaveCurrentProp();
                 EnterWalking();
             }
+        }
+
+        public void BindSpriteRenderer(SpriteRenderer sr)
+        {
+            spriteRenderer = sr;
+        }
+
+        /// <summary>넋 → 혼. 친밀도 0부터, 기력은 유지한 채 행동 시작.</summary>
+        public void EvolveToHon()
+        {
+            if (Stats.Stage != GrowthStage.Neok) return;
+
+            Stats.Stage = GrowthStage.Hon;
+            Stats.Intimacy = 0f;
+            Stats.Stamina = Mathf.Max(Stats.Stamina, 100f);
+            Stats.StateTimer = 0f;
+            // 부유 오프셋 제거 후 논리 좌표로 착지
+            transform.position = MapBounds.Clamp(neokLogicalPos.sqrMagnitude > 0.0001f
+                ? neokLogicalPos
+                : transform.position);
+            lastPosition = transform.position;
+            CharacterSpawner.EnsureHonVisual(this);
+            EnterWalking();
+            ApplyAnimationFrameImmediate();
+            Debug.Log($"[CharacterAgent] {Data?.displayName ?? name} 넋→혼 진화");
+        }
+
+        /// <summary>넋 도깨비불: 맵을 천천히 떠돌며 위아래로 둥둥.</summary>
+        private void TickNeokFloat(float dt)
+        {
+            if (neokLogicalPos.sqrMagnitude < 0.0001f && transform.position.sqrMagnitude > 0.0001f)
+                neokLogicalPos = transform.position;
+
+            if (!neokDriftTarget.HasValue
+                || Vector2.Distance(neokLogicalPos, neokDriftTarget.Value) < 0.12f)
+            {
+                PickNeokDriftTarget();
+            }
+
+            if (neokDriftTarget.HasValue)
+            {
+                neokLogicalPos = Vector3.MoveTowards(
+                    neokLogicalPos, neokDriftTarget.Value, NeokDriftSpeed * dt);
+                neokLogicalPos = MapBounds.Clamp(neokLogicalPos);
+            }
+
+            neokBobPhase += dt * NeokBobSpeed;
+            float bob = Mathf.Sin(neokBobPhase) * NeokBobAmplitude;
+            transform.position = new Vector3(neokLogicalPos.x, neokLogicalPos.y + bob, neokLogicalPos.z);
+            lastPosition = transform.position;
+        }
+
+        private void PickNeokDriftTarget()
+        {
+            Vector2 min = MapBounds.Min;
+            Vector2 max = MapBounds.Max;
+            // bounds 미설정 시 현재 근처만
+            if (max.x - min.x < 0.5f || max.y - min.y < 0.5f)
+            {
+                neokDriftTarget = neokLogicalPos + (Vector3)(Random.insideUnitCircle * 1.2f);
+                return;
+            }
+
+            neokDriftTarget = new Vector3(
+                Random.Range(min.x, max.x),
+                Random.Range(min.y, max.y),
+                neokLogicalPos.z);
         }
 
 #if UNITY_EDITOR
