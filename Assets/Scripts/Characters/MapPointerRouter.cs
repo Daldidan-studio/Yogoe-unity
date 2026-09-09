@@ -37,8 +37,11 @@ namespace Yoegoe.Characters
         [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG(스프라이트) 박스 안에 있을 때만 앉힘.")]
         public float propDropRadius = 0f;
 
-        [Tooltip("기물 탭(자물쇠 구매·공덕 수거) 시 스프라이트 bounds 바깥 여유(월드). 너무 크면 멀리서도 구매 팝업이 뜸.")]
+        [Tooltip("기물 탭(공덕 수거) 시 스프라이트 bounds 바깥 여유(월드).")]
         public float propTapRadius = 0.12f;
+
+        [Tooltip("자물쇠(미건립) 탭. 0이면 스프라이트 PNG bounds 안만.")]
+        public float lockTapRadius = 0f;
 
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
@@ -246,15 +249,15 @@ namespace Yoegoe.Characters
         {
             if (phase == Phase.Pending)
             {
-                // 캐릭터가 잡힌 탭이면 멀리 있는 자물쇠 구매보다 캐릭터 제스처 우선
-                bool propHitTight = pressProp != null && IsPropUnderFinger(pressProp, screenPos);
-                if (propHitTight && pressProp != null && !pressProp.IsBuilt)
+                // 자물쇠는 캐릭터보다 우선 + 넉넉한 판정 (너무 타이트하면 구매 불가)
+                if (pressProp != null && !pressProp.IsBuilt && IsNearProp(pressProp, screenPos, lockTapRadius))
                 {
                     CancelPendingMonologueTap();
                     var popup = PropPurchasePopup.Instance;
                     if (popup != null) popup.Open(pressProp);
                 }
-                else if (propHitTight && pressProp != null && pressProp.HasPendingMerit)
+                else if (pressProp != null && pressProp.HasPendingMerit
+                         && IsNearProp(pressProp, screenPos, propTapRadius))
                 {
                     CancelPendingMonologueTap();
                     pressProp.TryCollectMerit();
@@ -440,16 +443,19 @@ namespace Yoegoe.Characters
             float depth = -targetCamera.transform.position.z;
             Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
             world.z = 0f;
+            // 자물쇠는 더 넓은 반경으로 먼저 찾고, 없으면 일반 반경
+            var locked = PropManager.Instance.FindNearestUnbuiltProp(world, lockTapRadius);
+            if (locked != null) return locked;
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
         }
 
-        bool IsPropUnderFinger(PropSlot prop, Vector2 screenPos)
+        bool IsNearProp(PropSlot prop, Vector2 screenPos, float radius)
         {
             if (prop == null || targetCamera == null || PropManager.Instance == null) return false;
             float depth = -targetCamera.transform.position.z;
             Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
             world.z = 0f;
-            return PropManager.Instance.FindNearestProp(world, propTapRadius) == prop;
+            return PropManager.Instance.DistanceToProp(prop, world) <= Mathf.Max(0f, radius);
         }
 
         private static bool IsBlockingUi(Vector2 screenPos)

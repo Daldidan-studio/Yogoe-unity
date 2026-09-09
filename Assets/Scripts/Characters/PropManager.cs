@@ -108,6 +108,27 @@ namespace Yoegoe.Characters
             return best;
         }
 
+        /// <summary>미건립(자물쇠)만 — 구매 탭용.</summary>
+        public PropSlot FindNearestUnbuiltProp(Vector3 worldPos, float maxRadius)
+        {
+            PropSlot best = null;
+            float bestDist = Mathf.Max(0f, maxRadius);
+            foreach (var p in allProps)
+            {
+                if (p == null || p.IsBuilt) continue;
+                float d = DistanceToPropSurface(p, worldPos);
+                if (d <= bestDist)
+                {
+                    bestDist = d;
+                    best = p;
+                }
+            }
+            return best;
+        }
+
+        public float DistanceToProp(PropSlot prop, Vector3 worldPos) =>
+            prop == null ? float.MaxValue : DistanceToPropSurface(prop, worldPos);
+
         /// <summary>bounds 표면까지 거리(안이면 0). 큰 기물 가장자리 드롭도 잡힘.</summary>
         private static float DistanceToPropSurface(PropSlot prop, Vector3 worldPos)
         {
