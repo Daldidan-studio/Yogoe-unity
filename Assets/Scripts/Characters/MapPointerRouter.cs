@@ -4,13 +4,15 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Yoegoe.Debugging;
+using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
     /// <summary>
     /// 맵 포인터 제스처 단일 진입점.
-    /// Down 때 대상(캐릭터 / 맵)을 정하고, 임계 이동 후 캐릭터 드래그 또는 맵 패닝,
-    /// 거의 안 움직이면 탭(혼잣말)으로 처리한다.
+    /// 캐릭터: 길게 누르기(또는 임계 이동) → 들어올림 드래그.
+    /// 맵: 임계 이동 후 패닝. 거의 안 움직이면 탭.
+    /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말.
     /// </summary>
     public class MapPointerRouter : MonoBehaviour
     {
@@ -19,6 +21,12 @@ namespace Yoegoe.Characters
 
         [Tooltip("이보다 많이 움직이면 탭이 아니라 드래그로 확정.")]
         public float dragThresholdPixels = 24f;
+
+        [Tooltip("캐릭터를 이 시간 이상 누르고 있으면 이동 없이도 들어올림.")]
+        public float longPressSeconds = 0.35f;
+
+        [Tooltip("더블탭으로 인정할 최대 간격(초). 이 안에 같은 캐릭터를 다시 탭하면 상세화면.")]
+        public float doubleTapSeconds = 0.35f;
 
         [Tooltip("캐릭터 스프라이트 bounds에 더하는 여유(월드). 너무 크면 근처 맵 드래그가 캐릭터로 잡힘.")]
         public float characterHitPadding = 0.12f;
@@ -29,8 +37,8 @@ namespace Yoegoe.Characters
         [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG(스프라이트) 박스 안에 있을 때만 앉힘.")]
         public float propDropRadius = 0f;
 
-        [Tooltip("탭으로 공덕 수거할 때 기물 히트 반경(월드).")]
-        public float propTapRadius = 1.0f;
+        [Tooltip("기물 탭(자물쇠 구매·공덕 수거) 시 스프라이트 bounds 바깥 여유(월드). 너무 크면 멀리서도 구매 팝업이 뜸.")]
+        public float propTapRadius = 0.12f;
 
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag }
 
@@ -38,9 +46,14 @@ namespace Yoegoe.Characters
         private bool wasPressed;
         private Vector2 pressStartScreen;
         private Vector2 lastScreen;
+        private float pressUnscaledTime;
         private CharacterAgent pressCharacter;
         private CharacterAgent dragCharacter;
         private PropSlot pressProp;
+
+        /// <summary>첫 탭 후 더블탭 대기 중인 캐릭터. 창이 지나면 혼잣말.</summary>
+        private CharacterAgent pendingMonologueTap;
+        private float pendingMonologueDeadline;
 
         private static readonly List<RaycastResult> UiRaycastHits = new List<RaycastResult>(8);
 
@@ -52,6 +65,8 @@ namespace Yoegoe.Characters
 
         private void Update()
         {
+            FlushPendingMonologueTapIfDue();
+
             if (!TryReadPointer(out Vector2 screenPos, out bool pressed)) return;
 
             bool justPressed = pressed && !wasPressed;
@@ -65,8 +80,6 @@ namespace Yoegoe.Characters
 
         private void OnPress(Vector2 screenPos)
         {
-            // HUD 장식 Image까지 막으면 맵/캐릭터 드래그가 통째로 죽는다.
-            // 버튼·모달(전체화면 딤)만 입력 차단.
             if (IsBlockingUi(screenPos))
             {
                 phase = Phase.Idle;
@@ -75,6 +88,7 @@ namespace Yoegoe.Characters
 
             pressStartScreen = screenPos;
             lastScreen = screenPos;
+            pressUnscaledTime = Time.unscaledTime;
             pressCharacter = FindNearestCharacter(screenPos);
             pressProp = FindNearestProp(screenPos);
             dragCharacter = null;
@@ -89,21 +103,20 @@ namespace Yoegoe.Characters
             if (phase == Phase.Pending)
             {
                 float moved = Vector2.Distance(screenPos, pressStartScreen);
-                if (moved <= dragThresholdPixels) return;
+                float held = Time.unscaledTime - pressUnscaledTime;
 
                 if (pressCharacter != null && pressCharacter.CanBeDraggedByPlayer)
                 {
-                    dragCharacter = pressCharacter;
-                    dragCharacter.BeginPlayerDrag();
-                    phase = Phase.CharacterDrag;
-                    MoveDragCharacter(screenPos);
+                    if (held >= longPressSeconds || moved > dragThresholdPixels)
+                        BeginCharacterDrag(screenPos);
+                    return;
                 }
-                else
-                {
-                    phase = Phase.MapDrag;
-                    ResolveMapDrag();
-                    if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
-                }
+
+                if (moved <= dragThresholdPixels) return;
+
+                phase = Phase.MapDrag;
+                ResolveMapDrag();
+                if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
                 return;
             }
 
@@ -118,24 +131,38 @@ namespace Yoegoe.Characters
             }
         }
 
+        void BeginCharacterDrag(Vector2 screenPos)
+        {
+            CancelPendingMonologueTap();
+            dragCharacter = pressCharacter;
+            dragCharacter.BeginPlayerDrag();
+            phase = Phase.CharacterDrag;
+            MoveDragCharacter(screenPos);
+        }
+
         private void OnRelease(Vector2 screenPos)
         {
             if (phase == Phase.Pending)
             {
-                // 8장: 미건립 자물쇠 탭 → 구매 팝업
-                if (pressProp != null && !pressProp.IsBuilt)
+                // 캐릭터가 잡힌 탭이면 멀리 있는 자물쇠 구매보다 캐릭터 제스처 우선
+                bool propHitTight = pressProp != null && IsPropUnderFinger(pressProp, screenPos);
+                if (propHitTight && pressProp != null && !pressProp.IsBuilt)
                 {
-                    var popup = Yoegoe.UI.PropPurchasePopup.Instance;
+                    CancelPendingMonologueTap();
+                    var popup = PropPurchasePopup.Instance;
                     if (popup != null) popup.Open(pressProp);
                 }
-                // 7-2: 더미 있는 기물 탭 → 수거. 없으면 캐릭터 혼잣말.
-                else if (pressProp != null && pressProp.HasPendingMerit)
+                else if (propHitTight && pressProp != null && pressProp.HasPendingMerit)
+                {
+                    CancelPendingMonologueTap();
                     pressProp.TryCollectMerit();
+                }
                 else if (pressCharacter != null)
-                    pressCharacter.OnTapped();
+                    HandleCharacterTap(pressCharacter);
             }
             else if (phase == Phase.CharacterDrag && dragCharacter != null)
             {
+                CancelPendingMonologueTap();
                 var prop = FindDropProp(dragCharacter, screenPos);
                 dragCharacter.EndPlayerDrag(prop);
             }
@@ -144,6 +171,55 @@ namespace Yoegoe.Characters
             pressCharacter = null;
             dragCharacter = null;
             pressProp = null;
+        }
+
+        /// <summary>
+        /// 더블탭이면 상세화면. 아니면 창이 끝날 때까지 기다렸다가 혼잣말
+        /// (상세 진입 시 말풍선이 뜨지 않도록 단일탭을 즉시 처리하지 않음).
+        /// </summary>
+        void HandleCharacterTap(CharacterAgent agent)
+        {
+            if (agent == null) return;
+
+            if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
+            {
+                CancelPendingMonologueTap();
+                OpenCharacterDetail(agent);
+                return;
+            }
+
+            // 다른 캐릭터를 탭했다면 대기 중이던 단일탭은 바로 혼잣말로 확정
+            if (pendingMonologueTap != null && pendingMonologueTap != agent)
+                FlushPendingMonologueTap();
+
+            pendingMonologueTap = agent;
+            pendingMonologueDeadline = Time.unscaledTime + doubleTapSeconds;
+        }
+
+        void FlushPendingMonologueTapIfDue()
+        {
+            if (pendingMonologueTap == null) return;
+            if (Time.unscaledTime < pendingMonologueDeadline) return;
+            FlushPendingMonologueTap();
+        }
+
+        void FlushPendingMonologueTap()
+        {
+            var agent = pendingMonologueTap;
+            pendingMonologueTap = null;
+            if (agent != null) agent.OnTapped();
+        }
+
+        void CancelPendingMonologueTap()
+        {
+            pendingMonologueTap = null;
+        }
+
+        static void OpenCharacterDetail(CharacterAgent agent)
+        {
+            if (agent == null) return;
+            if (GameHud.Instance == null || GameHud.Instance.detailScreen == null) return;
+            GameHud.Instance.detailScreen.Open(agent);
         }
 
         private void ResolveMapDrag()
@@ -185,10 +261,6 @@ namespace Yoegoe.Characters
             return nearest;
         }
 
-        /// <summary>
-        /// 스프라이트 사각형(+패딩) 안이면 점수=중심거리, 밖이면 미히트.
-        /// 피벗(발) 기준 큰 원 히트는 근처 맵 드래그를 캐릭터로 오판한다.
-        /// </summary>
         private bool TryGetCharacterHitScore(CharacterAgent agent, Vector3 world, out float score)
         {
             score = 0f;
@@ -215,10 +287,24 @@ namespace Yoegoe.Characters
             Vector3 fingerWorld = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
             fingerWorld.z = 0f;
 
-            // 캐릭터가 놓인 자리 우선 (화면에 보이는 위치), 없으면 손가락 좌표
-            var atChar = PropManager.Instance.FindNearestDropTarget(agent, agent.transform.position, propDropRadius);
+            // 빈 기물(착석) → 점유 기물(옆 배치) → 타 엔딩 기물(거절 연출)
+            var atChar = PropManager.Instance.FindNearestDropTarget(agent, agent.transform.position, propDropRadius, allowOccupied: false);
             if (atChar != null) return atChar;
-            return PropManager.Instance.FindNearestDropTarget(agent, fingerWorld, propDropRadius);
+            atChar = PropManager.Instance.FindNearestDropTarget(agent, fingerWorld, propDropRadius, allowOccupied: false);
+            if (atChar != null) return atChar;
+
+            atChar = PropManager.Instance.FindNearestDropTarget(agent, agent.transform.position, propDropRadius, allowOccupied: true);
+            if (atChar != null) return atChar;
+            atChar = PropManager.Instance.FindNearestDropTarget(agent, fingerWorld, propDropRadius, allowOccupied: true);
+            if (atChar != null) return atChar;
+
+            atChar = PropManager.Instance.FindNearestDropTarget(
+                agent, agent.transform.position, propDropRadius, allowOccupied: true, allowEndingRefuse: true);
+            if (atChar != null && atChar.IsForbiddenEndingFor(agent)) return atChar;
+            atChar = PropManager.Instance.FindNearestDropTarget(
+                agent, fingerWorld, propDropRadius, allowOccupied: true, allowEndingRefuse: true);
+            if (atChar != null && atChar.IsForbiddenEndingFor(agent)) return atChar;
+            return null;
         }
 
         private PropSlot FindNearestProp(Vector2 screenPos)
@@ -230,10 +316,15 @@ namespace Yoegoe.Characters
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
         }
 
-        /// <summary>
-        /// 맵 입력을 막을 UI만 true.
-        /// Selectable(버튼 등) 또는 전체화면 딤 패널.
-        /// </summary>
+        bool IsPropUnderFinger(PropSlot prop, Vector2 screenPos)
+        {
+            if (prop == null || targetCamera == null || PropManager.Instance == null) return false;
+            float depth = -targetCamera.transform.position.z;
+            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            world.z = 0f;
+            return PropManager.Instance.FindNearestProp(world, propTapRadius) == prop;
+        }
+
         private static bool IsBlockingUi(Vector2 screenPos)
         {
             if (EventSystem.current == null) return false;
@@ -250,7 +341,6 @@ namespace Yoegoe.Characters
                 if (go.GetComponentInParent<Selectable>() != null)
                     return true;
 
-                // 구매/상세 등 전체화면 딤
                 var rt = go.transform as RectTransform;
                 if (rt != null
                     && rt.anchorMin == Vector2.zero
@@ -258,14 +348,9 @@ namespace Yoegoe.Characters
                     && go.GetComponent<Graphic>() != null)
                     return true;
             }
-
             return false;
         }
 
-        /// <summary>
-        /// WebGL/모바일: Mouse 디바이스가 항상 있어서 터치가 무시되면 드래그가 전부 죽는다.
-        /// 손가락이 내려가 있으면 터치를 우선한다.
-        /// </summary>
         private static bool TryReadPointer(out Vector2 screenPos, out bool pressed)
         {
             var touchscreen = Touchscreen.current;

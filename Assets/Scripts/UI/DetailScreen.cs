@@ -37,10 +37,14 @@ namespace Yoegoe.UI
         private RectTransform staminaFillRt;
         private Text descriptionText;
         private RectTransform preferredRow;
+        private GameObject preferredHostGO;
+        private GameObject inventoryButtonGO;
+        private GameObject intimacyColGO;
         private GameObject inventoryPanel;
         private RectTransform inventoryRow;
         private Text feedHintText;
         private Text purifiedCountText;
+        private CanvasGroup purifiedDragGroup;
         private readonly List<CountBadge> offeringCountBadges = new List<CountBadge>();
         private Sprite neokPlaceholderSprite;
         private GrowthStage lastPortraitStage = GrowthStage.Hon;
@@ -90,17 +94,70 @@ namespace Yoegoe.UI
             root.SetActive(true);
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
-            var data = agent.Data;
-            descriptionText.text = data != null ? data.detailDescription : "";
+            if (agent.Data != null)
+                CharacterCatalog.ApplyTo(agent.Data);
+
             lastPortraitStage = agent.Stats.Stage;
+            ApplyStageLayout(agent.Stats.Stage == GrowthStage.Neok);
+            RefreshDescription();
             RefreshIdentity();
             ApplyPortraitImmediate(agent.Stats.Stage);
             RebuildPreferredRow();
             RebuildInventoryRow();
             RefreshStats();
             RefreshItemCounts();
+        }
+
+        /// <summary>
+        /// 넋: 초상(넋)·기력·정화수만 활성. 친밀도·선호공양·인벤토리 비활성.
+        /// </summary>
+        void ApplyStageLayout(bool isNeok)
+        {
+            if (preferredHostGO != null) preferredHostGO.SetActive(!isNeok);
+            if (inventoryButtonGO != null) inventoryButtonGO.SetActive(!isNeok);
+            if (inventoryPanel != null && isNeok) inventoryPanel.SetActive(false);
+
+            if (intimacyColGO != null)
+            {
+                intimacyColGO.SetActive(true);
+                var cg = intimacyColGO.GetComponent<CanvasGroup>();
+                if (cg == null) cg = intimacyColGO.AddComponent<CanvasGroup>();
+                cg.alpha = isNeok ? 0.35f : 1f;
+                cg.interactable = !isNeok;
+                cg.blocksRaycasts = !isNeok;
+            }
+
+            if (purifiedDragGroup != null)
+            {
+                purifiedDragGroup.alpha = 1f;
+                purifiedDragGroup.blocksRaycasts = true;
+                purifiedDragGroup.interactable = true;
+            }
+
             if (feedHintText != null)
-                feedHintText.text = "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+            {
+                feedHintText.text = isNeok
+                    ? "정화수를 드래그해 넋에게 먹이세요"
+                    : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+            }
+        }
+
+        void RefreshDescription()
+        {
+            if (descriptionText == null) return;
+            string desc = "";
+            if (currentAgent?.Data != null)
+            {
+                desc = currentAgent.Data.detailDescription;
+                if (string.IsNullOrEmpty(desc)
+                    && CharacterCatalog.TryGet(currentAgent.Data.id, out var entry)
+                    && entry != null)
+                    desc = entry.detailDescription;
+            }
+            if (string.IsNullOrEmpty(desc) && currentAgent != null
+                && currentAgent.Stats.Stage == GrowthStage.Neok)
+                desc = "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다.";
+            descriptionText.text = desc ?? "";
         }
 
         public void Close()
@@ -130,16 +187,25 @@ namespace Yoegoe.UI
             if (currentAgent == null || nameValueText == null) return;
             var data = currentAgent.Data;
             string name = data != null ? data.displayName : "?";
-            string stage = currentAgent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
-            nameValueText.text = name + ", " + stage;
+            if (string.IsNullOrEmpty(name) || name == "?")
+            {
+                if (data != null && CharacterCatalog.TryGet(data.id, out var entry) && entry != null)
+                    name = entry.displayName;
+            }
+            bool isNeok = currentAgent.Stats.Stage == GrowthStage.Neok;
+            nameValueText.text = name + ", " + (isNeok ? "넋" : "혼");
             if (statusText != null)
-                statusText.text = CharacterStatusPresentation.ForDetail(currentAgent.Stats.State);
+                statusText.text = isNeok ? "넋" : CharacterStatusPresentation.ForDetail(currentAgent.Stats.State);
         }
 
         private void RefreshStats()
         {
             if (currentAgent == null) return;
             var stats = currentAgent.Stats;
+            bool isNeok = stats.Stage == GrowthStage.Neok;
+
+            if (preferredHostGO != null && preferredHostGO.activeSelf == isNeok)
+                ApplyStageLayout(isNeok);
 
             int stamina = Mathf.RoundToInt(stats.Stamina);
             if (staminaValueText != null)
@@ -148,12 +214,19 @@ namespace Yoegoe.UI
             if (staminaFill != null)
                 staminaFill.color = CharacterStatusPresentation.ForStaminaBar(stats.State, Time.unscaledTime);
 
-            // 친밀도 0~100 → 표시용 Lv (20점당 1레벨, 최대 5)
-            int lv = Mathf.Clamp(Mathf.FloorToInt(stats.Intimacy / 20f), 0, 5);
-            if (stats.Intimacy > 0f && lv == 0) lv = 1;
-            if (intimacyLevelText != null)
-                intimacyLevelText.text = "Lv. " + lv;
-            SetBarFill(intimacyFillRt, Mathf.Clamp01(stats.Intimacy / 100f));
+            if (isNeok)
+            {
+                if (intimacyLevelText != null) intimacyLevelText.text = "—";
+                SetBarFill(intimacyFillRt, 0f);
+            }
+            else
+            {
+                int lv = Mathf.Clamp(Mathf.FloorToInt(stats.Intimacy / 20f), 0, 5);
+                if (stats.Intimacy > 0f && lv == 0) lv = 1;
+                if (intimacyLevelText != null)
+                    intimacyLevelText.text = "Lv. " + lv;
+                SetBarFill(intimacyFillRt, Mathf.Clamp01(stats.Intimacy / 100f));
+            }
 
             RefreshIdentity();
             RefreshPortrait();
@@ -267,6 +340,11 @@ namespace Yoegoe.UI
             portraitImage.color = Color.white;
             if (portraitRt != null) portraitRt.localScale = portraitBaseScale;
             portraitEvolveFx = null;
+            ApplyStageLayout(false);
+            RefreshDescription();
+            RebuildPreferredRow();
+            RebuildInventoryRow();
+            RefreshStats();
         }
 
         // ---------------- feed / drag ----------------
@@ -288,13 +366,27 @@ namespace Yoegoe.UI
         {
             offeringDragActive = false;
             SetPortraitDropHighlight(false);
-            if (feedHintText != null)
-                feedHintText.text = accepted ? "" : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+            if (feedHintText == null) return;
+            bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
+            if (accepted)
+                feedHintText.text = "";
+            else
+                feedHintText.text = isNeok
+                    ? "정화수를 드래그해 넋에게 먹이세요"
+                    : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
         }
 
         public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
         {
             if (!IsOverPortrait(screenPos)) return false;
+            bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
+            if (isNeok)
+            {
+                // 넋은 정화수만
+                if (!(purifiedWater || (offering != null && IsPurified(offering))))
+                    return false;
+                return OnFeedPurifiedWater();
+            }
             if (purifiedWater || (offering != null && IsPurified(offering)))
                 return OnFeedPurifiedWater();
             if (offering == null) return false;
@@ -324,6 +416,7 @@ namespace Yoegoe.UI
             var pw = FindPurifiedWater();
             int gain = pw != null ? pw.staminaGain : 20;
             currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
+            PlayGainPopup(gain, 0f);
             RefreshStats();
             if (currentAgent.Stats.Stage == GrowthStage.Hon)
                 GameSaveBridge.SaveFromWorld();
@@ -349,14 +442,26 @@ namespace Yoegoe.UI
             }
 
             var kind = isPurified ? OfferingKind.PurifiedWater : offering.kind;
-            if (!isPurified && IsPreferred(offering))
-                kind = OfferingKind.Preferred;
+            bool preferred = !isPurified && IsPreferred(offering);
+            if (preferred) kind = OfferingKind.Preferred;
 
-            currentAgent.ReceiveOffering(offering.staminaGain, offering.intimacyGain, kind);
+            int staminaGain = offering.staminaGain > 0 ? offering.staminaGain : 20;
+            // 5-4: 일반·정화수 친밀도 0 / 선호 +0.25
+            float intimacyGain = preferred ? 0.25f : 0f;
+            if (isPurified) intimacyGain = 0f;
+
+            currentAgent.ReceiveOffering(staminaGain, intimacyGain, kind);
+            PlayGainPopup(staminaGain, intimacyGain);
             RefreshStats();
             if (currentAgent.Stats.Stage == GrowthStage.Hon)
                 GameSaveBridge.SaveFromWorld();
             return true;
+        }
+
+        void PlayGainPopup(int staminaGain, float intimacyGain)
+        {
+            if (rootCanvas == null || portraitDropRt == null) return;
+            OfferingGainPopup.Play(rootCanvas.transform, portraitDropRt, font, staminaGain, intimacyGain);
         }
 
         static bool IsPurified(OfferingData offering)
@@ -408,6 +513,9 @@ namespace Yoegoe.UI
             if (preferredRow == null) return;
             ClearChildren(preferredRow);
             PruneDeadCountBadges();
+
+            if (currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok)
+                return;
 
             CharacterCatalog.PreferredOffering[] prefs = null;
             if (currentAgent?.Data != null
@@ -666,6 +774,7 @@ namespace Yoegoe.UI
             var statsInner = FindInner(statsPanel);
 
             var intCol = new GameObject("IntimacyCol");
+            intimacyColGO = intCol;
             SetupRect(intCol, statsInner, new Vector2(0.03f, 0.08f), new Vector2(0.48f, 0.92f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             BuildStatColumn(intCol.transform, "친밀도", out intimacyLevelText, out intimacyFill, out intimacyFillRt, IntimacyPink, true);
@@ -731,19 +840,19 @@ namespace Yoegoe.UI
 
             CreatePurifiedWaterDragChip(bottomRt);
 
-            var prefHost = new GameObject("PreferredHost");
-            preferredRow = prefHost.AddComponent<RectTransform>();
+            preferredHostGO = new GameObject("PreferredHost");
+            preferredRow = preferredHostGO.AddComponent<RectTransform>();
             preferredRow.SetParent(bottomRt, false);
-            var prefHostLe = prefHost.AddComponent<LayoutElement>();
+            var prefHostLe = preferredHostGO.AddComponent<LayoutElement>();
             prefHostLe.flexibleWidth = 1f;
             prefHostLe.preferredHeight = 140;
-            var prefLayout = prefHost.AddComponent<HorizontalLayoutGroup>();
+            var prefLayout = preferredHostGO.AddComponent<HorizontalLayoutGroup>();
             prefLayout.spacing = 12;
             prefLayout.childAlignment = TextAnchor.MiddleCenter;
             prefLayout.childForceExpandWidth = false;
             prefLayout.childForceExpandHeight = false;
 
-            CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
+            inventoryButtonGO = CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
 
             feedHintText = CreateText(rootRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", 18, TextAnchor.MiddleCenter);
             feedHintText.color = new Color(0.35f, 0.35f, 0.4f);
@@ -812,6 +921,7 @@ namespace Yoegoe.UI
         {
             var go = new GameObject("Action_정화수");
             go.transform.SetParent(parent, false);
+            purifiedDragGroup = go.AddComponent<CanvasGroup>();
             var le = go.AddComponent<LayoutElement>();
             le.preferredWidth = 120;
             le.preferredHeight = 140;
@@ -868,7 +978,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
         }
 
-        private void CreateSideActionButton(Transform parent, string label, Sprite icon, UnityEngine.Events.UnityAction onClick)
+        private GameObject CreateSideActionButton(Transform parent, string label, Sprite icon, UnityEngine.Events.UnityAction onClick)
         {
             var go = new GameObject("Action_" + label);
             go.transform.SetParent(parent, false);
@@ -922,6 +1032,7 @@ namespace Yoegoe.UI
             t.color = Color.white;
             SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
+            return go;
         }
 
         private GameObject CreateBorderedPanel(Transform parent, string name, Color fill)

@@ -51,19 +51,34 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>드래그 드롭용: worldPos가 기물 스프라이트 bounds 안(또는 maxRadius 이내)인 가장 가까운 기물.
-        /// maxRadius=0이면 PNG 크기(스프라이트 AABB) 안에 있을 때만 매칭.</summary>
-        public PropSlot FindNearestDropTarget(CharacterAgent requester, Vector3 worldPos, float maxRadius)
+        /// maxRadius=0이면 PNG 크기(스프라이트 AABB) 안에 있을 때만 매칭.
+        /// allowOccupied=true면 점유된 기물도 반환(옆에 내려놓기용).
+        /// allowEndingRefuse=true면 타 요괴 엔딩 기물도 반환(거절 연출용).</summary>
+        public PropSlot FindNearestDropTarget(
+            CharacterAgent requester,
+            Vector3 worldPos,
+            float maxRadius,
+            bool allowOccupied = false,
+            bool allowEndingRefuse = false)
         {
             PropSlot best = null;
-            // maxRadius=0일 때도 "아직 미선택"과 구분되도록 시작값을 크게 둔 뒤, 조건은 d <= maxRadius로 검사
             float bestDist = float.MaxValue;
             float limit = Mathf.Max(0f, maxRadius);
             foreach (var p in allProps)
             {
                 if (p == null) continue;
                 if (!p.IsBuilt) continue;
-                if (!p.CanBeUsedBy(requester)) continue;
-                if (p.IsOccupied) continue;
+
+                bool endingRefuse = p.IsForbiddenEndingFor(requester);
+                if (endingRefuse)
+                {
+                    if (!allowEndingRefuse) continue;
+                }
+                else
+                {
+                    if (!p.CanBeUsedBy(requester)) continue;
+                    if (!allowOccupied && p.IsOccupied) continue;
+                }
 
                 float d = DistanceToPropSurface(p, worldPos);
                 if (d <= limit && d < bestDist)
@@ -104,13 +119,29 @@ namespace Yoegoe.Characters
             return Vector2.Distance(closest, p);
         }
 
+        /// <summary>
+        /// 탭/드롭 히트용 AABB. TextMesh(자물쇠 글자) MeshRenderer는 bounds가 거대해서 제외한다.
+        /// </summary>
         private static Bounds GetPropBounds(PropSlot prop)
         {
-            var sr = prop.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null && sr.sprite != null) return sr.bounds;
-            var r = prop.GetComponentInChildren<Renderer>();
-            if (r != null) return r.bounds;
-            return new Bounds(prop.transform.position, Vector3.one * 0.8f);
+            var srs = prop.GetComponentsInChildren<SpriteRenderer>(true);
+            Bounds? union = null;
+            for (int i = 0; i < srs.Length; i++)
+            {
+                var sr = srs[i];
+                if (sr == null || !sr.enabled || sr.sprite == null) continue;
+                // 더미/이펙트용 작은 오버레이는 히트에서 제외하고 본 기물만
+                if (sr.name.IndexOf("Pile", System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (union == null) union = sr.bounds;
+                else
+                {
+                    var u = union.Value;
+                    u.Encapsulate(sr.bounds);
+                    union = u;
+                }
+            }
+            if (union != null) return union.Value;
+            return new Bounds(prop.transform.position, Vector3.one * 0.6f);
         }
     }
 }

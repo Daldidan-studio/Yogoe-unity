@@ -25,7 +25,6 @@ namespace Yoegoe.Characters
         public float moveSpeed = 2f;
         [SerializeField] private SpriteRenderer spriteRenderer; // 없어도 무방, 나중에 아트 연결용
 
-        private const float StayDurationSeconds = 5f * 60f;
         private const float PlayDurationSeconds = 5f * 60f; // 6-2 놀기
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float WanderRetrySeconds = 30f;
@@ -51,6 +50,15 @@ namespace Yoegoe.Characters
         /// <summary>넋·기절은 드래그 불가 (6-2).</summary>
         public bool CanBeDraggedByPlayer =>
             Stats.Stage != GrowthStage.Neok && Stats.State != ActionState.Fainted;
+
+        const float DragLiftScale = 1.12f;
+        const float DragBesideDistance = 0.85f;
+        const float RefuseDurationSeconds = 3f;
+        const float RefuseFlipInterval = 0.2f;
+        Vector3 dragScaleBefore;
+        private bool isRefusing;
+        private float refuseTimer;
+        private float refuseFlipTimer;
 
         private PropSlot currentProp;
         private PropSlot previousProp;
@@ -194,6 +202,13 @@ namespace Yoegoe.Characters
                 return;
             }
 
+            if (isRefusing)
+            {
+                TickRefuse(dt);
+                UpdateSortingOrder();
+                return;
+            }
+
             // 긴 공백 정산은 Main의 벽시계 CatchUpAll이 담당한다.
             // deltaTime에 의존하면 WebGL 탭 복귀 시 스파이크가 안 오거나, 오면 이동이 텔레포트한다.
 
@@ -282,31 +297,27 @@ namespace Yoegoe.Characters
             spriteRenderer.sortingOrder = s.SortOrderForCharacter(transform.position.y);
         }
 
-        // ---------------- 혼잣말 (6-4장, 05_기획_미확정사항.md 9번) ----------------
-        // 걷기/머물기 중 랜덤 주기(30초~1분)로 머리 위 말풍선이 뜬다 (유지 시간 약 10초).
-        // 캐릭터를 탭해도 즉시 뜨고, 이미 떠 있는 상태에서 또 탭하면 내용이 바뀌고 유지 시간이 10초로 다시 연장된다.
-        // (탭하면 상세화면으로 이동하는 것은 "요구" 말풍선 쪽 규칙이라 여기선 적용 안 함 — 09번 문서 참고)
+        // ---------------- 혼잣말 (6-4장) ----------------
+        // 걷기/놀기/머물기 중 랜덤 주기(30초~1분)로 머리 위 말풍선.
+        // 단일 탭: 표시·순환·10초 연장. 더블탭: 상세화면 (말풍선은 더블탭 판정 후에만).
 
         private TextMesh bubbleTextMesh;
         private SpriteRenderer bubbleBg;
         private float monologueTimer;
         private bool monologueShowing;
-        private string lastMonologueLine;
+        private int monologueIndex;
         private const float MonologueDisplaySeconds = 10f;
         private const float MonologueMinInterval = 30f;
         private const float MonologueMaxInterval = 60f;
 
+        private bool CanShowMonologue =>
+            Stats.State == ActionState.Walking
+            || Stats.State == ActionState.Playing
+            || Stats.State == ActionState.Staying;
+
         private void UpdateMonologue(float dt)
         {
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
-
-            if (monologueTimer <= 0f)
-            {
-                monologueTimer = 0f; // 음수로 계속 내려가지 않게
-                if (monologueShowing) HideMonologue();
-                else ShowMonologue();
-            }
-            monologueTimer -= dt;
 
             if (monologueShowing && bubbleTextMesh != null)
             {
@@ -315,15 +326,28 @@ namespace Yoegoe.Characters
                 bubbleTextMesh.transform.position = bubblePos;
                 if (bubbleBg != null) bubbleBg.transform.position = bubblePos;
             }
+
+            if (monologueShowing)
+            {
+                monologueTimer -= dt;
+                if (monologueTimer <= 0f) HideMonologue();
+                return;
+            }
+
+            // 자동 팝업은 걷기/놀기/머물기에서만
+            if (!CanShowMonologue) return;
+
+            monologueTimer -= dt;
+            if (monologueTimer <= 0f) ShowMonologue();
         }
 
         /// <summary>
-        /// 캐릭터를 탭했을 때 MapPointerRouter가 호출한다. 안 떠 있으면 새로 띄우고,
-        /// 이미 떠 있으면 문구를 바꾸고 유지 시간을 다시 10초로 연장한다 (기획 09번 규칙).
+        /// 단일 탭 확정 시(더블탭이 아님) MapPointerRouter가 호출.
+        /// 안 떠 있으면 띄우고, 떠 있으면 다음 대사로 바꾸고 10초 연장.
         /// </summary>
         public void OnTapped()
         {
-            if (Stats.State == ActionState.Fainted) return;
+            if (!CanShowMonologue) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
             ShowMonologue();
         }
@@ -346,14 +370,14 @@ namespace Yoegoe.Characters
             monologueTimer = MonologueDisplaySeconds;
         }
 
-        /// <summary>같은 문구가 연달아 나오지 않도록, 대사가 2개 이상이면 직전과 다른 것을 고른다.</summary>
+        /// <summary>혼잣말1 → 2 → 3 … 순서로 순환.</summary>
         private string PickMonologueLine()
         {
             var lines = Data.monologueLines;
-            if (lines.Length <= 1) return lines[0];
-            string line;
-            do { line = lines[Random.Range(0, lines.Length)]; } while (line == lastMonologueLine);
-            lastMonologueLine = line;
+            if (lines.Length == 0) return string.Empty;
+            if (monologueIndex < 0 || monologueIndex >= lines.Length) monologueIndex = 0;
+            string line = lines[monologueIndex];
+            monologueIndex = (monologueIndex + 1) % lines.Length;
             return line;
         }
 
@@ -675,33 +699,27 @@ namespace Yoegoe.Characters
 
         private void TickStaying(float dt)
         {
-            // 긴 dt에서도 기력 고갈·5분 종료 전까지의 구간만 생산 (OfflineSimulator와 동일).
+            // 긴 dt에서도 기력 고갈 전 구간만 생산 (OfflineSimulator와 동일).
             float left = dt;
             int guard = 0;
             while (left > 0.0001f && Stats.State == ActionState.Staying && guard++ < 8)
                 left -= TickStayingSlice(left);
         }
 
-        /// <summary>머물기 한 구간. 소모한 초를 반환한다.</summary>
+        /// <summary>
+        /// 머물기 한 구간. 소모한 초를 반환한다.
+        /// 생산은 앉아 있는 동안 기력 0까지 계속(상한 없음). 5분·33분치 강제 종료 없음.
+        /// </summary>
         private float TickStayingSlice(float dt)
         {
             const float drain = 1f / 20f; // 6-2: 1분당 3 = 20초당 1
             float timeToZero = Stats.Stamina > 0f ? Stats.Stamina / drain : 0f;
-            float timeToStayEnd = Mathf.Max(0f, StayDurationSeconds - Stats.StateTimer);
-            float slice = Mathf.Min(dt, Mathf.Min(timeToZero, timeToStayEnd));
+            float slice = Mathf.Min(dt, timeToZero);
 
             if (slice <= 0f)
             {
-                if (Stats.Stamina <= 0f)
-                {
-                    Stats.Stamina = 0f;
-                    EnterSlumped();
-                }
-                else
-                {
-                    // 머물기 5분 종료 → 놀기(떠돎) → 이후 걷기(타겟) → 기물
-                    EnterPlaying();
-                }
+                Stats.Stamina = 0f;
+                EnterSlumped();
                 return 0.0001f;
             }
 
@@ -714,7 +732,7 @@ namespace Yoegoe.Characters
                 double perMinute = currentProp.GetBaseProductionThisLevel()
                                     * GetIntimacyCorrection()
                                     * GetEndingPropCorrection();
-                // 7-2: HUD가 아니라 기물 더미에 쌓임. 탭 수거 시 GameEconomy로 이동.
+                // 7-1: HUD가 아니라 기물 더미에 쌓임. 탭 수거 시 GameEconomy로 이동.
                 currentProp.AddToMeritPile(perMinute / 60.0 * slice);
             }
 
@@ -723,21 +741,21 @@ namespace Yoegoe.Characters
                 Stats.Stamina = 0f;
                 EnterSlumped();
             }
-            else if (Stats.StateTimer >= StayDurationSeconds)
-            {
-                EnterPlaying();
-            }
 
             return slice;
         }
 
-        /// <summary>7-1: 친밀도 보정 = 1 + 친밀도/100.</summary>
-        private double GetIntimacyCorrection() => 1.0 + Stats.Intimacy / 100.0;
+        /// <summary>7-1: 친밀도 보정 = 1 + 친밀도/100. 넋은 친밀도 없음 → ×1.</summary>
+        private double GetIntimacyCorrection()
+        {
+            if (Stats.Stage == GrowthStage.Neok) return 1.0;
+            return 1.0 + Stats.Intimacy / 100.0;
+        }
 
-        /// <summary>7-1: 주인이 자기 엔딩 기물에 앉으면 x2.</summary>
+        /// <summary>7-1: 주인이 자기 엔딩 기물에 앉으면 ×2 (MVP: 옥토끼–떡절구).</summary>
         private double GetEndingPropCorrection()
         {
-            if (currentProp == null || currentProp.data == null) return 1.0;
+            if (currentProp == null || currentProp.data == null || Data == null) return 1.0;
             bool ownEnding = currentProp.data.isEndingProp && currentProp.data.owner == Data.id;
             return ownEnding ? 2.0 : 1.0;
         }
@@ -764,14 +782,17 @@ namespace Yoegoe.Characters
 
         // ---------------- Playing (놀기, 6-2) ----------------
 
-        /// <summary>플레이어 드래그 시작 — 예약/점유를 풀고 AI를 멈춘다.</summary>
+        /// <summary>플레이어 드래그 시작 — 예약/점유를 풀고 AI를 멈춘다. 살짝 키워 들어올린 느낌을 낸다.</summary>
         public void BeginPlayerDrag()
         {
             if (!CanBeDraggedByPlayer) return;
             IsBeingDragged = true;
+            isRefusing = false;
             ClearWalkDestination();
             LeaveCurrentProp();
             lastPosition = transform.position;
+            dragScaleBefore = transform.localScale;
+            transform.localScale = dragScaleBefore * DragLiftScale;
         }
 
         public void SetDragWorldPosition(Vector3 world)
@@ -784,13 +805,15 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 드래그 종료.
-        /// 주저앉기 중이면 지친 상태를 유지한 채 그 자리(기물이면 기물 아래)에 앉는다.
-        /// 그 외에는 기물 위면 머물기, 아니면 놀기.
+        /// 빈 기물 → 즉시 착석. 타 엔딩 기물 → 옆에 두고 3초 도리도리 후 걷기.
+        /// 점유된 기물 → 옆에 내려놓음. 그 외 → 놀기.
+        /// 주저앉기 중이면 지친 상태를 유지한 채 배치.
         /// </summary>
         public void EndPlayerDrag(PropSlot dropProp)
         {
             if (!IsBeingDragged) return;
             IsBeingDragged = false;
+            transform.localScale = dragScaleBefore.sqrMagnitude > 0.0001f ? dragScaleBefore : transform.localScale;
             lastPosition = transform.position;
 
             if (Stats.State == ActionState.Slumped)
@@ -799,27 +822,138 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            if (dropProp != null && TrySitOnProp(dropProp)) return;
+            if (dropProp != null && dropProp.IsForbiddenEndingFor(this))
+            {
+                PlaceBesideProp(dropProp, startWalking: false);
+                BeginRefuseShake();
+                return;
+            }
+
+            if (dropProp != null && !dropProp.IsOccupied && TrySitOnProp(dropProp))
+                return;
+
+            if (dropProp != null && dropProp.IsOccupied && dropProp.CanBeUsedBy(this))
+            {
+                PlaceBesideProp(dropProp);
+                return;
+            }
+
             EnterPlaying();
         }
 
-        /// <summary>주저앉기 드래그 드롭: 상태·12시간 타이머 유지, 가능하면 기물 점유.</summary>
+        /// <summary>기물 옆에 내려놓는다. startWalking이면 빈 기물 탐색으로 이어간다.</summary>
+        void PlaceBesideProp(PropSlot prop, bool startWalking = true)
+        {
+            ClearWalkDestination();
+            LeaveCurrentProp();
+            isWandering = false;
+            wanderTarget = null;
+
+            Vector3 origin = prop.transform.position;
+            Vector3 dir = Vector3.right;
+            if (prop.Occupant != null)
+            {
+                Vector3 away = transform.position - prop.Occupant.transform.position;
+                if (away.sqrMagnitude < 0.0001f)
+                    away = Random.value < 0.5f ? Vector3.left : Vector3.right;
+                dir = away.normalized;
+            }
+            else
+            {
+                Vector3 away = transform.position - origin;
+                if (away.sqrMagnitude > 0.0001f)
+                    dir = away.normalized;
+                else
+                    dir = Random.value < 0.5f ? Vector3.left : Vector3.right;
+            }
+
+            Vector3 beside = origin + dir * DragBesideDistance;
+            beside.z = transform.position.z;
+            transform.position = MapBounds.Clamp(beside);
+            lastPosition = transform.position;
+            if (startWalking) EnterWalking();
+        }
+
+        /// <summary>타 엔딩 기물 거절: 좌우 도리도리 후 걷기.</summary>
+        void BeginRefuseShake()
+        {
+            isRefusing = true;
+            refuseTimer = RefuseDurationSeconds;
+            refuseFlipTimer = 0f;
+            facing = FacingDir.Left;
+            animFrame = 0;
+            animTimer = 0f;
+            ApplyRefuseFacingSprite();
+        }
+
+        void TickRefuse(float dt)
+        {
+            refuseTimer -= dt;
+            refuseFlipTimer += dt;
+            if (refuseFlipTimer >= RefuseFlipInterval)
+            {
+                refuseFlipTimer = 0f;
+                facing = facing == FacingDir.Left ? FacingDir.Right : FacingDir.Left;
+                ApplyRefuseFacingSprite();
+            }
+
+            if (refuseTimer > 0f) return;
+
+            isRefusing = false;
+            EnterWalking();
+        }
+
+        void ApplyRefuseFacingSprite()
+        {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            if (spriteRenderer == null || Data == null) return;
+
+            Sprite[] frames = WalkFramesForFacing(out bool flipX);
+            if (frames == null || frames.Length == 0)
+            {
+                frames = Data.idle;
+                flipX = facing == FacingDir.Left;
+            }
+            if (frames == null || frames.Length == 0) return;
+
+            if (frames[0] != null)
+                spriteRenderer.sprite = frames[0];
+            spriteRenderer.flipX = flipX;
+        }
+
+        /// <summary>주저앉기 드래그 드롭: 상태·12시간 타이머 유지, 가능하면 기물 점유. 점유·타 엔딩이면 옆에.</summary>
         private void SettleSlumpedAfterDrag(PropSlot dropProp)
         {
             if (dropProp != null
                 && dropProp.CanBeUsedBy(this)
+                && !dropProp.IsOccupied
                 && dropProp.TryOccupy(this))
             {
                 currentProp = dropProp;
                 var p = dropProp.transform.position;
                 transform.position = new Vector3(p.x, p.y, transform.position.z);
+                return;
+            }
+
+            if (dropProp != null && (dropProp.IsOccupied && dropProp.CanBeUsedBy(this) || dropProp.IsForbiddenEndingFor(this)))
+            {
+                Vector3 origin = dropProp.transform.position;
+                Vector3 away = transform.position - (dropProp.Occupant != null
+                    ? dropProp.Occupant.transform.position
+                    : origin);
+                if (away.sqrMagnitude < 0.0001f)
+                    away = Random.value < 0.5f ? Vector3.left : Vector3.right;
+                Vector3 beside = origin + away.normalized * DragBesideDistance;
+                beside.z = transform.position.z;
+                transform.position = MapBounds.Clamp(beside);
             }
             // 기물 아니면 드롭 좌표에 그대로 주저앉음 (State는 이미 Slumped)
         }
 
         /// <summary>
         /// 놀기: 기물 점유를 풀고 5분간 맵을 돌아다닌다. 기력 소모·생산 없음.
-        /// 진입: 머물기 5분 종료, 또는 기물 아닌 곳 드래그 드롭.
+        /// 진입: 기물 아닌 곳 드래그 드롭.
         /// 종료: 5분 후 Walking(목표 타겟팅) → 기물. Docs/06_행동룰.md
         /// </summary>
         public void EnterPlaying()
@@ -860,7 +994,7 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 놀기·걷기 중 기물에 올려 앉히기. 성공 시 머물기 5분이 새로 시작된다.
+        /// 놀기·걷기 중 기물에 올려 앉히기. 성공 시 머물기(기력 0까지 생산)가 새로 시작된다.
         /// 이미 다른 요괴가 앉아 있거나 엔딩기물 제한이면 false.
         /// </summary>
         public bool TrySitOnProp(PropSlot prop)

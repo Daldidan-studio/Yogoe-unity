@@ -14,6 +14,6 @@ namespace Yoegoe.Characters
         public float Intimacy;   // 0~100, 넋은 미사용
         public float Stamina;    // 0~100
         public ActionState State = ActionState.Walking;
-        public float StateTimer; // 현재 상태 진입 후 경과 시간(초) — 머물기 5분, 주저앉기 12시간 판정에 사용
+        public float StateTimer; // 현재 상태 진입 후 경과 시간(초) — 놀기 5분, 주저앉기 12시간 판정에 사용
     }
 }

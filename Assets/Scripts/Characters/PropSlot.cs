@@ -180,7 +180,12 @@ namespace Yoegoe.Characters
             var collected = TakePendingMerit();
             GameEconomy.AddMerit(collected);
             if (Yoegoe.UI.GameHud.Instance != null)
-                Yoegoe.UI.GameHud.Instance.PlayMeritCollectFxFromWorld(transform.position + Vector3.up * 0.4f);
+            {
+                Vector3 fxPos = transform.position + Vector3.up * 0.4f;
+                if (spriteRenderer != null && spriteRenderer.sprite != null)
+                    fxPos = new Vector3(transform.position.x, spriteRenderer.bounds.max.y + 0.15f, transform.position.z);
+                Yoegoe.UI.GameHud.Instance.PlayMeritCollectFxFromWorld(fxPos);
+            }
             return true;
         }
 
@@ -229,6 +234,13 @@ namespace Yoegoe.Characters
             if (data == null || agent == null || agent.Data == null) return true;
             if (data.isEndingProp && data.owner != agent.Data.id) return false;
             return true;
+        }
+
+        /// <summary>다른 요괴의 엔딩 기물(앉을 수 없음 → 옆 배치·거절 연출용).</summary>
+        public bool IsForbiddenEndingFor(CharacterAgent agent)
+        {
+            if (!IsBuilt || data == null || agent == null || agent.Data == null) return false;
+            return data.isEndingProp && data.owner != agent.Data.id;
         }
 
         public string DisplayName => data != null && !string.IsNullOrEmpty(data.displayName)
@@ -395,7 +407,26 @@ namespace Yoegoe.Characters
                 }
             }
 
-            pileLabel.transform.position = transform.position + Vector3.up * 0.85f;
+            pileLabel.transform.position = GetPileLabelWorldPos();
+            EnsurePileLabelSorting();
+        }
+
+        Vector3 GetPileLabelWorldPos()
+        {
+            float topY = transform.position.y + 0.85f;
+            if (spriteRenderer != null && spriteRenderer.enabled && spriteRenderer.sprite != null)
+                topY = spriteRenderer.bounds.max.y;
+            // 엔딩 점유 아트처럼 키가 큰 기물도 숫자게 스프라이트 위로 뜨게
+            return new Vector3(transform.position.x, topY + 0.28f, transform.position.z);
+        }
+
+        void EnsurePileLabelSorting()
+        {
+            if (pileLabel == null) return;
+            var mr = pileLabel.GetComponent<MeshRenderer>();
+            if (mr == null) return;
+            // 기물·캐릭터(수백대)보다 항상 앞에. TextMesh는 sortingOrder가 먹히도록 명시.
+            mr.sortingOrder = 1200;
         }
 
         private static string StarPrefix(int stage)
@@ -415,7 +446,8 @@ namespace Yoegoe.Characters
             if (pileLabel != null) return;
 
             var go = new GameObject("MeritPile");
-            go.transform.SetParent(transform, false);
+            // 부모 스케일(기물 propScale)에 숫자가 찌그러지지 않게 월드에 독립
+            go.transform.SetParent(null, false);
             pileLabel = go.AddComponent<TextMesh>();
             pileLabel.anchor = TextAnchor.LowerCenter;
             pileLabel.alignment = TextAlignment.Center;
@@ -425,8 +457,16 @@ namespace Yoegoe.Characters
             if (sharedPileFont == null)
                 sharedPileFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (sharedPileFont != null) pileLabel.font = sharedPileFont;
-            var mr = go.GetComponent<MeshRenderer>();
-            if (mr != null) mr.sortingOrder = 500;
+            EnsurePileLabelSorting();
+        }
+
+        private void OnDestroy()
+        {
+            if (pileLabel != null)
+            {
+                Destroy(pileLabel.gameObject);
+                pileLabel = null;
+            }
         }
 
 #if UNITY_EDITOR

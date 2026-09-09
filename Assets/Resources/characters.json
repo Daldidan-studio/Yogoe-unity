@@ -44,7 +44,7 @@
       "startingStage": "Hon",
       "preferredOfferings": [
         { "id": "saenggogi", "name": "생고기" },
-        { "id": "samgyetang", "name": "삼계탕" },
+        { "id": "baeksuk", "name": "삼계탕" },
         { "id": "bam", "name": "밤" },
         { "id": "daechu", "name": "대추" }
       ],
@@ -65,7 +65,7 @@
       "preferredOfferings": [
         { "id": "sagwa", "name": "사과" },
         { "id": "subak", "name": "수박" },
-        { "id": "insam", "name": "인삼" }
+        { "id": "wildginseng", "name": "인삼" }
       ],
       "endingPropId": "",
       "detailDescription": "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다.",

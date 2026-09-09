@@ -14,7 +14,6 @@ namespace Yoegoe.Save
         public static float MaxOfflineSeconds = 12f * 60f * 60f;
 
         private const float StaminaDrainPerSecond = 1f / 20f; // 기획: 20초당 1
-        private const float StayDurationSeconds = 5f * 60f;
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float PlayDurationSeconds = 5f * 60f;
 
@@ -87,28 +86,19 @@ namespace Yoegoe.Save
             }
         }
 
-        /// <summary>머물기: 기력 있는 동안·5분 한도 안에서 기물 더미에 생산.</summary>
+        /// <summary>머물기: 기력 0이 될 때까지 기물 더미에 생산(상한 없음).</summary>
         private static float SimulateStaying(AgentSave agent, GameSaveData data, float dt)
         {
             float drain = StaminaDrainPerSecond;
             if (drain <= 0f) drain = 1f / 20f;
 
             float timeToZero = agent.stamina > 0f ? agent.stamina / drain : 0f;
-            float timeToStayEnd = Math.Max(0f, StayDurationSeconds - agent.stateTimer);
-            float slice = Math.Min(dt, Math.Min(timeToZero, timeToStayEnd));
+            float slice = Math.Min(dt, timeToZero);
 
             if (slice <= 0f)
             {
-                // 이미 기력 0이거나 머물기 시간 초과
-                if (agent.stamina <= 0f)
-                {
-                    agent.stamina = 0f;
-                    EnterSlumped(agent);
-                }
-                else
-                {
-                    EnterPlaying(agent);
-                }
+                agent.stamina = 0f;
+                EnterSlumped(agent);
                 return 0.0001f; // 진행 보장
             }
 
@@ -122,10 +112,6 @@ namespace Yoegoe.Save
             {
                 agent.stamina = 0f;
                 EnterSlumped(agent); // 기물 점유 유지
-            }
-            else if (agent.stateTimer >= StayDurationSeconds)
-            {
-                EnterPlaying(agent);
             }
 
             return slice;
@@ -164,8 +150,11 @@ namespace Yoegoe.Save
             double basePerMin = prop.baseProductionPerMinute;
             if (basePerMin <= 0) basePerMin = 100;
             int level = Math.Max(1, prop.level);
+            double intimacyMul = agent.stage == GrowthStage.Neok
+                ? 1.0
+                : (1.0 + agent.intimacy / 100.0);
             double perMinute = basePerMin * Math.Pow(1.1, level - 1)
-                               * (1.0 + agent.intimacy / 100.0)
+                               * intimacyMul
                                * EndingMultiplier(agent, prop);
 
             var add = BigNumberSave.From((BigNumber)(perMinute / 60.0 * dt));
@@ -202,7 +191,7 @@ namespace Yoegoe.Save
             agent.stateTimer = 0f;
         }
 
-        /// <summary>머물기 종료·드롭과 동일: 기물 비우고 놀기 5분.</summary>
+        /// <summary>드롭 등과 동일: 기물 비우고 놀기 5분.</summary>
         private static void EnterPlaying(AgentSave agent)
         {
             LeavePropKeepPile(agent);
