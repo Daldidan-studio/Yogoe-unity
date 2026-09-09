@@ -84,6 +84,7 @@ namespace Yoegoe.UI
             }
 
             RefreshMoreButton();
+            opening = false;
             Yoegoe.Save.GameSaveBridge.SaveFromWorld();
         }
 
