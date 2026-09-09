@@ -1,0 +1,31 @@
+name: Request Unity License Activation File
+
+# 수동 실행 전용 — UNITY_LICENSE 시크릿이 만료/무효화됐을 때만 필요.
+# 1) Actions 탭에서 이 워크플로를 수동 실행(Run workflow)
+# 2) 완료되면 생긴 "unity-activation-file" 아티팩트를 다운로드해서 압축을 푼다 (.alf 파일)
+# 3) https://license.unity3d.com/manual 에 그 .alf 파일을 업로드하고 보유 라이선스 종류를 선택
+# 4) 발급되는 .ulf 파일 내용(XML) 그대로 복사해서 저장소 Settings > Secrets and variables >
+#    Actions > UNITY_LICENSE 시크릿 값으로 교체
+# 5) tests.yml / build-and-deploy.yml을 다시 돌려서 확인
+# 6) 확인되면 이 워크플로 파일은 지워도 된다 (매번 필요한 게 아니라 재발급용).
+on:
+  workflow_dispatch:
+
+jobs:
+  request-activation-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (버전 감지용)
+        uses: actions/checkout@v4
+
+      - name: Request activation file
+        uses: game-ci/unity-request-activation-file@v2
+        id: activation
+        with:
+          unityVersion: 6000.3.11f1
+
+      - name: Upload activation file
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-activation-file
+          path: ${{ steps.activation.outputs.filePath }}
