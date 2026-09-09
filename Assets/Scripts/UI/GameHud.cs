@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Yoegoe.Characters;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.Save;
@@ -15,6 +16,8 @@ namespace Yoegoe.UI
     /// </summary>
     public class GameHud : MonoBehaviour
     {
+        public static GameHud Instance { get; private set; }
+
         public Font font;
         public Sprite purifiedWaterIcon;
         public DetailScreen detailScreen;
@@ -51,6 +54,40 @@ namespace Yoegoe.UI
             public RectTransform StaminaFillRt;
             public GameObject BatchButtonRoot;
             public Text BatchButtonLabel;
+            public string LastNameLabel;
+            public GrowthStage LastNameStage = (GrowthStage)(-1);
+            public string LastDisplayName;
+            public ActionState LastStatusState = (ActionState)(-1);
+            public bool LastBatchVisible;
+            public string LastBatchLabel;
+            public BigNumber LastBatchAmount;
+            public bool HasLastBatchAmount;
+            public float LastStaminaRatio = -1f;
+            public ActionState LastStaminaState = (ActionState)(-1);
+        }
+
+        private BigNumber lastMeritShown;
+        private bool hasLastMeritShown;
+        private int lastYeopjeon = int.MinValue;
+        private int lastHyang = int.MinValue;
+        private int lastPurifiedWater = int.MinValue;
+        private int lastYutToken = int.MinValue;
+        private int lastYutTokenMax = int.MinValue;
+        private string lastUpgradeName;
+        private BigNumber lastUpgradeCostValue;
+        private bool hasLastUpgradeCost;
+        private bool lastUpgradeVisible;
+        private PropSlot lastUpgradeTarget;
+        private bool lastUpgradeCanAfford;
+
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
         }
 
         private void Start()
@@ -58,6 +95,19 @@ namespace Yoegoe.UI
             BuildCanvas();
             RefreshCurrencies();
             RefreshUpgradeButton();
+        }
+
+        /// <summary>공덕 수거 연출 타겟(상단 공덕 텍스트)으로 꽃잎 Gather.</summary>
+        public void PlayMeritCollectFx(RectTransform from)
+        {
+            if (hudCanvas == null || meritTextRt == null || from == null) return;
+            MeritCollectFx.Play(hudCanvas, from, meritTextRt, font);
+        }
+
+        public void PlayMeritCollectFxFromWorld(Vector3 worldPos)
+        {
+            if (hudCanvas == null || meritTextRt == null) return;
+            MeritCollectFx.PlayFromWorld(hudCanvas, worldPos, meritTextRt);
         }
 
         private void Update()
@@ -70,11 +120,38 @@ namespace Yoegoe.UI
 
         private void RefreshCurrencies()
         {
-            if (meritText != null) meritText.text = "공덕 " + GameEconomy.MeritPile.ToDisplayString();
-            if (yeopjeonText != null) yeopjeonText.text = "엽전 " + GameEconomy.Yeopjeon;
-            if (hyangText != null) hyangText.text = "향 " + GameEconomy.Hyang;
-            if (purifiedWaterText != null) purifiedWaterText.text = GameEconomy.PurifiedWater.ToString();
-            if (yutTokenText != null) yutTokenText.text = "윷 " + GameEconomy.YutToken + "/" + GameEconomy.YutTokenMax;
+            if (meritText != null)
+            {
+                var merit = GameEconomy.MeritPile;
+                if (!hasLastMeritShown || !merit.Equals(lastMeritShown))
+                {
+                    hasLastMeritShown = true;
+                    lastMeritShown = merit;
+                    meritText.text = "공덕 " + merit.ToDisplayString();
+                }
+            }
+            if (yeopjeonText != null && GameEconomy.Yeopjeon != lastYeopjeon)
+            {
+                lastYeopjeon = GameEconomy.Yeopjeon;
+                yeopjeonText.text = "엽전 " + lastYeopjeon;
+            }
+            if (hyangText != null && GameEconomy.Hyang != lastHyang)
+            {
+                lastHyang = GameEconomy.Hyang;
+                hyangText.text = "향 " + lastHyang;
+            }
+            if (purifiedWaterText != null && GameEconomy.PurifiedWater != lastPurifiedWater)
+            {
+                lastPurifiedWater = GameEconomy.PurifiedWater;
+                purifiedWaterText.text = lastPurifiedWater.ToString();
+            }
+            if (yutTokenText != null
+                && (GameEconomy.YutToken != lastYutToken || GameEconomy.YutTokenMax != lastYutTokenMax))
+            {
+                lastYutToken = GameEconomy.YutToken;
+                lastYutTokenMax = GameEconomy.YutTokenMax;
+                yutTokenText.text = "윷 " + lastYutToken + "/" + lastYutTokenMax;
+            }
         }
 
         private void RefreshSlotBar()
@@ -110,25 +187,41 @@ namespace Yoegoe.UI
                 if (chip.IsSummonSlot || chip.Agent == null) continue;
                 string stageLabel = chip.Agent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
                 string name = chip.Agent.Data != null ? chip.Agent.Data.displayName : "?";
-                chip.NameText.text = name + " · " + stageLabel;
+                if (chip.NameText != null
+                    && (chip.LastDisplayName != name || chip.LastNameStage != chip.Agent.Stats.Stage))
+                {
+                    chip.LastDisplayName = name;
+                    chip.LastNameStage = chip.Agent.Stats.Stage;
+                    chip.LastNameLabel = name + " · " + stageLabel;
+                    chip.NameText.text = chip.LastNameLabel;
+                }
                 if (chip.StaminaFill != null && chip.StaminaFillRt != null)
                 {
                     var state = chip.Agent.Stats.State;
                     bool alert = state == ActionState.Slumped || state == ActionState.Fainted;
                     float ratio = alert ? 1f : Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
 
-                    var parentRt = chip.StaminaFillRt.parent as RectTransform;
-                    float parentW = parentRt != null ? parentRt.rect.width : 130f;
-                    if (parentW < 1f) parentW = 130f;
+                    bool flash = state == ActionState.Slumped || state == ActionState.Fainted;
+                    bool ratioChanged = Mathf.Abs(ratio - chip.LastStaminaRatio) > 0.002f;
+                    bool stateChanged = state != chip.LastStaminaState;
+                    if (ratioChanged || stateChanged || flash)
+                    {
+                        chip.LastStaminaRatio = ratio;
+                        chip.LastStaminaState = state;
 
-                    chip.StaminaFillRt.anchorMin = new Vector2(0f, 0f);
-                    chip.StaminaFillRt.anchorMax = new Vector2(0f, 1f);
-                    chip.StaminaFillRt.pivot = new Vector2(0f, 0.5f);
-                    chip.StaminaFillRt.anchoredPosition = Vector2.zero;
-                    chip.StaminaFillRt.sizeDelta = new Vector2(parentW * ratio, 0f);
-                    chip.StaminaFillRt.localScale = Vector3.one;
-                    chip.StaminaFill.color = CharacterStatusPresentation.ForStaminaBar(
-                        state, Time.unscaledTime);
+                        var parentRt = chip.StaminaFillRt.parent as RectTransform;
+                        float parentW = parentRt != null ? parentRt.rect.width : 130f;
+                        if (parentW < 1f) parentW = 130f;
+
+                        chip.StaminaFillRt.anchorMin = new Vector2(0f, 0f);
+                        chip.StaminaFillRt.anchorMax = new Vector2(0f, 1f);
+                        chip.StaminaFillRt.pivot = new Vector2(0f, 0.5f);
+                        chip.StaminaFillRt.anchoredPosition = Vector2.zero;
+                        chip.StaminaFillRt.sizeDelta = new Vector2(parentW * ratio, 0f);
+                        chip.StaminaFillRt.localScale = Vector3.one;
+                        chip.StaminaFill.color = CharacterStatusPresentation.ForStaminaBar(
+                            state, Time.unscaledTime);
+                    }
                 }
 
                 RefreshStatusTag(chip);
@@ -140,7 +233,11 @@ namespace Yoegoe.UI
         {
             if (chip.StatusTagRoot == null || chip.StatusTagText == null) return;
 
-            var badge = CharacterStatusPresentation.ForSlot(chip.Agent.Stats.State);
+            var state = chip.Agent.Stats.State;
+            if (state == chip.LastStatusState) return;
+            chip.LastStatusState = state;
+
+            var badge = CharacterStatusPresentation.ForSlot(state);
             chip.StatusTagRoot.SetActive(badge.Visible);
             if (!badge.Visible) return;
 
@@ -153,9 +250,19 @@ namespace Yoegoe.UI
         {
             if (chip.BatchButtonRoot == null || chip.BatchButtonLabel == null) return;
             bool show = GameEconomy.HasPendingBatchMerit;
-            chip.BatchButtonRoot.SetActive(show);
-            if (show)
-                chip.BatchButtonLabel.text = "일괄 수거\n" + GameEconomy.PendingBatchMerit.ToDisplayString();
+            if (show != chip.LastBatchVisible)
+            {
+                chip.LastBatchVisible = show;
+                chip.BatchButtonRoot.SetActive(show);
+            }
+            if (!show) return;
+
+            var amount = GameEconomy.PendingBatchMerit;
+            if (chip.HasLastBatchAmount && amount.Equals(chip.LastBatchAmount)) return;
+            chip.HasLastBatchAmount = true;
+            chip.LastBatchAmount = amount;
+            chip.LastBatchLabel = "일괄 수거\n" + amount.ToDisplayString();
+            chip.BatchButtonLabel.text = chip.LastBatchLabel;
         }
 
         private Transform slotBarRoot;
@@ -317,7 +424,7 @@ namespace Yoegoe.UI
             GameSaveBridge.SaveFromWorld();
 
             if (hudCanvas != null && from != null && meritTextRt != null)
-                MeritCollectFx.Play(hudCanvas, from, meritTextRt, font);
+                PlayMeritCollectFx(from);
         }
 
         // ---------------- 우하단 업그레이드 (8장) ----------------
@@ -329,34 +436,60 @@ namespace Yoegoe.UI
             var target = PropEconomy.FindCheapestUpgradeTarget();
             if (target == null)
             {
-                upgradeButtonRoot.SetActive(false);
+                if (lastUpgradeVisible)
+                {
+                    lastUpgradeVisible = false;
+                    upgradeButtonRoot.SetActive(false);
+                }
+                lastUpgradeTarget = null;
                 upgradeHoldActive = false;
                 return;
             }
 
-            upgradeButtonRoot.SetActive(true);
             var cost = PropEconomy.GetUpgradeCost(target);
             bool canAfford = GameEconomy.MeritPile >= cost;
+            string name = target.DisplayName;
+            bool changed = !lastUpgradeVisible
+                || target != lastUpgradeTarget
+                || name != lastUpgradeName
+                || !hasLastUpgradeCost
+                || !cost.Equals(lastUpgradeCostValue)
+                || canAfford != lastUpgradeCanAfford;
 
-            if (upgradeNameText != null)
-                upgradeNameText.text = target.DisplayName;
-            if (upgradeCostText != null)
+            if (!lastUpgradeVisible)
             {
-                upgradeCostText.text = cost.ToDisplayString();
-                upgradeCostText.color = canAfford
-                    ? new Color(1f, 0.92f, 0.55f)
-                    : new Color(0.75f, 0.4f, 0.35f);
+                lastUpgradeVisible = true;
+                upgradeButtonRoot.SetActive(true);
             }
 
-            if (upgradeIconImage != null)
+            if (changed)
             {
-                var icon = target.data != null ? target.data.icon : null;
-                upgradeIconImage.sprite = icon;
-                upgradeIconImage.enabled = icon != null;
-                if (icon == null)
-                    upgradeIconImage.color = new Color(0.55f, 0.45f, 0.3f, 1f);
-                else
-                    upgradeIconImage.color = Color.white;
+                lastUpgradeTarget = target;
+                lastUpgradeName = name;
+                lastUpgradeCostValue = cost;
+                hasLastUpgradeCost = true;
+                lastUpgradeCanAfford = canAfford;
+
+                if (upgradeNameText != null)
+                    upgradeNameText.text = name;
+                if (upgradeCostText != null)
+                {
+                    upgradeCostText.text = cost.ToDisplayString();
+                    upgradeCostText.color = canAfford
+                        ? new Color(1f, 0.92f, 0.55f)
+                        : new Color(0.75f, 0.4f, 0.35f);
+                }
+
+                if (upgradeIconImage != null)
+                {
+                    var icon = target.data != null ? target.data.icon : null;
+                    upgradeIconImage.sprite = icon;
+                    upgradeIconImage.enabled = icon != null;
+                    if (icon == null)
+                        upgradeIconImage.color = new Color(0.55f, 0.45f, 0.3f, 1f);
+                    else
+                        upgradeIconImage.color = Color.white;
+                }
             }
         }
 

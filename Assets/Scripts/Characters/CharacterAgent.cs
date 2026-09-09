@@ -33,8 +33,11 @@ namespace Yoegoe.Characters
         [Header("혼잣말 (6-4장)")]
         [Tooltip("혼잣말 말풍선에 쓸 한글 폰트. 비워두면 유니티 기본 폰트로 나와서 한글이 깨질 수 있음.")]
         public Font bubbleFont;
-        private const float SeparationRadius = 0.6f; // 이보다 가까워지면 서로 밀어냄 (안 겹치게)
-        private const float SeparationSpeed = 3f;
+        private const float SeparationRadius = 0.55f;
+        /// <summary>전진을 죽이지 않도록 이동 속도보다 낮게 유지.</summary>
+        private const float SeparationSpeed = 1.2f;
+        private const float FacingMoveThresholdSq = 0.00004f; // ~0.006m/frame @60fps
+        private const float FacingAxisBias = 1.25f; // 축이 이만큼 우세할 때만 좌우↔상하 전환
 
         private static readonly System.Collections.Generic.List<CharacterAgent> ActiveAgents
             = new System.Collections.Generic.List<CharacterAgent>();
@@ -419,7 +422,7 @@ namespace Yoegoe.Characters
 
             Vector3 delta = transform.position - lastPosition;
             lastPosition = transform.position;
-            bool moved = delta.sqrMagnitude > 0.0000001f;
+            bool moved = delta.sqrMagnitude > FacingMoveThresholdSq;
 
             // 이동 중이거나, 목적지/방황 목표가 있으면 걷기 사이클(시트 1~4행)
             bool wantsWalkCycle =
@@ -427,11 +430,7 @@ namespace Yoegoe.Characters
                 || (Stats.State == ActionState.Playing && (moved || wanderTarget.HasValue));
 
             if (moved)
-            {
-                facing = Mathf.Abs(delta.x) > Mathf.Abs(delta.y)
-                    ? (delta.x > 0f ? FacingDir.Right : FacingDir.Left)
-                    : (delta.y > 0f ? FacingDir.Up : FacingDir.Down);
-            }
+                UpdateFacingFromDelta(delta);
 
             bool advanceFrames = wantsWalkCycle || Stats.State == ActionState.Staying
                 || Stats.State == ActionState.Slumped
@@ -464,6 +463,27 @@ namespace Yoegoe.Characters
             if (frames[idx] != null)
                 spriteRenderer.sprite = frames[idx];
             spriteRenderer.flipX = flipX;
+        }
+
+        private void UpdateFacingFromDelta(Vector3 delta)
+        {
+            float ax = Mathf.Abs(delta.x);
+            float ay = Mathf.Abs(delta.y);
+            // 분리 밀림 등으로 축이 매 프레임 바뀌면 스프라이트가 깜빡이듯 끊긴다.
+            if (facing == FacingDir.Left || facing == FacingDir.Right)
+            {
+                if (ay > ax * FacingAxisBias)
+                    facing = delta.y > 0f ? FacingDir.Up : FacingDir.Down;
+                else if (ax >= ay)
+                    facing = delta.x > 0f ? FacingDir.Right : FacingDir.Left;
+            }
+            else
+            {
+                if (ax > ay * FacingAxisBias)
+                    facing = delta.x > 0f ? FacingDir.Right : FacingDir.Left;
+                else if (ay >= ax)
+                    facing = delta.y > 0f ? FacingDir.Up : FacingDir.Down;
+            }
         }
 
         private Sprite[] ResolveAnimationFrames(bool wantsWalkCycle, out bool flipX)
@@ -613,9 +633,8 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 걷는 중인 캐릭터끼리 너무 가까워지면(스프라이트가 겹쳐 보일 정도) 서로 밀어낸다.
-        /// 자리 잡고 일하는 중(Staying 등)인 캐릭터의 위치는 여기서 건드리지 않는다 — 이 함수는
-        /// "이번에 움직이고 있는 나"의 위치만 보정하고, 상대방 위치는 그대로 둔다.
+        /// 걷는 중인 캐릭터끼리 너무 가까워지면 서로 살짝 밀어낸다.
+        /// 상대가 앉아 있는 경우만 피하고, 전진 방향 성분은 약하게 유지해 제자리 떨림을 막는다.
         /// </summary>
         private void ResolveSeparation(float dt)
         {
@@ -624,20 +643,26 @@ namespace Yoegoe.Characters
             {
                 var other = ActiveAgents[i];
                 if (other == null || other == this) continue;
+                if (other.Stats.Stage == GrowthStage.Neok) continue;
+                // 앉아/기절한 상대는 밀되, 같이 걷는 상대만 상호 분리(앉아있는 요괴 자리는 건드리지 않음)
+                if (other.Stats.State == ActionState.Fainted) continue;
 
                 Vector3 diff = transform.position - other.transform.position;
                 diff.z = 0f;
                 float dist = diff.magnitude;
                 if (dist > 0.0001f && dist < SeparationRadius)
-                {
                     push += diff.normalized * (SeparationRadius - dist);
-                }
             }
 
-            if (push != Vector3.zero)
-            {
-                transform.position = MapBounds.Clamp(transform.position + push * SeparationSpeed * dt);
-            }
+            if (push == Vector3.zero) return;
+
+            // 한 프레임 밀림 상한 — moveSpeed 대비 과도하면 전진이 상쇄되어 끊겨 보인다.
+            float maxPush = moveSpeed * 0.55f * dt;
+            Vector3 step = push * SeparationSpeed * dt;
+            if (step.sqrMagnitude > maxPush * maxPush)
+                step = step.normalized * maxPush;
+
+            transform.position = MapBounds.Clamp(transform.position + step);
         }
 
         // ---------------- Staying ----------------

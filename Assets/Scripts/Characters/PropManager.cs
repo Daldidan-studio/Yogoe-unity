@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Yoegoe.Characters
@@ -9,6 +8,9 @@ namespace Yoegoe.Characters
     {
         public static PropManager Instance { get; private set; }
         private readonly List<PropSlot> allProps = new List<PropSlot>();
+
+        /// <summary>등록된 기물 목록 (HUD 등에서 FindObjectsByType 대신 사용).</summary>
+        public List<PropSlot> All => allProps;
 
         private void Awake()
         {
@@ -31,14 +33,18 @@ namespace Yoegoe.Characters
         /// </summary>
         public PropSlot GetRandomAvailableProp(CharacterAgent requester, PropSlot exclude)
         {
-            var candidates = allProps.Where(p =>
-                p != null &&
-                p.IsBuilt &&
-                !p.IsOccupied &&
-                !p.IsReserved &&
-                p != exclude &&
-                p.CanBeUsedBy(requester)
-            ).ToList();
+            var candidates = new List<PropSlot>();
+            for (int i = 0; i < allProps.Count; i++)
+            {
+                var p = allProps[i];
+                if (p == null) continue;
+                if (!p.IsBuilt) continue;
+                if (p.IsOccupied) continue;
+                if (p.IsReserved) continue;
+                if (p == exclude) continue;
+                if (!p.CanBeUsedBy(requester)) continue;
+                candidates.Add(p);
+            }
 
             if (candidates.Count == 0) return null;
             return candidates[Random.Range(0, candidates.Count)];

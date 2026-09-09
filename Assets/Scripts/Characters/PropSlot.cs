@@ -37,6 +37,10 @@ namespace Yoegoe.Characters
         private Sprite builtSprite;
         private Color builtTint = Color.white;
         private static Font sharedPileFont;
+        private int lastPileStage = -1;
+        private string lastPileAmount;
+        private int lastPileRounded = int.MinValue;
+        private double lastPileDisplayKey = double.NaN;
 
         public event Action<PropSlot> OnBuilt;
         public event Action<PropSlot> OnLevelUp;
@@ -166,6 +170,8 @@ namespace Yoegoe.Characters
             if (!HasPendingMerit) return false;
             var collected = TakePendingMerit();
             GameEconomy.AddMerit(collected);
+            if (Yoegoe.UI.GameHud.Instance != null)
+                Yoegoe.UI.GameHud.Instance.PlayMeritCollectFxFromWorld(transform.position + Vector3.up * 0.4f);
             return true;
         }
 
@@ -260,18 +266,19 @@ namespace Yoegoe.Characters
             }
             EnsureLockLabel();
             lockLabel.gameObject.SetActive(true);
-            lockLabel.transform.position = transform.position + Vector3.up * 0.55f;
         }
 
         private void RefreshLockVisual()
         {
             if (IsBuilt)
             {
-                if (lockLabel != null) lockLabel.gameObject.SetActive(false);
+                if (lockLabel != null && lockLabel.gameObject.activeSelf)
+                    lockLabel.gameObject.SetActive(false);
                 return;
             }
             EnsureLockLabel();
-            lockLabel.gameObject.SetActive(true);
+            if (!lockLabel.gameObject.activeSelf)
+                lockLabel.gameObject.SetActive(true);
             lockLabel.transform.position = transform.position + Vector3.up * 0.55f;
         }
 
@@ -297,21 +304,61 @@ namespace Yoegoe.Characters
             int stage = GetPileStage();
             if (stage <= 0)
             {
-                if (pileLabel != null) pileLabel.gameObject.SetActive(false);
+                if (pileLabel != null && pileLabel.gameObject.activeSelf)
+                    pileLabel.gameObject.SetActive(false);
+                lastPileStage = 0;
+                lastPileAmount = null;
+                lastPileRounded = int.MinValue;
+                lastPileDisplayKey = double.NaN;
                 return;
             }
 
             EnsurePileLabel();
-            pileLabel.gameObject.SetActive(true);
-            pileLabel.text = new string('*', stage) + "\n" + FormatPileAmount(PendingMerit);
+            if (!pileLabel.gameObject.activeSelf)
+                pileLabel.gameObject.SetActive(true);
+
+            // 표시 문자열이 실제로 바뀔 때만 TextMesh 갱신 (매 프레임 할당 → GC 스파이크 방지)
+            double v = Math.Abs(PendingMerit.ToDouble());
+            bool textChanged;
+            if (v < 1000d)
+            {
+                int rounded = Mathf.RoundToInt((float)v);
+                textChanged = stage != lastPileStage || rounded != lastPileRounded;
+                if (textChanged)
+                {
+                    lastPileStage = stage;
+                    lastPileRounded = rounded;
+                    lastPileAmount = StarPrefix(stage) + rounded;
+                    pileLabel.text = lastPileAmount;
+                }
+            }
+            else
+            {
+                // 큰 수는 표시 단위가 바뀔 때만
+                double key = Math.Round(PendingMerit.Mantissa, 2) * 1000 + PendingMerit.Exponent;
+                textChanged = stage != lastPileStage || key != lastPileDisplayKey;
+                if (textChanged)
+                {
+                    lastPileStage = stage;
+                    lastPileDisplayKey = key;
+                    lastPileAmount = StarPrefix(stage) + PendingMerit.ToDisplayString();
+                    pileLabel.text = lastPileAmount;
+                }
+            }
+
             pileLabel.transform.position = transform.position + Vector3.up * 0.85f;
         }
 
-        private static string FormatPileAmount(BigNumber amount)
+        private static string StarPrefix(int stage)
         {
-            double v = Math.Abs(amount.ToDouble());
-            if (v < 1000) return Mathf.RoundToInt((float)v).ToString();
-            return amount.ToDisplayString();
+            switch (stage)
+            {
+                case 1: return "*\n";
+                case 2: return "**\n";
+                case 3: return "***\n";
+                case 4: return "****\n";
+                default: return "*****\n";
+            }
         }
 
         private void EnsurePileLabel()

@@ -13,21 +13,38 @@ namespace Yoegoe.Economy
         public const double UpgradeBaseCost = 500;
         public const double UpgradeCostGrowth = 1.15;
 
-        /// <summary>n번째 구매 비용. n = PropsPurchasedCount + 1.</summary>
+        /// <summary>n번째 구매 비용. n = PropsPurchasedCount + 1. 자릿수 반올림 적용.</summary>
         public static BigNumber GetPurchaseCost(int purchaseOrderN)
         {
             int n = Math.Max(1, purchaseOrderN);
-            return (BigNumber)(PurchaseBaseCost * Math.Pow(PurchaseCostGrowth, n - 1));
+            return RoundCost(PurchaseBaseCost * Math.Pow(PurchaseCostGrowth, n - 1));
         }
 
         public static BigNumber GetNextPurchaseCost() =>
             GetPurchaseCost(GameEconomy.PropsPurchasedCount + 1);
 
-        /// <summary>현재 레벨 L → L+1 업그레이드 비용: 500 × 1.15^(L−1).</summary>
+        /// <summary>현재 레벨 L → L+1 업그레이드 비용: 500 × 1.15^(L−1). 자릿수 반올림 적용.</summary>
         public static BigNumber GetUpgradeCost(int level)
         {
             int l = Math.Max(1, level);
-            return (BigNumber)(UpgradeBaseCost * Math.Pow(UpgradeCostGrowth, l - 1));
+            return RoundCost(UpgradeBaseCost * Math.Pow(UpgradeCostGrowth, l - 1));
+        }
+
+        /// <summary>
+        /// 비용 표시용 자릿수 반올림.
+        /// 10 미만은 그대로, 그 이상은 단위 = 10^⌊log₁₀⌋ (100미만→10, 1000미만→100, …).
+        /// </summary>
+        public static BigNumber RoundCost(BigNumber amount)
+        {
+            if (amount.Mantissa == 0) return BigNumber.Zero;
+            // 정규화 후 Exponent < 1 → |값| < 10
+            if (amount.Exponent < 1) return amount;
+
+            double sign = amount.Mantissa < 0 ? -1 : 1;
+            double roundedMant = Math.Round(Math.Abs(amount.Mantissa), MidpointRounding.AwayFromZero);
+            if (roundedMant >= 10)
+                return new BigNumber(sign, amount.Exponent + 1);
+            return new BigNumber(sign * roundedMant, amount.Exponent);
         }
 
         public static BigNumber GetUpgradeCost(PropSlot prop)
@@ -41,16 +58,30 @@ namespace Yoegoe.Economy
         {
             PropSlot best = null;
             BigNumber bestCost = BigNumber.Zero;
-            var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
-            foreach (var p in props)
+
+            if (PropManager.Instance != null)
             {
-                if (p == null || !p.IsBuilt) continue;
-                var cost = GetUpgradeCost(p);
-                if (best == null || cost < bestCost)
-                {
-                    best = p;
-                    bestCost = cost;
-                }
+                var props = PropManager.Instance.All;
+                for (int i = 0; i < props.Count; i++)
+                    best = ConsiderUpgradeCandidate(props[i], best, ref bestCost);
+                return best;
+            }
+
+            // 폴백 (테스트 씬 등)
+            var found = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
+            for (int i = 0; i < found.Length; i++)
+                best = ConsiderUpgradeCandidate(found[i], best, ref bestCost);
+            return best;
+        }
+
+        private static PropSlot ConsiderUpgradeCandidate(PropSlot p, PropSlot best, ref BigNumber bestCost)
+        {
+            if (p == null || !p.IsBuilt) return best;
+            var cost = GetUpgradeCost(p);
+            if (best == null || cost < bestCost)
+            {
+                bestCost = cost;
+                return p;
             }
             return best;
         }
