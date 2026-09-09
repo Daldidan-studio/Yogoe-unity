@@ -255,6 +255,23 @@ namespace Yoegoe
             summon.goraniData = goraniData;
             summonGO.SetActive(true);
 
+            var ceremonyGO = new GameObject("SummonCeremony");
+            var ceremony = ceremonyGO.AddComponent<SummonCeremony>();
+            ceremony.font = hudFont;
+            ceremony.goraniData = goraniData;
+
+            var shopGO = new GameObject("ShopStubPopup");
+            shopGO.SetActive(false);
+            var shop = shopGO.AddComponent<ShopStubPopup>();
+            shop.font = hudFont;
+            shopGO.SetActive(true);
+
+            var evoGO = new GameObject("EvolutionConfirmPopup");
+            evoGO.SetActive(false);
+            var evo = evoGO.AddComponent<EvolutionConfirmPopup>();
+            evo.font = hudFont;
+            evoGO.SetActive(true);
+
             var hudGO = new GameObject("Hud");
             hudGO.SetActive(false);
             var hud = hudGO.AddComponent<GameHud>();
@@ -296,6 +313,8 @@ namespace Yoegoe
 
             cam.orthographic = true;
             cam.orthographicSize = Scale.cameraOrthoSize;
+            if (cam.GetComponent<MapCameraFocus>() == null)
+                cam.gameObject.AddComponent<MapCameraFocus>();
         }
 
         /// <summary>
@@ -411,6 +430,10 @@ namespace Yoegoe
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router != null) router.mapDrag = drag;
+
+            if (cam.GetComponent<MapCameraFocus>() == null)
+                cam.gameObject.AddComponent<MapCameraFocus>();
+            cam.GetComponent<MapCameraFocus>().CaptureHome();
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)

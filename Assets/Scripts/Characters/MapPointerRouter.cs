@@ -67,6 +67,8 @@ namespace Yoegoe.Characters
         {
             FlushPendingMonologueTapIfDue();
 
+            if (CeremonyGate.BlocksWorldInput) return;
+
             if (!TryReadPointer(out Vector2 screenPos, out bool pressed)) return;
 
             bool justPressed = pressed && !wasPressed;

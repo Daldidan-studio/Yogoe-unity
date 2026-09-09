@@ -2,11 +2,11 @@ using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
 using Yoegoe.Data;
-using Yoegoe.Save;
+using Yoegoe.Economy;
 
 namespace Yoegoe.UI
 {
-    /// <summary>빈 캐릭터 슬롯 탭 → 고라니 소환 확인 (기획 9장).</summary>
+    /// <summary>빈 캐릭터 슬롯 탭 → 고라니 소환 확인 (기획 9-1).</summary>
     public class SummonPopup : MonoBehaviour
     {
         public static SummonPopup Instance { get; private set; }
@@ -14,22 +14,24 @@ namespace Yoegoe.UI
         public Font font;
         public CharacterData goraniData;
 
-        private GameObject root;
-        private Text titleText;
-        private Text costText;
+        GameObject root;
+        Text titleText;
+        Text costText;
+        Button summonButton;
+        Image summonButtonImage;
+        Text summonButtonLabel;
+        static readonly Color SummonEnabled = new Color(0.3f, 0.5f, 0.55f, 1f);
+        static readonly Color SummonDisabled = new Color(0.25f, 0.25f, 0.28f, 1f);
 
-        private void Awake()
-        {
-            Instance = this;
-        }
+        void Awake() => Instance = this;
 
-        private void Start()
+        void Start()
         {
             EnsureBuilt();
             root.SetActive(false);
         }
 
-        private void OnDestroy()
+        void OnDestroy()
         {
             if (Instance == this) Instance = null;
         }
@@ -38,8 +40,8 @@ namespace Yoegoe.UI
         {
             if (CharacterSummon.IsPresent(CharacterId.Gorani)) return;
             EnsureBuilt();
-            titleText.text = "고라니를 소환할까요?";
-            costText.text = "향 " + CharacterSummon.HyangCost + "개 소모";
+            titleText.text = "향 3개를 피워 요괴를 부르시겠습니까?";
+            RefreshAffordState();
             root.SetActive(true);
         }
 
@@ -48,7 +50,21 @@ namespace Yoegoe.UI
             if (root != null) root.SetActive(false);
         }
 
-        private void OnSummonClicked()
+        void RefreshAffordState()
+        {
+            bool can = CharacterSummon.CanSummonGorani();
+            costText.text = can
+                ? "향 " + CharacterSummon.HyangCost + "개 소모 (보유 " + GameEconomy.Hyang + ")"
+                : "향이 부족합니다 (필요 " + CharacterSummon.HyangCost + ", 보유 " + GameEconomy.Hyang + ")";
+            if (summonButtonImage != null)
+                summonButtonImage.color = can ? SummonEnabled : SummonDisabled;
+            if (summonButtonLabel != null)
+                summonButtonLabel.color = can ? Color.white : new Color(0.7f, 0.7f, 0.72f, 1f);
+            // 부족해도 눌러서 상점으로 갈 수 있게 interactable 유지
+            if (summonButton != null) summonButton.interactable = true;
+        }
+
+        void OnSummonClicked()
         {
             if (CharacterSummon.IsPresent(CharacterId.Gorani))
             {
@@ -58,22 +74,24 @@ namespace Yoegoe.UI
 
             if (!CharacterSummon.CanSummonGorani())
             {
-                costText.text = "향이 부족합니다\n(필요 " + CharacterSummon.HyangCost + ")";
-                return;
-            }
-
-            var agent = CharacterSummon.TrySummonGorani(goraniData, font);
-            if (agent == null)
-            {
-                costText.text = "소환에 실패했습니다";
+                Close();
+                if (ShopStubPopup.Instance != null) ShopStubPopup.Instance.Open();
                 return;
             }
 
             Close();
-            GameSaveBridge.SaveFromWorld();
+            if (SummonCeremony.Instance != null && SummonCeremony.Instance.TryPlay())
+                return;
+
+            // 연출 호스트 없으면 즉시 소환 폴백
+            var agent = CharacterSummon.TrySummonGorani(goraniData, font);
+            if (agent == null)
+                Debug.LogWarning("[SummonPopup] 소환 실패");
+            else
+                Yoegoe.Save.GameSaveBridge.SaveFromWorld();
         }
 
-        private void EnsureBuilt()
+        void EnsureBuilt()
         {
             if (root != null) return;
             if (font == null)
@@ -81,7 +99,7 @@ namespace Yoegoe.UI
             Build();
         }
 
-        private void Build()
+        void Build()
         {
             var canvasGO = new GameObject("Canvas_Summon");
             canvasGO.transform.SetParent(transform, false);
@@ -106,7 +124,7 @@ namespace Yoegoe.UI
 
             var box = new GameObject("Box");
             SetupRect(box, rootRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(620, 360));
+                Vector2.zero, new Vector2(640, 380));
             var boxBg = box.AddComponent<Image>();
             boxBg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
             var boxBlock = box.AddComponent<Button>();
@@ -115,10 +133,10 @@ namespace Yoegoe.UI
 
             var titleGO = new GameObject("Title");
             SetupRect(titleGO, box.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1),
-                new Vector2(0, -40), new Vector2(560, 80));
+                new Vector2(0, -50), new Vector2(580, 100));
             titleText = titleGO.AddComponent<Text>();
             ApplyFont(titleText);
-            titleText.fontSize = 36;
+            titleText.fontSize = 32;
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.color = new Color(1f, 0.95f, 0.85f);
             titleText.raycastTarget = false;
@@ -130,32 +148,32 @@ namespace Yoegoe.UI
                 new Vector2(0, 10), new Vector2(560, 70));
             costText = costGO.AddComponent<Text>();
             ApplyFont(costText);
-            costText.fontSize = 30;
+            costText.fontSize = 28;
             costText.alignment = TextAnchor.MiddleCenter;
             costText.color = new Color(1f, 0.85f, 0.45f);
             costText.raycastTarget = false;
             costText.horizontalOverflow = HorizontalWrapMode.Wrap;
             costText.verticalOverflow = VerticalWrapMode.Overflow;
 
-            CreateActionButton(box.transform, "소환", new Vector2(-130, -120), new Color(0.3f, 0.5f, 0.55f, 1f),
-                OnSummonClicked);
+            summonButton = CreateActionButton(box.transform, "부르기", new Vector2(-130, -120), SummonEnabled,
+                OnSummonClicked, out summonButtonImage, out summonButtonLabel);
             CreateActionButton(box.transform, "닫기", new Vector2(130, -120), new Color(0.4f, 0.3f, 0.28f, 1f),
-                Close);
+                Close, out _, out _);
         }
 
-        private void ApplyFont(Text text)
+        void ApplyFont(Text text)
         {
             if (text == null) return;
             if (font != null) text.font = font;
         }
 
-        private void CreateActionButton(Transform parent, string label, Vector2 pos, Color color,
-            UnityEngine.Events.UnityAction onClick)
+        Button CreateActionButton(Transform parent, string label, Vector2 pos, Color color,
+            UnityEngine.Events.UnityAction onClick, out Image img, out Text labelText)
         {
             var go = new GameObject("Btn_" + label);
             SetupRect(go, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 pos, new Vector2(200, 70));
-            var img = go.AddComponent<Image>();
+            img = go.AddComponent<Image>();
             img.color = color;
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -164,16 +182,17 @@ namespace Yoegoe.UI
             var textGO = new GameObject("Label");
             SetupRect(textGO, go.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
-            var text = textGO.AddComponent<Text>();
-            ApplyFont(text);
-            text.fontSize = 32;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.text = label;
-            text.raycastTarget = false;
+            labelText = textGO.AddComponent<Text>();
+            ApplyFont(labelText);
+            labelText.fontSize = 32;
+            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.color = Color.white;
+            labelText.text = label;
+            labelText.raycastTarget = false;
+            return btn;
         }
 
-        private static RectTransform SetupRect(GameObject go, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
+        static RectTransform SetupRect(GameObject go, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
             Vector2 pivot, Vector2 anchoredPos, Vector2 sizeDelta)
         {
             var rt = go.AddComponent<RectTransform>();

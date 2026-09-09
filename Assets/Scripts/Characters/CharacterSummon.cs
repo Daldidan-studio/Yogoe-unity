@@ -37,8 +37,25 @@ namespace Yoegoe.Characters
             return data;
         }
 
-        /// <summary>향을 소모하고 고라니(넋)를 스폰. 실패 시 null.</summary>
+        /// <summary>향을 소모하고 고라니(넋)를 기본 위치에 스폰. 연출 없이 쓸 때.</summary>
         public static CharacterAgent TrySummonGorani(CharacterData goraniData, Font bubbleFont)
+        {
+            if (IsPresent(CharacterId.Gorani)) return null;
+            if (!GameEconomy.TrySpendHyang(HyangCost)) return null;
+
+            var agent = SpawnGoraniNeok(goraniData, bubbleFont, DefaultGoraniSpawn);
+            if (agent == null)
+            {
+                GameEconomy.AddHyang(HyangCost);
+                return null;
+            }
+
+            agent.ApplyFreshNeokSummon();
+            return agent;
+        }
+
+        /// <summary>비용 없이 넋 스폰 (소환 연출·세이브 복원용). 호출측에서 향 소모.</summary>
+        public static CharacterAgent SpawnGoraniNeok(CharacterData goraniData, Font bubbleFont, Vector3 pos)
         {
             if (IsPresent(CharacterId.Gorani)) return null;
 
@@ -49,18 +66,8 @@ namespace Yoegoe.Characters
                 return null;
             }
 
-            if (!GameEconomy.TrySpendHyang(HyangCost)) return null;
-
-            var agent = CharacterSpawner.Spawn(data, DefaultGoraniSpawn, GoraniPlaceholderColor, bubbleFont,
+            return CharacterSpawner.Spawn(data, pos, GoraniPlaceholderColor, bubbleFont,
                 forceNeokPlaceholder: true);
-            if (agent == null)
-            {
-                GameEconomy.AddHyang(HyangCost); // 스폰 실패 시 환불
-                return null;
-            }
-
-            agent.ApplyFreshNeokSummon();
-            return agent;
         }
 
         /// <summary>세이브에만 있고 월드에 없는 고라니를 스폰 (향 소모 없음).</summary>
@@ -68,11 +75,7 @@ namespace Yoegoe.Characters
         {
             if (IsPresent(CharacterId.Gorani)) return Find(CharacterId.Gorani);
 
-            var data = ResolveGoraniData(goraniData);
-            if (data == null) return null;
-
-            var agent = CharacterSpawner.Spawn(data, pos, GoraniPlaceholderColor, bubbleFont,
-                forceNeokPlaceholder: true);
+            var agent = SpawnGoraniNeok(goraniData, bubbleFont, pos);
             if (agent != null) agent.MarkStatsAppliedExternally();
             return agent;
         }

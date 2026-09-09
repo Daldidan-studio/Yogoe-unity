@@ -181,6 +181,13 @@ namespace Yoegoe.Characters
                 return;
             }
 
+            // 소환·진화 연출 중 맵 AI/부유 정지
+            if (Yoegoe.UI.CeremonyGate.BlocksWorldInput)
+            {
+                UpdateSortingOrder();
+                return;
+            }
+
             if (Stats.Stage == GrowthStage.Neok)
             {
                 // 기력 100이면 정화수가 없어도 진화 (이전에 다 먹인 채 멈춘 경우 포함)
@@ -343,13 +350,75 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 단일 탭 확정 시(더블탭이 아님) MapPointerRouter가 호출.
-        /// 안 떠 있으면 띄우고, 떠 있으면 다음 대사로 바꾸고 10초 연장.
+        /// 넋: 통통·깜빡 리액션(보상 없음). 혼: 혼잣말.
         /// </summary>
         public void OnTapped()
         {
+            if (Stats.Stage == GrowthStage.Neok)
+            {
+                PlayNeokTapReact();
+                return;
+            }
+
             if (!CanShowMonologue) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
             ShowMonologue();
+        }
+
+        Coroutine neokTapRoutine;
+
+        /// <summary>9-2: 넋 탭 시 비언어 리액션 + 살짝 줌.</summary>
+        void PlayNeokTapReact()
+        {
+            if (neokTapRoutine != null) StopCoroutine(neokTapRoutine);
+            neokTapRoutine = StartCoroutine(NeokTapReactRoutine());
+        }
+
+        IEnumerator NeokTapReactRoutine()
+        {
+            var focus = Yoegoe.Debugging.MapCameraFocus.Instance;
+            if (focus != null)
+            {
+                var cam = Camera.main;
+                float ortho = cam != null ? cam.orthographicSize * 0.72f : 3.2f;
+                focus.Focus(transform.position, ortho, 0.28f);
+            }
+
+            Vector3 baseScale = transform.localScale;
+            var mr = GetComponent<MeshRenderer>();
+            Color baseColor = Color.white;
+            if (mr != null && mr.material != null)
+            {
+                if (mr.material.HasProperty("_BaseColor"))
+                    baseColor = mr.material.GetColor("_BaseColor");
+                else if (mr.material.HasProperty("_Color"))
+                    baseColor = mr.material.color;
+            }
+
+            // 통통 2회 + 깜빡
+            for (int i = 0; i < 2; i++)
+            {
+                float t = 0f;
+                const float half = 0.12f;
+                while (t < half)
+                {
+                    t += Time.deltaTime;
+                    float u = Mathf.Sin(Mathf.Clamp01(t / half) * Mathf.PI);
+                    transform.localScale = baseScale * (1f + 0.22f * u);
+                    SetMeshAlpha(mr, 0.55f + 0.45f * (1f - u));
+                    yield return null;
+                }
+            }
+
+            transform.localScale = baseScale;
+            if (mr != null && mr.material != null)
+            {
+                if (mr.material.HasProperty("_BaseColor")) mr.material.SetColor("_BaseColor", baseColor);
+                if (mr.material.HasProperty("_Color")) mr.material.color = baseColor;
+            }
+
+            if (focus != null) focus.Restore(0.35f);
+            neokTapRoutine = null;
         }
 
         private void ShowMonologue()
@@ -1156,7 +1225,7 @@ namespace Yoegoe.Characters
             spriteRenderer = sr;
         }
 
-        /// <summary>넋 → 혼. 친밀도 0부터. playFx면 넋 페이드아웃 후 혼 페이드인.</summary>
+        /// <summary>넋 → 혼. 친밀도 0부터. playFx면 줌인·변화 후 확인 창.</summary>
         public void EvolveToHon(bool playFx = true)
         {
             if (Stats.Stage != GrowthStage.Neok || evolvingToHon) return;
@@ -1187,16 +1256,26 @@ namespace Yoegoe.Characters
         private IEnumerator EvolveToHonFxRoutine()
         {
             evolvingToHon = true;
+            Yoegoe.UI.CeremonyGate.Begin();
+
+            var focus = Yoegoe.Debugging.MapCameraFocus.Instance;
+            if (focus != null)
+            {
+                var cam = Camera.main;
+                float ortho = cam != null ? Mathf.Max(2.2f, cam.orthographicSize * 0.55f) : 2.8f;
+                focus.Focus(transform.position, ortho, 0.55f);
+                yield return new WaitForSecondsRealtime(0.55f);
+            }
 
             var meshRenderer = GetComponent<MeshRenderer>();
             Vector3 neokScale = transform.localScale;
-            const float fadeOut = 0.4f;
+            const float fadeOut = 0.45f;
             float t = 0f;
             while (t < fadeOut)
             {
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / fadeOut);
-                float e = u * u; // 빠르게 사라짐
+                float e = u * u;
                 transform.localScale = Vector3.Lerp(neokScale, Vector3.zero, e);
                 SetMeshAlpha(meshRenderer, 1f - u);
                 yield return null;
@@ -1213,15 +1292,15 @@ namespace Yoegoe.Characters
                 c.a = 0f;
                 spriteRenderer.color = c;
             }
-            transform.localScale = honScale * 0.75f;
+            transform.localScale = honScale * 0.7f;
 
-            const float fadeIn = 0.55f;
+            const float fadeIn = 0.65f;
             t = 0f;
             while (t < fadeIn)
             {
                 t += Time.deltaTime;
                 float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / fadeIn));
-                transform.localScale = Vector3.Lerp(honScale * 0.75f, honScale, u);
+                transform.localScale = Vector3.Lerp(honScale * 0.7f, honScale, u);
                 if (spriteRenderer != null)
                 {
                     var c = spriteRenderer.color;
@@ -1240,9 +1319,31 @@ namespace Yoegoe.Characters
                 spriteRenderer.color = c;
             }
 
-            EnterWalking();
             ApplyAnimationFrameImmediate();
+
+            string who = Data != null && !string.IsNullOrEmpty(Data.displayName)
+                ? Data.displayName
+                : name;
+            string msg = who + "가 혼으로 진화했다.";
+
+            bool confirmed = false;
+            if (Yoegoe.UI.EvolutionConfirmPopup.Instance != null)
+            {
+                Yoegoe.UI.EvolutionConfirmPopup.Instance.Open(msg, () => confirmed = true);
+                while (!confirmed) yield return null;
+            }
+            else
+            {
+                yield return new WaitForSecondsRealtime(0.8f);
+            }
+
+            if (focus != null) focus.Restore(0.45f);
+            yield return new WaitForSecondsRealtime(0.2f);
+
+            EnterWalking();
             evolvingToHon = false;
+            Yoegoe.UI.CeremonyGate.End();
+            Yoegoe.Save.GameSaveBridge.SaveFromWorld();
         }
 
         private static void SetMeshAlpha(MeshRenderer meshRenderer, float alpha)
