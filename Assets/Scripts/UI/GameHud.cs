@@ -647,44 +647,85 @@ namespace Yoegoe.UI
             canvasGO.AddComponent<GraphicRaycaster>();
 
             BuildTopBar(canvasGO.transform);
-            BuildTempResetButton(canvasGO.transform);
+            BuildTempDebugButtons(canvasGO.transform);
             BuildSlotBar(canvasGO.transform);
             BuildUpgradeButton(canvasGO.transform);
         }
 
-        /// <summary>임시: 세이브 삭제 후 씬 리로드. 웹/에디터 공통.</summary>
-        private void BuildTempResetButton(Transform canvasTf)
+        /// <summary>임시 디버그: 초기화(세이브) + 캐시 날리기(브라우저 캐시/IndexedDB).</summary>
+        private void BuildTempDebugButtons(Transform canvasTf)
         {
-            var go = new GameObject("TempResetButton");
+            // 우상단 세로 스택: 상점(-24,-24,h64) → 초기화 → 캐시 (간격 12)
+            const float x = -24f;
+            const float w = 120f;
+            const float h = 48f;
+            const float gap = 12f;
+            const float shopBottom = -24f - 64f; // 상점 하단 y
+            float resetY = shopBottom - gap;
+            float cacheY = resetY - h - gap;
+
+            BuildTempDebugButton(canvasTf, "TempResetButton", "초기화",
+                new Vector2(x, resetY), new Vector2(w, h),
+                new Color(0.55f, 0.18f, 0.16f, 0.92f), OnTempResetClicked);
+
+            BuildTempDebugButton(canvasTf, "TempClearCacheButton", "캐시 날리기",
+                new Vector2(x, cacheY), new Vector2(w, h),
+                new Color(0.35f, 0.22f, 0.45f, 0.92f), OnClearCacheClicked);
+        }
+
+        void BuildTempDebugButton(Transform canvasTf, string name, string label,
+            Vector2 anchoredPos, Vector2 size, Color color, UnityEngine.Events.UnityAction onClick)
+        {
+            var go = new GameObject(name);
             SetupRect(go, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-24, -24), new Vector2(160, 56));
+                anchoredPos, size);
             var bg = go.AddComponent<Image>();
-            bg.color = new Color(0.55f, 0.18f, 0.16f, 0.92f);
+            bg.color = color;
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
-            btn.onClick.AddListener(OnTempResetClicked);
+            btn.onClick.AddListener(onClick);
 
             var labelGO = new GameObject("Label");
             SetupRect(labelGO, go.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
-            var label = labelGO.AddComponent<Text>();
-            label.font = font;
-            label.fontSize = 22;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.color = Color.white;
-            label.text = "초기화";
-            label.raycastTarget = false;
+            var text = labelGO.AddComponent<Text>();
+            text.font = font;
+            text.fontSize = 20;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.text = label;
+            text.raycastTarget = false;
         }
 
         private static void OnTempResetClicked()
         {
             GameSaveService.DeleteSave();
+            ReloadActiveScene();
+        }
+
+        private static void OnClearCacheClicked()
+        {
+            GameSaveService.ClearAllLocalData();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            YogoeClearBrowserCacheAndReload();
+#else
+            ReloadActiveScene();
+#endif
+        }
+
+        static void ReloadActiveScene()
+        {
             var scene = SceneManager.GetActiveScene();
             if (scene.buildIndex >= 0)
                 SceneManager.LoadScene(scene.buildIndex);
             else
                 SceneManager.LoadScene(scene.name);
         }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern void YogoeClearBrowserCacheAndReload();
+#endif
 
         private void BuildUpgradeButton(Transform canvasTf)
         {

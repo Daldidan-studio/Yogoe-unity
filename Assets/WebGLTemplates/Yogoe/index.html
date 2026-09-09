@@ -62,12 +62,14 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      // 배포 버전으로 빌드 파일 캐시 무효화 (예전 .data/.wasm 잔존 방지)
+      var cacheBust = "v={{{ PRODUCT_VERSION }}}";
+      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}?" + cacheBust;
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
-        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
-        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}?" + cacheBust,
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}?" + cacheBust,
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}?" + cacheBust,
         streamingAssetsUrl: "StreamingAssets",
         companyName: "{{{ COMPANY_NAME }}}",
         productName: "{{{ PRODUCT_NAME }}}",

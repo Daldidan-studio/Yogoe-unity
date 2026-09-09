@@ -30,6 +30,19 @@ namespace Yoegoe.Economy
             adTickets = AdTickets;
         }
 
+        public static bool TrySpendAdTicket(int amount = 1)
+        {
+            if (amount <= 0 || AdTickets < amount) return false;
+            AdTickets -= amount;
+            return true;
+        }
+
+        /// <summary>광고 시청(스텁) 또는 광고보상권으로 추가 1회 지급용. 내용만 다시 굴림.</summary>
+        public static void GrantBonusRoll(OfferingData[] catalog, out string displayName, out Sprite icon)
+        {
+            Grant(RollContent(), catalog, out displayName, out icon);
+        }
+
         /// <summary>요구 들어주기 직후 호출. true면 꾸러미 지급.</summary>
         public static bool RollAfterRequestFulfilled()
         {

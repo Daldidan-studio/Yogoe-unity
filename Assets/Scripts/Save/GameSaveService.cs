@@ -100,5 +100,22 @@ namespace Yoegoe.Save
 #endif
             Debug.Log("[GameSaveService] 세이브 삭제됨: " + PrefsKey);
         }
+
+        /// <summary>세이브 + PlayerPrefs 전부 삭제. WebGL IndexedDB 잔여 대비.</summary>
+        public static void ClearAllLocalData()
+        {
+            DeleteSave();
+            PlayerPrefs.DeleteAll();
+            PlayerPrefs.Save();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            try { YogoeSyncFilesystem(); } catch { /* ignore */ }
+#endif
+            Debug.Log("[GameSaveService] 로컬 데이터 전체 삭제");
+        }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern void YogoeSyncFilesystem();
+#endif
     }
 }
