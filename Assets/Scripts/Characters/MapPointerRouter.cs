@@ -232,6 +232,10 @@ namespace Yoegoe.Characters
                     return;
                 }
 
+                // 자물쇠 탭도 캐릭터와 동일하게 우선한다 — 손이 살짝 떨려 임계값을 넘어도
+                // 지도 드래그로 전환하지 않고 Pending을 유지해 OnRelease의 구매 판정까지 간다.
+                if (pressingLockedProp) return;
+
                 if (moved <= dragThresholdPixels) return;
 
                 phase = Phase.MapDrag;
