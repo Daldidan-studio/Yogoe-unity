@@ -14,6 +14,12 @@ namespace Yoegoe.Minigames.Yut
     /// </summary>
     public class YutMiniGame : MonoBehaviour
     {
+        /// <summary>
+        /// 한글 표시용 폰트. 비워두면 유니티 기본 폰트로 나오는데, WebGL에선 한글 글리프가 없어서
+        /// 글씨가 아예 안 보인다 — 호출부(YutScreen)가 프로젝트 한글 폰트(DOSGothic 등)를 넣어준다.
+        /// </summary>
+        public Font font;
+
         public event Action OnThrowPressed;
         public event Action OnLeavePressed;
         /// <summary>족보 안내 오버레이가 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
@@ -694,7 +700,7 @@ namespace Yoegoe.Minigames.Yut
             rt.anchoredPosition = settled;
         }
 
-        static void EnsureButtonLabel(Button button, string label)
+        void EnsureButtonLabel(Button button, string label)
         {
             if (button == null) return;
             var text = button.GetComponentInChildren<Text>(true);
@@ -705,8 +711,7 @@ namespace Yoegoe.Minigames.Yut
                 text.raycastTarget = false;
             }
             text.text = label;
-            if (text.font == null)
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = ResolveFont();
             text.fontSize = 29;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
@@ -719,7 +724,7 @@ namespace Yoegoe.Minigames.Yut
             btn.onClick.AddListener(() => action?.Invoke());
         }
 
-        static Button CreateButton(Transform parent, string name, string label, Action onClick)
+        Button CreateButton(Transform parent, string name, string label, Action onClick)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(parent, false);
@@ -734,18 +739,20 @@ namespace Yoegoe.Minigames.Yut
             return btn;
         }
 
-        static Text CreateText(Transform parent, string name, string content, int size, TextAnchor anchor)
+        Text CreateText(Transform parent, string name, string content, int size, TextAnchor anchor)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.text = content;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = ResolveFont();
             text.fontSize = size + 1;
             text.color = Color.white;
             text.alignment = anchor;
             return text;
         }
+
+        Font ResolveFont() => font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
         static void SetAnchor(RectTransform rt, float xmin, float ymin, float xmax, float ymax,
             float left, float bottom, float right, float top)

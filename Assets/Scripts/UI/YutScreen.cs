@@ -221,6 +221,7 @@ namespace Yoegoe.UI
             gameRt.SetParent(rootRt, false);
             Stretch(gameRt);
             miniGame = gameGO.AddComponent<YutMiniGame>();
+            miniGame.font = font;
             miniGame.BindFromHierarchy();
             miniGame.OnThrowPressed += HandleThrowPressed;
             miniGame.OnLeavePressed += HandleLeavePressed;
