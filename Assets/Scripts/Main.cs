@@ -123,6 +123,9 @@ namespace Yoegoe
 
             GameEconomy.ApplyStartingState(StartingStateSettings.Get());
 
+            CharacterCatalog.EnsureLoaded();
+            CharacterCatalog.SetOfferings(offerings);
+
             EnsureCamera();
             EnsureLight();
             EnsureEventSystem();
@@ -236,6 +239,7 @@ namespace Yoegoe
             var detail = detailGO.AddComponent<DetailScreen>();
             detail.font = hudFont;
             detail.offerings = offerings;
+            detail.purifiedWaterIcon = purifiedWaterIcon;
             detailGO.SetActive(true);
 
             var purchaseGO = new GameObject("PropPurchasePopup");
@@ -467,17 +471,29 @@ namespace Yoegoe
         {
             if (realData != null)
             {
+                CharacterCatalog.ApplyTo(realData);
                 CharacterSpawner.Spawn(realData, pos, color, hudFont);
                 return;
             }
 
-            // 에셋 미연결 시 런타임 스텁 (이름만 표시)
+            // 에셋 미연결 시 런타임 스텁 — JSON 카탈로그로 이름·선호 등 채움
             var data = ScriptableObject.CreateInstance<CharacterData>();
+            data.id = ResolveCharacterIdByName(name);
             data.displayName = name;
             data.startingStage = GrowthStage.Hon;
             data.startingIntimacy = 50f;
             data.startingStamina = 100f;
+            CharacterCatalog.ApplyTo(data);
             CharacterSpawner.Spawn(data, pos, color, hudFont);
+        }
+
+        static CharacterId ResolveCharacterIdByName(string name)
+        {
+            if (name == "옥토끼") return CharacterId.Rabbit;
+            if (name == "삼족오") return CharacterId.SamjokO;
+            if (name == "구미호") return CharacterId.Gumiho;
+            if (name == "고라니") return CharacterId.Gorani;
+            return CharacterId.Rabbit;
         }
     }
 }

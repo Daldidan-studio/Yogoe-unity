@@ -1,5 +1,5 @@
 using System.Collections;
-using System.Text;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
@@ -10,38 +10,60 @@ using Yoegoe.Save;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 상세 화면 (프로토타입/기획서 1장: "요괴 탭 → 전체화면"). 슬롯바에서 캐릭터를 탭하면 열림.
-    ///
-    /// 원본 프로토타입은 아이템을 손가락으로 끌어 초상 위에 드롭해서 공양하는 방식인데, 이 프로젝트가
-    /// 쓰는 새 Input System 기준으로 드래그앤드롭까지 한 번에 만들면 실제로 만져보기 전엔 검증이 안 되는
-    /// 위험이 커서, 1차로는 "공양물 아이콘을 탭하면 바로 먹인다"로 단순화했다. 효과(기력/친밀도 증가)는
-    /// 완전히 동일해서 나중에 드래그로 바꿔도 로직은 안 바뀜 — UI만 교체하면 됨.
+    /// 캐릭터 상세화면. 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
+    /// 정화수·공양물은 드래그해서 초상 위에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
     {
         public Font font;
         public OfferingData[] offerings;
+        public Sprite purifiedWaterIcon;
 
         private CharacterAgent currentAgent;
         private GameObject root;
+        private Canvas rootCanvas;
         private Image portraitImage;
-        private Text nameText;
-        private Text staminaText;
+        private RectTransform portraitRt;
+        private RectTransform portraitDropRt;
+        private Image portraitPanelHighlight;
+        private Vector3 portraitBaseScale = Vector3.one;
+        private Text nameValueText;
+        private Text statusText;
+        private Text intimacyLevelText;
+        private Image intimacyFill;
+        private RectTransform intimacyFillRt;
+        private Text staminaValueText;
         private Image staminaFill;
         private RectTransform staminaFillRt;
-        private Text heartsText;
         private Text descriptionText;
-        private Text statusText;
+        private RectTransform preferredRow;
+        private GameObject inventoryPanel;
+        private RectTransform inventoryRow;
+        private Text feedHintText;
+        private Text purifiedCountText;
+        private readonly List<CountBadge> offeringCountBadges = new List<CountBadge>();
         private Sprite neokPlaceholderSprite;
         private GrowthStage lastPortraitStage = GrowthStage.Hon;
         private Coroutine portraitEvolveFx;
-        private RectTransform portraitRt;
-        private Vector3 portraitBaseScale = Vector3.one;
+        private bool offeringDragActive;
 
-        private void Awake()
+        struct CountBadge
         {
-            // Build은 Start에서 — Main이 font를 넣은 뒤여야 한글이 보인다.
+            public Text Label;
+            public OfferingData Offering;
+            public bool PurifiedWater;
         }
+
+        static readonly Color Bg = new Color(0.90f, 0.90f, 0.92f, 1f);
+        static readonly Color Panel = new Color(1f, 1f, 1f, 1f);
+        static readonly Color Border = new Color(0.15f, 0.15f, 0.18f, 1f);
+        static readonly Color PortraitBg = new Color(0.78f, 0.88f, 0.95f, 1f);
+        static readonly Color PortraitHighlight = new Color(0.55f, 0.85f, 0.55f, 1f);
+        static readonly Color LabelDark = new Color(0.12f, 0.12f, 0.14f, 1f);
+        static readonly Color AccentBlue = new Color(0.35f, 0.55f, 0.95f, 1f);
+        static readonly Color IntimacyPink = new Color(0.92f, 0.35f, 0.45f, 1f);
+        static readonly Color StaminaGreen = new Color(0.35f, 0.78f, 0.42f, 1f);
+        static readonly Color BarTrack = new Color(0.85f, 0.85f, 0.87f, 1f);
 
         private void Start()
         {
@@ -66,25 +88,108 @@ namespace Yoegoe.UI
 
             currentAgent = agent;
             root.SetActive(true);
+            if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
             var data = agent.Data;
             descriptionText.text = data != null ? data.detailDescription : "";
             lastPortraitStage = agent.Stats.Stage;
             RefreshIdentity();
             ApplyPortraitImmediate(agent.Stats.Stage);
+            RebuildPreferredRow();
+            RebuildInventoryRow();
             RefreshStats();
+            RefreshItemCounts();
+            if (feedHintText != null)
+                feedHintText.text = "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
         }
+
+        public void Close()
+        {
+            if (portraitEvolveFx != null)
+            {
+                StopCoroutine(portraitEvolveFx);
+                portraitEvolveFx = null;
+            }
+            if (inventoryPanel != null) inventoryPanel.SetActive(false);
+            if (root != null) root.SetActive(false);
+            currentAgent = null;
+        }
+
+        private void EnsureBuilt()
+        {
+            if (root != null) return;
+            if (font == null)
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Build();
+        }
+
+        // ---------------- refresh ----------------
 
         private void RefreshIdentity()
         {
-            if (currentAgent == null || nameText == null) return;
+            if (currentAgent == null || nameValueText == null) return;
             var data = currentAgent.Data;
             string name = data != null ? data.displayName : "?";
             string stage = currentAgent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
-            nameText.text = name + " · " + stage;
+            nameValueText.text = name + ", " + stage;
+            if (statusText != null)
+                statusText.text = CharacterStatusPresentation.ForDetail(currentAgent.Stats.State);
         }
 
-        /// <summary>넋→혼이면 페이드 연출, 그 외에는 즉시 반영.</summary>
+        private void RefreshStats()
+        {
+            if (currentAgent == null) return;
+            var stats = currentAgent.Stats;
+
+            int stamina = Mathf.RoundToInt(stats.Stamina);
+            if (staminaValueText != null)
+                staminaValueText.text = stamina + "/100";
+            SetBarFill(staminaFillRt, Mathf.Clamp01(stats.Stamina / 100f));
+            if (staminaFill != null)
+                staminaFill.color = CharacterStatusPresentation.ForStaminaBar(stats.State, Time.unscaledTime);
+
+            // 친밀도 0~100 → 표시용 Lv (20점당 1레벨, 최대 5)
+            int lv = Mathf.Clamp(Mathf.FloorToInt(stats.Intimacy / 20f), 0, 5);
+            if (stats.Intimacy > 0f && lv == 0) lv = 1;
+            if (intimacyLevelText != null)
+                intimacyLevelText.text = "Lv. " + lv;
+            SetBarFill(intimacyFillRt, Mathf.Clamp01(stats.Intimacy / 100f));
+
+            RefreshIdentity();
+            RefreshPortrait();
+            RefreshItemCounts();
+        }
+
+        private void RefreshItemCounts()
+        {
+            if (purifiedCountText != null)
+                purifiedCountText.text = "x" + GameEconomy.PurifiedWater;
+
+            for (int i = 0; i < offeringCountBadges.Count; i++)
+            {
+                var b = offeringCountBadges[i];
+                if (b.Label == null) continue;
+                int n = b.PurifiedWater
+                    ? GameEconomy.PurifiedWater
+                    : GameEconomy.GetOfferingCount(b.Offering);
+                b.Label.text = "x" + n;
+            }
+        }
+
+        static void SetBarFill(RectTransform fillRt, float ratio)
+        {
+            if (fillRt == null) return;
+            var parentRt = fillRt.parent as RectTransform;
+            float parentW = parentRt != null ? parentRt.rect.width : 160f;
+            if (parentW < 1f) parentW = 160f;
+            fillRt.anchorMin = new Vector2(0f, 0f);
+            fillRt.anchorMax = new Vector2(0f, 1f);
+            fillRt.pivot = new Vector2(0f, 0.5f);
+            fillRt.anchoredPosition = Vector2.zero;
+            fillRt.sizeDelta = new Vector2(parentW * ratio, 0f);
+            fillRt.localScale = Vector3.one;
+        }
+
         private void RefreshPortrait()
         {
             if (portraitImage == null || currentAgent == null) return;
@@ -122,7 +227,6 @@ namespace Yoegoe.UI
 
         private IEnumerator PortraitEvolveFxRoutine()
         {
-            // 1) 넋 초상 페이드아웃
             Color neokColor = portraitImage.color;
             Vector3 startScale = portraitRt != null ? portraitRt.localScale : Vector3.one;
             const float fadeOut = 0.35f;
@@ -140,7 +244,6 @@ namespace Yoegoe.UI
                 yield return null;
             }
 
-            // 2) 혼 스프라이트로 교체 후 페이드인
             portraitImage.sprite = FirstSprite(currentAgent != null ? currentAgent.Data : null);
             portraitImage.preserveAspect = true;
             var honColor = Color.white;
@@ -166,6 +269,286 @@ namespace Yoegoe.UI
             portraitEvolveFx = null;
         }
 
+        // ---------------- feed / drag ----------------
+
+        public void NotifyOfferingDragBegan()
+        {
+            offeringDragActive = true;
+            if (feedHintText != null)
+                feedHintText.text = "초상 위에 놓아 공양하세요";
+            SetPortraitDropHighlight(false);
+        }
+
+        public void NotifyOfferingDragMoved(Vector2 screenPos)
+        {
+            SetPortraitDropHighlight(IsOverPortrait(screenPos));
+        }
+
+        public void NotifyOfferingDragEnded(bool accepted)
+        {
+            offeringDragActive = false;
+            SetPortraitDropHighlight(false);
+            if (feedHintText != null)
+                feedHintText.text = accepted ? "" : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+        }
+
+        public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
+        {
+            if (!IsOverPortrait(screenPos)) return false;
+            if (purifiedWater || (offering != null && IsPurified(offering)))
+                return OnFeedPurifiedWater();
+            if (offering == null) return false;
+            return OnFeed(offering);
+        }
+
+        bool IsOverPortrait(Vector2 screenPos)
+        {
+            if (portraitDropRt == null) return false;
+            Camera cam = null;
+            if (rootCanvas != null && rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                cam = rootCanvas.worldCamera;
+            return RectTransformUtility.RectangleContainsScreenPoint(portraitDropRt, screenPos, cam);
+        }
+
+        void SetPortraitDropHighlight(bool on)
+        {
+            if (portraitPanelHighlight == null) return;
+            portraitPanelHighlight.color = on ? PortraitHighlight : PortraitBg;
+        }
+
+        private bool OnFeedPurifiedWater()
+        {
+            if (currentAgent == null) return false;
+            if (!GameEconomy.TrySpendPurifiedWater(1)) return false;
+
+            var pw = FindPurifiedWater();
+            int gain = pw != null ? pw.staminaGain : 20;
+            currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
+            RefreshStats();
+            if (currentAgent.Stats.Stage == GrowthStage.Hon)
+                GameSaveBridge.SaveFromWorld();
+            return true;
+        }
+
+        private bool OnFeed(OfferingData offering)
+        {
+            if (currentAgent == null || offering == null) return false;
+
+            bool isPurified = IsPurified(offering);
+
+            if (currentAgent.Stats.Stage == GrowthStage.Neok && !isPurified)
+                return false;
+
+            if (isPurified)
+            {
+                if (!GameEconomy.TrySpendPurifiedWater(1)) return false;
+            }
+            else if (!GameEconomy.TrySpendOffering(offering, 1))
+            {
+                return false;
+            }
+
+            var kind = isPurified ? OfferingKind.PurifiedWater : offering.kind;
+            if (!isPurified && IsPreferred(offering))
+                kind = OfferingKind.Preferred;
+
+            currentAgent.ReceiveOffering(offering.staminaGain, offering.intimacyGain, kind);
+            RefreshStats();
+            if (currentAgent.Stats.Stage == GrowthStage.Hon)
+                GameSaveBridge.SaveFromWorld();
+            return true;
+        }
+
+        static bool IsPurified(OfferingData offering)
+        {
+            if (offering == null) return false;
+            return offering.kind == OfferingKind.PurifiedWater
+                || string.Equals(offering.offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsPreferred(OfferingData offering)
+        {
+            if (offering == null || currentAgent?.Data == null) return false;
+            if (CharacterCatalog.TryGet(currentAgent.Data.id, out var entry) && entry?.preferredOfferings != null)
+            {
+                foreach (var p in entry.preferredOfferings)
+                {
+                    if (p != null && string.Equals(p.id, offering.offeringId, System.StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            var prefs = currentAgent.Data.preferredOfferings;
+            if (prefs == null) return false;
+            foreach (var p in prefs)
+                if (p == offering) return true;
+            return false;
+        }
+
+        private OfferingData FindPurifiedWater()
+        {
+            if (offerings == null) return null;
+            foreach (var o in offerings)
+            {
+                if (o == null) continue;
+                if (IsPurified(o)) return o;
+            }
+            return CharacterCatalog.FindOffering("purifiedwater");
+        }
+
+        private void ToggleInventory()
+        {
+            if (inventoryPanel == null) return;
+            bool show = !inventoryPanel.activeSelf;
+            inventoryPanel.SetActive(show);
+            if (show) RebuildInventoryRow();
+        }
+
+        private void RebuildPreferredRow()
+        {
+            if (preferredRow == null) return;
+            ClearChildren(preferredRow);
+            PruneDeadCountBadges();
+
+            CharacterCatalog.PreferredOffering[] prefs = null;
+            if (currentAgent?.Data != null
+                && CharacterCatalog.TryGet(currentAgent.Data.id, out var entry)
+                && entry != null)
+                prefs = entry.preferredOfferings;
+
+            if (prefs == null || prefs.Length == 0)
+            {
+                var soPrefs = currentAgent?.Data?.preferredOfferings;
+                if (soPrefs != null)
+                {
+                    foreach (var o in soPrefs)
+                    {
+                        if (o == null) continue;
+                        CreatePreferredChip(preferredRow, o.displayName, o.icon, o);
+                    }
+                }
+                return;
+            }
+
+            foreach (var p in prefs)
+            {
+                if (p == null) continue;
+                var resolved = CharacterCatalog.FindOffering(p.id);
+                string label = !string.IsNullOrEmpty(p.name) ? p.name : p.id;
+                CreatePreferredChip(preferredRow, label, resolved != null ? resolved.icon : null, resolved);
+            }
+        }
+
+        private void RebuildInventoryRow()
+        {
+            if (inventoryRow == null) return;
+            ClearChildren(inventoryRow);
+            PruneDeadCountBadges();
+            if (offerings == null) return;
+
+            foreach (var offering in offerings)
+            {
+                if (offering == null) continue;
+                if (IsPurified(offering)) continue;
+                CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering);
+            }
+        }
+
+        void PruneDeadCountBadges()
+        {
+            offeringCountBadges.RemoveAll(b => b.Label == null);
+        }
+
+        private void CreatePreferredChip(Transform parent, string label, Sprite icon, OfferingData feedTarget)
+        {
+            var itemGO = new GameObject("Pref_" + (label ?? "?"));
+            itemGO.transform.SetParent(parent, false);
+            var le = itemGO.AddComponent<LayoutElement>();
+            le.preferredWidth = 100;
+            le.preferredHeight = 130;
+
+            var v = itemGO.AddComponent<VerticalLayoutGroup>();
+            v.spacing = 6;
+            v.childAlignment = TextAnchor.UpperCenter;
+            v.childForceExpandHeight = false;
+            v.childForceExpandWidth = true;
+            v.childControlHeight = true;
+            v.childControlWidth = true;
+
+            var circleGO = new GameObject("Circle");
+            circleGO.transform.SetParent(itemGO.transform, false);
+            var circleLe = circleGO.AddComponent<LayoutElement>();
+            circleLe.preferredWidth = 72;
+            circleLe.preferredHeight = 72;
+            var circleImg = circleGO.AddComponent<Image>();
+            circleImg.color = new Color(0.95f, 0.95f, 0.97f, 1f);
+
+            var iconGO = new GameObject("Icon");
+            SetupRect(iconGO, circleGO.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56, 56));
+            var iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = icon;
+            iconImg.preserveAspect = true;
+            iconImg.color = icon != null ? Color.white : new Color(0.7f, 0.7f, 0.75f, 1f);
+            iconImg.raycastTarget = false;
+
+            if (feedTarget != null)
+            {
+                var drag = circleGO.AddComponent<OfferingDragItem>();
+                drag.Configure(this, feedTarget, IsPurified(feedTarget), icon != null ? icon : feedTarget.icon);
+                AttachCountBadge(circleGO.transform, feedTarget, purified: false);
+            }
+
+            var tagGO = new GameObject("Tag");
+            tagGO.transform.SetParent(itemGO.transform, false);
+            var tagLe = tagGO.AddComponent<LayoutElement>();
+            tagLe.preferredHeight = 28;
+            var tagBg = tagGO.AddComponent<Image>();
+            tagBg.color = AccentBlue;
+            tagBg.raycastTarget = false;
+            var tagText = CreateText(tagGO.transform, label ?? "", 15, TextAnchor.MiddleCenter);
+            tagText.color = Color.white;
+            SetupRect(tagText.gameObject, tagGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+        }
+
+        Text AttachCountBadge(Transform iconParent, OfferingData offering, bool purified)
+        {
+            var badgeGO = new GameObject("CountBadge");
+            SetupRect(badgeGO, iconParent, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-4f, -4f), new Vector2(36f, 22f));
+            var bg = badgeGO.AddComponent<Image>();
+            bg.color = new Color(0.12f, 0.12f, 0.14f, 0.85f);
+            bg.raycastTarget = false;
+            int n = purified ? GameEconomy.PurifiedWater : GameEconomy.GetOfferingCount(offering);
+            var text = CreateText(badgeGO.transform, "x" + n, 14, TextAnchor.MiddleCenter);
+            text.color = Color.white;
+            SetupRect(text.gameObject, badgeGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            offeringCountBadges.Add(new CountBadge
+            {
+                Label = text,
+                Offering = offering,
+                PurifiedWater = purified
+            });
+            return text;
+        }
+
+        static void ClearChildren(Transform t)
+        {
+            for (int i = t.childCount - 1; i >= 0; i--)
+                Object.Destroy(t.GetChild(i).gameObject);
+        }
+
+        private static Sprite FirstSprite(CharacterData data)
+        {
+            if (data == null) return null;
+            if (data.walkDown != null) foreach (var s in data.walkDown) if (s != null) return s;
+            if (data.walkLeft != null) foreach (var s in data.walkLeft) if (s != null) return s;
+            if (data.walkRight != null) foreach (var s in data.walkRight) if (s != null) return s;
+            if (data.walkUp != null) foreach (var s in data.walkUp) if (s != null) return s;
+            return null;
+        }
+
         private Sprite GetNeokPlaceholderSprite()
         {
             if (neokPlaceholderSprite != null) return neokPlaceholderSprite;
@@ -186,94 +569,7 @@ namespace Yoegoe.UI
             return neokPlaceholderSprite;
         }
 
-        public void Close()
-        {
-            if (portraitEvolveFx != null)
-            {
-                StopCoroutine(portraitEvolveFx);
-                portraitEvolveFx = null;
-            }
-            if (root != null) root.SetActive(false);
-            currentAgent = null;
-        }
-
-        private void EnsureBuilt()
-        {
-            if (root != null) return;
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Build();
-        }
-
-        private void RefreshStats()
-        {
-            var stats = currentAgent.Stats;
-            staminaText.text = "기력 " + Mathf.RoundToInt(stats.Stamina);
-            float ratio = Mathf.Clamp01(stats.Stamina / 100f);
-            if (staminaFillRt != null)
-            {
-                var parentRt = staminaFillRt.parent as RectTransform;
-                float parentW = parentRt != null ? parentRt.rect.width : 500f;
-                if (parentW < 1f) parentW = 500f;
-
-                staminaFillRt.anchorMin = new Vector2(0f, 0f);
-                staminaFillRt.anchorMax = new Vector2(0f, 1f);
-                staminaFillRt.pivot = new Vector2(0f, 0.5f);
-                staminaFillRt.anchoredPosition = Vector2.zero;
-                staminaFillRt.sizeDelta = new Vector2(parentW * ratio, 0f);
-                staminaFillRt.localScale = Vector3.one;
-            }
-            if (staminaFill != null)
-                staminaFill.color = CharacterStatusPresentation.ForStaminaBar(stats.State, Time.unscaledTime);
-
-            // 20칸, 하트 1개 = 5점 (기획서 1장).
-            int filled = Mathf.Clamp(Mathf.RoundToInt(stats.Intimacy / 5f), 0, 20);
-            var sb = new StringBuilder(20);
-            for (int i = 0; i < 20; i++) sb.Append(i < filled ? '♥' : '♡');
-            heartsText.text = sb.ToString();
-
-            statusText.text = CharacterStatusPresentation.ForDetail(stats.State);
-            RefreshIdentity();
-            RefreshPortrait();
-        }
-
-        private void OnFeed(OfferingData offering)
-        {
-            if (currentAgent == null || offering == null) return;
-
-            bool isPurified = offering.kind == OfferingKind.PurifiedWater
-                || string.Equals(offering.offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);
-
-            // 넋은 정화수만
-            if (currentAgent.Stats.Stage == GrowthStage.Neok && !isPurified)
-                return;
-
-            if (isPurified)
-            {
-                if (!GameEconomy.TrySpendPurifiedWater(1)) return;
-            }
-            else if (!GameEconomy.TrySpendOffering(offering, 1))
-            {
-                return;
-            }
-
-            var kind = isPurified ? OfferingKind.PurifiedWater : offering.kind;
-            currentAgent.ReceiveOffering(offering.staminaGain, offering.intimacyGain, kind);
-            RefreshStats();
-            if (currentAgent.Stats.Stage == GrowthStage.Hon)
-                GameSaveBridge.SaveFromWorld();
-        }
-
-        private static Sprite FirstSprite(CharacterData data)
-        {
-            if (data.walkDown != null) foreach (var s in data.walkDown) if (s != null) return s;
-            if (data.walkLeft != null) foreach (var s in data.walkLeft) if (s != null) return s;
-            if (data.walkRight != null) foreach (var s in data.walkRight) if (s != null) return s;
-            if (data.walkUp != null) foreach (var s in data.walkUp) if (s != null) return s;
-            return null;
-        }
-
-        // ---------------- 빌드 ----------------
+        // ---------------- build ----------------
 
         private void Build()
         {
@@ -281,7 +577,8 @@ namespace Yoegoe.UI
             canvasGO.transform.SetParent(transform, false);
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 600; // HUD(500)보다 위에
+            canvas.sortingOrder = 600;
+            rootCanvas = canvas;
 
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -290,107 +587,375 @@ namespace Yoegoe.UI
             canvasGO.AddComponent<GraphicRaycaster>();
 
             root = new GameObject("Root");
-            var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
             var bg = root.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.03f, 0.03f, 0.92f);
+            bg.color = Bg;
 
-            // 닫기 버튼 (좌상단) — 한글 "닫기" 대신 × (기본 폰트에서도 보임)
+            // 닫기
             var closeGO = new GameObject("CloseButton");
-            SetupRect(closeGO, rootRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -24), new Vector2(72, 72));
+            SetupRect(closeGO, rootRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
+                new Vector2(24, -24), new Vector2(64, 64));
             var closeImg = closeGO.AddComponent<Image>();
-            closeImg.color = new Color(0.35f, 0.25f, 0.2f, 0.95f);
+            closeImg.color = Border;
             var closeBtn = closeGO.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
             closeBtn.onClick.AddListener(Close);
-
-            // 두 막대로 X 그리기 (Text/한글 폰트 의존 없음)
             CreateCloseBar(closeGO.transform, 45f);
             CreateCloseBar(closeGO.transform, -45f);
 
-            // 이름 + 단계
-            nameText = CreateText(rootRt, "", 44, TextAnchor.MiddleCenter);
-            SetupRect(nameText.gameObject, rootRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0, -110), new Vector2(600, 60));
+            // 본문: 하단 바 위
+            var body = new GameObject("Body");
+            var bodyRt = SetupRect(body, rootRt, new Vector2(0f, 0.22f), new Vector2(1f, 1f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            // top padding for close
+            var bodyPad = new GameObject("BodyInner");
+            var bodyInner = SetupRect(bodyPad, bodyRt, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.92f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
 
-            // 초상
+            // 좌: 초상 (드롭 타겟)
+            var portraitPanel = CreateBorderedPanel(bodyInner, "PortraitPanel", PortraitBg);
+            portraitDropRt = portraitPanel.GetComponent<RectTransform>();
+            SetupRect(portraitPanel, bodyInner, new Vector2(0f, 0f), new Vector2(0.42f, 1f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var portraitInner = FindInner(portraitPanel);
+            portraitPanelHighlight = portraitInner.GetComponent<Image>();
             var portraitGO = new GameObject("Portrait");
-            SetupRect(portraitGO, rootRt, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(420, 420));
+            SetupRect(portraitGO, portraitInner, new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             portraitImage = portraitGO.AddComponent<Image>();
+            portraitImage.preserveAspect = true;
+            portraitImage.raycastTarget = false;
             portraitRt = portraitGO.GetComponent<RectTransform>();
-            portraitBaseScale = portraitRt != null ? portraitRt.localScale : Vector3.one;
+            portraitBaseScale = portraitRt.localScale;
 
-            // 기력 바
-            var staminaBgGO = new GameObject("StaminaBarBg");
-            SetupRect(staminaBgGO, rootRt, new Vector2(0.5f, 0.38f), new Vector2(0.5f, 0.38f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(500, 26));
-            var staminaBg = staminaBgGO.AddComponent<Image>();
-            staminaBg.color = new Color(0.25f, 0.2f, 0.18f, 1f);
-            var staminaFillGO = new GameObject("StaminaBarFill");
-            var staminaFillRt = SetupRect(staminaFillGO, staminaBgGO.transform, Vector2.zero, Vector2.one,
-                new Vector2(0, 0.5f), Vector2.zero, Vector2.zero);
-            staminaFill = staminaFillGO.AddComponent<Image>();
-            staminaFill.color = new Color(0.35f, 0.75f, 0.4f, 1f);
-            staminaFill.raycastTarget = false;
-            this.staminaFillRt = staminaFillRt;
-            staminaText = CreateText(staminaBgGO.transform, "", 20, TextAnchor.MiddleCenter);
-            SetupRect(staminaText.gameObject, staminaBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            // 우: 정보 스택
+            var infoCol = new GameObject("InfoColumn");
+            var infoRt = SetupRect(infoCol, bodyInner, new Vector2(0.45f, 0f), new Vector2(1f, 1f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var infoLayout = infoCol.AddComponent<VerticalLayoutGroup>();
+            infoLayout.spacing = 16;
+            infoLayout.padding = new RectOffset(0, 0, 0, 0);
+            infoLayout.childAlignment = TextAnchor.UpperCenter;
+            infoLayout.childControlHeight = true;
+            infoLayout.childControlWidth = true;
+            infoLayout.childForceExpandHeight = false;
+            infoLayout.childForceExpandWidth = true;
 
-            // 친밀도 하트
-            heartsText = CreateText(rootRt, "", 26, TextAnchor.MiddleCenter);
-            heartsText.color = new Color(0.95f, 0.4f, 0.45f);
-            SetupRect(heartsText.gameObject, rootRt, new Vector2(0.5f, 0.33f), new Vector2(0.5f, 0.33f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(700, 40));
+            // 이름 패널
+            var namePanel = CreateBorderedPanel(infoRt, "NamePanel", Panel);
+            namePanel.AddComponent<LayoutElement>().preferredHeight = 120;
+            var nameInner = FindInner(namePanel);
+            var nameLabel = CreateText(nameInner, "이름", 22, TextAnchor.UpperLeft);
+            nameLabel.color = LabelDark;
+            nameLabel.fontStyle = FontStyle.Bold;
+            SetupRect(nameLabel.gameObject, nameInner, new Vector2(0.05f, 0.55f), new Vector2(0.95f, 0.95f),
+                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+            nameValueText = CreateText(nameInner, "", 28, TextAnchor.MiddleLeft);
+            nameValueText.color = LabelDark;
+            SetupRect(nameValueText.gameObject, nameInner, new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.58f),
+                new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
+            statusText = CreateText(nameInner, "", 16, TextAnchor.LowerRight);
+            statusText.color = new Color(0.45f, 0.45f, 0.5f);
+            SetupRect(statusText.gameObject, nameInner, new Vector2(0.4f, 0.02f), new Vector2(0.95f, 0.28f),
+                new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
 
-            // 상태 텍스트
-            statusText = CreateText(rootRt, "", 24, TextAnchor.MiddleCenter);
-            statusText.color = new Color(0.8f, 0.75f, 0.65f);
-            SetupRect(statusText.gameObject, rootRt, new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(700, 40));
+            // 스탯 패널 (친밀도 | 기력)
+            var statsPanel = CreateBorderedPanel(infoRt, "StatsPanel", Panel);
+            statsPanel.AddComponent<LayoutElement>().preferredHeight = 160;
+            var statsInner = FindInner(statsPanel);
 
-            // 설명
-            descriptionText = CreateText(rootRt, "", 22, TextAnchor.UpperCenter);
+            var intCol = new GameObject("IntimacyCol");
+            SetupRect(intCol, statsInner, new Vector2(0.03f, 0.08f), new Vector2(0.48f, 0.92f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            BuildStatColumn(intCol.transform, "친밀도", out intimacyLevelText, out intimacyFill, out intimacyFillRt, IntimacyPink, true);
+
+            var staCol = new GameObject("StaminaCol");
+            SetupRect(staCol, statsInner, new Vector2(0.52f, 0.08f), new Vector2(0.97f, 0.92f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            BuildStatColumn(staCol.transform, "기력", out staminaValueText, out staminaFill, out staminaFillRt, StaminaGreen, false);
+
+            // 설명 패널
+            var descPanel = CreateBorderedPanel(infoRt, "DescPanel", Panel);
+            var descLe = descPanel.AddComponent<LayoutElement>();
+            descLe.preferredHeight = 280;
+            descLe.flexibleHeight = 1f;
+            var descInner = FindInner(descPanel);
+            var descLabel = CreateText(descInner, "캐릭터 설명", 22, TextAnchor.UpperLeft);
+            descLabel.color = LabelDark;
+            descLabel.fontStyle = FontStyle.Bold;
+            SetupRect(descLabel.gameObject, descInner, new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f),
+                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+
+            var scrollGO = new GameObject("DescScroll");
+            SetupRect(scrollGO, descInner, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.78f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var scroll = scrollGO.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var viewport = new GameObject("Viewport");
+            var vpRt = SetupRect(viewport, scrollGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            viewport.AddComponent<RectMask2D>();
+            var vpImg = viewport.AddComponent<Image>();
+            vpImg.color = new Color(1, 1, 1, 0.01f);
+
+            var content = new GameObject("Content");
+            var contentRt = SetupRect(content, vpRt, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
+                Vector2.zero, new Vector2(0f, 200f));
+            descriptionText = CreateText(contentRt, "", 20, TextAnchor.UpperLeft);
+            descriptionText.color = LabelDark;
             descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            SetupRect(descriptionText.gameObject, rootRt, new Vector2(0.5f, 0.2f), new Vector2(0.5f, 0.2f), new Vector2(0.5f, 1f),
-                Vector2.zero, new Vector2(700, 100));
+            descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
+            var descTextRt = SetupRect(descriptionText.gameObject, contentRt, new Vector2(0f, 0f), new Vector2(1f, 1f),
+                new Vector2(0.5f, 1f), Vector2.zero, Vector2.zero);
+            var fitter = descriptionText.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            descriptionText.gameObject.AddComponent<LayoutElement>();
 
-            // 하단 공양물 급여 바
-            var feedRowGO = new GameObject("FeedRow");
-            var feedRt = SetupRect(feedRowGO, rootRt, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0, 40), new Vector2(900, 120));
-            var feedLayout = feedRowGO.AddComponent<HorizontalLayoutGroup>();
-            feedLayout.spacing = 12;
-            feedLayout.childAlignment = TextAnchor.MiddleCenter;
+            scroll.viewport = vpRt;
+            scroll.content = contentRt;
 
-            if (offerings != null)
+            // 하단 바
+            var bottom = new GameObject("BottomBar");
+            var bottomRt = SetupRect(bottom, rootRt, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.20f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var bottomLayout = bottom.AddComponent<HorizontalLayoutGroup>();
+            bottomLayout.spacing = 16;
+            bottomLayout.childAlignment = TextAnchor.MiddleCenter;
+            bottomLayout.childForceExpandWidth = false;
+            bottomLayout.childForceExpandHeight = true;
+            bottomLayout.padding = new RectOffset(8, 8, 8, 8);
+
+            CreatePurifiedWaterDragChip(bottomRt);
+
+            var prefHost = new GameObject("PreferredHost");
+            preferredRow = prefHost.AddComponent<RectTransform>();
+            preferredRow.SetParent(bottomRt, false);
+            var prefHostLe = prefHost.AddComponent<LayoutElement>();
+            prefHostLe.flexibleWidth = 1f;
+            prefHostLe.preferredHeight = 140;
+            var prefLayout = prefHost.AddComponent<HorizontalLayoutGroup>();
+            prefLayout.spacing = 12;
+            prefLayout.childAlignment = TextAnchor.MiddleCenter;
+            prefLayout.childForceExpandWidth = false;
+            prefLayout.childForceExpandHeight = false;
+
+            CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
+
+            feedHintText = CreateText(rootRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", 18, TextAnchor.MiddleCenter);
+            feedHintText.color = new Color(0.35f, 0.35f, 0.4f);
+            SetupRect(feedHintText.gameObject, rootRt, new Vector2(0.5f, 0.205f), new Vector2(0.5f, 0.205f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 28));
+
+            // 인벤토리 오버레이 (하단 바 위)
+            inventoryPanel = CreateBorderedPanel(rootRt, "InventoryPanel", Panel);
+            SetupRect(inventoryPanel, rootRt, new Vector2(0.08f, 0.22f), new Vector2(0.92f, 0.42f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            inventoryPanel.SetActive(false);
+            var invInner = FindInner(inventoryPanel);
+            var invTitle = CreateText(invInner, "인벤토리", 22, TextAnchor.UpperLeft);
+            invTitle.color = LabelDark;
+            invTitle.fontStyle = FontStyle.Bold;
+            SetupRect(invTitle.gameObject, invInner, new Vector2(0.04f, 0.75f), new Vector2(0.5f, 0.95f),
+                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+
+            var invRowGO = new GameObject("InventoryRow");
+            inventoryRow = SetupRect(invRowGO, invInner, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.72f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var invLayout = invRowGO.AddComponent<HorizontalLayoutGroup>();
+            invLayout.spacing = 10;
+            invLayout.childAlignment = TextAnchor.MiddleLeft;
+            invLayout.childForceExpandWidth = false;
+        }
+
+        private void BuildStatColumn(Transform parent, string title, out Text valueText, out Image fill,
+            out RectTransform fillRt, Color fillColor, bool showHeart)
+        {
+            var titleT = CreateText(parent, title, 22, TextAnchor.UpperLeft);
+            titleT.color = LabelDark;
+            titleT.fontStyle = FontStyle.Bold;
+            SetupRect(titleT.gameObject, parent, new Vector2(0f, 0.7f), new Vector2(0.55f, 1f),
+                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+
+            valueText = CreateText(parent, "", 22, TextAnchor.UpperRight);
+            valueText.color = LabelDark;
+            SetupRect(valueText.gameObject, parent, new Vector2(0.4f, 0.7f), new Vector2(1f, 1f),
+                new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+
+            if (showHeart)
             {
-                foreach (var offering in offerings)
-                {
-                    if (offering == null) continue;
-                    var itemGO = new GameObject("Offering_" + offering.offeringId);
-                    itemGO.transform.SetParent(feedRt, false);
-                    var le = itemGO.AddComponent<LayoutElement>();
-                    le.preferredWidth = 90;
-                    le.preferredHeight = 90;
-                    var img = itemGO.AddComponent<Image>();
-                    img.sprite = offering.icon;
-                    img.preserveAspect = true;
-                    var btn = itemGO.AddComponent<Button>();
-                    btn.targetGraphic = img;
-                    var captured = offering;
-                    btn.onClick.AddListener(() => OnFeed(captured));
-                }
+                var heart = CreateText(parent, "♥", 22, TextAnchor.MiddleLeft);
+                heart.color = IntimacyPink;
+                SetupRect(heart.gameObject, parent, new Vector2(0f, 0.15f), new Vector2(0.15f, 0.55f),
+                    new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
             }
+
+            float barLeft = showHeart ? 0.18f : 0f;
+            var barBgGO = new GameObject("BarBg");
+            SetupRect(barBgGO, parent, new Vector2(barLeft, 0.22f), new Vector2(1f, 0.48f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var barBg = barBgGO.AddComponent<Image>();
+            barBg.color = BarTrack;
+
+            var fillGO = new GameObject("BarFill");
+            fillRt = SetupRect(fillGO, barBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            fill = fillGO.AddComponent<Image>();
+            fill.color = fillColor;
+            fill.raycastTarget = false;
+        }
+
+        private void CreatePurifiedWaterDragChip(Transform parent)
+        {
+            var go = new GameObject("Action_정화수");
+            go.transform.SetParent(parent, false);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 120;
+            le.preferredHeight = 140;
+
+            var v = go.AddComponent<VerticalLayoutGroup>();
+            v.spacing = 6;
+            v.childAlignment = TextAnchor.MiddleCenter;
+            v.childForceExpandHeight = false;
+            v.childForceExpandWidth = true;
+            v.childControlHeight = true;
+            v.childControlWidth = true;
+
+            var iconBox = new GameObject("IconBox");
+            iconBox.transform.SetParent(go.transform, false);
+            iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
+            var iconBg = iconBox.AddComponent<Image>();
+            iconBg.color = AccentBlue;
+
+            Sprite icon = purifiedWaterIcon;
+            var pw = FindPurifiedWater();
+            if (icon == null && pw != null) icon = pw.icon;
+
+            if (icon != null)
+            {
+                var iconGO = new GameObject("Icon");
+                SetupRect(iconGO, iconBox.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48, 48));
+                var img = iconGO.AddComponent<Image>();
+                img.sprite = icon;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+            }
+            else
+            {
+                var placeholder = CreateText(iconBox.transform, "정", 28, TextAnchor.MiddleCenter);
+                placeholder.color = Color.white;
+                SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
+                    new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            }
+
+            var drag = iconBox.AddComponent<OfferingDragItem>();
+            drag.Configure(this, pw, purified: true, icon);
+            purifiedCountText = AttachCountBadge(iconBox.transform, pw, purified: true);
+
+            var tag = new GameObject("Label");
+            tag.transform.SetParent(go.transform, false);
+            tag.AddComponent<LayoutElement>().preferredHeight = 28;
+            var tagBg = tag.AddComponent<Image>();
+            tagBg.color = AccentBlue;
+            tagBg.raycastTarget = false;
+            var t = CreateText(tag.transform, "정화수", 16, TextAnchor.MiddleCenter);
+            t.color = Color.white;
+            SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+        }
+
+        private void CreateSideActionButton(Transform parent, string label, Sprite icon, UnityEngine.Events.UnityAction onClick)
+        {
+            var go = new GameObject("Action_" + label);
+            go.transform.SetParent(parent, false);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 120;
+            le.preferredHeight = 140;
+
+            var v = go.AddComponent<VerticalLayoutGroup>();
+            v.spacing = 6;
+            v.childAlignment = TextAnchor.MiddleCenter;
+            v.childForceExpandHeight = false;
+            v.childForceExpandWidth = true;
+            v.childControlHeight = true;
+            v.childControlWidth = true;
+
+            var iconBox = new GameObject("IconBox");
+            iconBox.transform.SetParent(go.transform, false);
+            iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
+            var iconBg = iconBox.AddComponent<Image>();
+            iconBg.color = AccentBlue;
+            var btn = iconBox.AddComponent<Button>();
+            btn.targetGraphic = iconBg;
+            btn.onClick.AddListener(onClick);
+
+            if (icon != null)
+            {
+                var iconGO = new GameObject("Icon");
+                SetupRect(iconGO, iconBox.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48, 48));
+                var img = iconGO.AddComponent<Image>();
+                img.sprite = icon;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+            }
+            else
+            {
+                var placeholder = CreateText(iconBox.transform, label.Length > 0 ? label.Substring(0, 1) : "?",
+                    28, TextAnchor.MiddleCenter);
+                placeholder.color = Color.white;
+                SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
+                    new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+                placeholder.raycastTarget = false;
+            }
+
+            var tag = new GameObject("Label");
+            tag.transform.SetParent(go.transform, false);
+            tag.AddComponent<LayoutElement>().preferredHeight = 28;
+            var tagBg = tag.AddComponent<Image>();
+            tagBg.color = AccentBlue;
+            var t = CreateText(tag.transform, label, 16, TextAnchor.MiddleCenter);
+            t.color = Color.white;
+            SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+        }
+
+        private GameObject CreateBorderedPanel(Transform parent, string name, Color fill)
+        {
+            var outer = new GameObject(name);
+            outer.transform.SetParent(parent, false);
+            var outerImg = outer.AddComponent<Image>();
+            outerImg.color = Border;
+
+            var inner = new GameObject("Inner");
+            SetupRect(inner, outer.transform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            var innerRt = inner.GetComponent<RectTransform>();
+            innerRt.offsetMin = new Vector2(3f, 3f);
+            innerRt.offsetMax = new Vector2(-3f, -3f);
+            var innerImg = inner.AddComponent<Image>();
+            innerImg.color = fill;
+            return outer;
+        }
+
+        static Transform FindInner(GameObject borderedPanel)
+        {
+            var t = borderedPanel.transform.Find("Inner");
+            return t != null ? t : borderedPanel.transform;
         }
 
         private static void CreateCloseBar(Transform parent, float zAngle)
         {
             var barGO = new GameObject("XBar");
             var rt = SetupRect(barGO, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(36, 5));
+                Vector2.zero, new Vector2(32, 4));
             rt.localRotation = Quaternion.Euler(0f, 0f, zAngle);
             var img = barGO.AddComponent<Image>();
-            img.color = new Color(1f, 0.95f, 0.9f, 1f);
+            img.color = Color.white;
             img.raycastTarget = false;
         }
 
@@ -402,8 +967,9 @@ namespace Yoegoe.UI
             text.font = font;
             text.fontSize = fontSize;
             text.alignment = alignment;
-            text.color = Color.white;
+            text.color = LabelDark;
             text.text = initial;
+            text.raycastTarget = false;
             return text;
         }
 

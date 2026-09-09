@@ -1,0 +1,75 @@
+{
+  "characters": [
+    {
+      "id": "Rabbit",
+      "displayName": "옥토끼",
+      "startingStage": "Hon",
+      "preferredOfferings": [
+        { "id": "kkultteok", "name": "꿀떡" },
+        { "id": "bap", "name": "밥" },
+        { "id": "yeot", "name": "엿" }
+      ],
+      "endingPropId": "떡절구",
+      "detailDescription": "달에서 떡방아를 찧던 토끼. 고가구점 안내인을 자처하며 참견이 많고 낙천적이다.",
+      "monologueLines": [
+        "오늘 장사는 잘 될 것 같아!",
+        "저 손님, 여기 구경 한번 해보세요~",
+        "떡방아 찧던 시절이 그립네.",
+        "다들 배고프지 않아? 나 좀 출출한데.",
+        "새 손님 왔나? 어디 보자~"
+      ]
+    },
+    {
+      "id": "SamjokO",
+      "displayName": "삼족오",
+      "startingStage": "Hon",
+      "preferredOfferings": [
+        { "id": "peach", "name": "복숭아" },
+        { "id": "sinsunro", "name": "신선로" },
+        { "id": "jeontongcha", "name": "전통차" }
+      ],
+      "endingPropId": "",
+      "detailDescription": "해를 등에 진 세 발 까마귀. 콧대가 높고 높은 자리를 좋아한다.",
+      "monologueLines": [
+        "흠, 여기 앉을 자리는 좀 더 높은 곳이 없나.",
+        "해를 등에 지고 다니는 몸인데, 대접이 영 부족하군.",
+        "저 아래 것들은 참 소란스럽구나.",
+        "내 깃털이 오늘따라 더 빛나는 것 같은데.",
+        "높은 곳에서 내려다보니 다 하찮아 보이는군."
+      ]
+    },
+    {
+      "id": "Gumiho",
+      "displayName": "구미호",
+      "startingStage": "Hon",
+      "preferredOfferings": [
+        { "id": "saenggogi", "name": "생고기" },
+        { "id": "samgyetang", "name": "삼계탕" },
+        { "id": "bam", "name": "밤" },
+        { "id": "daechu", "name": "대추" }
+      ],
+      "endingPropId": "",
+      "detailDescription": "사람이 되고 싶어했던 아홉 꼬리 여우. 새침하다.",
+      "monologueLines": [
+        "...딱히 너 기다린 거 아니야.",
+        "사람이 되면 뭘 제일 먼저 해볼까.",
+        "흥, 신경 안 써.",
+        "꼬리 손질하기 참 귀찮네.",
+        "누가 보는 거 아니지?"
+      ]
+    },
+    {
+      "id": "Gorani",
+      "displayName": "고라니",
+      "startingStage": "Neok",
+      "preferredOfferings": [
+        { "id": "sagwa", "name": "사과" },
+        { "id": "subak", "name": "수박" },
+        { "id": "insam", "name": "인삼" }
+      ],
+      "endingPropId": "",
+      "detailDescription": "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다.",
+      "monologueLines": []
+    }
+  ]
+}

@@ -2,24 +2,30 @@ using UnityEngine;
 
 namespace Yoegoe.Data
 {
-    /// <summary>캐릭터(요괴) 정의 (기획서 4장).</summary>
+    /// <summary>
+    /// 캐릭터(요괴) 정의. 스프라이트는 이 SO.
+    /// 이름·선호공양·설명·혼잣말은 Resources/characters.json (CharacterCatalog)이 소스.
+    /// </summary>
     [CreateAssetMenu(fileName = "CharacterData", menuName = "Yoegoe/Character Data")]
     public class CharacterData : ScriptableObject
     {
         public CharacterId id;
+
+        [Tooltip("characters.json 이 소스. Apply 전 폴백.")]
         public string displayName;
 
-        [Tooltip("옥토끼/삼족오/구미호는 Hon으로 시작. 고라니만 Neok으로 시작해 진화(9-3)를 거친다.")]
+        [Tooltip("characters.json 이 소스.")]
         public GrowthStage startingStage;
 
-        [Header("선호 공양물 3~4종 (4장 표)")]
+        [Header("선호 공양물 — characters.json preferredOfferings 가 소스")]
         public OfferingData[] preferredOfferings;
 
-        [Header("엔딩 기물 (있으면 연결, 예: 옥토끼-떡절구)")]
+        [Header("엔딩 기물 — characters.json endingPropId 조회")]
         public PropData endingProp;
 
         [TextArea(3, 6)]
-        public string detailDescription; // 상세 화면 설명 [제안]
+        [Tooltip("characters.json 이 소스.")]
+        public string detailDescription;
 
         [Header("스탯 초기값 — StartingStateSettings.asset 이 우선 (여기 값은 폴백/참고용)")]
         public float startingIntimacy = 50f;
