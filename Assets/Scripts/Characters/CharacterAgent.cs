@@ -109,9 +109,10 @@ namespace Yoegoe.Characters
             if (spriteRenderer == null || Data == null) return;
             bool wantsWalk = Stats.State == ActionState.Walking
                 || Stats.State == ActionState.Playing;
-            Sprite[] frames = ResolveAnimationFrames(wantsWalk);
+            Sprite[] frames = ResolveAnimationFrames(wantsWalk, out bool flipX);
             if (frames != null && frames.Length > 0 && frames[0] != null)
                 spriteRenderer.sprite = frames[0];
+            spriteRenderer.flipX = flipX;
         }
 
         private void Update()
@@ -388,6 +389,9 @@ namespace Yoegoe.Characters
                 || Stats.State == ActionState.Fainted
                 || Stats.State == ActionState.Playing;
 
+            Sprite[] frames = ResolveAnimationFrames(wantsWalkCycle, out bool flipX);
+            if (frames == null || frames.Length == 0) return;
+
             if (advanceFrames)
             {
                 float interval = wantsWalkCycle ? AnimFrameInterval : AnimFrameInterval * 2f;
@@ -395,7 +399,7 @@ namespace Yoegoe.Characters
                 if (animTimer >= interval)
                 {
                     animTimer -= interval;
-                    animFrame = (animFrame + 1) % 4;
+                    animFrame = (animFrame + 1) % frames.Length;
                 }
             }
             else
@@ -404,18 +408,20 @@ namespace Yoegoe.Characters
                 animTimer = 0f;
             }
 
-            Sprite[] frames = ResolveAnimationFrames(wantsWalkCycle);
-            if (frames == null || frames.Length == 0) return;
+            if (animFrame >= frames.Length)
+                animFrame = 0;
 
-            int idx = Mathf.Clamp(animFrame, 0, frames.Length - 1);
+            int idx = animFrame;
             if (frames[idx] != null)
                 spriteRenderer.sprite = frames[idx];
+            spriteRenderer.flipX = flipX;
         }
 
-        private Sprite[] ResolveAnimationFrames(bool wantsWalkCycle)
+        private Sprite[] ResolveAnimationFrames(bool wantsWalkCycle, out bool flipX)
         {
+            flipX = false;
             if (wantsWalkCycle)
-                return WalkFramesForFacing();
+                return WalkFramesForFacing(out flipX);
 
             switch (Stats.State)
             {
@@ -434,21 +440,48 @@ namespace Yoegoe.Characters
             }
 
             if (HasFrames(Data.idle)) return Data.idle;
-            return WalkFramesForFacing();
+            return WalkFramesForFacing(out flipX);
         }
 
-        private Sprite[] WalkFramesForFacing()
+        private Sprite[] WalkFramesForFacing(out bool flipX)
         {
-            Sprite[] frames = facing switch
+            flipX = false;
+            Sprite[] frames;
+            switch (facing)
             {
-                FacingDir.Down => Data.walkDown,
-                FacingDir.Up => Data.walkUp,
-                FacingDir.Left => Data.walkLeft,
-                FacingDir.Right => Data.walkRight,
-                _ => Data.walkDown
-            };
+                case FacingDir.Up:
+                    frames = Data.walkUp;
+                    break;
+                case FacingDir.Right:
+                    frames = Data.walkRight;
+                    break;
+                case FacingDir.Left:
+                    // 전용 Left가 없으면 Right를 좌우반전해서 사용
+                    if (HasFrames(Data.walkLeft))
+                    {
+                        frames = Data.walkLeft;
+                    }
+                    else if (HasFrames(Data.walkRight))
+                    {
+                        flipX = true;
+                        frames = Data.walkRight;
+                    }
+                    else
+                    {
+                        frames = Data.walkLeft;
+                    }
+                    break;
+                default:
+                    frames = Data.walkDown;
+                    break;
+            }
+
             if (HasFrames(frames)) return frames;
-            if (HasFrames(Data.walkDown)) return Data.walkDown;
+            if (HasFrames(Data.walkDown))
+            {
+                flipX = false;
+                return Data.walkDown;
+            }
             return frames;
         }
 

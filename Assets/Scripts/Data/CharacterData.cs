@@ -31,7 +31,7 @@ namespace Yoegoe.Data
         [Header("걷기 애니메이션 스프라이트 (방향별 4프레임, 순서대로 재생)")]
         [Tooltip("정면(카메라 쪽)으로 걷는 4프레임")]
         public Sprite[] walkDown = new Sprite[4];
-        [Tooltip("왼쪽으로 걷는 4프레임 (시트의 Right를 좌우반전)")]
+        [Tooltip("왼쪽으로 걷는 프레임. 비우면 CharacterAgent가 walkRight를 flipX로 반전해서 사용")]
         public Sprite[] walkLeft = new Sprite[4];
         [Tooltip("오른쪽으로 걷는 4프레임")]
         public Sprite[] walkRight = new Sprite[4];
