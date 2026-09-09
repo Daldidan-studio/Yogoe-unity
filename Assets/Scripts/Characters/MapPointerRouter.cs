@@ -223,22 +223,24 @@ namespace Yoegoe.Characters
 
                 // 미건립 기물 위에서는 캐릭터 드래그로 뺏지 않음(초가집 등 중앙 기물)
                 bool pressingLockedProp = pressProp != null && !pressProp.IsBuilt;
-                // 공덕 더미가 쌓인 기물 위도 마찬가지 — 그 위엔 보통 생산 중인 요괴가 앉아있어서,
-                // 길게 누르면 수거 탭이 캐릭터 드래그로 채여 공덕을 못 모으는 문제가 있었다.
+                // 공덕 더미가 쌓인 기물 위엔 보통 생산 중인 요괴가 앉아있어서, 가만히 오래 누르기만
+                // 해도(움직임 없이) 수거 탭이 캐릭터 드래그로 채이는 문제가 있었다. 손가락이 실제로
+                // 움직이면(진짜 드래그 의도) 그건 정상적으로 드래그로 넘어가야 하므로, 여기서는
+                // "오래 누르기"로만 드래그가 시작되는 것만 막는다.
                 bool pressingCollectibleProp = pressProp != null && pressProp.HasPendingMerit;
                 if (!pressingLockedProp
-                    && !pressingCollectibleProp
                     && pressCharacter != null
                     && pressCharacter.CanBeDraggedByPlayer)
                 {
-                    if (held >= longPressSeconds || moved > dragThresholdPixels)
+                    bool heldLongEnough = held >= longPressSeconds && !pressingCollectibleProp;
+                    if (heldLongEnough || moved > dragThresholdPixels)
                         BeginCharacterDrag(screenPos);
                     return;
                 }
 
-                // 자물쇠·수거 대기 기물 탭은 캐릭터보다 우선한다 — 손이 살짝 떨려 임계값을 넘어도
-                // 지도 드래그/캐릭터 드래그로 전환하지 않고 Pending을 유지해 OnRelease의 판정까지 간다.
-                if (pressingLockedProp || pressingCollectibleProp) return;
+                // 자물쇠 탭은 캐릭터보다 우선한다 — 손이 살짝 떨려 임계값을 넘어도 지도 드래그로
+                // 전환하지 않고 Pending을 유지해 OnRelease의 구매 판정까지 간다.
+                if (pressingLockedProp) return;
 
                 if (moved <= dragThresholdPixels) return;
 
