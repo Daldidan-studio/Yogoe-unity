@@ -930,6 +930,7 @@ namespace Yoegoe.Characters
                 currentProp.Vacate(this);
                 previousProp = currentProp; // 다음 목적지 선정 시 제외 대상
                 currentProp = null;
+                Requests?.NotifyLeftProp();
             }
             SetSpriteVisible(true);
         }

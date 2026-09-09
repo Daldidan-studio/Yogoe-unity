@@ -8,7 +8,10 @@ using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
-    /// <summary>12장 고가구점. 음식/향/음식 + 패키지 미리보기(결제 없음).</summary>
+    /// <summary>
+    /// 12장 고가구점.
+    /// 배경 일러스트 기준: 책상 위=상품, 통로 중앙=이무기, 앞 상자=패키지, 최하단=대화.
+    /// </summary>
     public class ShopScreen : MonoBehaviour
     {
         public static ShopScreen Instance { get; private set; }
@@ -56,6 +59,19 @@ namespace Yoegoe.UI
                 PriceLabel = "₩9,900",
                 Contents = "엽전 500\n향 5\n정화수 20"
             }
+        };
+
+        // 배경(576×1024) 기준 정규화 좌표 — 책상·통로·앞상자에 맞춤
+        static readonly Vector2 DeskLeft = new Vector2(0.28f, 0.60f);
+        static readonly Vector2 DeskHyang = new Vector2(0.50f, 0.61f);
+        static readonly Vector2 DeskRight = new Vector2(0.72f, 0.60f);
+        static readonly Vector2 ImugiPos = new Vector2(0.50f, 0.34f);
+        static readonly Vector2 ResetPos = new Vector2(0.88f, 0.56f);
+        static readonly Vector2[] PackagePos =
+        {
+            new Vector2(0.22f, 0.20f),
+            new Vector2(0.50f, 0.18f),
+            new Vector2(0.78f, 0.20f)
         };
 
         GameObject root;
@@ -120,29 +136,27 @@ namespace Yoegoe.UI
 
         void RefreshSlots()
         {
-            BindOfferingSlot(ShopStock.Side.Left, leftIcon, leftName);
-            BindOfferingSlot(ShopStock.Side.Right, rightIcon, rightName);
-            if (leftPriceLabel != null)
-                leftPriceLabel.text = ShopStock.OfferingPriceYeopjeon + " 엽전";
-            if (rightPriceLabel != null)
-                rightPriceLabel.text = ShopStock.OfferingPriceYeopjeon + " 엽전";
+            BindOfferingSlot(ShopStock.Side.Left, leftIcon, leftName, leftPriceLabel);
+            BindOfferingSlot(ShopStock.Side.Right, rightIcon, rightName, rightPriceLabel);
             if (resetCostLabel != null)
-                resetCostLabel.text = "리셋 (공덕 " + ShopStock.GetResetCostMerit().ToDisplayString() + ")";
+                resetCostLabel.text = "리셋\n" + ShopStock.GetResetCostMerit().ToDisplayString();
         }
 
-        void BindOfferingSlot(ShopStock.Side side, Image icon, Text nameLabel)
+        void BindOfferingSlot(ShopStock.Side side, Image icon, Text nameLabel, Text priceLabel)
         {
             var o = ShopStock.GetOffering(side);
             if (icon != null)
             {
                 icon.sprite = o != null ? o.icon : null;
                 icon.enabled = o != null && o.icon != null;
-                icon.color = icon.enabled ? Color.white : new Color(1f, 1f, 1f, 0.25f);
+                icon.color = icon.enabled ? Color.white : new Color(1f, 1f, 1f, 0.2f);
             }
             if (nameLabel != null)
                 nameLabel.text = o != null
                     ? (string.IsNullOrEmpty(o.displayName) ? o.offeringId : o.displayName)
                     : "—";
+            if (priceLabel != null)
+                priceLabel.text = ShopStock.OfferingPriceYeopjeon + " 엽전";
         }
 
         void OnBuyLeft() => TryBuyOffering(ShopStock.Side.Left);
@@ -187,9 +201,8 @@ namespace Yoegoe.UI
 
         void OpenPackage(int index)
         {
-            if (index < 0 || index >= Packages.Length) return;
+            if (index < 0 || index >= Packages.Length || packagePopup == null) return;
             var p = Packages[index];
-            if (packagePopup == null) return;
             packageTitle.text = p.Name;
             packageBody.text = p.Contents;
             packagePriceBtnLabel.text = p.PriceLabel;
@@ -219,32 +232,29 @@ namespace Yoegoe.UI
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 1f; // 세로 기준 — 배경 비율 유지에 유리
             canvasGO.AddComponent<GraphicRaycaster>();
 
             root = new GameObject("Root");
             var rootRt = Stretch(root, canvasGO.transform);
 
+            // 1) 배경 풀블리드
             var bgGO = new GameObject("Background");
             Stretch(bgGO, rootRt);
             var bgImg = bgGO.AddComponent<Image>();
             bgImg.color = Color.white;
+            bgImg.raycastTarget = false;
             if (shopBackground != null)
             {
                 bgImg.sprite = shopBackground;
-                bgImg.preserveAspect = false;
+                bgImg.preserveAspect = false; // 캔버스와 동일 세로비
             }
             else
-                bgImg.color = new Color(0.25f, 0.18f, 0.14f, 1f);
-            bgImg.raycastTarget = false;
+                bgImg.color = new Color(0.22f, 0.16f, 0.12f, 1f);
 
-            // 이무기
+            // 2) 이무기 — 책상 앞 통로 중앙 (발 기준)
             var imugiGO = new GameObject("Imugi");
-            var imugiRt = imugiGO.AddComponent<RectTransform>();
-            imugiRt.SetParent(rootRt, false);
-            imugiRt.anchorMin = imugiRt.anchorMax = imugiRt.pivot = new Vector2(0.5f, 0.55f);
-            imugiRt.anchoredPosition = new Vector2(0, 80);
-            imugiRt.sizeDelta = new Vector2(420, 480);
+            var imugiRt = Place(imugiGO, rootRt, ImugiPos, new Vector2(0.5f, 0f), new Vector2(300, 380));
             var imugiImg = imugiGO.AddComponent<Image>();
             imugiImg.preserveAspect = true;
             imugiImg.raycastTarget = true;
@@ -254,200 +264,134 @@ namespace Yoegoe.UI
                 imugiImg.color = Color.white;
             }
             else
-                imugiImg.color = new Color(0.45f, 0.55f, 0.7f, 1f);
+                imugiImg.color = new Color(0.5f, 0.55f, 0.7f, 1f);
             var imugiBtn = imugiGO.AddComponent<Button>();
             imugiBtn.targetGraphic = imugiImg;
             imugiBtn.onClick.AddListener(OnImugiTapped);
 
-            // 닫기
-            var closeGO = new GameObject("Close");
-            var closeRt = closeGO.AddComponent<RectTransform>();
-            closeRt.SetParent(rootRt, false);
-            closeRt.anchorMin = closeRt.anchorMax = closeRt.pivot = new Vector2(1f, 1f);
-            closeRt.anchoredPosition = new Vector2(-32, -32);
-            closeRt.sizeDelta = new Vector2(72, 72);
-            var closeImg = closeGO.AddComponent<Image>();
-            closeImg.color = new Color(0.2f, 0.15f, 0.12f, 0.9f);
-            var closeBtn = closeGO.AddComponent<Button>();
-            closeBtn.targetGraphic = closeImg;
-            closeBtn.onClick.AddListener(Close);
-            MakeText(closeRt, "×", 42, Vector2.zero, Color.white);
+            // 3) 책상 위 — 음식 / 향 / 음식
+            BuildDeskItem(rootRt, "LeftFood", DeskLeft, out leftIcon, out leftName, out leftPriceLabel,
+                ShopStock.OfferingPriceYeopjeon + " 엽전", OnBuyLeft);
+            BuildDeskHyang(rootRt, DeskHyang);
+            BuildDeskItem(rootRt, "RightFood", DeskRight, out rightIcon, out rightName, out rightPriceLabel,
+                ShopStock.OfferingPriceYeopjeon + " 엽전", OnBuyRight);
 
-            // 책상 위 슬롯 행
-            var deskGO = new GameObject("DeskSlots");
-            var deskRt = deskGO.AddComponent<RectTransform>();
-            deskRt.SetParent(rootRt, false);
-            deskRt.anchorMin = new Vector2(0.05f, 0.28f);
-            deskRt.anchorMax = new Vector2(0.95f, 0.42f);
-            deskRt.offsetMin = deskRt.offsetMax = Vector2.zero;
-            var deskLayout = deskGO.AddComponent<HorizontalLayoutGroup>();
-            deskLayout.spacing = 16;
-            deskLayout.childAlignment = TextAnchor.MiddleCenter;
-            deskLayout.childControlWidth = true;
-            deskLayout.childControlHeight = true;
-            deskLayout.childForceExpandWidth = true;
-            deskLayout.childForceExpandHeight = true;
-
-            BuildOfferingSlot(deskRt, "LeftFood", out leftIcon, out leftName, out leftPriceLabel, OnBuyLeft);
-            BuildHyangSlot(deskRt);
-            BuildOfferingSlot(deskRt, "RightFood", out rightIcon, out rightName, out rightPriceLabel, OnBuyRight);
-
-            // 리셋
+            // 4) 리셋 — 책상 오른쪽
             var resetGO = new GameObject("Reset");
-            var resetRt = resetGO.AddComponent<RectTransform>();
-            resetRt.SetParent(rootRt, false);
-            resetRt.anchorMin = resetRt.anchorMax = resetRt.pivot = new Vector2(0.5f, 0.28f);
-            resetRt.anchoredPosition = new Vector2(0, -8);
-            resetRt.sizeDelta = new Vector2(420, 56);
+            var resetRt = Place(resetGO, rootRt, ResetPos, new Vector2(0.5f, 0.5f), new Vector2(120, 72));
             var resetImg = resetGO.AddComponent<Image>();
-            resetImg.color = new Color(0.35f, 0.28f, 0.22f, 0.95f);
+            resetImg.color = new Color(0.12f, 0.09f, 0.07f, 0.82f);
             var resetBtn = resetGO.AddComponent<Button>();
             resetBtn.targetGraphic = resetImg;
             resetBtn.onClick.AddListener(OnResetStock);
-            resetCostLabel = MakeText(resetRt, "리셋", 24, Vector2.zero, new Color(1f, 0.92f, 0.75f));
+            resetCostLabel = MakeLabel(resetRt, "리셋", 20, new Color(1f, 0.9f, 0.7f));
 
-            // 패키지 스크롤
-            var packArea = new GameObject("Packages");
-            var packAreaRt = packArea.AddComponent<RectTransform>();
-            packAreaRt.SetParent(rootRt, false);
-            packAreaRt.anchorMin = new Vector2(0.04f, 0.12f);
-            packAreaRt.anchorMax = new Vector2(0.96f, 0.26f);
-            packAreaRt.offsetMin = packAreaRt.offsetMax = Vector2.zero;
-            var scroll = packArea.AddComponent<ScrollRect>();
-            scroll.horizontal = true;
-            scroll.vertical = false;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-
-            var viewport = new GameObject("Viewport");
-            var vpRt = Stretch(viewport, packAreaRt);
-            viewport.AddComponent<RectMask2D>();
-            var vpImg = viewport.AddComponent<Image>();
-            vpImg.color = new Color(0f, 0f, 0f, 0.01f);
-            scroll.viewport = vpRt;
-
-            var content = new GameObject("Content");
-            var contentRt = content.AddComponent<RectTransform>();
-            contentRt.SetParent(vpRt, false);
-            contentRt.anchorMin = new Vector2(0f, 0f);
-            contentRt.anchorMax = new Vector2(0f, 1f);
-            contentRt.pivot = new Vector2(0f, 0.5f);
-            contentRt.anchoredPosition = Vector2.zero;
-            contentRt.sizeDelta = new Vector2(960, 0);
-            var h = content.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 18;
-            h.padding = new RectOffset(8, 8, 6, 6);
-            h.childAlignment = TextAnchor.MiddleLeft;
-            h.childControlWidth = false;
-            h.childControlHeight = true;
-            h.childForceExpandHeight = true;
-            var fitter = content.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            scroll.content = contentRt;
-
+            // 5) 패키지 — 앞쪽 상자 위
             for (int i = 0; i < Packages.Length; i++)
             {
                 int captured = i;
-                BuildPackageCard(contentRt, Packages[i], () => OpenPackage(captured));
+                BuildPackageOnChest(rootRt, Packages[i], PackagePos[i], () => OpenPackage(captured));
             }
 
-            // 대화창
+            // 6) 대화창 — 최하단
             var dialGO = new GameObject("Dialogue");
             var dialRt = dialGO.AddComponent<RectTransform>();
             dialRt.SetParent(rootRt, false);
-            dialRt.anchorMin = new Vector2(0.06f, 0.02f);
-            dialRt.anchorMax = new Vector2(0.94f, 0.11f);
+            dialRt.anchorMin = new Vector2(0.04f, 0.01f);
+            dialRt.anchorMax = new Vector2(0.96f, 0.095f);
             dialRt.offsetMin = dialRt.offsetMax = Vector2.zero;
             var dialBg = dialGO.AddComponent<Image>();
-            dialBg.color = new Color(0.08f, 0.06f, 0.05f, 0.88f);
-            dialogueText = MakeText(dialRt, ImugiLines[0], 28, Vector2.zero, new Color(1f, 0.95f, 0.85f));
+            dialBg.color = new Color(0.06f, 0.04f, 0.03f, 0.86f);
+            dialogueText = MakeLabel(dialRt, ImugiLines[0], 28, new Color(1f, 0.95f, 0.85f));
             dialogueText.alignment = TextAnchor.MiddleLeft;
-            var dialTextRt = dialogueText.GetComponent<RectTransform>();
-            dialTextRt.offsetMin = new Vector2(28, 8);
-            dialTextRt.offsetMax = new Vector2(-28, -8);
+            var dRt = dialogueText.GetComponent<RectTransform>();
+            dRt.offsetMin = new Vector2(28, 6);
+            dRt.offsetMax = new Vector2(-28, -6);
+
+            // 닫기
+            var closeGO = new GameObject("Close");
+            var closeRt = Place(closeGO, rootRt, new Vector2(0.94f, 0.96f), new Vector2(0.5f, 0.5f),
+                new Vector2(68, 68));
+            var closeImg = closeGO.AddComponent<Image>();
+            closeImg.color = new Color(0.12f, 0.09f, 0.07f, 0.85f);
+            var closeBtn = closeGO.AddComponent<Button>();
+            closeBtn.targetGraphic = closeImg;
+            closeBtn.onClick.AddListener(Close);
+            MakeLabel(closeRt, "×", 40, Color.white);
 
             BuildPackagePopup(rootRt);
         }
 
-        void BuildOfferingSlot(Transform parent, string name, out Image icon, out Text nameLabel,
-            out Text priceLabel, UnityEngine.Events.UnityAction onBuy)
+        /// <summary>책상 위 공양 슬롯: 아이콘 + 이름 + [N 엽전] 버튼.</summary>
+        void BuildDeskItem(Transform parent, string name, Vector2 normPos,
+            out Image icon, out Text nameLabel, out Text priceLabel,
+            string priceText, UnityEngine.Events.UnityAction onBuy)
         {
             var slot = new GameObject(name);
-            slot.transform.SetParent(parent, false);
-            var bg = slot.AddComponent<Image>();
-            bg.color = new Color(0.12f, 0.09f, 0.07f, 0.92f);
-            var v = slot.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 4;
-            v.padding = new RectOffset(8, 8, 8, 8);
-            v.childAlignment = TextAnchor.MiddleCenter;
-            v.childControlWidth = true;
-            v.childControlHeight = false;
-            v.childForceExpandWidth = true;
+            var slotRt = Place(slot, parent, normPos, new Vector2(0.5f, 0.5f), new Vector2(168, 200));
+            var plate = slot.AddComponent<Image>();
+            plate.color = new Color(0.08f, 0.05f, 0.04f, 0.55f);
 
             var iconGO = new GameObject("Icon");
-            iconGO.transform.SetParent(slot.transform, false);
-            iconGO.AddComponent<LayoutElement>().preferredHeight = 72;
+            Place(iconGO, slotRt, new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.5f), new Vector2(88, 88));
             icon = iconGO.AddComponent<Image>();
             icon.preserveAspect = true;
             icon.raycastTarget = false;
 
-            nameLabel = MakeChildText(slot.transform, "—", 20, 28);
-            priceLabel = MakeChildText(slot.transform, "10 엽전", 22, 36);
+            var nameGO = new GameObject("Name");
+            var nameRt = Place(nameGO, slotRt, new Vector2(0.5f, 0.42f), new Vector2(0.5f, 0.5f),
+                new Vector2(150, 32));
+            nameLabel = MakeLabel(nameRt, "—", 18, new Color(1f, 0.95f, 0.85f));
 
-            var buyGO = new GameObject("Buy");
-            buyGO.transform.SetParent(slot.transform, false);
-            buyGO.AddComponent<LayoutElement>().preferredHeight = 40;
+            var buyGO = new GameObject("PriceBuy");
+            var buyRt = Place(buyGO, slotRt, new Vector2(0.5f, 0.16f), new Vector2(0.5f, 0.5f),
+                new Vector2(140, 44));
             var buyImg = buyGO.AddComponent<Image>();
-            buyImg.color = new Color(0.55f, 0.4f, 0.22f, 1f);
+            buyImg.color = new Color(0.55f, 0.38f, 0.18f, 0.95f);
             var buyBtn = buyGO.AddComponent<Button>();
             buyBtn.targetGraphic = buyImg;
             buyBtn.onClick.AddListener(onBuy);
-            var buyLabel = MakeText(buyGO.GetComponent<RectTransform>(), "구매", 22, Vector2.zero, Color.white);
-            buyLabel.raycastTarget = false;
+            priceLabel = MakeLabel(buyRt, priceText, 22, Color.white);
         }
 
-        void BuildHyangSlot(Transform parent)
+        void BuildDeskHyang(Transform parent, Vector2 normPos)
         {
             var slot = new GameObject("Hyang");
-            slot.transform.SetParent(parent, false);
-            var bg = slot.AddComponent<Image>();
-            bg.color = new Color(0.14f, 0.1f, 0.08f, 0.95f);
-            var v = slot.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 4;
-            v.padding = new RectOffset(8, 8, 8, 8);
-            v.childAlignment = TextAnchor.MiddleCenter;
-            v.childControlWidth = true;
-            v.childControlHeight = false;
-            v.childForceExpandWidth = true;
+            var slotRt = Place(slot, parent, normPos, new Vector2(0.5f, 0.5f), new Vector2(168, 200));
+            var plate = slot.AddComponent<Image>();
+            plate.color = new Color(0.08f, 0.05f, 0.04f, 0.55f);
 
-            MakeChildText(slot.transform, "향", 26, 40);
-            MakeChildText(slot.transform, "×1", 22, 28);
-            MakeChildText(slot.transform, ShopStock.HyangPriceYeopjeon + " 엽전", 22, 32);
+            var titleGO = new GameObject("Title");
+            var titleRt = Place(titleGO, slotRt, new Vector2(0.5f, 0.70f), new Vector2(0.5f, 0.5f),
+                new Vector2(140, 48));
+            MakeLabel(titleRt, "향", 36, new Color(0.95f, 0.9f, 0.75f));
 
-            var buyGO = new GameObject("Buy");
-            buyGO.transform.SetParent(slot.transform, false);
-            buyGO.AddComponent<LayoutElement>().preferredHeight = 40;
+            var subGO = new GameObject("Sub");
+            var subRt = Place(subGO, slotRt, new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.5f),
+                new Vector2(140, 28));
+            MakeLabel(subRt, "×1", 22, new Color(1f, 0.92f, 0.8f));
+
+            var buyGO = new GameObject("PriceBuy");
+            var buyRt = Place(buyGO, slotRt, new Vector2(0.5f, 0.16f), new Vector2(0.5f, 0.5f),
+                new Vector2(140, 44));
             var buyImg = buyGO.AddComponent<Image>();
-            buyImg.color = new Color(0.4f, 0.45f, 0.55f, 1f);
+            buyImg.color = new Color(0.35f, 0.4f, 0.55f, 0.95f);
             var buyBtn = buyGO.AddComponent<Button>();
             buyBtn.targetGraphic = buyImg;
             buyBtn.onClick.AddListener(OnBuyHyang);
-            MakeText(buyGO.GetComponent<RectTransform>(), "구매", 22, Vector2.zero, Color.white);
+            MakeLabel(buyRt, ShopStock.HyangPriceYeopjeon + " 엽전", 22, Color.white);
         }
 
-        void BuildPackageCard(Transform parent, PackageDef def, Action onTap)
+        void BuildPackageOnChest(Transform parent, PackageDef def, Vector2 normPos, Action onTap)
         {
             var card = new GameObject("Pkg_" + def.Id);
-            card.transform.SetParent(parent, false);
-            var le = card.AddComponent<LayoutElement>();
-            le.preferredWidth = 280;
-            le.preferredHeight = 110;
+            var cardRt = Place(card, parent, normPos, new Vector2(0.5f, 0.5f), new Vector2(220, 100));
             var bg = card.AddComponent<Image>();
-            bg.color = new Color(0.18f, 0.12f, 0.1f, 0.95f);
+            bg.color = new Color(0.1f, 0.07f, 0.05f, 0.78f);
             var btn = card.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onTap());
-            MakeText(card.GetComponent<RectTransform>(), def.Name + "\n" + def.PriceLabel, 24,
-                Vector2.zero, new Color(1f, 0.92f, 0.8f));
+            MakeLabel(cardRt, def.Name + "\n" + def.PriceLabel, 22, new Color(1f, 0.93f, 0.82f));
         }
 
         void BuildPackagePopup(Transform parent)
@@ -461,76 +405,50 @@ namespace Yoegoe.UI
             dimBtn.onClick.AddListener(ClosePackage);
 
             var box = new GameObject("Box");
-            var boxRt = box.AddComponent<RectTransform>();
-            boxRt.SetParent(rt, false);
-            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
-            boxRt.sizeDelta = new Vector2(640, 520);
+            var boxRt = Place(box, rt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(640, 520));
             var boxBg = box.AddComponent<Image>();
             boxBg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
-            // 박스 클릭이 딤 닫기를 막도록
             box.AddComponent<Button>().targetGraphic = boxBg;
 
-            packageTitle = MakeText(boxRt, "패키지", 34, new Vector2(0, 180), new Color(1f, 0.95f, 0.85f));
-            packageBody = MakeText(boxRt, "", 26, new Vector2(0, 40), new Color(1f, 0.9f, 0.78f));
-            packageBody.GetComponent<RectTransform>().sizeDelta = new Vector2(520, 200);
+            packageTitle = MakeLabel(
+                Place(new GameObject("Title"), boxRt, new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.5f),
+                    new Vector2(560, 60)),
+                "패키지", 34, new Color(1f, 0.95f, 0.85f));
+
+            packageBody = MakeLabel(
+                Place(new GameObject("Body"), boxRt, new Vector2(0.5f, 0.52f), new Vector2(0.5f, 0.5f),
+                    new Vector2(520, 200)),
+                "", 26, new Color(1f, 0.9f, 0.78f));
 
             var priceGO = new GameObject("PriceBtn");
-            var priceRt = priceGO.AddComponent<RectTransform>();
-            priceRt.SetParent(boxRt, false);
-            priceRt.anchorMin = priceRt.anchorMax = priceRt.pivot = new Vector2(0.5f, 0.5f);
-            priceRt.anchoredPosition = new Vector2(0, -120);
-            priceRt.sizeDelta = new Vector2(280, 64);
+            var priceRt = Place(priceGO, boxRt, new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.5f),
+                new Vector2(280, 64));
             var priceImg = priceGO.AddComponent<Image>();
             priceImg.color = new Color(0.45f, 0.35f, 0.25f, 1f);
-            // 결제 연동 없음 — 버튼은 보이기만
-            packagePriceBtnLabel = MakeText(priceRt, "₩0", 28, Vector2.zero, Color.white);
+            packagePriceBtnLabel = MakeLabel(priceRt, "₩0", 28, Color.white);
 
             var closeGO = new GameObject("ClosePkg");
-            var closeRt = closeGO.AddComponent<RectTransform>();
-            closeRt.SetParent(boxRt, false);
-            closeRt.anchorMin = closeRt.anchorMax = closeRt.pivot = new Vector2(0.5f, 0.5f);
-            closeRt.anchoredPosition = new Vector2(0, -200);
-            closeRt.sizeDelta = new Vector2(220, 60);
+            var closeRt = Place(closeGO, boxRt, new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.5f),
+                new Vector2(220, 60));
             var cImg = closeGO.AddComponent<Image>();
             cImg.color = new Color(0.35f, 0.28f, 0.24f, 1f);
             var cBtn = closeGO.AddComponent<Button>();
             cBtn.targetGraphic = cImg;
             cBtn.onClick.AddListener(ClosePackage);
-            MakeText(closeRt, "닫기", 28, Vector2.zero, Color.white);
+            MakeLabel(closeRt, "닫기", 28, Color.white);
 
             packagePopup.SetActive(false);
         }
 
-        Text MakeChildText(Transform parent, string msg, int size, float height)
-        {
-            var go = new GameObject("Text");
-            go.transform.SetParent(parent, false);
-            go.AddComponent<LayoutElement>().preferredHeight = height;
-            var t = go.AddComponent<Text>();
-            t.font = font;
-            t.fontSize = size;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.color = new Color(1f, 0.95f, 0.85f);
-            t.text = msg;
-            t.raycastTarget = false;
-            return t;
-        }
-
-        Text MakeText(Transform parent, string msg, int size, Vector2 pos, Color color)
+        Text MakeLabel(RectTransform parent, string msg, int size, Color color)
         {
             var go = new GameObject("Text");
             var rt = go.AddComponent<RectTransform>();
             rt.SetParent(parent, false);
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            if (pos != Vector2.zero)
-            {
-                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = pos;
-                rt.sizeDelta = new Vector2(560, 80);
-            }
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
             var t = go.AddComponent<Text>();
             t.font = font;
             t.fontSize = size;
@@ -541,6 +459,19 @@ namespace Yoegoe.UI
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
+        }
+
+        static RectTransform Place(GameObject go, Transform parent, Vector2 normAnchor, Vector2 pivot,
+            Vector2 size)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            if (rt == null) rt = go.AddComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = rt.anchorMax = normAnchor;
+            rt.pivot = pivot;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = size;
+            return rt;
         }
 
         static RectTransform Stretch(GameObject go, Transform parent)

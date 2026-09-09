@@ -11,6 +11,8 @@ namespace Yoegoe.Characters
         public const float OfferingDurationSeconds = 60f;
         public const float OfferingCooldownSeconds = 5f * 60f;
         public const float PropDurationSeconds = 30f;
+        /// <summary>요구 기물에 올려둔 뒤, 이 시간 이상 머물러야 완료(즉시 빼기 악용 방지).</summary>
+        public const float PropFulfillSitSeconds = 3f;
 
         static readonly int[] OfferingBoundaries = { 70, 60, 50, 40, 30, 20, 10 };
 
@@ -27,6 +29,7 @@ namespace Yoegoe.Characters
         SpriteRenderer propIcon;
         TextMesh propLabel;
         readonly CharacterAgent owner;
+        float propSitSeconds;
 
         public CharacterRequestState(CharacterAgent agent) => owner = agent;
 
@@ -35,9 +38,34 @@ namespace Yoegoe.Characters
             if (HasOfferingRequest && Time.time >= OfferingExpireAt)
                 ClearOfferingRequest();
             if (HasPropRequest && Time.time >= PropExpireAt)
+            {
                 ClearPropRequest();
+                propSitSeconds = 0f;
+            }
 
+            TickPropFulfill(dt);
             UpdateVisualPositions();
+        }
+
+        void TickPropFulfill(float dt)
+        {
+            if (!HasPropRequest || PropRequest == null) return;
+            // 요구 기물에 실제로 앉아(머물기) 있는 동안만 누적
+            bool sitting =
+                owner != null
+                && owner.Stats != null
+                && owner.Stats.State == ActionState.Staying
+                && PropRequest.Occupant == owner;
+
+            if (!sitting)
+            {
+                propSitSeconds = 0f;
+                return;
+            }
+
+            propSitSeconds += dt;
+            if (propSitSeconds >= PropFulfillSitSeconds)
+                CompletePropRequest();
         }
 
         public void NotifyStaminaDrain(float before, float after)
@@ -116,6 +144,7 @@ namespace Yoegoe.Characters
         public void ClearPropRequest()
         {
             PropRequest = null;
+            propSitSeconds = 0f;
             if (propIcon != null) propIcon.gameObject.SetActive(false);
             if (propLabel != null) propLabel.gameObject.SetActive(false);
         }
@@ -124,6 +153,41 @@ namespace Yoegoe.Characters
         {
             ClearOfferingRequest();
             ClearPropRequest();
+        }
+
+        /// <summary>요구 기물에 앉기 시작. 즉시 완료하지 않고 체류 시간 누적.</summary>
+        public void NotifySatOnProp(PropSlot prop)
+        {
+            if (!HasPropRequest || prop == null || prop != PropRequest) return;
+            propSitSeconds = 0f;
+        }
+
+        /// <summary>기물에서 일어남 — 미완료면 체류 카운트 리셋(요구는 유지).</summary>
+        public void NotifyLeftProp()
+        {
+            propSitSeconds = 0f;
+        }
+
+        void CompletePropRequest()
+        {
+            if (!HasPropRequest) return;
+            ClearPropRequest();
+            bool gift = GiftBundle.RollAfterRequestFulfilled();
+            if (gift)
+            {
+                owner.ShowTempSpeechSequence(
+                    new[] { "지금 하고 싶은 걸 어떻게 알았지? 고마워." },
+                    () =>
+                    {
+                        owner.ShowTempSpeech("이거… 챙겨뒀어.");
+                        if (GiftBundlePopup.Instance != null)
+                            GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
+                    });
+            }
+            else
+            {
+                owner.ShowTempSpeech("지금 하고 싶은 걸 어떻게 알았지? 고마워.");
+            }
         }
 
         /// <summary>상세에서 공양 급여. true면 처리 완료(호출측에서 인벤 차감·리프레시).</summary>
@@ -173,29 +237,6 @@ namespace Yoegoe.Characters
             intimacyGain = 0f;
             ClearOfferingRequest();
             return true;
-        }
-
-        /// <summary>요구 기물에 앉히면 완료.</summary>
-        public void NotifySatOnProp(PropSlot prop)
-        {
-            if (!HasPropRequest || prop == null || prop != PropRequest) return;
-            ClearPropRequest();
-            bool gift = GiftBundle.RollAfterRequestFulfilled();
-            if (gift)
-            {
-                owner.ShowTempSpeechSequence(
-                    new[] { "지금 하고 싶은 걸 어떻게 알았지? 고마워." },
-                    () =>
-                    {
-                        owner.ShowTempSpeech("이거… 챙겨뒀어.");
-                        if (GiftBundlePopup.Instance != null)
-                            GiftBundlePopup.Instance.OpenForReward("선물꾸러미");
-                    });
-            }
-            else
-            {
-                owner.ShowTempSpeech("지금 하고 싶은 걸 어떻게 알았지? 고마워.");
-            }
         }
 
         OfferingData PickPreferredOffering()
