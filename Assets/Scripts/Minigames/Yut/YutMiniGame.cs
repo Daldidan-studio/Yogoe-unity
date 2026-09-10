@@ -53,10 +53,10 @@ namespace Yoegoe.Minigames.Yut
         Image _logBarLeftPortrait;
         Image _logBarRightPortrait;
         RectTransform _logContent;
-        ScrollRect _logScroll;
-        Text _logBarLeftNameText;
         GameObject _miniThrowContainer;
         Image[] _miniThrowSticks;
+        readonly List<(bool leftSpeaking, string text)> _logHistory = new();
+        const int MaxVisibleLogLines = 5;
 
         // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
@@ -192,7 +192,9 @@ namespace Yoegoe.Minigames.Yut
         /// 보드 위쪽 게임로그에 대사 한 줄을 채팅처럼 쌓아 올린다(말풍선). speakerId가 "Imugi"면
         /// 왼쪽 정렬(이무기 초상도 살짝 키워 강조), 그 외(플레이어 쪽 요괴 id)면 오른쪽 정렬 —
         /// 실제 말한 요괴가 옥토끼가 아니어도(예: 삼족오가 잡힘) 헤더 초상은 고정, 말풍선 텍스트만
-        /// 그 이름을 쓴다. 새 줄이 쌓이면 자동으로 맨 아래로 스크롤된다.
+        /// 그 이름을 쓴다. 최근 MaxVisibleLogLines줄만 남기고 매번 다시 그린다 — ScrollRect·
+        /// VerticalLayoutGroup·ContentSizeFitter 조합이 이 프로젝트 환경에서 안 뜨는 문제가 있어서,
+        /// 이 파일 다른 곳처럼 좌표를 직접 계산하는 방식(항상 되는 걸 확인한 방식)으로 바꿨다.
         /// </summary>
         public void ShowLogLine(string speakerId, string text)
         {
@@ -205,53 +207,58 @@ namespace Yoegoe.Minigames.Yut
             if (_logBarRightPortrait != null)
                 _logBarRightPortrait.rectTransform.localScale = Vector3.one * (!leftSpeaking ? 1.12f : 1f);
 
-            var rowGo = new GameObject("Row", typeof(RectTransform));
-            rowGo.transform.SetParent(_logContent, false);
-            var rowLe = rowGo.AddComponent<LayoutElement>();
-            int extraLines = Mathf.Max(0, Mathf.CeilToInt(text.Length / 16f) - 1);
-            rowLe.preferredHeight = 34f + extraLines * 24f;
-            rowLe.flexibleWidth = 1f;
+            _logHistory.Add((leftSpeaking, text));
+            if (_logHistory.Count > MaxVisibleLogLines) _logHistory.RemoveAt(0);
+            RebuildLogView();
+        }
 
-            var bubbleGo = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            bubbleGo.transform.SetParent(rowGo.transform, false);
-            var bubbleRt = bubbleGo.GetComponent<RectTransform>();
-            bubbleRt.anchorMin = new Vector2(leftSpeaking ? 0f : 0.26f, 0f);
-            bubbleRt.anchorMax = new Vector2(leftSpeaking ? 0.74f : 1f, 1f);
-            bubbleRt.offsetMin = Vector2.zero;
-            bubbleRt.offsetMax = Vector2.zero;
-            bubbleGo.GetComponent<Image>().color = leftSpeaking
-                ? new Color(0.22f, 0.2f, 0.3f, 0.95f)
-                : new Color(0.2f, 0.32f, 0.24f, 0.95f);
+        void RebuildLogView()
+        {
+            for (int i = _logContent.childCount - 1; i >= 0; i--)
+                Destroy(_logContent.GetChild(i).gameObject);
 
-            var label = CreateText(bubbleGo.transform, "Text", text, 18,
-                leftSpeaking ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
-            var labelRt = label.rectTransform;
-            labelRt.anchorMin = Vector2.zero;
-            labelRt.anchorMax = Vector2.one;
-            labelRt.offsetMin = new Vector2(12f, 2f);
-            labelRt.offsetMax = new Vector2(-12f, -2f);
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
-            label.verticalOverflow = VerticalWrapMode.Overflow;
-            label.raycastTarget = false;
+            int count = _logHistory.Count;
+            if (count == 0) return;
 
-            // 레이아웃이 자동으로 갱신될 때까지 기다리지 않고 이 프레임에 바로 크기를 확정한다 —
-            // 매치 시작 직후(첫 줄)처럼 캔버스가 막 켜진 시점엔 지연 레이아웃이 한 박자 늦을 수 있다.
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_logContent);
-            StartCoroutine(ScrollLogToBottomNextFrame());
+            float rowH = 1f / count;
+            float pad = rowH * 0.08f;
+            for (int i = 0; i < count; i++)
+            {
+                var (leftSpeaking, text) = _logHistory[i];
+                float yTop = 1f - i * rowH;
+                float yBottom = 1f - (i + 1) * rowH;
+
+                var bubbleGo = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                bubbleGo.transform.SetParent(_logContent, false);
+                var bubbleRt = bubbleGo.GetComponent<RectTransform>();
+                bubbleRt.anchorMin = new Vector2(leftSpeaking ? 0f : 0.26f, yBottom + pad);
+                bubbleRt.anchorMax = new Vector2(leftSpeaking ? 0.74f : 1f, yTop - pad);
+                bubbleRt.offsetMin = Vector2.zero;
+                bubbleRt.offsetMax = Vector2.zero;
+                bubbleGo.GetComponent<Image>().color = leftSpeaking
+                    ? new Color(0.22f, 0.2f, 0.3f, 0.95f)
+                    : new Color(0.2f, 0.32f, 0.24f, 0.95f);
+
+                var label = CreateText(bubbleGo.transform, "Text", text, 16,
+                    leftSpeaking ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
+                var labelRt = label.rectTransform;
+                labelRt.anchorMin = Vector2.zero;
+                labelRt.anchorMax = Vector2.one;
+                labelRt.offsetMin = new Vector2(10f, 1f);
+                labelRt.offsetMax = new Vector2(-10f, -1f);
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Truncate;
+                label.raycastTarget = false;
+            }
         }
 
         /// <summary>매치 시작/재입장 때 이전 대화가 안 남게 게임로그를 비운다.</summary>
         public void ClearLog()
         {
+            _logHistory.Clear();
             if (_logContent == null) return;
             for (int i = _logContent.childCount - 1; i >= 0; i--)
                 Destroy(_logContent.GetChild(i).gameObject);
-        }
-
-        IEnumerator ScrollLogToBottomNextFrame()
-        {
-            yield return null; // 레이아웃이 새 줄 크기만큼 다시 계산된 다음에 스크롤해야 정확하다
-            if (_logScroll != null) _logScroll.verticalNormalizedPosition = 0f;
         }
 
         /// <summary>상대(이무기 등) 말 표시를 켜고 끈다. 켜기 전까지는 판 위에 안 보인다.</summary>
@@ -856,7 +863,9 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 보드 위쪽 게임로그 — 위쪽은 이무기(왼쪽)·옥토끼(팀 대표, 오른쪽) 초상이 고정으로 있고,
-        /// 그 아래는 말풍선이 카톡처럼 위로 쌓이는 채팅창(스크롤). 말한 쪽 초상이 살짝 커진다.
+        /// 그 아래는 말풍선이 카톡처럼 쌓이는 자리. ScrollRect+Mask+레이아웃 컴포넌트 조합 대신,
+        /// 이 파일 다른 곳(보드 칸·후보 마커 등)과 똑같이 좌표를 직접 계산해서 배치한다 — 최근
+        /// MaxVisibleLogLines줄만 보이고, 그 이상 쌓이면 오래된 줄부터 밀려 나간다.
         /// </summary>
         void EnsureLogBar()
         {
@@ -867,46 +876,14 @@ namespace Yoegoe.Minigames.Yut
             SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.68f, 0.94f, 0.9f, 0, 0, 0, 0);
             _logBar.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.16f, 0.92f);
 
-            _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true, out var leftName);
+            _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true, out _);
             _logBarRightPortrait = BuildLogHeaderPortrait(_logBar.transform, "Rabbit", "옥토끼", left: false, out _);
-            _logBarLeftNameText = leftName;
-            BuildOpponentMiniThrow(_logBarLeftPortrait.transform.parent);
-
-            var scrollGo = new GameObject("ScrollArea", typeof(RectTransform));
-            scrollGo.transform.SetParent(_logBar.transform, false);
-            SetAnchor((RectTransform)scrollGo.transform, 0.02f, 0.02f, 0.98f, 0.72f, 0, 0, 0, 0);
-            _logScroll = scrollGo.AddComponent<ScrollRect>();
-            _logScroll.horizontal = false;
-            _logScroll.vertical = true;
-            _logScroll.movementType = ScrollRect.MovementType.Clamped;
-            _logScroll.scrollSensitivity = 12f;
-
-            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
-            viewportGo.transform.SetParent(scrollGo.transform, false);
-            Stretch((RectTransform)viewportGo.transform);
-            viewportGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.001f); // Mask 작동에만 필요, 안 보임
-            viewportGo.GetComponent<Mask>().showMaskGraphic = false;
+            BuildOpponentMiniThrow(_logBar.transform);
 
             var contentGo = new GameObject("Content", typeof(RectTransform));
-            contentGo.transform.SetParent(viewportGo.transform, false);
+            contentGo.transform.SetParent(_logBar.transform, false);
             _logContent = contentGo.GetComponent<RectTransform>();
-            _logContent.anchorMin = new Vector2(0f, 1f);
-            _logContent.anchorMax = new Vector2(1f, 1f);
-            _logContent.pivot = new Vector2(0.5f, 1f);
-            _logContent.anchoredPosition = Vector2.zero;
-            var vlayout = contentGo.AddComponent<VerticalLayoutGroup>();
-            vlayout.childAlignment = TextAnchor.UpperCenter;
-            vlayout.spacing = 5f;
-            vlayout.padding = new RectOffset(2, 2, 2, 2);
-            vlayout.childControlWidth = true;
-            vlayout.childControlHeight = true;
-            vlayout.childForceExpandWidth = true;
-            vlayout.childForceExpandHeight = false;
-            var fitter = contentGo.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            _logScroll.viewport = (RectTransform)viewportGo.transform;
-            _logScroll.content = _logContent;
+            SetAnchor(_logContent, 0.02f, 0.02f, 0.98f, 0.72f, 0, 0, 0, 0);
         }
 
         Image BuildLogHeaderPortrait(Transform parent, string spriteId, string displayLabel, bool left, out Text nameTextOut)
@@ -951,15 +928,18 @@ namespace Yoegoe.Minigames.Yut
             return img;
         }
 
-        /// <summary>이무기 초상 바로 밑(이름 자리)에 조그맣게 윷가락 4개를 숨겨둔다 — 평소엔 이름이
-        /// 보이고, 이무기가 던질 때만 이걸로 바뀐다(PlayOpponentMiniThrowAnim).</summary>
-        void BuildOpponentMiniThrow(Transform leftHeader)
+        /// <summary>
+        /// 이무기 초상 밑, 이름표보다 더 아래(로그바의 이무기 쪽 아래 공간)에 윷가락 4개를 숨겨둔다.
+        /// 이름표 자리를 같이 쓰면 너무 좁아서(세로 30px 안팎) 막대가 뭉개져 네모로 보였다 —
+        /// 로그바 안에서 따로 자리를 만들어 훨씬 넉넉하게 뒀다.
+        /// </summary>
+        void BuildOpponentMiniThrow(Transform logBar)
         {
             var container = new GameObject("MiniThrow", typeof(RectTransform));
-            container.transform.SetParent(leftHeader, false);
+            container.transform.SetParent(logBar, false);
             var rt = (RectTransform)container.transform;
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 0.28f);
+            rt.anchorMin = new Vector2(0.02f, 0.48f);
+            rt.anchorMax = new Vector2(0.2f, 0.7f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
             _miniThrowContainer = container;
@@ -971,11 +951,12 @@ namespace Yoegoe.Minigames.Yut
                 go.transform.SetParent(container.transform, false);
                 var srt = go.GetComponent<RectTransform>();
                 float slotW = 1f / 4;
-                srt.anchorMin = new Vector2(i * slotW + slotW * 0.12f, 0.15f);
-                srt.anchorMax = new Vector2((i + 1) * slotW - slotW * 0.12f, 0.85f);
+                srt.anchorMin = new Vector2(i * slotW + slotW * 0.12f, 0.05f);
+                srt.anchorMax = new Vector2((i + 1) * slotW - slotW * 0.12f, 0.95f);
                 srt.offsetMin = Vector2.zero;
                 srt.offsetMax = Vector2.zero;
                 var img = go.GetComponent<Image>();
+                img.preserveAspect = true;
                 ApplyStickFace(img, front: true, isBaekdoStick: i == 0);
                 _miniThrowSticks[i] = img;
             }
@@ -983,8 +964,8 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>
-        /// 이무기가 던질 때, 보드 한가운데 큰 연출 대신 초상 밑에 조그맣게 결과를 보여준다.
-        /// 이름 라벨을 잠깐 숨기고 그 자리에서 윷가락 4개가 빠르게 뒤집히며 결과를 드러낸다.
+        /// 이무기가 던질 때, 보드 한가운데 큰 연출 대신 초상 밑 작은 자리에서 결과를 보여준다.
+        /// 윷가락 4개가 잠깐 흔들리다 결과에 맞는 앞/뒷면을 드러낸다.
         /// </summary>
         public IEnumerator PlayOpponentMiniThrowAnim(YutThrowResult result)
         {
@@ -992,7 +973,6 @@ namespace Yoegoe.Minigames.Yut
             if (_miniThrowContainer == null) yield break;
 
             var frontStates = DetermineFrontStates(result);
-            if (_logBarLeftNameText != null) _logBarLeftNameText.gameObject.SetActive(false);
             _miniThrowContainer.SetActive(true);
             for (int i = 0; i < 4; i++)
                 ApplyStickFace(_miniThrowSticks[i], front: true, isBaekdoStick: i == 0);
@@ -1018,7 +998,6 @@ namespace Yoegoe.Minigames.Yut
             yield return new WaitForSecondsRealtime(0.5f);
 
             _miniThrowContainer.SetActive(false);
-            if (_logBarLeftNameText != null) _logBarLeftNameText.gameObject.SetActive(true);
         }
 
         void EnsureRulesOverlay()
