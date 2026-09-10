@@ -24,19 +24,17 @@ namespace Yoegoe.Minigames.Yut
     /// 방을 지나가기만 할 때는 들어온 대각선을 따라 반대쪽으로 계속 진행하고, 방에 멈춰
     /// 있었다면(그리고 지름길을 골랐다면) 다음 걸음은 참 쪽(27, 최단 완주)으로 나간다.
     ///
-    /// 빽도(뒤로 1칸)는 PreviousNode로 지름길 포함 전체 노드에서 계산한다 — 방(22)처럼 두
-    /// 대각선이 합류하는 지점만, 어느 쪽에서 왔는지 기억하지 않으므로 모(5) 쪽 대각선을
-    /// 기본값으로 삼는다(실전에서 아주 드문 경우라 이 정도 단순화는 감안).
+    /// 빽도(뒤로 1칸)는 이 클래스가 아니라 YutPiece.History 기반으로 YutMatch가 계산한다
+    /// (PeekBackwardDestination 참고) — 실제로 왔던 길을 그대로 되짚어야 방(22)처럼 두 대각선이
+    /// 합류하는 지점에서도 모호함이 없다. GetPath는 항상 전진(steps ≥ 1)만 다룬다.
     /// </summary>
     public static class YutMoveResolver
     {
-        /// <summary>시작 노드부터 결과만큼 이동한 노드 id 경로(시작점 포함, MoveYutPiece에 그대로 전달 가능).</summary>
+        /// <summary>시작 노드부터 결과만큼 전진한 노드 id 경로(시작점 포함). steps는 1 이상이어야 한다
+        /// (빽도는 PeekBackwardDestination을 대신 쓴다).</summary>
         public static int[] GetPath(int fromNode, YutThrowResult result, bool takeShortcut = true)
         {
             int steps = (int)result;
-
-            if (steps < 0)
-                return new[] { fromNode, PreviousNode(fromNode) };
 
             var path = new List<int> { fromNode };
             int current = fromNode;
@@ -76,6 +74,19 @@ namespace Yoegoe.Minigames.Yut
         public static bool IsForkNode(int nodeId) =>
             nodeId == YutBoardLayout.Mo || nodeId == YutBoardLayout.DwitMo || nodeId == YutBoardLayout.Bang;
 
+        /// <summary>
+        /// 빽도(뒤로 1칸)로 갈 곳을 미리 본다(history를 건드리지 않음) — 후보 미리보기용.
+        /// history에 지나온 길이 있으면 그 마지막 칸으로, 없으면(이번 판 첫 걸음 등) 바깥 둘레
+        /// 기준 한 칸 전으로 계산한다.
+        /// </summary>
+        public static int PeekBackwardDestination(int fromNode, IReadOnlyList<int> history)
+        {
+            if (history.Count > 0) return history[history.Count - 1];
+            if (fromNode == 1) return YutBoardLayout.Start;
+            if (fromNode == YutBoardLayout.Start) return 19;
+            return fromNode - 1;
+        }
+
         static int NextNode(int current, int previous)
         {
             switch (current)
@@ -93,21 +104,5 @@ namespace Yoegoe.Minigames.Yut
                 default: return (current + 1) % 20;         // 모/뒷모를 지나가는 경우 포함, 바깥 둘레 순환
             }
         }
-
-        /// <summary>NextNode의 역방향(빽도용). 방(22)만 두 대각선이 합류해서 모호한데,
-        /// 모(5) 쪽 대각선(→21)을 기본값으로 고정한다.</summary>
-        static int PreviousNode(int current) => current switch
-        {
-            20 => YutBoardLayout.Mo,      // 5
-            21 => 20,
-            YutBoardLayout.Bang => 21,    // 22 → 21 (모 쪽 대각선 기본값)
-            23 => YutBoardLayout.Bang,    // 22
-            24 => 23,
-            25 => YutBoardLayout.DwitMo,  // 10
-            26 => 25,
-            27 => YutBoardLayout.Bang,    // 22
-            28 => 27,
-            _ => (current + 19) % 20,     // 바깥 둘레(0~19, 참·모·뒷모·찌모 포함) — 한 칸 전으로
-        };
     }
 }

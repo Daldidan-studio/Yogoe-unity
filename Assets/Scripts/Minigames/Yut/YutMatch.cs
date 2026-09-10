@@ -11,6 +11,10 @@ namespace Yoegoe.Minigames.Yut
     /// 직접 나가기 전까진 매치가 안 끝난다.
     /// 화면(YutMiniGame)이나 재화(GameEconomy)는 모르고, 결과만 이벤트로 알린다.
     /// 소유는 UI 쪽(YutScreen)이 한다 — CharacterAgent가 CharacterRequestState를 들고 있는 것과 같은 패턴.
+    ///
+    /// 완주 규칙: 참(0)에 "멈추는" 것만으로는 완주가 아니다 — 참을 실제로 지나가야(또는 이미 참에
+    /// 있는 말이 다음 던지기를 할 때) 완주로 친다. 그래서 참에 정확히 도착한 말은 그 자리에
+    /// 대기하다가, 다음 차례에 뭘 던지든 즉시 완주한다(빽도만 예외 — 빽도는 항상 뒤로 간다).
     /// </summary>
     public class YutMatch
     {
@@ -62,11 +66,8 @@ namespace Yoegoe.Minigames.Yut
             opponentPiece = new YutPiece("imugi", "이무기", isPlayer: false);
         }
 
-        /// <summary>
-        /// 대기 말이 빽도로 들어올 때 서는 자리 — 참에서 2칸 뒤(18번). 다음 던지기에서 도(1)로는
-        /// 참(19번)까지만 가서 안 끝나고, 개(2) 이상이어야 참을 지나면서 완주한다.
-        /// </summary>
-        const int BaekdoEntryNode = 18;
+        /// <summary>대기 말이 빽도로 들어올 때 서는 자리 — 참 바로 뒤(19번).</summary>
+        const int BaekdoEntryNode = 19;
 
         public YutThrowOutcome ThrowForPlayer() => YutThrowRoller.Roll();
 
@@ -74,12 +75,13 @@ namespace Yoegoe.Minigames.Yut
         /// 던진 결과로 지금 움직일 수 있는 내 말(또는 스택 대표) 후보 목록. 말이 모/뒷모/방 갈림길에
         /// 정확히 멈춰 있으면 지름길로 가는 후보와 바깥길로 가는 후보를 둘 다 내놓는다 — 어느 쪽으로
         /// 갈지는 유저가 고른다. 빽도가 나오면 대기 말 중 하나를 참 뒤(BaekdoEntryNode)로 보내는
-        /// 것도 후보로 내놓는다(전통 변형 규칙 — 대기 말이 빽도로 들어오는 것).
+        /// 것도 후보로 내놓는다(대기 말이 빽도로 들어오는 변형 규칙).
         /// </summary>
         public IReadOnlyList<YutMoveCandidate> GetPlayerCandidates(YutThrowResult result)
         {
             var list = new List<YutMoveCandidate>();
             var seenBoardNodes = new HashSet<int>();
+            bool isBaekdo = result == YutThrowResult.Baekdo;
 
             foreach (var p in playerPieces)
             {
@@ -87,29 +89,37 @@ namespace Yoegoe.Minigames.Yut
 
                 if (!p.OnBoard)
                 {
-                    if (result == YutThrowResult.Baekdo)
+                    if (isBaekdo)
                     {
                         list.Add(new YutMoveCandidate(p.Id, BaekdoEntryNode, false));
                         continue;
                     }
                     var path = YutMoveResolver.GetPath(YutBoardLayout.Start, result);
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(path), false));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, path), false));
                     continue;
                 }
 
                 if (!seenBoardNodes.Add(p.NodeId)) continue; // 같은 칸(스택)은 대표 한 명만 후보로
 
-                if (result != YutThrowResult.Baekdo && YutMoveResolver.IsForkNode(p.NodeId))
+                if (isBaekdo)
+                {
+                    int back = YutMoveResolver.PeekBackwardDestination(p.NodeId, p.History);
+                    list.Add(new YutMoveCandidate(p.Id, back, false));
+                    continue;
+                }
+
+                if (YutMoveResolver.IsForkNode(p.NodeId))
                 {
                     var shortcutPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: true);
                     var outerPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: false);
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(shortcutPath), true));
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(outerPath), false));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(true, shortcutPath), true));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(true, outerPath), false));
                     continue;
                 }
 
                 var boardPath = YutMoveResolver.GetPath(p.NodeId, result);
-                list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(boardPath), false));
+                bool atStart = p.NodeId == YutBoardLayout.Start;
+                list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(atStart, boardPath), false));
             }
 
             return list;
@@ -134,29 +144,52 @@ namespace Yoegoe.Minigames.Yut
                 ? playerPieces.Where(p => !p.Finished && p.NodeId == fromNode).ToList()
                 : new List<YutPiece> { piece };
             var movedIds = group.Select(p => p.Id).ToList();
+            bool isBaekdo = outcome.Result == YutThrowResult.Baekdo;
 
-            // 대기 말이 빽도로 들어오는 경우 — 정상 경로 계산 없이 참 뒤(BaekdoEntryNode)에 바로 선다.
-            if (!wasOnBoard && outcome.Result == YutThrowResult.Baekdo)
+            // 빽도 — 완주 판정 없이 항상 뒤로 간다(대기 말이면 참 뒤에 새로 서는 것도 포함).
+            if (isBaekdo)
             {
-                foreach (var p in group) p.NodeId = BaekdoEntryNode;
+                int dest;
+                List<int> newHistory;
+                if (!wasOnBoard)
+                {
+                    dest = BaekdoEntryNode;
+                    newHistory = new List<int> { BaekdoEntryNode };
+                }
+                else
+                {
+                    newHistory = new List<int>(piece.History);
+                    dest = YutMoveResolver.PeekBackwardDestination(fromNode, newHistory);
+                    if (newHistory.Count > 0) newHistory.RemoveAt(newHistory.Count - 1);
+                }
 
-                bool enteredOnCapture = opponentPiece.OnBoard && opponentPiece.NodeId == BaekdoEntryNode;
-                if (enteredOnCapture)
+                foreach (var p in group)
+                {
+                    p.NodeId = dest;
+                    p.History.Clear();
+                    p.History.AddRange(newHistory);
+                }
+
+                bool capturedByEntry = opponentPiece.OnBoard && opponentPiece.NodeId == dest;
+                if (capturedByEntry)
                 {
                     opponentPiece.NodeId = -1;
+                    opponentPiece.History.Clear();
                     OnOpponentCaptured?.Invoke();
                 }
 
                 OnPlayerPiecesMoved?.Invoke(movedIds);
                 OnPiecesChanged?.Invoke();
-                return outcome.GrantsBonusThrow || enteredOnCapture;
+                return outcome.GrantsBonusThrow || capturedByEntry;
             }
 
+            // 이미 참에 서 있던 말은 뭘 던지든 이번 던지기로 바로 완주(참을 "지나는" 셈).
+            bool alreadyAtStart = wasOnBoard && fromNode == YutBoardLayout.Start;
             var path = YutMoveResolver.GetPath(wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut);
 
-            if (ResolvesToFinish(path))
+            if (ResolvesToFinish(alreadyAtStart, path))
             {
-                foreach (var p in group) { p.Finished = true; p.NodeId = -1; }
+                foreach (var p in group) { p.Finished = true; p.NodeId = -1; p.History.Clear(); }
                 OnPlayerPiecesMoved?.Invoke(movedIds);
                 OnPiecesChanged?.Invoke();
 
@@ -171,13 +204,21 @@ namespace Yoegoe.Minigames.Yut
                 return outcome.GrantsBonusThrow;
             }
 
-            int dest = path[path.Length - 1];
-            foreach (var p in group) p.NodeId = dest;
+            int dest2 = path[path.Length - 1];
+            var visited = new List<int>(piece.History);
+            visited.AddRange(path.Take(path.Length - 1));
+            foreach (var p in group)
+            {
+                p.NodeId = dest2;
+                p.History.Clear();
+                p.History.AddRange(visited);
+            }
 
-            bool captured = opponentPiece.OnBoard && opponentPiece.NodeId == dest;
+            bool captured = opponentPiece.OnBoard && opponentPiece.NodeId == dest2;
             if (captured)
             {
                 opponentPiece.NodeId = -1;
+                opponentPiece.History.Clear();
                 OnOpponentCaptured?.Invoke();
             }
 
@@ -198,18 +239,34 @@ namespace Yoegoe.Minigames.Yut
         public bool ApplyOpponentMove(YutThrowOutcome outcome)
         {
             if (IsEnded) return false;
+            bool isBaekdo = outcome.Result == YutThrowResult.Baekdo;
 
-            if (outcome.Result == YutThrowResult.Baekdo && !opponentPiece.OnBoard)
+            if (isBaekdo && !opponentPiece.OnBoard)
                 return false; // 대기 중에 빽도 — 움직일 게 없어 턴 소모
 
-            int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
-            var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
-
-            int dest = path[path.Length - 1];
+            int dest;
+            if (isBaekdo)
+            {
+                var history = new List<int>(opponentPiece.History);
+                dest = YutMoveResolver.PeekBackwardDestination(opponentPiece.NodeId, history);
+                if (history.Count > 0) history.RemoveAt(history.Count - 1);
+                opponentPiece.History.Clear();
+                opponentPiece.History.AddRange(history);
+            }
+            else
+            {
+                int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
+                var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
+                dest = path[path.Length - 1];
+                var visited = new List<int>(opponentPiece.History);
+                visited.AddRange(path.Take(path.Length - 1));
+                opponentPiece.History.Clear();
+                opponentPiece.History.AddRange(visited);
+            }
             opponentPiece.NodeId = dest;
 
             var captured = playerPieces.Where(p => !p.Finished && p.NodeId == dest).ToList();
-            foreach (var p in captured) p.NodeId = -1;
+            foreach (var p in captured) { p.NodeId = -1; p.History.Clear(); }
             if (captured.Count > 0) OnPlayerPiecesCaptured?.Invoke(captured);
 
             OnPiecesChanged?.Invoke();
@@ -227,15 +284,20 @@ namespace Yoegoe.Minigames.Yut
             OnMatchEnded?.Invoke(true);
         }
 
-        /// <summary>path[1..] 안에 출발점(0)이 다시 나오면 이번 이동으로 완주.</summary>
-        static bool ResolvesToFinish(int[] path)
+        /// <summary>
+        /// 완주 판정: 이미 참에 서 있던 말이 던졌다면(alreadyAtStart) 무조건 완주. 아니면 이번 이동
+        /// 경로가 참을 "지나가는"(도착 칸 제외한 중간에 참이 나오는) 경우만 완주 — 참에 딱 멈추는
+        /// 건 완주가 아니다.
+        /// </summary>
+        static bool ResolvesToFinish(bool alreadyAtStart, int[] path)
         {
-            for (int i = 1; i < path.Length; i++)
+            if (alreadyAtStart) return true;
+            for (int i = 1; i < path.Length - 1; i++)
                 if (path[i] == YutBoardLayout.Start) return true;
             return false;
         }
 
-        static int ResolveDisplayDestination(int[] path) =>
-            ResolvesToFinish(path) ? YutBoardLayout.Start : path[path.Length - 1];
+        static int ResolveDisplayDestination(bool alreadyAtStart, int[] path) =>
+            ResolvesToFinish(alreadyAtStart, path) ? YutBoardLayout.Start : path[path.Length - 1];
     }
 }
