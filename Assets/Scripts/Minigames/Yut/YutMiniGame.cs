@@ -31,7 +31,7 @@ namespace Yoegoe.Minigames.Yut
         public event Action<bool> OnRulesPanelToggled;
         /// <summary>족보 안내를 유저가 닫기 버튼으로 직접 닫았을 때.</summary>
         public event Action OnRulesClosed;
-        /// <summary>FlashCandidates로 띄운 선택 다이얼로그에서 후보 하나를 유저가 탭했을 때 — 그 요괴 id.</summary>
+        /// <summary>FlashCandidates로 보드 위에 띄운 후보 중 하나를 유저가 탭했을 때 — 그 요괴 id.</summary>
         public event Action<string> OnCandidateTapped;
 
         Image[] _heartIcons;
@@ -45,8 +45,7 @@ namespace Yoegoe.Minigames.Yut
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         GameObject _rulesOverlay;
-        GameObject _candidateDialog;
-        Transform _candidateDialogList;
+        readonly List<GameObject> _candidateMarkers = new();
         GameObject _logBar;
         Image _logBarLeftPortrait;
         Image _logBarRightPortrait;
@@ -381,100 +380,123 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        /// <summary>
-        /// 던진 결과로 움직일 수 있는 말 후보를 모달 다이얼로그로 띄워서 유저가 직접 고르게 한다.
-        /// 예전엔 보드 칸 위에 작은 마커로 표시했는데(같은 칸으로 가는 후보가 여럿이면 칸 하나에
-        /// 몰아넣고 자동으로 라벨만 순환) 탭 대상이 뭔지 불명확해서 "누굴 골랐는지도 모르게 여러
-        /// 마리가 같이 움직인다"는 혼란이 있었다 — 다이얼로그에 이름 있는 버튼으로 명확히 고르게 함.
-        /// </summary>
+        // 한 칸에 후보가 여럿(대기 말 여럿이 같은 결과로 동시 입장 가능 등) 겹칠 때, 그 칸을
+        // 중심으로 위/아래/왼쪽/오른쪽에 하나씩 붙여서 보여준다 — 팀이 최대 4마리라 방향 4개면 충분.
+        static readonly Vector2[] CrossDirs = { new(0, 1), new(0, -1), new(-1, 0), new(1, 0) };
+
+        /// <summary>던진 결과로 움직일 수 있는 말 후보를 보드 위에 직접 보여준다. 후보가 한 마리면
+        /// 그 칸 위에 바로, 여럿이 같은 칸으로 겹치면 그 칸 둘레(상하좌우)에 하나씩 붙여서 —
+        /// 다이얼로그 없이 보드만 보고 원하는 말을 탭해서 고르게 한다.</summary>
         public void FlashCandidates(IReadOnlyList<YokaiMoveCandidate> candidates)
         {
             ClearCandidates();
             EnsureBoard();
-            if (_candidateDialogList == null || candidates == null || candidates.Count == 0) return;
+            if (_pads == null || _pads.Length == 0 || candidates == null || candidates.Count == 0) return;
 
-            int count = candidates.Count;
-            for (int i = 0; i < count; i++)
+            var byNode = new Dictionary<int, List<YokaiMoveCandidate>>();
+            foreach (var c in candidates)
             {
-                var candidate = candidates[i];
-                float yTop = 1f - (float)i / count;
-                float yBottom = 1f - (float)(i + 1) / count;
-
-                var rowGo = new GameObject($"Row_{candidate.Id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                rowGo.transform.SetParent(_candidateDialogList, false);
-                var rowRt = rowGo.GetComponent<RectTransform>();
-                rowRt.anchorMin = new Vector2(0f, yBottom);
-                rowRt.anchorMax = new Vector2(1f, yTop);
-                rowRt.offsetMin = new Vector2(0, 5);
-                rowRt.offsetMax = new Vector2(0, -5);
-                var rowImg = rowGo.GetComponent<Image>();
-                rowImg.color = new Color(0.25f, 0.22f, 0.18f, 0.95f);
-
-                // 클로저가 반복문 변수를 그대로 캡처하지 않도록 지역 복사본을 만든다.
-                string tappedId = candidate.Id;
-                var btn = rowGo.AddComponent<Button>();
-                btn.targetGraphic = rowImg;
-                btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId));
-
-                var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                iconGo.transform.SetParent(rowGo.transform, false);
-                var iconRt = iconGo.GetComponent<RectTransform>();
-                iconRt.anchorMin = new Vector2(0.03f, 0.1f);
-                iconRt.anchorMax = new Vector2(0.22f, 0.9f);
-                iconRt.offsetMin = Vector2.zero;
-                iconRt.offsetMax = Vector2.zero;
-                var iconImg = iconGo.GetComponent<Image>();
-                iconImg.raycastTarget = false;
-                var pieceSprite = PieceSpriteFor(candidate.Id);
-                if (pieceSprite != null)
+                int node = Mathf.Clamp(c.DestinationNode, 0, _pads.Length - 1);
+                if (!byNode.TryGetValue(node, out var list))
                 {
-                    iconImg.sprite = pieceSprite;
-                    iconImg.color = Color.white;
-                    iconImg.preserveAspect = true;
+                    list = new List<YokaiMoveCandidate>();
+                    byNode[node] = list;
                 }
-                else
-                {
-                    iconImg.color = ColorForYokai(candidate.Id);
-                }
-
-                var label = CreateText(rowGo.transform, "Label", candidate.DisplayName, 26, TextAnchor.MiddleLeft);
-                label.rectTransform.anchorMin = new Vector2(0.28f, 0f);
-                label.rectTransform.anchorMax = new Vector2(0.95f, 1f);
-                label.rectTransform.offsetMin = Vector2.zero;
-                label.rectTransform.offsetMax = Vector2.zero;
-                label.raycastTarget = false;
+                list.Add(c);
             }
 
-            _candidateDialog.SetActive(true);
+            foreach (var kv in byNode)
+            {
+                if (kv.Value.Count == 1)
+                    _candidateMarkers.Add(BuildCandidateOnNode(kv.Key, kv.Value[0]));
+                else
+                    _candidateMarkers.AddRange(BuildCandidateCross(kv.Key, kv.Value));
+            }
         }
 
-        /// <summary>FlashCandidates로 띄운 선택 다이얼로그를 닫고 후보 버튼을 전부 지운다.</summary>
+        /// <summary>FlashCandidates로 띄운 후보 마커를 전부 지운다.</summary>
         public void ClearCandidates()
         {
-            if (_candidateDialog != null) _candidateDialog.SetActive(false);
-            if (_candidateDialogList == null) return;
-            for (int i = _candidateDialogList.childCount - 1; i >= 0; i--)
-                Destroy(_candidateDialogList.GetChild(i).gameObject);
+            foreach (var go in _candidateMarkers)
+                if (go != null) Destroy(go);
+            _candidateMarkers.Clear();
         }
 
-        void EnsureCandidateDialog()
+        GameObject BuildCandidateOnNode(int nodeId, YokaiMoveCandidate candidate)
         {
-            if (_candidateDialog != null) return;
+            var go = new GameObject($"Candidate_{nodeId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(_pads[nodeId].transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.1f, 0.1f);
+            rt.anchorMax = new Vector2(0.9f, 0.9f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+            ApplyCandidateVisual(img, candidate);
+            WireCandidateButton(go, img, candidate.Id);
+            StartCoroutine(PulseScale(rt));
+            return go;
+        }
 
-            _candidateDialog = new GameObject("CandidateDialog", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _candidateDialog.transform.SetParent(transform, false);
-            SetAnchor((RectTransform)_candidateDialog.transform, 0.16f, 0.24f, 0.84f, 0.7f, 0, 0, 0, 0);
-            _candidateDialog.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.95f);
+        List<GameObject> BuildCandidateCross(int nodeId, List<YokaiMoveCandidate> group)
+        {
+            var result = new List<GameObject>();
+            var pad = _pads[nodeId].rectTransform;
+            Vector2 size = pad.anchorMax - pad.anchorMin;
 
-            var title = CreateText(_candidateDialog.transform, "Title", "이동할 말을 골라주세요", 24, TextAnchor.MiddleCenter);
-            SetAnchor(title.rectTransform, 0.05f, 0.86f, 0.95f, 0.98f, 0, 0, 0, 0);
+            for (int i = 0; i < group.Count && i < CrossDirs.Length; i++)
+            {
+                var candidate = group[i];
+                var dir = CrossDirs[i];
+                var go = new GameObject($"Candidate_{nodeId}_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(_boardRoot, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = pad.anchorMin + Vector2.Scale(dir, size);
+                rt.anchorMax = pad.anchorMax + Vector2.Scale(dir, size);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                var img = go.GetComponent<Image>();
+                ApplyCandidateVisual(img, candidate);
+                WireCandidateButton(go, img, candidate.Id);
+                StartCoroutine(PulseScale(rt));
+                result.Add(go);
+            }
+            return result;
+        }
 
-            var listGo = new GameObject("List", typeof(RectTransform));
-            listGo.transform.SetParent(_candidateDialog.transform, false);
-            SetAnchor(listGo.GetComponent<RectTransform>(), 0.06f, 0.04f, 0.94f, 0.82f, 0, 0, 0, 0);
-            _candidateDialogList = listGo.transform;
+        void ApplyCandidateVisual(Image img, YokaiMoveCandidate candidate)
+        {
+            var sprite = PieceSpriteFor(candidate.Id);
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+                img.preserveAspect = true;
+            }
+            else
+            {
+                img.color = ColorForYokai(candidate.Id);
+                var label = CreateText(img.transform, "Label", InitialOf(candidate.DisplayName), 18, TextAnchor.MiddleCenter);
+                Stretch(label.rectTransform);
+                label.raycastTarget = false;
+            }
+        }
 
-            _candidateDialog.SetActive(false);
+        void WireCandidateButton(GameObject go, Image img, string tappedId)
+        {
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId));
+        }
+
+        IEnumerator PulseScale(RectTransform rt)
+        {
+            while (rt != null)
+            {
+                float s = 1f + 0.1f * Mathf.Sin(Time.unscaledTime * 4.5f);
+                rt.localScale = Vector3.one * s;
+                yield return null;
+            }
         }
 
         /// <summary>
@@ -610,7 +632,6 @@ namespace Yoegoe.Minigames.Yut
 
             EnsureQuadrants();
             EnsureRulesOverlay();
-            EnsureCandidateDialog();
             EnsureLogBar();
         }
 
