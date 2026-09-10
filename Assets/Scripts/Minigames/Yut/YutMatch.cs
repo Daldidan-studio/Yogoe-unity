@@ -62,12 +62,19 @@ namespace Yoegoe.Minigames.Yut
             opponentPiece = new YutPiece("imugi", "이무기", isPlayer: false);
         }
 
+        /// <summary>
+        /// 대기 말이 빽도로 들어올 때 서는 자리 — 참에서 2칸 뒤(18번). 다음 던지기에서 도(1)로는
+        /// 참(19번)까지만 가서 안 끝나고, 개(2) 이상이어야 참을 지나면서 완주한다.
+        /// </summary>
+        const int BaekdoEntryNode = 18;
+
         public YutThrowOutcome ThrowForPlayer() => YutThrowRoller.Roll();
 
         /// <summary>
         /// 던진 결과로 지금 움직일 수 있는 내 말(또는 스택 대표) 후보 목록. 말이 모/뒷모/방 갈림길에
         /// 정확히 멈춰 있으면 지름길로 가는 후보와 바깥길로 가는 후보를 둘 다 내놓는다 — 어느 쪽으로
-        /// 갈지는 유저가 고른다.
+        /// 갈지는 유저가 고른다. 빽도가 나오면 대기 말 중 하나를 참 뒤(BaekdoEntryNode)로 보내는
+        /// 것도 후보로 내놓는다(전통 변형 규칙 — 대기 말이 빽도로 들어오는 것).
         /// </summary>
         public IReadOnlyList<YutMoveCandidate> GetPlayerCandidates(YutThrowResult result)
         {
@@ -80,7 +87,11 @@ namespace Yoegoe.Minigames.Yut
 
                 if (!p.OnBoard)
                 {
-                    if (result == YutThrowResult.Baekdo) continue; // 대기 말은 빽도로 못 움직임
+                    if (result == YutThrowResult.Baekdo)
+                    {
+                        list.Add(new YutMoveCandidate(p.Id, BaekdoEntryNode, false));
+                        continue;
+                    }
                     var path = YutMoveResolver.GetPath(YutBoardLayout.Start, result);
                     list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(path), false));
                     continue;
@@ -122,9 +133,26 @@ namespace Yoegoe.Minigames.Yut
             var group = wasOnBoard
                 ? playerPieces.Where(p => !p.Finished && p.NodeId == fromNode).ToList()
                 : new List<YutPiece> { piece };
+            var movedIds = group.Select(p => p.Id).ToList();
+
+            // 대기 말이 빽도로 들어오는 경우 — 정상 경로 계산 없이 참 뒤(BaekdoEntryNode)에 바로 선다.
+            if (!wasOnBoard && outcome.Result == YutThrowResult.Baekdo)
+            {
+                foreach (var p in group) p.NodeId = BaekdoEntryNode;
+
+                bool enteredOnCapture = opponentPiece.OnBoard && opponentPiece.NodeId == BaekdoEntryNode;
+                if (enteredOnCapture)
+                {
+                    opponentPiece.NodeId = -1;
+                    OnOpponentCaptured?.Invoke();
+                }
+
+                OnPlayerPiecesMoved?.Invoke(movedIds);
+                OnPiecesChanged?.Invoke();
+                return outcome.GrantsBonusThrow || enteredOnCapture;
+            }
 
             var path = YutMoveResolver.GetPath(wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut);
-            var movedIds = group.Select(p => p.Id).ToList();
 
             if (ResolvesToFinish(path))
             {

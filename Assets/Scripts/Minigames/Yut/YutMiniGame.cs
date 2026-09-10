@@ -40,7 +40,6 @@ namespace Yoegoe.Minigames.Yut
         YutThrowSwipeZone _throwSwipe;
         Button _leaveButton;
         RectTransform _boardRoot;
-        RectTransform _waitingArea;
         RectTransform _piece;
         RectTransform _opponentPiece;
         Image[] _pads;
@@ -48,10 +47,12 @@ namespace Yoegoe.Minigames.Yut
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         GameObject _rulesOverlay;
         readonly List<GameObject> _candidateMarkers = new();
+        readonly List<(RectTransform rect, string pieceId, bool useShortcut)> _candidateHits = new();
         GameObject _logBar;
         Image _logBarLeftPortrait;
         Image _logBarRightPortrait;
-        Text _logBarText;
+        RectTransform _logContent;
+        ScrollRect _logScroll;
 
         // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
@@ -160,6 +161,7 @@ namespace Yoegoe.Minigames.Yut
             gameObject.SetActive(false);
             ClearParkedSticks();
             ClearCandidates();
+            ClearLog();
         }
 
         public void SetThrowVisible(bool on)
@@ -183,20 +185,66 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>
-        /// 보드 위쪽 게임로그 바에 대사 한 줄을 띄운다. speakerId가 "Imugi"면 왼쪽(이무기) 초상을,
-        /// 그 외(플레이어 쪽 요괴 id)면 오른쪽(팀 대표 옥토끼) 초상을 살짝 키워 강조한다 —
-        /// 실제 말한 요괴가 옥토끼가 아니어도(예: 삼족오가 잡힘) 초상은 고정, 대사 텍스트만 그 이름을 쓴다.
+        /// 보드 위쪽 게임로그에 대사 한 줄을 채팅처럼 쌓아 올린다(말풍선). speakerId가 "Imugi"면
+        /// 왼쪽 정렬(이무기 초상도 살짝 키워 강조), 그 외(플레이어 쪽 요괴 id)면 오른쪽 정렬 —
+        /// 실제 말한 요괴가 옥토끼가 아니어도(예: 삼족오가 잡힘) 헤더 초상은 고정, 말풍선 텍스트만
+        /// 그 이름을 쓴다. 새 줄이 쌓이면 자동으로 맨 아래로 스크롤된다.
         /// </summary>
         public void ShowLogLine(string speakerId, string text)
         {
             EnsureBoard();
-            if (_logBarText != null) _logBarText.text = text ?? "";
+            if (_logContent == null || string.IsNullOrEmpty(text)) return;
 
             bool leftSpeaking = speakerId == "Imugi";
             if (_logBarLeftPortrait != null)
                 _logBarLeftPortrait.rectTransform.localScale = Vector3.one * (leftSpeaking ? 1.12f : 1f);
             if (_logBarRightPortrait != null)
                 _logBarRightPortrait.rectTransform.localScale = Vector3.one * (!leftSpeaking ? 1.12f : 1f);
+
+            var rowGo = new GameObject("Row", typeof(RectTransform));
+            rowGo.transform.SetParent(_logContent, false);
+            var rowLe = rowGo.AddComponent<LayoutElement>();
+            int extraLines = Mathf.Max(0, Mathf.CeilToInt(text.Length / 16f) - 1);
+            rowLe.preferredHeight = 34f + extraLines * 24f;
+            rowLe.flexibleWidth = 1f;
+
+            var bubbleGo = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            bubbleGo.transform.SetParent(rowGo.transform, false);
+            var bubbleRt = bubbleGo.GetComponent<RectTransform>();
+            bubbleRt.anchorMin = new Vector2(leftSpeaking ? 0f : 0.26f, 0f);
+            bubbleRt.anchorMax = new Vector2(leftSpeaking ? 0.74f : 1f, 1f);
+            bubbleRt.offsetMin = Vector2.zero;
+            bubbleRt.offsetMax = Vector2.zero;
+            bubbleGo.GetComponent<Image>().color = leftSpeaking
+                ? new Color(0.22f, 0.2f, 0.3f, 0.95f)
+                : new Color(0.2f, 0.32f, 0.24f, 0.95f);
+
+            var label = CreateText(bubbleGo.transform, "Text", text, 18,
+                leftSpeaking ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
+            var labelRt = label.rectTransform;
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = new Vector2(12f, 2f);
+            labelRt.offsetMax = new Vector2(-12f, -2f);
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            label.raycastTarget = false;
+
+            StartCoroutine(ScrollLogToBottomNextFrame());
+        }
+
+        /// <summary>매치 시작/재입장 때 이전 대화가 안 남게 게임로그를 비운다.</summary>
+        public void ClearLog()
+        {
+            if (_logContent == null) return;
+            for (int i = _logContent.childCount - 1; i >= 0; i--)
+                Destroy(_logContent.GetChild(i).gameObject);
+        }
+
+        IEnumerator ScrollLogToBottomNextFrame()
+        {
+            yield return null; // 레이아웃이 새 줄 크기만큼 다시 계산된 다음에 스크롤해야 정확하다
+            if (_logScroll != null) _logScroll.verticalNormalizedPosition = 0f;
         }
 
         /// <summary>상대(이무기 등) 말 표시를 켜고 끈다. 켜기 전까지는 판 위에 안 보인다.</summary>
@@ -264,6 +312,7 @@ namespace Yoegoe.Minigames.Yut
                 _yokaiPieceLabels.Remove(id);
             }
 
+            var waiting = new List<RectTransform>();
             foreach (var info in pieces)
             {
                 if (!_yokaiPieces.TryGetValue(info.Id, out var piece) || piece == null)
@@ -272,8 +321,13 @@ namespace Yoegoe.Minigames.Yut
                     _yokaiPieces[info.Id] = piece;
                     _yokaiPieceLabels[info.Id] = label;
                 }
-                PlaceOnNode(piece, info.NodeId);
+
+                if (info.NodeId < 0)
+                    waiting.Add(piece); // 남(South) 구역에 한꺼번에 나란히 배치
+                else
+                    PlaceOnNode(piece, info.NodeId);
             }
+            LayoutWaitingPieces(waiting);
         }
 
         RectTransform BuildYokaiPieceVisual(string id, string displayName, out Text label)
@@ -297,20 +351,36 @@ namespace Yoegoe.Minigames.Yut
                 label.raycastTarget = false;
             }
 
+            // 누르고 후보 칸까지 드래그해서 이동시킬 수 있게 — 후보가 아닐 때 드롭하면 그냥 무시된다.
+            var drag = go.AddComponent<YutPieceDragHandle>();
+            drag.Owner = this;
+            drag.PieceId = id;
+
             return go.GetComponent<RectTransform>();
+        }
+
+        /// <summary>남(South) 구역 — 대기말을 보유한 수만큼 가로로 나란히 배치.</summary>
+        void LayoutWaitingPieces(List<RectTransform> pieces)
+        {
+            var south = _quadrants != null ? _quadrants[(int)YutBoardQuadrant.South] : null;
+            if (south == null) return;
+
+            int count = pieces.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var piece = pieces[i];
+                piece.SetParent(south, false);
+                float slotW = 1f / count;
+                float pad = slotW * 0.1f;
+                piece.anchorMin = new Vector2(i * slotW + pad, 0.05f);
+                piece.anchorMax = new Vector2((i + 1) * slotW - pad, 0.95f);
+                piece.offsetMin = Vector2.zero;
+                piece.offsetMax = Vector2.zero;
+            }
         }
 
         void PlaceOnNode(RectTransform piece, int nodeId)
         {
-            if (nodeId < 0 && _waitingArea != null)
-            {
-                piece.SetParent(_waitingArea, false);
-                piece.anchorMin = Vector2.zero;
-                piece.anchorMax = Vector2.one;
-                piece.offsetMin = Vector2.zero;
-                piece.offsetMax = Vector2.zero;
-                return;
-            }
 
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             piece.SetParent(_pads[nodeId].transform, false);
@@ -434,6 +504,25 @@ namespace Yoegoe.Minigames.Yut
             foreach (var go in _candidateMarkers)
                 if (go != null) Destroy(go);
             _candidateMarkers.Clear();
+            _candidateHits.Clear();
+        }
+
+        /// <summary>
+        /// 말 아이콘을 드래그해서 놓았을 때(YutPieceDragHandle) 호출된다. 지금 보드 위에 떠 있는
+        /// 후보 마커 중 이 말 것이면서 놓은 지점과 겹치는 게 있으면 그 후보를 고른 것으로 처리한다
+        /// (탭했을 때와 동일하게 OnCandidateTapped를 쏨). 겹치는 후보가 없으면 조용히 무시.
+        /// </summary>
+        public void ResolveDrop(string pieceId, Vector2 screenPos)
+        {
+            foreach (var hit in _candidateHits)
+            {
+                if (hit.pieceId != pieceId || hit.rect == null) continue;
+                if (RectTransformUtility.RectangleContainsScreenPoint(hit.rect, screenPos, null))
+                {
+                    OnCandidateTapped?.Invoke(hit.pieceId, hit.useShortcut);
+                    return;
+                }
+            }
         }
 
         GameObject BuildCandidateOnNode(int nodeId, YokaiMoveCandidate candidate)
@@ -501,6 +590,7 @@ namespace Yoegoe.Minigames.Yut
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId, useShortcut));
+            _candidateHits.Add((go.GetComponent<RectTransform>(), tappedId, useShortcut));
         }
 
         IEnumerator PulseScale(RectTransform rt)
@@ -613,13 +703,6 @@ namespace Yoegoe.Minigames.Yut
                 _pads[i] = padImg;
             }
 
-            // 대기 말(아직 안 나온 말) 자리 — 참(0번 칸)에 겹쳐 보이면 이미 판에 나온 것처럼
-            // 헷갈려서, 판 중앙의 빈 공간을 따로 마련해 거기 모아 둔다.
-            var waitingGo = new GameObject("WaitingArea", typeof(RectTransform));
-            waitingGo.transform.SetParent(_boardRoot, false);
-            SetAnchor((RectTransform)waitingGo.transform, 0.4f, 0.09f, 0.64f, 0.27f, 0, 0, 0, 0);
-            _waitingArea = (RectTransform)waitingGo.transform;
-
             var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             pieceGo.transform.SetParent(_pads[0].transform, false);
             _piece = pieceGo.GetComponent<RectTransform>();
@@ -657,8 +740,8 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>
-        /// 보드 위쪽 게임로그 바 — 이무기(왼쪽) · 옥토끼(팀 대표, 오른쪽) 초상 사이에 대사 한 줄.
-        /// 던질 때마다("이무기 : 도.") / 잡혔을 때("옥토끼 : 으악, 잡혀버렸어요!!...") 갱신된다.
+        /// 보드 위쪽 게임로그 — 위쪽은 이무기(왼쪽)·옥토끼(팀 대표, 오른쪽) 초상이 고정으로 있고,
+        /// 그 아래는 말풍선이 카톡처럼 위로 쌓이는 채팅창(스크롤). 말한 쪽 초상이 살짝 커진다.
         /// </summary>
         void EnsureLogBar()
         {
@@ -666,53 +749,88 @@ namespace Yoegoe.Minigames.Yut
 
             _logBar = new GameObject("LogBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _logBar.transform.SetParent(transform, false);
-            SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.72f, 0.94f, 0.9f, 0, 0, 0, 0);
+            SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.68f, 0.94f, 0.9f, 0, 0, 0, 0);
             _logBar.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.16f, 0.92f);
 
-            var leftGo = new GameObject("LeftPortrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            leftGo.transform.SetParent(_logBar.transform, false);
-            var leftRt = leftGo.GetComponent<RectTransform>();
-            leftRt.anchorMin = new Vector2(0.02f, 0.12f);
-            leftRt.anchorMax = new Vector2(0.22f, 0.95f);
-            leftRt.offsetMin = Vector2.zero;
-            leftRt.offsetMax = Vector2.zero;
-            _logBarLeftPortrait = leftGo.GetComponent<Image>();
-            _logBarLeftPortrait.raycastTarget = false;
-            var imugiSprite = PieceSpriteFor("Imugi");
-            if (imugiSprite != null)
-            {
-                _logBarLeftPortrait.sprite = imugiSprite;
-                _logBarLeftPortrait.color = Color.white;
-                _logBarLeftPortrait.preserveAspect = true;
-            }
-            else _logBarLeftPortrait.color = new Color(0.25f, 0.55f, 0.85f);
+            _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true);
+            _logBarRightPortrait = BuildLogHeaderPortrait(_logBar.transform, "Rabbit", "옥토끼", left: false);
 
-            var rightGo = new GameObject("RightPortrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            rightGo.transform.SetParent(_logBar.transform, false);
-            var rightRt = rightGo.GetComponent<RectTransform>();
-            rightRt.anchorMin = new Vector2(0.78f, 0.12f);
-            rightRt.anchorMax = new Vector2(0.98f, 0.95f);
-            rightRt.offsetMin = Vector2.zero;
-            rightRt.offsetMax = Vector2.zero;
-            _logBarRightPortrait = rightGo.GetComponent<Image>();
-            _logBarRightPortrait.raycastTarget = false;
-            var rabbitSprite = PieceSpriteFor("Rabbit");
-            if (rabbitSprite != null)
-            {
-                _logBarRightPortrait.sprite = rabbitSprite;
-                _logBarRightPortrait.color = Color.white;
-                _logBarRightPortrait.preserveAspect = true;
-            }
-            else _logBarRightPortrait.color = new Color(0.9f, 0.85f, 0.75f);
+            var scrollGo = new GameObject("ScrollArea", typeof(RectTransform));
+            scrollGo.transform.SetParent(_logBar.transform, false);
+            SetAnchor((RectTransform)scrollGo.transform, 0.02f, 0.02f, 0.98f, 0.72f, 0, 0, 0, 0);
+            _logScroll = scrollGo.AddComponent<ScrollRect>();
+            _logScroll.horizontal = false;
+            _logScroll.vertical = true;
+            _logScroll.movementType = ScrollRect.MovementType.Clamped;
+            _logScroll.scrollSensitivity = 12f;
 
-            _logBarText = CreateText(_logBar.transform, "Line", "", 20, TextAnchor.MiddleCenter);
-            var textRt = _logBarText.rectTransform;
-            textRt.anchorMin = new Vector2(0.24f, 0f);
-            textRt.anchorMax = new Vector2(0.76f, 1f);
-            textRt.offsetMin = Vector2.zero;
-            textRt.offsetMax = Vector2.zero;
-            _logBarText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _logBarText.raycastTarget = false;
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            Stretch((RectTransform)viewportGo.transform);
+            viewportGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.001f); // Mask 작동에만 필요, 안 보임
+            viewportGo.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            _logContent = contentGo.GetComponent<RectTransform>();
+            _logContent.anchorMin = new Vector2(0f, 1f);
+            _logContent.anchorMax = new Vector2(1f, 1f);
+            _logContent.pivot = new Vector2(0.5f, 1f);
+            _logContent.anchoredPosition = Vector2.zero;
+            var vlayout = contentGo.AddComponent<VerticalLayoutGroup>();
+            vlayout.childAlignment = TextAnchor.UpperCenter;
+            vlayout.spacing = 5f;
+            vlayout.padding = new RectOffset(2, 2, 2, 2);
+            vlayout.childControlWidth = true;
+            vlayout.childControlHeight = true;
+            vlayout.childForceExpandWidth = true;
+            vlayout.childForceExpandHeight = false;
+            var fitter = contentGo.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            _logScroll.viewport = (RectTransform)viewportGo.transform;
+            _logScroll.content = _logContent;
+        }
+
+        Image BuildLogHeaderPortrait(Transform parent, string spriteId, string displayLabel, bool left)
+        {
+            var go = new GameObject(left ? "LeftHeader" : "RightHeader", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(left ? 0.02f : 0.82f, 0.74f);
+            rt.anchorMax = new Vector2(left ? 0.18f : 0.98f, 0.98f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGo.transform.SetParent(go.transform, false);
+            var iconRt = iconGo.GetComponent<RectTransform>();
+            iconRt.anchorMin = new Vector2(0f, 0.28f);
+            iconRt.anchorMax = new Vector2(1f, 1f);
+            iconRt.offsetMin = Vector2.zero;
+            iconRt.offsetMax = Vector2.zero;
+            var img = iconGo.GetComponent<Image>();
+            img.raycastTarget = false;
+            var sprite = PieceSpriteFor(spriteId);
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+                img.preserveAspect = true;
+            }
+            else
+            {
+                img.color = spriteId == "Imugi" ? new Color(0.25f, 0.55f, 0.85f) : new Color(0.9f, 0.85f, 0.75f);
+            }
+
+            var nameText = CreateText(go.transform, "Name", displayLabel, 13, TextAnchor.MiddleCenter);
+            nameText.rectTransform.anchorMin = new Vector2(0f, 0f);
+            nameText.rectTransform.anchorMax = new Vector2(1f, 0.28f);
+            nameText.rectTransform.offsetMin = Vector2.zero;
+            nameText.rectTransform.offsetMax = Vector2.zero;
+            nameText.raycastTarget = false;
+
+            return img;
         }
 
         void EnsureRulesOverlay()
@@ -744,14 +862,14 @@ namespace Yoegoe.Minigames.Yut
             if (_quadrants != null) return;
 
             _quadrants = new RectTransform[4];
-            _quadrants[(int)YutBoardQuadrant.ThrownSticks] =
-                CreateQuadrantContainer("Quadrant_ThrownSticks", 0.42f, 0.49f, 0.63f, 0.575f);
-            _quadrants[(int)YutBoardQuadrant.SpecialAbility] =
-                CreateQuadrantContainer("Quadrant_SpecialAbility", 0.13f, 0.32f, 0.33f, 0.53f);
-            _quadrants[(int)YutBoardQuadrant.WaitingPieces] =
-                CreateQuadrantContainer("Quadrant_WaitingPieces", 0.67f, 0.32f, 0.87f, 0.53f);
-            _quadrants[(int)YutBoardQuadrant.FinishedAndLoot] =
-                CreateQuadrantContainer("Quadrant_FinishedAndLoot", 0.3f, 0.22f, 0.7f, 0.33f);
+            _quadrants[(int)YutBoardQuadrant.North] =
+                CreateQuadrantContainer("Quadrant_North", 0.42f, 0.49f, 0.63f, 0.575f);
+            _quadrants[(int)YutBoardQuadrant.West] =
+                CreateQuadrantContainer("Quadrant_West", 0.13f, 0.32f, 0.33f, 0.53f);
+            _quadrants[(int)YutBoardQuadrant.East] =
+                CreateQuadrantContainer("Quadrant_East", 0.67f, 0.32f, 0.87f, 0.53f);
+            _quadrants[(int)YutBoardQuadrant.South] =
+                CreateQuadrantContainer("Quadrant_South", 0.3f, 0.22f, 0.7f, 0.33f);
         }
 
         RectTransform CreateQuadrantContainer(string name, float xmin, float ymin, float xmax, float ymax)
@@ -828,15 +946,15 @@ namespace Yoegoe.Minigames.Yut
 
             yield return new WaitForSecondsRealtime(0.35f);
 
-            // 다음 던지기 전까지 방금 던진 윷을 보드 상단(ThrownSticks 구역)에 계속 보이게 둔다
+            // 다음 던지기 전까지 방금 던진 윷을 보드 북쪽(North 구역)에 계속 보이게 둔다
             yield return ParkSticks(sticks, ToLocal);
-            var thrownZone = GetQuadrant(YutBoardQuadrant.ThrownSticks);
+            var thrownZone = GetQuadrant(YutBoardQuadrant.North);
             foreach (var rt in sticks)
                 rt.SetParent(thrownZone, true);
             _parkedSticks = sticks;
         }
 
-        // ThrownSticks 구역(0.42~0.63, 0.49~0.575) 안쪽에만 딱 맞게, 보드 노드와 겹치지 않게 촘촘히 배치
+        // North 구역(0.42~0.63, 0.49~0.575) 안쪽에만 딱 맞게, 보드 노드와 겹치지 않게 촘촘히 배치
         static readonly Vector2[] ParkSpots =
         {
             new(0.455f, 0.5325f), new(0.505f, 0.5325f), new(0.545f, 0.5325f), new(0.595f, 0.5325f),
