@@ -139,6 +139,8 @@ namespace Yoegoe.Characters
         {
             Stats.State = ActionState.Staying;
             Stats.StateTimer = 0f;
+            // 머물기 중엔 기물 요구 ?를 숨긴다. 요구 기물이면 3초 체류만 내부 누적.
+            Requests?.NotifySatOnProp(currentProp);
         }
 
         private void TickStaying(float dt)
@@ -349,6 +351,7 @@ namespace Yoegoe.Characters
                 Stats.State = ActionState.Fainted;
                 Stats.StateTimer = 0f;
                 Requests.ClearAll(); // 기절 시 요구 삭제 [확정]
+                ShowFaintedEllipsis();
             }
             return slice;
         }

@@ -367,15 +367,28 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 더블탭이면 상세화면. 아니면 창이 끝날 때까지 기다렸다가 혼잣말
         /// (상세 진입 시 말풍선이 뜨지 않도록 단일탭을 즉시 처리하지 않음).
+        /// 기물 요구 ? : 단일탭 무반응, 더블탭은 상세 (Docs/07 5행).
         /// </summary>
         void HandleCharacterTap(CharacterAgent agent)
         {
             if (agent == null) return;
 
-            // 기물 요구가 우선(생각풍선도 기물 요구가 가림) — 탭해도 무반응
-            if (agent.Requests != null && agent.Requests.HasPropRequest)
+            // 더블탭은 기물 요구 중에도 상세
+            if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
             {
                 CancelPendingMonologueTap();
+                OpenCharacterDetail(agent);
+                return;
+            }
+
+            if (pendingMonologueTap != null && pendingMonologueTap != agent)
+                FlushPendingMonologueTap();
+
+            // 기물 요구 ? 단일탭: 혼잣말·상세 없음. 더블탭 창만 연다.
+            if (agent.Requests != null && agent.Requests.HasVisiblePropRequest)
+            {
+                pendingMonologueTap = agent;
+                pendingMonologueDeadline = Time.unscaledTime + doubleTapSeconds;
                 return;
             }
 
@@ -386,16 +399,6 @@ namespace Yoegoe.Characters
                 OpenCharacterDetail(agent);
                 return;
             }
-
-            if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
-            {
-                CancelPendingMonologueTap();
-                OpenCharacterDetail(agent);
-                return;
-            }
-
-            if (pendingMonologueTap != null && pendingMonologueTap != agent)
-                FlushPendingMonologueTap();
 
             pendingMonologueTap = agent;
             pendingMonologueDeadline = Time.unscaledTime + doubleTapSeconds;
@@ -413,7 +416,7 @@ namespace Yoegoe.Characters
             var agent = pendingMonologueTap;
             pendingMonologueTap = null;
             if (agent == null) return;
-            if (agent.Requests != null && agent.Requests.HasPropRequest)
+            if (agent.Requests != null && agent.Requests.HasVisiblePropRequest)
                 return;
             if (agent.HasOfferingRequest)
             {

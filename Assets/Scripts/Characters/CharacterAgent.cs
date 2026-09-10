@@ -174,7 +174,7 @@ namespace Yoegoe.Characters
 
             UpdateWalkAnimation(dt);
             UpdateSortingOrder();
-            if (Stats.State != ActionState.Fainted) UpdateMonologue(dt);
+            UpdateMonologue(dt);
         }
 
         /// <summary>
@@ -281,6 +281,11 @@ namespace Yoegoe.Characters
             }
 
             ApplyAnimationFrameImmediate();
+
+            if (Stats.State == ActionState.Fainted)
+                ShowFaintedEllipsis();
+            else if (showingFaintedEllipsis)
+                HideMonologue();
         }
 
         // ---------------- 외부 API (공양 시스템에서 호출) ----------------

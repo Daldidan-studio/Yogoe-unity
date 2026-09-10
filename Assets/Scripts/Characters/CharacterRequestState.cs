@@ -31,6 +31,16 @@ namespace Yoegoe.Characters
         public bool HasOfferingRequest => OfferingRequest != null;
         public bool HasPropRequest => PropRequest != null;
 
+        /// <summary>
+        /// 머리 위 ? / 탭 무시용. 머물기(기물 위)에서는 기물 요구를 띄우지 않는다.
+        /// 요구 기물에 앉혀 3초 완료는 <see cref="HasPropRequest"/>로 내부만 유지한다.
+        /// </summary>
+        public bool HasVisiblePropRequest =>
+            HasPropRequest
+            && owner != null
+            && owner.Stats != null
+            && owner.Stats.State != ActionState.Staying;
+
         SpriteRenderer offeringIcon;
         SpriteRenderer propIcon;
         TextMesh propLabel;
@@ -50,6 +60,7 @@ namespace Yoegoe.Characters
             }
 
             TickPropFulfill(dt);
+            SyncPropRequestVisibility();
             UpdateVisualPositions();
         }
 
@@ -114,11 +125,13 @@ namespace Yoegoe.Characters
             HideMonologueIfAny();
         }
 
-        /// <summary>머물기에서 놀기로 일어남 → 기물 요구(엔딩 제외 빈 기물).</summary>
+        /// <summary>머물기에서 놀기로 일어남 → 기물 요구(엔딩 제외 빈 기물). 머물기 중엔 띄우지 않음.</summary>
         public void TryStartPropRequest()
         {
             if (owner == null || owner.Stats.Stage != GrowthStage.Hon) return;
-            if (owner.Stats.State == ActionState.Slumped || owner.Stats.State == ActionState.Fainted) return;
+            if (owner.Stats.State == ActionState.Staying
+                || owner.Stats.State == ActionState.Slumped
+                || owner.Stats.State == ActionState.Fainted) return;
             if (HasPropRequest) return;
             if (PropManager.Instance == null) return;
 
@@ -164,9 +177,10 @@ namespace Yoegoe.Characters
             ClearPropRequest();
         }
 
-        /// <summary>요구 기물에 앉기 시작. 즉시 완료하지 않고 체류 시간 누적.</summary>
+        /// <summary>요구 기물에 앉기 시작. 즉시 완료하지 않고 체류 시간 누적. 머물기 중엔 ?를 숨긴다.</summary>
         public void NotifySatOnProp(PropSlot prop)
         {
+            SyncPropRequestVisibility();
             if (!HasPropRequest || prop == null || prop != PropRequest) return;
             propSitSeconds = 0f;
         }
@@ -284,7 +298,8 @@ namespace Yoegoe.Characters
             offeringIcon.color = Color.white;
             offeringIcon.transform.localScale = Vector3.one * 0.45f;
             // 기물 요구 생각풍선이 떠 있는 동안은 공양물 요구 생각풍선을 가린다(기물 요구 우선).
-            bool canShow = !HasPropRequest;
+            // 머물기 중엔 기물 요구를 숨기므로 공양 아이콘은 다시 보여도 된다.
+            bool canShow = !HasVisiblePropRequest;
             offeringIcon.gameObject.SetActive(offeringIcon.sprite != null && canShow);
             // 아이콘 없으면 작은 점
             if (offeringIcon.sprite == null)
@@ -308,9 +323,9 @@ namespace Yoegoe.Characters
             propIcon.sprite = sr != null ? sr.sprite : WhiteSprite();
             propIcon.color = new Color(1f, 1f, 1f, 0.92f);
             propIcon.transform.localScale = Vector3.one * 0.35f;
-            propIcon.gameObject.SetActive(true);
+            propIcon.gameObject.SetActive(HasVisiblePropRequest);
             // 기물 요구가 우선이니 공양물 요구 생각풍선은 잠시 숨긴다(요구 자체는 유지).
-            if (offeringIcon != null) offeringIcon.gameObject.SetActive(false);
+            if (offeringIcon != null) offeringIcon.gameObject.SetActive(!HasVisiblePropRequest && HasOfferingRequest);
 
             if (propLabel == null)
             {
@@ -324,7 +339,17 @@ namespace Yoegoe.Characters
                 if (mr != null) mr.sortingOrder = 1211;
             }
             propLabel.text = "?";
-            propLabel.gameObject.SetActive(true);
+            propLabel.gameObject.SetActive(HasVisiblePropRequest);
+        }
+
+        void SyncPropRequestVisibility()
+        {
+            bool showProp = HasVisiblePropRequest;
+            if (propIcon != null) propIcon.gameObject.SetActive(showProp);
+            if (propLabel != null) propLabel.gameObject.SetActive(showProp);
+            if (HasOfferingRequest) EnsureOfferingIcon();
+            else if (offeringIcon != null && showProp)
+                offeringIcon.gameObject.SetActive(false);
         }
 
         void UpdateVisualPositions()

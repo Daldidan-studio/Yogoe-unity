@@ -25,24 +25,36 @@ namespace Yoegoe.Characters
         private static Sprite sharedBubbleSprite;
         Coroutine neokTapRoutine;
         Coroutine tempSpeechRoutine;
+        private bool showingFaintedEllipsis;
+        private const string FaintedBubbleText = "...";
 
         private bool CanShowMonologue =>
             Stats.State == ActionState.Walking
             || Stats.State == ActionState.Playing
             || Stats.State == ActionState.Staying;
 
+        private bool CanTapMonologue =>
+            CanShowMonologue || Stats.State == ActionState.Slumped;
+
         private void UpdateMonologue(float dt)
         {
-            if (HasOfferingRequest || Requests.HasPropRequest) return;
+            if (Stats.State == ActionState.Fainted)
+            {
+                if (!showingFaintedEllipsis) ShowFaintedEllipsis();
+                else FollowBubblePosition();
+                return;
+            }
+
+            if (showingFaintedEllipsis)
+            {
+                showingFaintedEllipsis = false;
+                HideMonologue();
+            }
+
+            if (HasOfferingRequest || Requests.HasVisiblePropRequest) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
 
-            if (monologueShowing && bubbleTextMesh != null)
-            {
-                float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
-                Vector3 bubblePos = transform.position + Vector3.up * (spriteTop + 0.55f);
-                bubbleTextMesh.transform.position = bubblePos;
-                if (bubbleBg != null) bubbleBg.transform.position = bubblePos;
-            }
+            FollowBubblePosition();
 
             if (monologueShowing)
             {
@@ -51,16 +63,25 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            // 자동 팝업은 걷기/놀기/머물기에서만
+            // 자동 팝업은 걷기/놀기/머물기에서만 (주저앉기는 탭만)
             if (!CanShowMonologue) return;
 
             monologueTimer -= dt;
             if (monologueTimer <= 0f) ShowMonologue();
         }
 
+        void FollowBubblePosition()
+        {
+            if (!monologueShowing || bubbleTextMesh == null) return;
+            float spriteTop = spriteRenderer != null ? spriteRenderer.bounds.extents.y : 0.3f;
+            Vector3 bubblePos = transform.position + Vector3.up * (spriteTop + 0.55f);
+            bubbleTextMesh.transform.position = bubblePos;
+            if (bubbleBg != null) bubbleBg.transform.position = bubblePos;
+        }
+
         /// <summary>
         /// 단일 탭 확정 시(더블탭이 아님) MapPointerRouter가 호출.
-        /// 넋: 통통·깜빡 리액션(보상 없음). 혼: 혼잣말.
+        /// 넋: 통통·깜빡 리액션(보상 없음). 기절: "..." 갱신. 주저앉기·혼: 혼잣말.
         /// </summary>
         public void OnTapped()
         {
@@ -70,9 +91,37 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            if (!CanShowMonologue) return;
+            if (Stats.State == ActionState.Fainted)
+            {
+                ShowFaintedEllipsis();
+                return;
+            }
+
+            if (!CanTapMonologue) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
             ShowMonologue();
+        }
+
+        /// <summary>기절 중 머리 위 말풍선. 탭하면 같은 문구로 갱신.</summary>
+        void ShowFaintedEllipsis()
+        {
+            showingFaintedEllipsis = true;
+            EnsureBubble();
+            bubbleTextMesh.text = FaintedBubbleText;
+            bubbleTextMesh.gameObject.SetActive(true);
+            bubbleBg.gameObject.SetActive(true);
+
+            var renderer = bubbleTextMesh.GetComponent<MeshRenderer>();
+            if (renderer != null)
+            {
+                renderer.sortingOrder = 1001;
+                Bounds bounds = renderer.bounds;
+                bubbleBg.transform.localScale = new Vector3(bounds.size.x + 0.3f, bounds.size.y + 0.18f, 1f);
+            }
+
+            monologueShowing = true;
+            monologueTimer = float.PositiveInfinity;
+            FollowBubblePosition();
         }
 
         /// <summary>9-2: 넋 탭 시 비언어 리액션 + 살짝 줌.</summary>
@@ -163,6 +212,7 @@ namespace Yoegoe.Characters
             if (bubbleTextMesh != null) bubbleTextMesh.gameObject.SetActive(false);
             if (bubbleBg != null) bubbleBg.gameObject.SetActive(false);
             monologueShowing = false;
+            showingFaintedEllipsis = false;
             monologueTimer = Random.Range(MonologueMinInterval, MonologueMaxInterval);
         }
 
