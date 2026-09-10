@@ -251,7 +251,8 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>
         /// 던진 결과를 각 요괴 말에 적용했을 때의 후보 도착 칸을 전부 반짝여서 보여준다
         /// (미리보기 전용 — 어느 말을 실제로 움직일지 고르는 로직은 이 다음 단계).
-        /// 같은 칸에 후보가 여러 개 겹치면 번갈아가며 보여준다.
+        /// 같은 칸에 후보가 여러 마리 겹치면 칸 안에서 나눠 각자 계속 보여준다(번갈아 표시 안 함) —
+        /// 한 마리씩만 움직여야 해서, 유저가 정확히 누굴 골랐는지 명확해야 한다.
         /// </summary>
         public void FlashCandidates(IReadOnlyList<YokaiMoveCandidate> candidates)
         {
@@ -283,50 +284,66 @@ namespace Yoegoe.Minigames.Yut
             _candidateMarkers.Clear();
         }
 
+        /// <summary>
+        /// 같은 칸으로 갈 수 있는 후보가 여러 마리면(예: 대기 중인 말 여럿이 같은 결과로 동시에
+        /// 입장 가능) 한 마리씩 고를 수 있게 칸 안에 후보 수만큼 나눠서 각자 계속 보여준다.
+        /// 예전엔 마커 하나에 몰아넣고 0.6초마다 자동으로 라벨만 바꿔 보여줬는데(cycle),
+        /// 탭한 순간 화면에 우연히 떠 있던 후보가 골라지는 구조라 "누굴 움직였는지도 모르게
+        /// 여러 마리가 같이 움직인다"로 보이는 문제가 있었다 — 항상 전원을 동시에, 개별로 표시.
+        /// </summary>
         GameObject BuildCandidateMarker(int nodeId, List<YokaiMoveCandidate> group)
         {
-            var go = new GameObject($"Candidate_{nodeId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(_pads[nodeId].transform, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.22f, 0.22f);
-            rt.anchorMax = new Vector2(0.78f, 0.78f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            var img = go.GetComponent<Image>();
+            var container = new GameObject($"Candidate_{nodeId}", typeof(RectTransform));
+            container.transform.SetParent(_pads[nodeId].transform, false);
+            var containerRt = container.GetComponent<RectTransform>();
+            containerRt.anchorMin = new Vector2(0.08f, 0.08f);
+            containerRt.anchorMax = new Vector2(0.92f, 0.92f);
+            containerRt.offsetMin = Vector2.zero;
+            containerRt.offsetMax = Vector2.zero;
 
-            var label = CreateText(go.transform, "Label", "", 20, TextAnchor.MiddleCenter);
-            Stretch(label.rectTransform);
-            label.raycastTarget = false;
+            int count = group.Count;
+            int columns = count <= 2 ? count : 2;
+            int rows = Mathf.CeilToInt(count / (float)columns);
 
-            // 지금 화면에 보이는(번갈아 표시되는) 후보를 탭하면 그 요괴를 골랐다고 알린다.
-            var cycleIndex = new int[1];
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(group[cycleIndex[0] % group.Count].Id));
+            for (int i = 0; i < count; i++)
+            {
+                var candidate = group[i];
+                int col = i % columns;
+                int row = i / columns;
 
-            StartCoroutine(PulseAndCycle(img, label, group, cycleIndex));
-            return go;
+                var go = new GameObject($"Candidate_{nodeId}_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(container.transform, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2((float)col / columns, 1f - (float)(row + 1) / rows);
+                rt.anchorMax = new Vector2((float)(col + 1) / columns, 1f - (float)row / rows);
+                rt.offsetMin = new Vector2(2f, 2f);
+                rt.offsetMax = new Vector2(-2f, -2f);
+                var img = go.GetComponent<Image>();
+                img.color = ColorForYokai(candidate.Id);
+
+                var label = CreateText(go.transform, "Label", InitialOf(candidate.DisplayName), 16, TextAnchor.MiddleCenter);
+                Stretch(label.rectTransform);
+                label.raycastTarget = false;
+
+                // 클로저가 반복문 변수를 그대로 캡처하지 않도록 지역 복사본을 만든다.
+                string tappedId = candidate.Id;
+                var btn = go.AddComponent<Button>();
+                btn.targetGraphic = img;
+                btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId));
+
+                StartCoroutine(Pulse(img, ColorForYokai(candidate.Id)));
+            }
+
+            return container;
         }
 
-        IEnumerator PulseAndCycle(Image img, Text label, List<YokaiMoveCandidate> group, int[] cycleIndex)
+        IEnumerator Pulse(Image img, Color baseColor)
         {
-            const float cycleInterval = 0.6f;
             const float pulseSpeed = 4f;
-            float t = 0f;
             while (img != null)
             {
-                var candidate = group[cycleIndex[0] % group.Count];
-                var baseColor = ColorForYokai(candidate.Id);
                 float pulse = 0.55f + 0.45f * Mathf.PingPong(Time.unscaledTime * pulseSpeed, 1f);
                 img.color = new Color(baseColor.r, baseColor.g, baseColor.b, pulse);
-                if (label != null) label.text = InitialOf(candidate.DisplayName);
-
-                t += Time.unscaledDeltaTime;
-                if (group.Count > 1 && t >= cycleInterval)
-                {
-                    t = 0f;
-                    cycleIndex[0]++;
-                }
                 yield return null;
             }
         }
