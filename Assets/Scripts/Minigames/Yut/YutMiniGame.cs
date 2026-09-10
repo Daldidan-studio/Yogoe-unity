@@ -31,8 +31,9 @@ namespace Yoegoe.Minigames.Yut
         public event Action<bool> OnRulesPanelToggled;
         /// <summary>족보 안내를 유저가 닫기 버튼으로 직접 닫았을 때.</summary>
         public event Action OnRulesClosed;
-        /// <summary>FlashCandidates로 보드 위에 띄운 후보 중 하나를 유저가 탭했을 때 — 그 요괴 id.</summary>
-        public event Action<string> OnCandidateTapped;
+        /// <summary>FlashCandidates로 보드 위에 띄운 후보 중 하나를 유저가 탭했을 때 — 그 요괴 id와
+        /// (갈림길 후보였다면) 지름길을 골랐는지 여부.</summary>
+        public event Action<string, bool> OnCandidateTapped;
 
         Image[] _heartIcons;
         GameObject _throwZone;
@@ -371,12 +372,14 @@ namespace Yoegoe.Minigames.Yut
             public readonly string Id;
             public readonly string DisplayName;
             public readonly int DestinationNode;
+            public readonly bool UseShortcut;
 
-            public YokaiMoveCandidate(string id, string displayName, int destinationNode)
+            public YokaiMoveCandidate(string id, string displayName, int destinationNode, bool useShortcut)
             {
                 Id = id;
                 DisplayName = displayName;
                 DestinationNode = destinationNode;
+                UseShortcut = useShortcut;
             }
         }
 
@@ -433,7 +436,7 @@ namespace Yoegoe.Minigames.Yut
             rt.offsetMax = Vector2.zero;
             var img = go.GetComponent<Image>();
             ApplyCandidateVisual(img, candidate);
-            WireCandidateButton(go, img, candidate.Id);
+            WireCandidateButton(go, img, candidate.Id, candidate.UseShortcut);
             StartCoroutine(PulseScale(rt));
             return go;
         }
@@ -457,7 +460,7 @@ namespace Yoegoe.Minigames.Yut
                 rt.offsetMax = Vector2.zero;
                 var img = go.GetComponent<Image>();
                 ApplyCandidateVisual(img, candidate);
-                WireCandidateButton(go, img, candidate.Id);
+                WireCandidateButton(go, img, candidate.Id, candidate.UseShortcut);
                 StartCoroutine(PulseScale(rt));
                 result.Add(go);
             }
@@ -482,11 +485,11 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        void WireCandidateButton(GameObject go, Image img, string tappedId)
+        void WireCandidateButton(GameObject go, Image img, string tappedId, bool useShortcut)
         {
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
-            btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId));
+            btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId, useShortcut));
         }
 
         IEnumerator PulseScale(RectTransform rt)

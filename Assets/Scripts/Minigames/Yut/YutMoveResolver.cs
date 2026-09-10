@@ -18,33 +18,32 @@ namespace Yoegoe.Minigames.Yut
     /// YutBoardLayout(좌표)과 짝을 이루는 순수 로직 — 화면 렌더링과 무관.
     ///
     /// 지름길은 모(5)/뒷모(10)/방(22)에 "정확히 멈춰 있던" 말이 다음 던지기를 할 때만
-    /// 첫 걸음으로 진입한다 — 그 칸을 그냥 "지나가는" 중에는 원래 바깥 둘레 길을 그대로
-    /// 따라간다(기획서 7-3 지름길 분기 표 기준). 방을 지나가기만 할 때는 들어온 대각선을
-    /// 따라 반대쪽으로 계속 진행하고, 방에 멈춰 있었다면 다음 걸음은 항상 참 쪽(27, 최단
-    /// 완주)으로 나간다.
+    /// 첫 걸음으로 진입할 수 있다 — 그 칸을 그냥 "지나가는" 중에는 원래 바깥 둘레 길을 그대로
+    /// 따라간다(기획서 7-3 지름길 분기 표 기준). takeShortcut로 실제로 그 갈림길을 탈지 유저가
+    /// 고를 수 있게 한다(기본값 true) — 바깥길을 고르면 그 지점에서도 평범하게 다음 칸으로 진행.
+    /// 방을 지나가기만 할 때는 들어온 대각선을 따라 반대쪽으로 계속 진행하고, 방에 멈춰
+    /// 있었다면(그리고 지름길을 골랐다면) 다음 걸음은 참 쪽(27, 최단 완주)으로 나간다.
     ///
-    /// 빽도(뒤로 1칸)는 바깥 둘레 기준으로만 지원한다 — 대각선 위에서 빽도를 맞는 경우는
-    /// 실전에서 거의 없어 제자리로 둔다.
+    /// 빽도(뒤로 1칸)는 PreviousNode로 지름길 포함 전체 노드에서 계산한다 — 방(22)처럼 두
+    /// 대각선이 합류하는 지점만, 어느 쪽에서 왔는지 기억하지 않으므로 모(5) 쪽 대각선을
+    /// 기본값으로 삼는다(실전에서 아주 드문 경우라 이 정도 단순화는 감안).
     /// </summary>
     public static class YutMoveResolver
     {
         /// <summary>시작 노드부터 결과만큼 이동한 노드 id 경로(시작점 포함, MoveYutPiece에 그대로 전달 가능).</summary>
-        public static int[] GetPath(int fromNode, YutThrowResult result)
+        public static int[] GetPath(int fromNode, YutThrowResult result, bool takeShortcut = true)
         {
             int steps = (int)result;
 
             if (steps < 0)
-            {
-                int back = fromNode <= 19 ? (fromNode + 19) % 20 : fromNode;
-                return new[] { fromNode, back };
-            }
+                return new[] { fromNode, PreviousNode(fromNode) };
 
             var path = new List<int> { fromNode };
             int current = fromNode;
             int previous = -1;
             int remaining = steps;
 
-            if (remaining > 0)
+            if (remaining > 0 && takeShortcut)
             {
                 int shortcutEntry = current switch
                 {
@@ -73,6 +72,10 @@ namespace Yoegoe.Minigames.Yut
             return path.ToArray();
         }
 
+        /// <summary>모(5)/뒷모(10)/방(22)에 "정확히 멈춰 있는" 말만 지름길 갈림길을 고를 수 있다.</summary>
+        public static bool IsForkNode(int nodeId) =>
+            nodeId == YutBoardLayout.Mo || nodeId == YutBoardLayout.DwitMo || nodeId == YutBoardLayout.Bang;
+
         static int NextNode(int current, int previous)
         {
             switch (current)
@@ -90,5 +93,21 @@ namespace Yoegoe.Minigames.Yut
                 default: return (current + 1) % 20;         // 모/뒷모를 지나가는 경우 포함, 바깥 둘레 순환
             }
         }
+
+        /// <summary>NextNode의 역방향(빽도용). 방(22)만 두 대각선이 합류해서 모호한데,
+        /// 모(5) 쪽 대각선(→21)을 기본값으로 고정한다.</summary>
+        static int PreviousNode(int current) => current switch
+        {
+            20 => YutBoardLayout.Mo,      // 5
+            21 => 20,
+            YutBoardLayout.Bang => 21,    // 22 → 21 (모 쪽 대각선 기본값)
+            23 => YutBoardLayout.Bang,    // 22
+            24 => 23,
+            25 => YutBoardLayout.DwitMo,  // 10
+            26 => 25,
+            27 => YutBoardLayout.Bang,    // 22
+            28 => 27,
+            _ => (current + 19) % 20,     // 바깥 둘레(0~19, 참·모·뒷모·찌모 포함) — 한 칸 전으로
+        };
     }
 }

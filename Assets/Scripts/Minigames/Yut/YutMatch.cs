@@ -5,7 +5,10 @@ using System.Linq;
 namespace Yoegoe.Minigames.Yut
 {
     /// <summary>
-    /// 윷놀이 한 판의 규칙(승패·잡기·업기·보너스턴)만 담당하는 순수 로직.
+    /// 윷놀이 한 판의 규칙(잡기·업기·보너스턴·완주)만 담당하는 순수 로직.
+    /// 이무기는 결승점이 없어서 패배 조건이 아니라 그냥 계속 도는 상대다 — 플레이어가 말을 완주시켜
+    /// 승리하거나(전원 완주 시 자동 종료, 일부만 완주해도 EndAsPlayerWin으로 원하는 시점에 종료 가능)
+    /// 직접 나가기 전까진 매치가 안 끝난다.
     /// 화면(YutMiniGame)이나 재화(GameEconomy)는 모르고, 결과만 이벤트로 알린다.
     /// 소유는 UI 쪽(YutScreen)이 한다 — CharacterAgent가 CharacterRequestState를 들고 있는 것과 같은 패턴.
     /// </summary>
@@ -15,11 +18,14 @@ namespace Yoegoe.Minigames.Yut
         {
             public readonly string PieceId;
             public readonly int DestinationNode;
+            /// <summary>모/뒷모/방 갈림길에서 지름길 쪽 후보인지. 갈림길이 아니면 의미 없음(둘 다 false).</summary>
+            public readonly bool UseShortcut;
 
-            public YutMoveCandidate(string pieceId, int destinationNode)
+            public YutMoveCandidate(string pieceId, int destinationNode, bool useShortcut)
             {
                 PieceId = pieceId;
                 DestinationNode = destinationNode;
+                UseShortcut = useShortcut;
             }
         }
 
@@ -43,6 +49,12 @@ namespace Yoegoe.Minigames.Yut
         public event Action<IReadOnlyList<YutPiece>> OnPlayerPiecesCaptured;
         /// <summary>내가 이무기를 잡았을 때. 게임로그 대사용.</summary>
         public event Action OnOpponentCaptured;
+        /// <summary>
+        /// 내 말(스택이면 전원)이 골인했는데 아직 안 끝난(안 들어온) 말이 남아있을 때 — 그 말들의 id.
+        /// 매치는 안 끝난다(전원 골인 전까지는 EndAsPlayerWin을 호출해야 끝남) — 호출부(YutScreen)가
+        /// "여기서 그만 받을지, 남은 말로 계속할지" 물어보는 용도.
+        /// </summary>
+        public event Action<IReadOnlyList<string>> OnPlayerPieceFinished;
 
         public YutMatch(IEnumerable<(string id, string displayName)> playerTeam)
         {
@@ -52,7 +64,11 @@ namespace Yoegoe.Minigames.Yut
 
         public YutThrowOutcome ThrowForPlayer() => YutThrowRoller.Roll();
 
-        /// <summary>던진 결과로 지금 움직일 수 있는 내 말(또는 스택 대표) 후보 목록.</summary>
+        /// <summary>
+        /// 던진 결과로 지금 움직일 수 있는 내 말(또는 스택 대표) 후보 목록. 말이 모/뒷모/방 갈림길에
+        /// 정확히 멈춰 있으면 지름길로 가는 후보와 바깥길로 가는 후보를 둘 다 내놓는다 — 어느 쪽으로
+        /// 갈지는 유저가 고른다.
+        /// </summary>
         public IReadOnlyList<YutMoveCandidate> GetPlayerCandidates(YutThrowResult result)
         {
             var list = new List<YutMoveCandidate>();
@@ -66,23 +82,36 @@ namespace Yoegoe.Minigames.Yut
                 {
                     if (result == YutThrowResult.Baekdo) continue; // 대기 말은 빽도로 못 움직임
                     var path = YutMoveResolver.GetPath(YutBoardLayout.Start, result);
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(path)));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(path), false));
                     continue;
                 }
 
                 if (!seenBoardNodes.Add(p.NodeId)) continue; // 같은 칸(스택)은 대표 한 명만 후보로
+
+                if (result != YutThrowResult.Baekdo && YutMoveResolver.IsForkNode(p.NodeId))
+                {
+                    var shortcutPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: true);
+                    var outerPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: false);
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(shortcutPath), true));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(outerPath), false));
+                    continue;
+                }
+
                 var boardPath = YutMoveResolver.GetPath(p.NodeId, result);
-                list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(boardPath)));
+                list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(boardPath), false));
             }
 
             return list;
         }
 
         /// <summary>
-        /// pieceId가 속한 칸(스택이면 전원)을 결과만큼 이동시킨다.
-        /// 완주하면 매치가 끝난다. 반환값이 true면 보너스 턴(윷/모 또는 잡기) — 플레이어가 한 번 더 던진다.
+        /// pieceId가 속한 칸(스택이면 전원)을 결과만큼 이동시킨다. useShortcut은 모/뒷모/방 갈림길에
+        /// 멈춰 있던 말일 때만 의미 있음(GetPlayerCandidates가 준 후보의 UseShortcut을 그대로 넘기면 됨).
+        /// 완주해도 매치가 바로 끝나지는 않는다 — 안 끝난 말이 남아있으면 OnPlayerPieceFinished만 쏘고,
+        /// 호출부가 EndAsPlayerWin을 불러야 실제로 끝난다(전원 골인이면 자동으로 끝남).
+        /// 반환값이 true면 보너스 턴(윷/모 또는 잡기).
         /// </summary>
-        public bool ApplyPlayerMove(string pieceId, YutThrowOutcome outcome)
+        public bool ApplyPlayerMove(string pieceId, bool useShortcut, YutThrowOutcome outcome)
         {
             if (IsEnded) return false;
             var piece = playerPieces.FirstOrDefault(p => p.Id == pieceId && !p.Finished);
@@ -94,7 +123,7 @@ namespace Yoegoe.Minigames.Yut
                 ? playerPieces.Where(p => !p.Finished && p.NodeId == fromNode).ToList()
                 : new List<YutPiece> { piece };
 
-            var path = YutMoveResolver.GetPath(wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result);
+            var path = YutMoveResolver.GetPath(wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut);
             var movedIds = group.Select(p => p.Id).ToList();
 
             if (ResolvesToFinish(path))
@@ -102,9 +131,16 @@ namespace Yoegoe.Minigames.Yut
                 foreach (var p in group) { p.Finished = true; p.NodeId = -1; }
                 OnPlayerPiecesMoved?.Invoke(movedIds);
                 OnPiecesChanged?.Invoke();
-                IsEnded = true;
-                OnMatchEnded?.Invoke(true);
-                return false;
+
+                if (playerPieces.All(p => p.Finished))
+                {
+                    IsEnded = true;
+                    OnMatchEnded?.Invoke(true);
+                    return false;
+                }
+
+                OnPlayerPieceFinished?.Invoke(movedIds);
+                return outcome.GrantsBonusThrow;
             }
 
             int dest = path[path.Length - 1];
@@ -128,8 +164,8 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 이무기 던지기 결과 하나를 적용한다. 말이 하나뿐이라 "어느 말을 움직일지" 선택이 없어서
-        /// 이동·잡기·완주 판정까지 바로 진행한다. 반환값이 true면 보너스 턴(윷/모 또는 잡기) —
-        /// 호출부가 한 번 더 ThrowForOpponent/ApplyOpponentMove를 돌려야 한다.
+        /// 이동·잡기 판정까지 바로 진행한다. 이무기는 결승점이 없어서(참을 지나도) 완주로 안 끝나고
+        /// 그냥 계속 판을 돈다 — 반환값이 true면 보너스 턴(윷/모 또는 잡기).
         /// </summary>
         public bool ApplyOpponentMove(YutThrowOutcome outcome)
         {
@@ -141,16 +177,6 @@ namespace Yoegoe.Minigames.Yut
             int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
             var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
 
-            if (ResolvesToFinish(path))
-            {
-                opponentPiece.Finished = true;
-                opponentPiece.NodeId = -1;
-                OnPiecesChanged?.Invoke();
-                IsEnded = true;
-                OnMatchEnded?.Invoke(false);
-                return false;
-            }
-
             int dest = path[path.Length - 1];
             opponentPiece.NodeId = dest;
 
@@ -160,6 +186,17 @@ namespace Yoegoe.Minigames.Yut
 
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured.Count > 0;
+        }
+
+        /// <summary>
+        /// 완주한 말이 남아있는(그런데 아직 안 들어온 말도 있는) 상태에서, 유저가 "여기서 그만"을
+        /// 선택했을 때 호출 — 즉시 플레이어 승리로 매치를 끝낸다.
+        /// </summary>
+        public void EndAsPlayerWin()
+        {
+            if (IsEnded) return;
+            IsEnded = true;
+            OnMatchEnded?.Invoke(true);
         }
 
         /// <summary>path[1..] 안에 출발점(0)이 다시 나오면 이번 이동으로 완주.</summary>

@@ -34,9 +34,19 @@ namespace Yoegoe.UI
         YutMatch match;
         YutThrowOutcome? pendingOutcome;
 
+        /// <summary>말 한 마리가 골인해서 "계속할지/그만할지" 다이얼로그가 떠 있는 동안, 방금 던진
+        /// 결과가 보너스였는지 기억해뒀다가 '계속하기'를 고르면 그대로 이어서 써야 한다.</summary>
+        bool awaitingFinishChoice;
+        bool pendingBonusAfterContinue;
+
         GameObject noticeRoot;
         Text noticeText;
         Action pendingNoticeAction;
+
+        GameObject choiceRoot;
+        Text choiceText;
+        Action pendingChoiceContinue;
+        Action pendingChoiceStop;
 
         void Awake() => Instance = this;
 
@@ -93,7 +103,9 @@ namespace Yoegoe.UI
             match.OnPlayerPiecesMoved += HandlePlayerPiecesMoved;
             match.OnPlayerPiecesCaptured += HandlePlayerPiecesCaptured;
             match.OnOpponentCaptured += HandleOpponentCaptured;
+            match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
 
+            awaitingFinishChoice = false;
             root.SetActive(true);
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
@@ -113,6 +125,7 @@ namespace Yoegoe.UI
                 match.OnPlayerPiecesMoved -= HandlePlayerPiecesMoved;
                 match.OnPlayerPiecesCaptured -= HandlePlayerPiecesCaptured;
                 match.OnOpponentCaptured -= HandleOpponentCaptured;
+                match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
                 match = null;
             }
             pendingOutcome = null;
@@ -165,25 +178,58 @@ namespace Yoegoe.UI
 
             pendingOutcome = outcome;
             var uiCandidates = candidates
-                .Select(c => new YutMiniGame.YokaiMoveCandidate(c.PieceId, NameFor(c.PieceId), c.DestinationNode))
+                .Select(c => new YutMiniGame.YokaiMoveCandidate(c.PieceId, NameFor(c.PieceId), c.DestinationNode, c.UseShortcut))
                 .ToList();
             miniGame.FlashCandidates(uiCandidates);
         }
 
-        void HandleCandidateTapped(string pieceId)
+        void HandleCandidateTapped(string pieceId, bool useShortcut)
         {
             if (match == null || match.IsEnded || pendingOutcome == null) return;
             miniGame.ClearCandidates();
             var outcome = pendingOutcome.Value;
             pendingOutcome = null;
 
-            bool bonusTurn = match.ApplyPlayerMove(pieceId, outcome);
+            bool bonusTurn = match.ApplyPlayerMove(pieceId, useShortcut, outcome);
             if (match.IsEnded) return; // HandleMatchEnded가 이미 결과 처리
+
+            if (awaitingFinishChoice)
+            {
+                // 골인 다이얼로그("계속하기"/"그만하기")가 이미 떴다 — 그 선택이 끝나야 다음이 진행된다.
+                pendingBonusAfterContinue = bonusTurn;
+                return;
+            }
 
             if (bonusTurn)
                 miniGame.SetThrowVisible(true);
             else
                 StartCoroutine(RunOpponentTurnRoutine());
+        }
+
+        /// <summary>말이 골인했는데 아직 안 들어온 말이 남아있을 때 — 여기서 그만 받을지, 계속할지 묻는다.</summary>
+        void HandlePlayerPieceFinished(IReadOnlyList<string> finishedIds)
+        {
+            awaitingFinishChoice = true;
+            miniGame.SetThrowVisible(false);
+            string names = string.Join(", ", finishedIds.Select(NameFor));
+            ShowChoice($"{names} 골인!\n여기서 그만 받을까요, 남은 말로 계속할까요?",
+                onContinue: HandleContinueAfterFinish,
+                onStop: HandleStopAfterFinish);
+        }
+
+        void HandleContinueAfterFinish()
+        {
+            awaitingFinishChoice = false;
+            if (pendingBonusAfterContinue)
+                miniGame.SetThrowVisible(true);
+            else
+                StartCoroutine(RunOpponentTurnRoutine());
+        }
+
+        void HandleStopAfterFinish()
+        {
+            awaitingFinishChoice = false;
+            match?.EndAsPlayerWin();
         }
 
         /// <summary>
@@ -290,6 +336,7 @@ namespace Yoegoe.UI
             miniGame.Hide();
 
             BuildNoticePanel(rootRt);
+            BuildChoicePanel(rootRt);
 
             root.SetActive(false);
         }
@@ -367,6 +414,97 @@ namespace Yoegoe.UI
             action?.Invoke();
             // 매치 시작 전 안내(토큰 부족 등)였다면 화면 자체를 다시 닫는다.
             if (match == null && root != null) root.SetActive(false);
+        }
+
+        /// <summary>말 골인 때 "계속하기"/"그만하고 보상받기" 둘 중 하나를 고르게 하는 팝업.</summary>
+        void BuildChoicePanel(Transform parent)
+        {
+            choiceRoot = new GameObject("Choice", typeof(RectTransform));
+            var rt = (RectTransform)choiceRoot.transform;
+            rt.SetParent(parent, false);
+            Stretch(rt);
+            var dim = choiceRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.6f);
+
+            var box = new GameObject("Box", typeof(RectTransform));
+            var boxRt = (RectTransform)box.transform;
+            boxRt.SetParent(rt, false);
+            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
+            boxRt.sizeDelta = new Vector2(660, 380);
+            var boxImg = box.AddComponent<Image>();
+            boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
+
+            var textGO = new GameObject("Text", typeof(RectTransform));
+            var textRt = (RectTransform)textGO.transform;
+            textRt.SetParent(boxRt, false);
+            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
+            textRt.anchoredPosition = new Vector2(0, 70);
+            textRt.sizeDelta = new Vector2(580, 200);
+            choiceText = textGO.AddComponent<Text>();
+            choiceText.font = font;
+            choiceText.fontSize = UiFonts.Size(28);
+            choiceText.alignment = TextAnchor.MiddleCenter;
+            choiceText.color = new Color(1f, 0.95f, 0.85f);
+            choiceText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            BuildChoiceButton(boxRt, new Vector2(-165, -130), "계속하기", OnChoiceContinueClicked);
+            BuildChoiceButton(boxRt, new Vector2(165, -130), "그만하고\n보상받기", OnChoiceStopClicked);
+
+            choiceRoot.SetActive(false);
+        }
+
+        void BuildChoiceButton(Transform parent, Vector2 pos, string label, UnityEngine.Events.UnityAction onClick)
+        {
+            var btnGO = new GameObject($"Btn_{label}", typeof(RectTransform));
+            var btnRt = (RectTransform)btnGO.transform;
+            btnRt.SetParent(parent, false);
+            btnRt.anchorMin = btnRt.anchorMax = btnRt.pivot = new Vector2(0.5f, 0.5f);
+            btnRt.anchoredPosition = pos;
+            btnRt.sizeDelta = new Vector2(290, 100);
+            var btnImg = btnGO.AddComponent<Image>();
+            btnImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
+            var btn = btnGO.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
+            btn.onClick.AddListener(onClick);
+
+            var labelGO = new GameObject("Label", typeof(RectTransform));
+            var labelRt = (RectTransform)labelGO.transform;
+            labelRt.SetParent(btnRt, false);
+            Stretch(labelRt);
+            var labelText = labelGO.AddComponent<Text>();
+            labelText.font = font;
+            labelText.fontSize = UiFonts.Size(24);
+            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.color = Color.white;
+            labelText.text = label;
+            labelText.raycastTarget = false;
+        }
+
+        void ShowChoice(string message, Action onContinue, Action onStop)
+        {
+            choiceText.text = message;
+            pendingChoiceContinue = onContinue;
+            pendingChoiceStop = onStop;
+            if (!root.activeSelf) root.SetActive(true);
+            choiceRoot.SetActive(true);
+        }
+
+        void OnChoiceContinueClicked()
+        {
+            choiceRoot.SetActive(false);
+            var action = pendingChoiceContinue;
+            pendingChoiceContinue = null;
+            pendingChoiceStop = null;
+            action?.Invoke();
+        }
+
+        void OnChoiceStopClicked()
+        {
+            choiceRoot.SetActive(false);
+            var action = pendingChoiceStop;
+            pendingChoiceContinue = null;
+            pendingChoiceStop = null;
+            action?.Invoke();
         }
 
         static void Stretch(RectTransform rt)
