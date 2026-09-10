@@ -151,9 +151,9 @@ namespace Yoegoe.UI
         IEnumerator PlayerThrowRoutine(YutThrowOutcome outcome, float power)
         {
             miniGame.SetThrowVisible(false);
-            miniGame.ShowLogLine("Rabbit", $"옥토끼 : {outcome.Result.DisplayName()}.");
             yield return miniGame.PlayThrowAnim(outcome.Result, power);
             if (match == null || match.IsEnded) yield break;
+            miniGame.ShowLogLine("Rabbit", $"옥토끼 : {outcome.Result.DisplayName()}.");
 
             var candidates = match.GetPlayerCandidates(outcome.Result);
             if (candidates.Count == 0)
@@ -202,9 +202,9 @@ namespace Yoegoe.UI
             {
                 guard++;
                 var outcome = match.ThrowForOpponent();
-                miniGame.ShowLogLine("Imugi", $"이무기 : {outcome.Result.DisplayName()}.");
                 yield return miniGame.PlayThrowAnim(outcome.Result);
                 if (match == null || match.IsEnded) yield break;
+                miniGame.ShowLogLine("Imugi", $"이무기 : {outcome.Result.DisplayName()}.");
 
                 bonus = match.ApplyOpponentMove(outcome);
                 if (match.IsEnded) yield break;
