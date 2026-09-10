@@ -259,6 +259,7 @@ namespace Yoegoe.Minigames.Yut
             EnsureBoard();
             if (_pads == null || _pads.Length == 0 || _opponentPiece == null) return;
 
+            Vector3 fromPos = _opponentPiece.position;
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             var pad = _pads[nodeId].rectTransform;
             _opponentPiece.SetParent(pad, false);
@@ -266,6 +267,7 @@ namespace Yoegoe.Minigames.Yut
             _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
             _opponentPiece.offsetMin = Vector2.zero;
             _opponentPiece.offsetMax = Vector2.zero;
+            SlideIn(_opponentPiece, fromPos);
         }
 
         /// <summary>특정 칸을 잠깐 밝게 강조(다음 이동 위치 예고 등). 다음 SetPieceIndex 호출 때 정상 복구된다.</summary>
@@ -334,6 +336,11 @@ namespace Yoegoe.Minigames.Yut
         {
             var go = new GameObject($"YokaiPiece_{id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(_pads[0].transform, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0.18f, 0.18f); // PlaceOnNode 기본값과 맞춰서, 새로 생긴 말도
+            rt.anchorMax = new Vector2(0.82f, 0.82f); // SlideIn의 시작점이 참 중앙으로 잘 정의되게 함
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
             var img = go.GetComponent<Image>();
             var sprite = PieceSpriteFor(id);
             if (sprite != null)
@@ -369,6 +376,7 @@ namespace Yoegoe.Minigames.Yut
             for (int i = 0; i < count; i++)
             {
                 var piece = pieces[i];
+                Vector3 fromPos = piece.position;
                 piece.SetParent(south, false);
                 float slotW = 1f / count;
                 float pad = slotW * 0.1f;
@@ -376,18 +384,49 @@ namespace Yoegoe.Minigames.Yut
                 piece.anchorMax = new Vector2((i + 1) * slotW - pad, 0.95f);
                 piece.offsetMin = Vector2.zero;
                 piece.offsetMax = Vector2.zero;
+                SlideIn(piece, fromPos);
             }
         }
 
         void PlaceOnNode(RectTransform piece, int nodeId)
         {
-
+            Vector3 fromPos = piece.position;
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             piece.SetParent(_pads[nodeId].transform, false);
             piece.anchorMin = new Vector2(0.18f, 0.18f);
             piece.anchorMax = new Vector2(0.82f, 0.82f);
             piece.offsetMin = Vector2.zero;
             piece.offsetMax = Vector2.zero;
+            SlideIn(piece, fromPos);
+        }
+
+        /// <summary>
+        /// 말이 순간이동하지 않고 눈에 보이게 미끄러지도록 한다 — 이미 새 위치로 배치된 rt.position을
+        /// 목표로 잡고 fromPos에서 슬라이드한다. 던질 때마다("모→이동→윷→이동→도→이동") 실제로
+        /// 움직이는 게 보여야 보너스 턴이 이어지는 게 자연스럽게 읽힌다.
+        /// </summary>
+        void SlideIn(RectTransform rt, Vector3 fromPos)
+        {
+            Vector3 toPos = rt.position;
+            if ((toPos - fromPos).sqrMagnitude < 1f) return; // 실질적으로 제자리면 생략
+            rt.position = fromPos;
+            StartCoroutine(SlideRoutine(rt, fromPos, toPos));
+        }
+
+        IEnumerator SlideRoutine(RectTransform rt, Vector3 fromPos, Vector3 toPos)
+        {
+            const float duration = 0.3f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                if (rt == null) yield break;
+                float u = Mathf.Clamp01(t / duration);
+                float eased = 1f - (1f - u) * (1f - u);
+                rt.position = Vector3.Lerp(fromPos, toPos, eased);
+                yield return null;
+            }
+            if (rt != null) rt.position = toPos;
         }
 
         static string InitialOf(string displayName) =>
