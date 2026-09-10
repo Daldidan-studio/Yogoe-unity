@@ -11,7 +11,7 @@ using Yoegoe.Save;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 캐릭터 상세화면. 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
+    /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
     /// 정화수·공양물은 드래그해서 본문(초상·정보) 위에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
@@ -805,16 +805,31 @@ namespace Yoegoe.UI
             scaler.matchWidthOrHeight = 0.5f;
             canvasGO.AddComponent<GraphicRaycaster>();
 
+            // 전체 딤 — 바깥 탭으로 닫기 (맵 입력도 차단)
             root = new GameObject("Root");
             var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
-            var bg = root.AddComponent<Image>();
-            bg.color = Bg;
+            var dim = root.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.55f);
+            var dimBtn = root.AddComponent<Button>();
+            dimBtn.targetGraphic = dim;
+            dimBtn.onClick.AddListener(Close);
+
+            // 화면 중앙 다이얼로그
+            var dialog = new GameObject("Dialog");
+            var dialogRt = SetupRect(dialog, rootRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1480f));
+            var dialogBg = dialog.AddComponent<Image>();
+            dialogBg.color = Bg;
+            // 다이얼로그 클릭이 딤 닫기를 치지 않게
+            var dialogBlock = dialog.AddComponent<Button>();
+            dialogBlock.targetGraphic = dialogBg;
+            dialogBlock.transition = Selectable.Transition.None;
 
             // 닫기
             var closeGO = new GameObject("CloseButton");
-            SetupRect(closeGO, rootRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(24, -24), new Vector2(64, 64));
+            SetupRect(closeGO, dialogRt, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-16f, -16f), new Vector2(56f, 56f));
             var closeImg = closeGO.AddComponent<Image>();
             closeImg.color = Border;
             var closeBtn = closeGO.AddComponent<Button>();
@@ -825,12 +840,12 @@ namespace Yoegoe.UI
 
             // 본문: 하단 바 위 (급여 드롭 존)
             var body = new GameObject("Body");
-            var bodyRt = SetupRect(body, rootRt, new Vector2(0f, 0.22f), new Vector2(1f, 1f),
+            var bodyRt = SetupRect(body, dialogRt, new Vector2(0f, 0.22f), new Vector2(1f, 1f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             feedDropRt = bodyRt;
             // top padding for close
             var bodyPad = new GameObject("BodyInner");
-            var bodyInner = SetupRect(bodyPad, bodyRt, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.92f),
+            var bodyInner = SetupRect(bodyPad, bodyRt, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.90f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
 
             // 좌: 초상 (드롭 타겟)
@@ -941,7 +956,7 @@ namespace Yoegoe.UI
 
             // 하단 바
             var bottom = new GameObject("BottomBar");
-            var bottomRt = SetupRect(bottom, rootRt, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.20f),
+            var bottomRt = SetupRect(bottom, dialogRt, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.20f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             var bottomLayout = bottom.AddComponent<HorizontalLayoutGroup>();
             bottomLayout.spacing = 16;
@@ -966,14 +981,14 @@ namespace Yoegoe.UI
 
             inventoryButtonGO = CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
 
-            feedHintText = CreateText(rootRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", 18, TextAnchor.MiddleCenter);
+            feedHintText = CreateText(dialogRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", 18, TextAnchor.MiddleCenter);
             feedHintText.color = new Color(0.35f, 0.35f, 0.4f);
-            SetupRect(feedHintText.gameObject, rootRt, new Vector2(0.5f, 0.205f), new Vector2(0.5f, 0.205f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 28));
+            SetupRect(feedHintText.gameObject, dialogRt, new Vector2(0.5f, 0.205f), new Vector2(0.5f, 0.205f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880, 28));
 
             // 인벤토리 오버레이 (하단 바 위)
-            inventoryPanel = CreateBorderedPanel(rootRt, "InventoryPanel", Panel);
-            SetupRect(inventoryPanel, rootRt, new Vector2(0.08f, 0.22f), new Vector2(0.92f, 0.42f),
+            inventoryPanel = CreateBorderedPanel(dialogRt, "InventoryPanel", Panel);
+            SetupRect(inventoryPanel, dialogRt, new Vector2(0.06f, 0.22f), new Vector2(0.94f, 0.42f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             inventoryPanel.SetActive(false);
             var invInner = FindInner(inventoryPanel);
