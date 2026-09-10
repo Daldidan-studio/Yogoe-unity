@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Yoegoe.Characters;
+using Yoegoe.Data;
 using Yoegoe.UI;
 
 namespace Yoegoe.Minigames.Yut
@@ -242,7 +244,7 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>
         /// 본게임 수련장 전용 — 보유 요괴 전체를 각자 위치에 동시에 말로 표시한다.
         /// 목록에 없는 요괴의 말은 정리된다.
-        /// 말 아이콘: Resources/UI/YutPieces/{id} (없으면 색+이니셜 폴백).
+        /// 말 아이콘: 캐릭터 CharacterData 스프라이트 / 이무기는 UI/ImugiPortrait (없으면 색+이니셜 폴백).
         /// </summary>
         public void ShowYokaiPieces(IReadOnlyList<YokaiPieceInfo> pieces)
         {
@@ -312,14 +314,48 @@ namespace Yoegoe.Minigames.Yut
 
         static readonly Dictionary<string, Sprite> PieceSpriteCache = new Dictionary<string, Sprite>();
 
-        /// <summary>Resources/UI/YutPieces/{id} — Rabbit/SamjokO/Gumiho/Gorani/Imugi.</summary>
+        /// <summary>
+        /// 이무기 → Resources/UI/ImugiPortrait.
+        /// 그 외 요괴 → CharacterData(월드 에이전트 / Main 연결 / Gorani Resources) 첫 스프라이트.
+        /// </summary>
         static Sprite PieceSpriteFor(string id)
         {
             if (string.IsNullOrEmpty(id)) return null;
             if (PieceSpriteCache.TryGetValue(id, out var cached) && cached != null) return cached;
-            var sprite = Resources.Load<Sprite>("UI/YutPieces/" + id);
+
+            Sprite sprite;
+            if (id == "Imugi")
+                sprite = Resources.Load<Sprite>("UI/ImugiPortrait");
+            else
+                sprite = CharacterSpawner.FirstSprite(FindCharacterData(id));
+
             if (sprite != null) PieceSpriteCache[id] = sprite;
             return sprite;
+        }
+
+        static CharacterData FindCharacterData(string id)
+        {
+            foreach (var agent in CharacterAgent.All)
+            {
+                if (agent?.Data != null && agent.Data.id.ToString() == id)
+                    return agent.Data;
+            }
+
+            var main = UnityEngine.Object.FindObjectOfType<Yoegoe.Main>();
+            if (main != null)
+            {
+                if (id == nameof(CharacterId.Rabbit)) return main.oktoData;
+                if (id == nameof(CharacterId.SamjokO)) return main.samjokOData;
+                if (id == nameof(CharacterId.Gumiho)) return main.gumihoData;
+                if (id == nameof(CharacterId.Gorani))
+                    return main.goraniData != null
+                        ? main.goraniData
+                        : Resources.Load<CharacterData>("Characters/Gorani");
+            }
+
+            if (id == nameof(CharacterId.Gorani))
+                return Resources.Load<CharacterData>("Characters/Gorani");
+            return null;
         }
 
         static Color ColorForYokai(string id)
