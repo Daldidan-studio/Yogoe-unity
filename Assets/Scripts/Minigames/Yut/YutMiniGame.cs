@@ -40,6 +40,7 @@ namespace Yoegoe.Minigames.Yut
         YutThrowSwipeZone _throwSwipe;
         Button _leaveButton;
         RectTransform _boardRoot;
+        RectTransform _waitingArea;
         RectTransform _piece;
         RectTransform _opponentPiece;
         Image[] _pads;
@@ -301,6 +302,16 @@ namespace Yoegoe.Minigames.Yut
 
         void PlaceOnNode(RectTransform piece, int nodeId)
         {
+            if (nodeId < 0 && _waitingArea != null)
+            {
+                piece.SetParent(_waitingArea, false);
+                piece.anchorMin = Vector2.zero;
+                piece.anchorMax = Vector2.one;
+                piece.offsetMin = Vector2.zero;
+                piece.offsetMax = Vector2.zero;
+                return;
+            }
+
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             piece.SetParent(_pads[nodeId].transform, false);
             piece.anchorMin = new Vector2(0.18f, 0.18f);
@@ -601,6 +612,13 @@ namespace Yoegoe.Minigames.Yut
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);
                 _pads[i] = padImg;
             }
+
+            // 대기 말(아직 안 나온 말) 자리 — 참(0번 칸)에 겹쳐 보이면 이미 판에 나온 것처럼
+            // 헷갈려서, 판 중앙의 빈 공간을 따로 마련해 거기 모아 둔다.
+            var waitingGo = new GameObject("WaitingArea", typeof(RectTransform));
+            waitingGo.transform.SetParent(_boardRoot, false);
+            SetAnchor((RectTransform)waitingGo.transform, 0.4f, 0.09f, 0.64f, 0.27f, 0, 0, 0, 0);
+            _waitingArea = (RectTransform)waitingGo.transform;
 
             var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             pieceGo.transform.SetParent(_pads[0].transform, false);

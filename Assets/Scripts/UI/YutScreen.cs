@@ -271,7 +271,7 @@ namespace Yoegoe.UI
 
             var infos = match.PlayerPieces
                 .Where(p => !p.Finished)
-                .Select(p => new YutMiniGame.YokaiPieceInfo(p.Id, p.DisplayName, Mathf.Max(0, p.NodeId)))
+                .Select(p => new YutMiniGame.YokaiPieceInfo(p.Id, p.DisplayName, p.NodeId))
                 .ToList();
             miniGame.ShowYokaiPieces(infos);
 
