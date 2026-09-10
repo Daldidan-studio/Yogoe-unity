@@ -42,7 +42,10 @@ namespace Yoegoe.Minigames.Yut
         GameObject _rulesOverlay;
         GameObject _candidateDialog;
         Transform _candidateDialogList;
-        Text _turnLabel;
+        GameObject _logBar;
+        Image _logBarLeftPortrait;
+        Image _logBarRightPortrait;
+        Text _logBarText;
 
         // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
@@ -149,11 +152,21 @@ namespace Yoegoe.Minigames.Yut
                 _heartIcons[i].color = i < hearts ? HeartOn : HeartOff;
         }
 
-        /// <summary>지금 누구 턴인지("내 턴" / "이무기 턴") 보드 위쪽에 계속 보여준다.</summary>
-        public void SetTurnLabel(string text)
+        /// <summary>
+        /// 보드 위쪽 게임로그 바에 대사 한 줄을 띄운다. speakerId가 "Imugi"면 왼쪽(이무기) 초상을,
+        /// 그 외(플레이어 쪽 요괴 id)면 오른쪽(팀 대표 옥토끼) 초상을 살짝 키워 강조한다 —
+        /// 실제 말한 요괴가 옥토끼가 아니어도(예: 삼족오가 잡힘) 초상은 고정, 대사 텍스트만 그 이름을 쓴다.
+        /// </summary>
+        public void ShowLogLine(string speakerId, string text)
         {
             EnsureBoard();
-            if (_turnLabel != null) _turnLabel.text = text ?? "";
+            if (_logBarText != null) _logBarText.text = text ?? "";
+
+            bool leftSpeaking = speakerId == "Imugi";
+            if (_logBarLeftPortrait != null)
+                _logBarLeftPortrait.rectTransform.localScale = Vector3.one * (leftSpeaking ? 1.12f : 1f);
+            if (_logBarRightPortrait != null)
+                _logBarRightPortrait.rectTransform.localScale = Vector3.one * (!leftSpeaking ? 1.12f : 1f);
         }
 
         /// <summary>상대(이무기 등) 말 표시를 켜고 끈다. 켜기 전까지는 판 위에 안 보인다.</summary>
@@ -532,16 +545,69 @@ namespace Yoegoe.Minigames.Yut
             }
             opponentGo.SetActive(false);
 
-            if (_turnLabel == null)
-            {
-                _turnLabel = CreateText(transform, "TurnLabel", "", 26, TextAnchor.MiddleCenter);
-                SetAnchor(_turnLabel.rectTransform, 0.1f, 0.72f, 0.9f, 0.78f, 0, 0, 0, 0);
-                _turnLabel.raycastTarget = false;
-            }
-
             EnsureQuadrants();
             EnsureRulesOverlay();
             EnsureCandidateDialog();
+            EnsureLogBar();
+        }
+
+        /// <summary>
+        /// 보드 위쪽 게임로그 바 — 이무기(왼쪽) · 옥토끼(팀 대표, 오른쪽) 초상 사이에 대사 한 줄.
+        /// 던질 때마다("이무기 : 도.") / 잡혔을 때("옥토끼 : 으악, 잡혀버렸어요!!...") 갱신된다.
+        /// </summary>
+        void EnsureLogBar()
+        {
+            if (_logBar != null) return;
+
+            _logBar = new GameObject("LogBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _logBar.transform.SetParent(transform, false);
+            SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.72f, 0.94f, 0.9f, 0, 0, 0, 0);
+            _logBar.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.16f, 0.92f);
+
+            var leftGo = new GameObject("LeftPortrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            leftGo.transform.SetParent(_logBar.transform, false);
+            var leftRt = leftGo.GetComponent<RectTransform>();
+            leftRt.anchorMin = new Vector2(0.02f, 0.12f);
+            leftRt.anchorMax = new Vector2(0.22f, 0.95f);
+            leftRt.offsetMin = Vector2.zero;
+            leftRt.offsetMax = Vector2.zero;
+            _logBarLeftPortrait = leftGo.GetComponent<Image>();
+            _logBarLeftPortrait.raycastTarget = false;
+            var imugiSprite = PieceSpriteFor("Imugi");
+            if (imugiSprite != null)
+            {
+                _logBarLeftPortrait.sprite = imugiSprite;
+                _logBarLeftPortrait.color = Color.white;
+                _logBarLeftPortrait.preserveAspect = true;
+            }
+            else _logBarLeftPortrait.color = new Color(0.25f, 0.55f, 0.85f);
+
+            var rightGo = new GameObject("RightPortrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            rightGo.transform.SetParent(_logBar.transform, false);
+            var rightRt = rightGo.GetComponent<RectTransform>();
+            rightRt.anchorMin = new Vector2(0.78f, 0.12f);
+            rightRt.anchorMax = new Vector2(0.98f, 0.95f);
+            rightRt.offsetMin = Vector2.zero;
+            rightRt.offsetMax = Vector2.zero;
+            _logBarRightPortrait = rightGo.GetComponent<Image>();
+            _logBarRightPortrait.raycastTarget = false;
+            var rabbitSprite = PieceSpriteFor("Rabbit");
+            if (rabbitSprite != null)
+            {
+                _logBarRightPortrait.sprite = rabbitSprite;
+                _logBarRightPortrait.color = Color.white;
+                _logBarRightPortrait.preserveAspect = true;
+            }
+            else _logBarRightPortrait.color = new Color(0.9f, 0.85f, 0.75f);
+
+            _logBarText = CreateText(_logBar.transform, "Line", "", 20, TextAnchor.MiddleCenter);
+            var textRt = _logBarText.rectTransform;
+            textRt.anchorMin = new Vector2(0.24f, 0f);
+            textRt.anchorMax = new Vector2(0.76f, 1f);
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+            _logBarText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _logBarText.raycastTarget = false;
         }
 
         void EnsureRulesOverlay()

@@ -39,6 +39,10 @@ namespace Yoegoe.Minigames.Yut
         /// 그 요괴 친밀도 +0.25" — 캐릭터 스탯은 YutMatch가 몰라서 호출부(YutScreen)가 처리한다.
         /// </summary>
         public event Action<IReadOnlyList<string>> OnPlayerPiecesMoved;
+        /// <summary>이무기가 내 말(스택이면 전원)을 잡았을 때 — 잡힌 말들. 게임로그 대사용.</summary>
+        public event Action<IReadOnlyList<YutPiece>> OnPlayerPiecesCaptured;
+        /// <summary>내가 이무기를 잡았을 때. 게임로그 대사용.</summary>
+        public event Action OnOpponentCaptured;
 
         public YutMatch(IEnumerable<(string id, string displayName)> playerTeam)
         {
@@ -107,7 +111,11 @@ namespace Yoegoe.Minigames.Yut
             foreach (var p in group) p.NodeId = dest;
 
             bool captured = opponentPiece.OnBoard && opponentPiece.NodeId == dest;
-            if (captured) opponentPiece.NodeId = -1;
+            if (captured)
+            {
+                opponentPiece.NodeId = -1;
+                OnOpponentCaptured?.Invoke();
+            }
 
             OnPlayerPiecesMoved?.Invoke(movedIds);
             OnPiecesChanged?.Invoke();
@@ -148,6 +156,7 @@ namespace Yoegoe.Minigames.Yut
 
             var captured = playerPieces.Where(p => !p.Finished && p.NodeId == dest).ToList();
             foreach (var p in captured) p.NodeId = -1;
+            if (captured.Count > 0) OnPlayerPiecesCaptured?.Invoke(captured);
 
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured.Count > 0;

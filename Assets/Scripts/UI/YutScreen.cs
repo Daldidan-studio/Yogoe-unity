@@ -91,12 +91,14 @@ namespace Yoegoe.UI
             match.OnPiecesChanged += HandlePiecesChanged;
             match.OnMatchEnded += HandleMatchEnded;
             match.OnPlayerPiecesMoved += HandlePlayerPiecesMoved;
+            match.OnPlayerPiecesCaptured += HandlePlayerPiecesCaptured;
+            match.OnOpponentCaptured += HandleOpponentCaptured;
 
             root.SetActive(true);
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
             miniGame.SetThrowVisible(true);
-            miniGame.SetTurnLabel("내 턴");
+            miniGame.ShowLogLine("Imugi", "이무기 : 좋다, 한번 놀아보자꾸나.");
             miniGame.RefreshHearts(GameEconomy.Instance.YutToken);
             HandlePiecesChanged();
             GameSaveBridge.SaveFromWorld();
@@ -109,6 +111,8 @@ namespace Yoegoe.UI
                 match.OnPiecesChanged -= HandlePiecesChanged;
                 match.OnMatchEnded -= HandleMatchEnded;
                 match.OnPlayerPiecesMoved -= HandlePlayerPiecesMoved;
+                match.OnPlayerPiecesCaptured -= HandlePlayerPiecesCaptured;
+                match.OnOpponentCaptured -= HandleOpponentCaptured;
                 match = null;
             }
             pendingOutcome = null;
@@ -125,6 +129,17 @@ namespace Yoegoe.UI
                     agent.AddIntimacy(0.25f);
         }
 
+        /// <summary>이무기한테 내 말이 잡혔을 때 게임로그 대사. 잡힌 말 자기 이름으로 반응한다.</summary>
+        void HandlePlayerPiecesCaptured(IReadOnlyList<YutPiece> captured)
+        {
+            foreach (var p in captured)
+                miniGame.ShowLogLine(p.Id, $"{p.DisplayName} : 으악, 잡혀버렸어요!! 이무기 님 한번 더...!");
+        }
+
+        /// <summary>내가 이무기를 잡았을 때 게임로그 대사.</summary>
+        void HandleOpponentCaptured() =>
+            miniGame.ShowLogLine("Imugi", "이무기 : 크윽...! 방심했다, 한 번 더 던지거라!");
+
         void HandleThrowPressed()
         {
             if (match == null || match.IsEnded) return;
@@ -135,6 +150,7 @@ namespace Yoegoe.UI
         IEnumerator PlayerThrowRoutine(YutThrowOutcome outcome)
         {
             miniGame.SetThrowVisible(false);
+            miniGame.ShowLogLine("Rabbit", $"옥토끼 : {outcome.Result.DisplayName()}.");
             yield return miniGame.PlayThrowAnim(outcome.Result);
             if (match == null || match.IsEnded) yield break;
 
@@ -172,12 +188,11 @@ namespace Yoegoe.UI
         /// <summary>
         /// 이무기 턴 전체(보너스 턴 포함)를 한 번씩 던지기 애니메이션까지 보여주며 진행한다.
         /// 플레이어 턴과 대칭으로 ThrowForOpponent/ApplyOpponentMove를 한 스텝씩 돌려서,
-        /// 이무기도 실제로 던지는 모습이 보이고 지금 누구 턴인지 라벨로 알 수 있게 한다.
+        /// 이무기도 실제로 던지는 모습이 보이고 게임로그로 지금 누구 차례인지 알 수 있게 한다.
         /// </summary>
         IEnumerator RunOpponentTurnRoutine()
         {
             miniGame.SetThrowVisible(false);
-            miniGame.SetTurnLabel("이무기 턴");
             yield return new WaitForSecondsRealtime(0.4f);
 
             bool bonus;
@@ -186,6 +201,7 @@ namespace Yoegoe.UI
             {
                 guard++;
                 var outcome = match.ThrowForOpponent();
+                miniGame.ShowLogLine("Imugi", $"이무기 : {outcome.Result.DisplayName()}.");
                 yield return miniGame.PlayThrowAnim(outcome.Result);
                 if (match == null || match.IsEnded) yield break;
 
@@ -196,7 +212,6 @@ namespace Yoegoe.UI
                     yield return new WaitForSecondsRealtime(0.4f);
             } while (bonus && guard < 20);
 
-            miniGame.SetTurnLabel("내 턴");
             if (match != null && !match.IsEnded)
                 miniGame.SetThrowVisible(true);
         }
