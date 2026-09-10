@@ -41,6 +41,16 @@ namespace Yoegoe.Save
         public string shopLeftOfferingId = "";
         public string shopRightOfferingId = "";
         public long shopNextRefreshUtcTicks;
+
+        /// <summary>공양물 인벤 (정화수 제외). null이면 구세이브 — StartingState 유지.</summary>
+        public OfferingCountSave[] offerings;
+    }
+
+    [Serializable]
+    public class OfferingCountSave
+    {
+        public string offeringId;
+        public int count;
     }
 
     [Serializable]

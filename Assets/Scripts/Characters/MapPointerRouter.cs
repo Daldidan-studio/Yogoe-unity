@@ -229,18 +229,20 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다. 우선순위: 잠긴 기물 > 수거 대기
-        /// 기물 > 드래그 가능한 캐릭터 > 빈 맵. Hold/Release는 이 결과만 보고 판단하며, 다시
-        /// 반경을 재보거나 손 위치를 재검사하지 않는다.
+        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다. 우선순위: 잠긴 기물 > 캐릭터 >
+        /// 수거 대기 기물 > 빈 맵. 앉은 요괴를 탭하면 상세/혼잣말·드래그가 되고, 캐릭터
+        /// 스프라이트 밖(기물·더미)을 탭해야 수거된다. Hold/Release는 이 결과만 보고
+        /// 판단하며, 다시 반경을 재보거나 손 위치를 재검사하지 않는다.
         /// </summary>
         PressTarget ClassifyPressTarget()
         {
             if (pressProp != null && !pressProp.IsBuilt) return PressTarget.LockedProp;
-            if (pressProp != null && pressProp.HasPendingMerit) return PressTarget.CollectibleProp;
             // 기절 등으로 드래그 불가한 캐릭터도 탭(상세화면 진입)은 가능해야 한다 —
             // "기절한 요괴는 상세 화면 공양으로만 깨어난다" — 그래서 CanBeDraggedByPlayer로
             // 걸러내지 않는다. 드래그 가능 여부는 Hold에서 따로 본다.
+            // 수거보다 캐릭터를 앞세워, 점유 기물 더블탭이 상세가 아니라 수거로 먹히는 일을 막는다.
             if (pressCharacter != null) return PressTarget.Character;
+            if (pressProp != null && pressProp.HasPendingMerit) return PressTarget.CollectibleProp;
             return PressTarget.Empty;
         }
 

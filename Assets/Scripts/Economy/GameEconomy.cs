@@ -14,15 +14,26 @@ namespace Yoegoe.Economy
     {
         public static GameEconomy Instance { get; private set; }
 
-        private void Awake()
-        {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-        }
+        private void Awake() => BecomeInstance();
 
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        /// <summary>
+        /// 싱글턴 등록. EditMode 테스트는 AddComponent 시 Awake가 안 불리므로
+        /// SetUp에서 이 메서드를 직접 호출한다.
+        /// </summary>
+        public void BecomeInstance()
+        {
+            if (Instance != null && Instance != this)
+            {
+                if (Application.isPlaying) Destroy(gameObject);
+                else DestroyImmediate(gameObject);
+                return;
+            }
+            Instance = this;
         }
 
         // ---------------- 공덕 (플레이어 지갑 — 수거된 공덕. 기물 더미는 PropSlot.PendingMerit) ----------------
@@ -177,6 +188,39 @@ namespace Yoegoe.Economy
             return true;
         }
 
+        public int GetOfferingCount(string offeringId)
+        {
+            if (string.IsNullOrEmpty(offeringId)) return 0;
+            return OfferingCounts.TryGetValue(offeringId, out int n) ? n : 0;
+        }
+
+        /// <summary>세이브용 스냅샷. count&gt;0 만 포함.</summary>
+        public void CaptureOfferingCounts(List<KeyValuePair<string, int>> into)
+        {
+            if (into == null) return;
+            into.Clear();
+            foreach (var kv in OfferingCounts)
+            {
+                if (kv.Value > 0) into.Add(kv);
+            }
+        }
+
+        /// <summary>세이브 복원 — 인벤을 통째로 교체한다.</summary>
+        public void ReplaceOfferingCounts(IReadOnlyList<KeyValuePair<string, int>> entries)
+        {
+            OfferingCounts.Clear();
+            if (entries != null)
+            {
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    var kv = entries[i];
+                    if (string.IsNullOrEmpty(kv.Key) || kv.Value <= 0) continue;
+                    OfferingCounts[kv.Key] = kv.Value;
+                }
+            }
+            OnOfferingsChanged?.Invoke();
+        }
+
         private static string OfferingKey(OfferingData offering)
         {
             return !string.IsNullOrEmpty(offering.offeringId) ? offering.offeringId : offering.name;
@@ -219,7 +263,7 @@ namespace Yoegoe.Economy
             ShopStock.ResetFromSave("", "", 0);
         }
 
-        /// <summary>세이브 스냅샷으로 재화만 덮어쓴다 (공양물 인벤은 이후 패스).</summary>
+        /// <summary>세이브 스냅샷으로 재화를 덮어쓴다. 공양물 인벤은 ReplaceOfferingCounts로 별도 복원.</summary>
         public void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
             int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax,
             int propsPurchasedCount = 0)

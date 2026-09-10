@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Yoegoe.Characters;
 using Yoegoe.Core;
@@ -81,6 +82,7 @@ namespace Yoegoe.Save
             };
             GiftBundle.CaptureToSave(out data.economy.giftMissStreak, out data.economy.giftFirstGrantDone, out data.economy.adRewardTickets);
             ShopStock.CaptureToSave(out data.economy.shopLeftOfferingId, out data.economy.shopRightOfferingId, out data.economy.shopNextRefreshUtcTicks);
+            data.economy.offerings = CaptureOfferings(GameEconomy.Instance);
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -216,7 +218,6 @@ namespace Yoegoe.Save
         private static void ApplyEconomy(EconomySave e)
         {
             if (e == null) return;
-            // GameEconomy에 일괄 Set API가 없어 리플렉션 대신 공개 API 확장 필요 — 골격용 최소 반영
             GameEconomy.Instance.ApplySaveSnapshot(
                 e.merit.ToBigNumber(),
                 e.pendingBatchMerit != null ? e.pendingBatchMerit.ToBigNumber() : BigNumber.Zero,
@@ -226,8 +227,40 @@ namespace Yoegoe.Save
                 e.yutToken,
                 e.yutTokenMax,
                 e.propsPurchasedCount);
+            // null = 구세이브(필드 없음) → StartingState 인벤 유지. 배열 있으면(빈 배열 포함) 통째 교체.
+            if (e.offerings != null)
+                ApplyOfferings(GameEconomy.Instance, e.offerings);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
+        }
+
+        static OfferingCountSave[] CaptureOfferings(GameEconomy eco)
+        {
+            var buf = new List<KeyValuePair<string, int>>(8);
+            eco.CaptureOfferingCounts(buf);
+            if (buf.Count == 0) return Array.Empty<OfferingCountSave>();
+            var arr = new OfferingCountSave[buf.Count];
+            for (int i = 0; i < buf.Count; i++)
+            {
+                arr[i] = new OfferingCountSave
+                {
+                    offeringId = buf[i].Key,
+                    count = buf[i].Value
+                };
+            }
+            return arr;
+        }
+
+        static void ApplyOfferings(GameEconomy eco, OfferingCountSave[] offerings)
+        {
+            var buf = new List<KeyValuePair<string, int>>(offerings.Length);
+            for (int i = 0; i < offerings.Length; i++)
+            {
+                var o = offerings[i];
+                if (o == null || string.IsNullOrEmpty(o.offeringId) || o.count <= 0) continue;
+                buf.Add(new KeyValuePair<string, int>(o.offeringId, o.count));
+            }
+            eco.ReplaceOfferingCounts(buf);
         }
 
         private static string FindOccupiedPropId(CharacterAgent agent)

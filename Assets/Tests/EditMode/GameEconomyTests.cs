@@ -16,6 +16,8 @@ namespace Yoegoe.Tests.EditMode
         {
             economyGO = new GameObject("GameEconomy_Test");
             economy = economyGO.AddComponent<GameEconomy>();
+            // EditMode: Awake 미호출 → Instance가 null로 남음
+            economy.BecomeInstance();
 
             settings = ScriptableObject.CreateInstance<StartingStateSettings>();
             settings.startingIntimacy = 50f;
@@ -153,6 +155,42 @@ namespace Yoegoe.Tests.EditMode
         public void TryClaimBatchMerit_FailsWhenNothingPending()
         {
             Assert.IsFalse(economy.TryClaimBatchMerit());
+        }
+
+        [Test]
+        public void OfferingInventory_CaptureReplaceRoundTrip()
+        {
+            var carrot = ScriptableObject.CreateInstance<OfferingData>();
+            carrot.offeringId = "carrot";
+            carrot.kind = OfferingKind.General;
+
+            var peach = ScriptableObject.CreateInstance<OfferingData>();
+            peach.offeringId = "peach";
+            peach.kind = OfferingKind.Preferred;
+
+            try
+            {
+                economy.AddOffering(carrot, 3);
+                economy.AddOffering(peach, 1);
+                Assert.AreEqual(3, economy.GetOfferingCount("carrot"));
+                Assert.AreEqual(1, economy.GetOfferingCount(peach));
+
+                var buf = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>();
+                economy.CaptureOfferingCounts(buf);
+                Assert.AreEqual(2, buf.Count);
+
+                economy.ReplaceOfferingCounts(new[]
+                {
+                    new System.Collections.Generic.KeyValuePair<string, int>("carrot", 7),
+                });
+                Assert.AreEqual(7, economy.GetOfferingCount("carrot"));
+                Assert.AreEqual(0, economy.GetOfferingCount("peach"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(carrot);
+                Object.DestroyImmediate(peach);
+            }
         }
     }
 }
