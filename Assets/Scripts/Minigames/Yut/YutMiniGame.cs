@@ -21,7 +21,9 @@ namespace Yoegoe.Minigames.Yut
         /// </summary>
         public Font font;
 
-        public event Action OnThrowPressed;
+        /// <summary>탭이 아니라 아래→위 슬라이드로 던지기가 완료됐을 때. power(0~1)는 슬라이드
+        /// 속도 기반 — 던지는 연출(아치 높이·회전·착지 퍼짐)에만 쓰고 결과 확률엔 영향 없다.</summary>
+        public event Action<float> OnThrowPressed;
         public event Action OnLeavePressed;
         /// <summary>족보 안내 오버레이가 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
         public event Action<bool> OnRulesPanelToggled;
@@ -31,7 +33,8 @@ namespace Yoegoe.Minigames.Yut
         public event Action<string> OnCandidateTapped;
 
         Image[] _heartIcons;
-        Button _throwButton;
+        GameObject _throwZone;
+        YutThrowSwipeZone _throwSwipe;
         Button _leaveButton;
         RectTransform _boardRoot;
         RectTransform _piece;
@@ -100,12 +103,7 @@ namespace Yoegoe.Minigames.Yut
 
         public void BindFromHierarchy()
         {
-            _throwButton = transform.Find("Throw")?.GetComponent<Button>();
-            if (_throwButton == null)
-            {
-                _throwButton = CreateButton(transform, "Throw", "윷 던지기", null);
-                SetAnchor(_throwButton.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.14f, 0, 0, 0, 0);
-            }
+            EnsureThrowSwipeZone();
 
             _leaveButton = transform.Find("Leave")?.GetComponent<Button>();
             if (_leaveButton == null)
@@ -114,8 +112,38 @@ namespace Yoegoe.Minigames.Yut
                 SetAnchor(_leaveButton.GetComponent<RectTransform>(), 0.02f, 0.93f, 0.18f, 0.99f, 0, 0, 0, 0);
             }
 
-            WireButton(_throwButton, () => OnThrowPressed?.Invoke());
             WireButton(_leaveButton, () => OnLeavePressed?.Invoke());
+        }
+
+        /// <summary>탭 버튼 대신 아래→위 슬라이드로 던지는 입력 영역. 손 모양 힌트가 살짝 위아래로
+        /// 통통 튀어서 "여기서 위로 밀어라"를 안내한다.</summary>
+        void EnsureThrowSwipeZone()
+        {
+            if (_throwZone != null) return;
+
+            _throwZone = new GameObject("ThrowSwipeZone", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _throwZone.transform.SetParent(transform, false);
+            SetAnchor((RectTransform)_throwZone.transform, 0.2f, 0.02f, 0.8f, 0.18f, 0, 0, 0, 0);
+            _throwZone.GetComponent<Image>().color = new Color(0.25f, 0.22f, 0.18f, 0.55f);
+
+            var label = CreateText(_throwZone.transform, "Label", "↑ 위로 슬라이드해서 던지기", 24, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform);
+            label.raycastTarget = false;
+
+            _throwSwipe = _throwZone.AddComponent<YutThrowSwipeZone>();
+            _throwSwipe.OnSwipeThrow += power => OnThrowPressed?.Invoke(power);
+
+            StartCoroutine(BounceHint(label.rectTransform));
+        }
+
+        IEnumerator BounceHint(RectTransform rt)
+        {
+            while (rt != null)
+            {
+                float bounce = Mathf.Sin(Time.unscaledTime * 2.4f) * 6f;
+                rt.anchoredPosition = new Vector2(0, bounce);
+                yield return null;
+            }
         }
 
         public void Show()
@@ -133,9 +161,8 @@ namespace Yoegoe.Minigames.Yut
 
         public void SetThrowVisible(bool on)
         {
-            if (_throwButton == null) return;
-            _throwButton.gameObject.SetActive(on);
-            if (on) EnsureButtonLabel(_throwButton, "윷 던지기");
+            if (_throwZone == null) return;
+            _throwZone.SetActive(on);
         }
 
         public void SetLeaveVisible(bool on)
@@ -672,8 +699,10 @@ namespace Yoegoe.Minigames.Yut
         /// 표시된 "빽도 가락"이라, 1개만 뒤집혔을 때 그게 0번이면 빽도, 다른 가락이면 도로
         /// 갈린다(기획서 7-4 "빽도 가락만 엎어진 경우" 기준). 어느 가락이 뒤집힐지는 개/걸에서만
         /// 랜덤이고 개수는 항상 결과와 일치한다.
+        /// power(0~1)는 슬라이드 던지기 속도 — 아치 높이·회전·착지 퍼짐만 키우고 줄인다.
+        /// 결과(result)와는 무관(호출부가 이미 확률표로 정해서 넘겨준다).
         /// </summary>
-        public IEnumerator PlayThrowAnim(YutThrowResult result)
+        public IEnumerator PlayThrowAnim(YutThrowResult result, float power = 1f)
         {
             EnsureBoard();
             ClearParkedSticks();
@@ -715,7 +744,7 @@ namespace Yoegoe.Minigames.Yut
 
             var routines = new Coroutine[4];
             for (int i = 0; i < 4; i++)
-                routines[i] = StartCoroutine(ThrowOneStick(sticks[i], origin, ToLocal, i * 0.05f, frontStates[i], isBaekdoStick: i == 0));
+                routines[i] = StartCoroutine(ThrowOneStick(sticks[i], origin, ToLocal, i * 0.05f, frontStates[i], isBaekdoStick: i == 0, power));
             for (int i = 0; i < 4; i++)
                 yield return routines[i];
 
@@ -818,17 +847,22 @@ namespace Yoegoe.Minigames.Yut
         }
 
         IEnumerator ThrowOneStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay,
-            bool targetFront, bool isBaekdoStick)
+            bool targetFront, bool isBaekdoStick, float power)
         {
             if (delay > 0f)
                 yield return new WaitForSecondsRealtime(delay);
 
+            // power(슬라이드 속도, 0~1)가 클수록 더 멀리·높이·세게 날아간다 — 확률과는 무관, 연출 전용.
+            float spreadX = Mathf.Lerp(0.08f, 0.24f, power);
+            float yMin = Mathf.Lerp(0.3f, 0.34f, power);
+            float yMax = Mathf.Lerp(0.36f, 0.58f, power);
             var landNorm = new Vector2(
-                UnityEngine.Random.Range(0.28f, 0.72f),
-                UnityEngine.Random.Range(0.32f, 0.55f));
-            float arcHeight = UnityEngine.Random.Range(160f, 260f);
-            float spin = UnityEngine.Random.Range(720f, 1260f) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
-            float duration = UnityEngine.Random.Range(0.45f, 0.6f);
+                0.5f + UnityEngine.Random.Range(-spreadX, spreadX),
+                UnityEngine.Random.Range(yMin, yMax));
+            float arcHeight = Mathf.Lerp(90f, 280f, power) + UnityEngine.Random.Range(-15f, 15f);
+            float spin = (Mathf.Lerp(480f, 1300f, power) + UnityEngine.Random.Range(-60f, 60f))
+                * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+            float duration = Mathf.Lerp(0.65f, 0.42f, power);
 
             Vector2 start = toLocal(originNorm);
             Vector2 end = toLocal(landNorm);

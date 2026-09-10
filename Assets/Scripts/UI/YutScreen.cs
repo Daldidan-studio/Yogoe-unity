@@ -140,18 +140,19 @@ namespace Yoegoe.UI
         void HandleOpponentCaptured() =>
             miniGame.ShowLogLine("Imugi", "이무기 : 크윽...! 방심했다, 한 번 더 던지거라!");
 
-        void HandleThrowPressed()
+        /// <summary>power(0~1)는 슬라이드 속도 기반 — 던지는 연출에만 쓰고 결과 확률엔 영향 없다.</summary>
+        void HandleThrowPressed(float power)
         {
             if (match == null || match.IsEnded) return;
             var outcome = match.ThrowForPlayer();
-            StartCoroutine(PlayerThrowRoutine(outcome));
+            StartCoroutine(PlayerThrowRoutine(outcome, power));
         }
 
-        IEnumerator PlayerThrowRoutine(YutThrowOutcome outcome)
+        IEnumerator PlayerThrowRoutine(YutThrowOutcome outcome, float power)
         {
             miniGame.SetThrowVisible(false);
             miniGame.ShowLogLine("Rabbit", $"옥토끼 : {outcome.Result.DisplayName()}.");
-            yield return miniGame.PlayThrowAnim(outcome.Result);
+            yield return miniGame.PlayThrowAnim(outcome.Result, power);
             if (match == null || match.IsEnded) yield break;
 
             var candidates = match.GetPlayerCandidates(outcome.Result);
