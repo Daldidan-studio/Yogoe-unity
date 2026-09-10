@@ -114,49 +114,43 @@ namespace Yoegoe.Minigames.Yut
             return outcome.GrantsBonusThrow || captured;
         }
 
+        /// <summary>이무기 턴의 던지기 한 번. 플레이어 쪽 ThrowForPlayer와 대칭 — 호출부가 던지기
+        /// 애니메이션을 보여줄 수 있게 굴림과 적용(ApplyOpponentMove)을 분리해 둔다.</summary>
+        public YutThrowOutcome ThrowForOpponent() => YutThrowRoller.Roll();
+
         /// <summary>
-        /// 이무기 턴 전체를 한 번에 처리한다. 말이 하나뿐이라 "어느 말을 움직일지" 선택이 없어서
-        /// 던지고 이동·잡기·완주 판정까지 그대로 진행하면 끝(보너스 턴이면 내부에서 계속 던짐).
+        /// 이무기 던지기 결과 하나를 적용한다. 말이 하나뿐이라 "어느 말을 움직일지" 선택이 없어서
+        /// 이동·잡기·완주 판정까지 바로 진행한다. 반환값이 true면 보너스 턴(윷/모 또는 잡기) —
+        /// 호출부가 한 번 더 ThrowForOpponent/ApplyOpponentMove를 돌려야 한다.
         /// </summary>
-        public void RunOpponentTurn()
+        public bool ApplyOpponentMove(YutThrowOutcome outcome)
         {
-            if (IsEnded) return;
+            if (IsEnded) return false;
 
-            bool bonus;
-            int guard = 0;
-            do
+            if (outcome.Result == YutThrowResult.Baekdo && !opponentPiece.OnBoard)
+                return false; // 대기 중에 빽도 — 움직일 게 없어 턴 소모
+
+            int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
+            var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
+
+            if (ResolvesToFinish(path))
             {
-                guard++;
-                var outcome = YutThrowRoller.Roll();
-
-                if (outcome.Result == YutThrowResult.Baekdo && !opponentPiece.OnBoard)
-                {
-                    bonus = false; // 대기 중에 빽도 — 움직일 게 없어 턴 소모
-                    continue;
-                }
-
-                int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
-                var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
-
-                if (ResolvesToFinish(path))
-                {
-                    opponentPiece.Finished = true;
-                    opponentPiece.NodeId = -1;
-                    OnPiecesChanged?.Invoke();
-                    IsEnded = true;
-                    OnMatchEnded?.Invoke(false);
-                    return;
-                }
-
-                int dest = path[path.Length - 1];
-                opponentPiece.NodeId = dest;
-
-                var captured = playerPieces.Where(p => !p.Finished && p.NodeId == dest).ToList();
-                foreach (var p in captured) p.NodeId = -1;
-
+                opponentPiece.Finished = true;
+                opponentPiece.NodeId = -1;
                 OnPiecesChanged?.Invoke();
-                bonus = outcome.GrantsBonusThrow || captured.Count > 0;
-            } while (bonus && guard < 20);
+                IsEnded = true;
+                OnMatchEnded?.Invoke(false);
+                return false;
+            }
+
+            int dest = path[path.Length - 1];
+            opponentPiece.NodeId = dest;
+
+            var captured = playerPieces.Where(p => !p.Finished && p.NodeId == dest).ToList();
+            foreach (var p in captured) p.NodeId = -1;
+
+            OnPiecesChanged?.Invoke();
+            return outcome.GrantsBonusThrow || captured.Count > 0;
         }
 
         /// <summary>path[1..] 안에 출발점(0)이 다시 나오면 이번 이동으로 완주.</summary>

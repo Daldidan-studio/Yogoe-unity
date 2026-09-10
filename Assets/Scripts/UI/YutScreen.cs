@@ -96,6 +96,7 @@ namespace Yoegoe.UI
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
             miniGame.SetThrowVisible(true);
+            miniGame.SetTurnLabel("내 턴");
             miniGame.RefreshHearts(GameEconomy.Instance.YutToken);
             HandlePiecesChanged();
             GameSaveBridge.SaveFromWorld();
@@ -168,11 +169,34 @@ namespace Yoegoe.UI
                 StartCoroutine(RunOpponentTurnRoutine());
         }
 
+        /// <summary>
+        /// 이무기 턴 전체(보너스 턴 포함)를 한 번씩 던지기 애니메이션까지 보여주며 진행한다.
+        /// 플레이어 턴과 대칭으로 ThrowForOpponent/ApplyOpponentMove를 한 스텝씩 돌려서,
+        /// 이무기도 실제로 던지는 모습이 보이고 지금 누구 턴인지 라벨로 알 수 있게 한다.
+        /// </summary>
         IEnumerator RunOpponentTurnRoutine()
         {
             miniGame.SetThrowVisible(false);
-            yield return new WaitForSecondsRealtime(0.5f);
-            match.RunOpponentTurn();
+            miniGame.SetTurnLabel("이무기 턴");
+            yield return new WaitForSecondsRealtime(0.4f);
+
+            bool bonus;
+            int guard = 0;
+            do
+            {
+                guard++;
+                var outcome = match.ThrowForOpponent();
+                yield return miniGame.PlayThrowAnim(outcome.Result);
+                if (match == null || match.IsEnded) yield break;
+
+                bonus = match.ApplyOpponentMove(outcome);
+                if (match.IsEnded) yield break;
+
+                if (bonus)
+                    yield return new WaitForSecondsRealtime(0.4f);
+            } while (bonus && guard < 20);
+
+            miniGame.SetTurnLabel("내 턴");
             if (match != null && !match.IsEnded)
                 miniGame.SetThrowVisible(true);
         }

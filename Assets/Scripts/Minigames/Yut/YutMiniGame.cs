@@ -42,6 +42,7 @@ namespace Yoegoe.Minigames.Yut
         GameObject _rulesOverlay;
         GameObject _candidateDialog;
         Transform _candidateDialogList;
+        Text _turnLabel;
 
         // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
@@ -146,6 +147,13 @@ namespace Yoegoe.Minigames.Yut
             if (_heartIcons == null) return;
             for (int i = 0; i < _heartIcons.Length; i++)
                 _heartIcons[i].color = i < hearts ? HeartOn : HeartOff;
+        }
+
+        /// <summary>지금 누구 턴인지("내 턴" / "이무기 턴") 보드 위쪽에 계속 보여준다.</summary>
+        public void SetTurnLabel(string text)
+        {
+            EnsureBoard();
+            if (_turnLabel != null) _turnLabel.text = text ?? "";
         }
 
         /// <summary>상대(이무기 등) 말 표시를 켜고 끈다. 켜기 전까지는 판 위에 안 보인다.</summary>
@@ -523,6 +531,13 @@ namespace Yoegoe.Minigames.Yut
                 opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f); // 에셋 못 찾을 때 폴백
             }
             opponentGo.SetActive(false);
+
+            if (_turnLabel == null)
+            {
+                _turnLabel = CreateText(transform, "TurnLabel", "", 26, TextAnchor.MiddleCenter);
+                SetAnchor(_turnLabel.rectTransform, 0.1f, 0.72f, 0.9f, 0.78f, 0, 0, 0, 0);
+                _turnLabel.raycastTarget = false;
+            }
 
             EnsureQuadrants();
             EnsureRulesOverlay();
