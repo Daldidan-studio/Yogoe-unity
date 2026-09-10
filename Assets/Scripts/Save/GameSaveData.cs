@@ -9,6 +9,8 @@ namespace Yoegoe.Save
     [Serializable]
     public class GameSaveData
     {
+        /// <summary>구세이브(필드 자체가 없던 시절)를 로드하면 1로 채워진다 — 마이그레이션 기준값.
+        /// 새 세이브의 실제 버전 스탬프는 GameSaveBridge.CaptureFromWorld가 GameSaveMigration.CurrentVersion으로 찍는다.</summary>
         public int version = 1;
 
         /// <summary>저장 시각 (UTC DateTime.Ticks).</summary>

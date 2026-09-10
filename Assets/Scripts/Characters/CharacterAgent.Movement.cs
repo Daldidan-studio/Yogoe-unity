@@ -1,5 +1,6 @@
 using UnityEngine;
 using Yoegoe.Data;
+using Yoegoe.Economy;
 
 namespace Yoegoe.Characters
 {
@@ -202,19 +203,16 @@ namespace Yoegoe.Characters
                    * GetEndingPropCorrection();
         }
 
-        /// <summary>7-1: 친밀도 보정 = 1 + 친밀도/100. 넋은 친밀도 없음 → ×1.</summary>
-        private double GetIntimacyCorrection()
-        {
-            if (Stats.Stage == GrowthStage.Neok) return 1.0;
-            return 1.0 + Stats.Intimacy / 100.0;
-        }
+        /// <summary>7-1: 친밀도 보정. 온라인/오프라인 공통 공식은 <see cref="ProductionFormula"/> 참고.</summary>
+        private double GetIntimacyCorrection() =>
+            ProductionFormula.IntimacyMultiplier(Stats.Stage, Stats.Intimacy);
 
-        /// <summary>7-1: 주인이 자기 엔딩 기물에 앉으면 ×2 (MVP: 옥토끼–떡절구).</summary>
+        /// <summary>7-1: 엔딩 기물 보정 (MVP: 옥토끼–떡절구). 공식은 <see cref="ProductionFormula"/> 참고.</summary>
         private double GetEndingPropCorrection()
         {
             if (currentProp == null || currentProp.data == null || Data == null) return 1.0;
-            bool ownEnding = currentProp.data.isEndingProp && currentProp.data.owner == Data.id;
-            return ownEnding ? 2.0 : 1.0;
+            bool sameOwner = currentProp.data.owner == Data.id;
+            return ProductionFormula.EndingMultiplier(currentProp.data.isEndingProp, sameOwner);
         }
 
         /// <summary>전용 점유 아트 표시 중에는 캐릭터 스프라이트를 숨긴다.</summary>

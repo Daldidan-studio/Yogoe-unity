@@ -1,6 +1,7 @@
 using System;
 using Yoegoe.Core;
 using Yoegoe.Data;
+using Yoegoe.Economy;
 
 namespace Yoegoe.Save
 {
@@ -150,23 +151,14 @@ namespace Yoegoe.Save
             double basePerMin = prop.baseProductionPerMinute;
             if (basePerMin <= 0) basePerMin = 100;
             int level = Math.Max(1, prop.level);
-            double intimacyMul = agent.stage == GrowthStage.Neok
-                ? 1.0
-                : (1.0 + agent.intimacy / 100.0);
-            double perMinute = basePerMin * Math.Pow(1.1, level - 1)
-                               * intimacyMul
-                               * EndingMultiplier(agent, prop);
+            bool sameOwner = !string.IsNullOrEmpty(prop.ownerCharacterId)
+                             && prop.ownerCharacterId == agent.characterId;
+            double perMinute = ProductionFormula.PerMinute(
+                basePerMin, level, agent.stage, agent.intimacy, prop.isEndingProp, sameOwner);
 
             var add = BigNumberSave.From((BigNumber)(perMinute / 60.0 * dt));
             var cur = prop.pendingMerit.ToBigNumber() + add.ToBigNumber();
             prop.pendingMerit = BigNumberSave.From(cur);
-        }
-
-        private static double EndingMultiplier(AgentSave agent, PropSave prop)
-        {
-            if (!prop.isEndingProp) return 1.0;
-            if (string.IsNullOrEmpty(prop.ownerCharacterId)) return 1.0;
-            return prop.ownerCharacterId == agent.characterId ? 2.0 : 1.0;
         }
 
         private static PropSave FindProp(GameSaveData data, string propId)

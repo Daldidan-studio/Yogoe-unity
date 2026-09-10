@@ -23,6 +23,8 @@ namespace Yoegoe.Save
         {
             if (!GameSaveService.TryLoad(out var data)) return false;
 
+            GameSaveMigration.MigrateToCurrent(data);
+
             var sim = OfflineSimulator.Simulate(data, DateTime.UtcNow);
             if (sim.SimulatedSeconds > 1f)
             {
@@ -64,6 +66,7 @@ namespace Yoegoe.Save
         {
             var data = new GameSaveData
             {
+                version = GameSaveMigration.CurrentVersion,
                 savedAtUtcTicks = DateTime.UtcNow.Ticks,
                 economy = new EconomySave
                 {

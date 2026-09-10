@@ -260,7 +260,7 @@ namespace Yoegoe.Characters
         public double GetBaseProductionThisLevel()
         {
             if (!IsBuilt || data == null) return 0;
-            return data.baseProductionPerMinute * Math.Pow(1.1, level - 1);
+            return data.baseProductionPerMinute * ProductionFormula.LevelMultiplier(level);
         }
 
         public bool CanBeUsedBy(CharacterAgent agent)
