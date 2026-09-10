@@ -361,6 +361,7 @@ namespace Yoegoe.Minigames.Yut
             if (_pads == null || _pads.Length == 0 || _piece == null) return;
 
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
+            _piece.gameObject.SetActive(true);
             for (int i = 0; i < _pads.Length; i++)
             {
                 bool here = i == nodeId;
@@ -438,6 +439,7 @@ namespace Yoegoe.Minigames.Yut
             _piece.offsetMin = Vector2.zero;
             _piece.offsetMax = Vector2.zero;
             pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
+            pieceGo.SetActive(false); // 튜토리얼 각본 대결 전용(SetPieceIndex) — 본게임(YutScreen)은 안 씀, 기본으로 숨겨둠
 
             var opponentGo = new GameObject("ImugiPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             opponentGo.transform.SetParent(_pads[0].transform, false);
