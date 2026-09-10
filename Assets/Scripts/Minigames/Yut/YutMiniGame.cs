@@ -151,7 +151,8 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 본게임 수련장 전용 — 보유 요괴 전체를 각자 위치에 동시에 말로 표시한다.
-        /// 목록에 없는 요괴의 말은 정리된다. 아직 실제 아트가 없어서 id 기반 색 + 이름 첫 글자로 구분한다.
+        /// 목록에 없는 요괴의 말은 정리된다.
+        /// 말 아이콘: Resources/UI/YutPieces/{id} (없으면 색+이니셜 폴백).
         /// </summary>
         public void ShowYokaiPieces(IReadOnlyList<YokaiPieceInfo> pieces)
         {
@@ -186,11 +187,22 @@ namespace Yoegoe.Minigames.Yut
         {
             var go = new GameObject($"YokaiPiece_{id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(_pads[0].transform, false);
-            go.GetComponent<Image>().color = ColorForYokai(id);
-
-            label = CreateText(go.transform, "Label", InitialOf(displayName), 20, TextAnchor.MiddleCenter);
-            Stretch(label.rectTransform);
-            label.raycastTarget = false;
+            var img = go.GetComponent<Image>();
+            var sprite = PieceSpriteFor(id);
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+                img.preserveAspect = true;
+                label = null;
+            }
+            else
+            {
+                img.color = ColorForYokai(id);
+                label = CreateText(go.transform, "Label", InitialOf(displayName), 20, TextAnchor.MiddleCenter);
+                Stretch(label.rectTransform);
+                label.raycastTarget = false;
+            }
 
             return go.GetComponent<RectTransform>();
         }
@@ -199,8 +211,8 @@ namespace Yoegoe.Minigames.Yut
         {
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             piece.SetParent(_pads[nodeId].transform, false);
-            piece.anchorMin = new Vector2(0.22f, 0.22f);
-            piece.anchorMax = new Vector2(0.78f, 0.78f);
+            piece.anchorMin = new Vector2(0.18f, 0.18f);
+            piece.anchorMax = new Vector2(0.82f, 0.82f);
             piece.offsetMin = Vector2.zero;
             piece.offsetMax = Vector2.zero;
         }
@@ -208,21 +220,16 @@ namespace Yoegoe.Minigames.Yut
         static string InitialOf(string displayName) =>
             string.IsNullOrEmpty(displayName) ? "?" : displayName.Substring(0, 1);
 
-        static Sprite _imugiPieceSprite;
+        static readonly Dictionary<string, Sprite> PieceSpriteCache = new Dictionary<string, Sprite>();
 
-        /// <summary>
-        /// 이무기 말 토큰용 스프라이트. ShopScreen이 쓰는 Resources/UI/ImugiPortrait(전신 컷)에서
-        /// 얼굴 위주로 대략 크롭해서 재사용한다 — 말 전용 미니 아이콘 에셋이 나오기 전 임시.
-        /// (좌표는 1024x1024 원본 기준 눈대중 크롭이라 정확하지 않아도 됨.)
-        /// </summary>
-        static Sprite ImugiPieceSprite()
+        /// <summary>Resources/UI/YutPieces/{id} — Rabbit/SamjokO/Gumiho/Gorani/Imugi.</summary>
+        static Sprite PieceSpriteFor(string id)
         {
-            if (_imugiPieceSprite != null) return _imugiPieceSprite;
-            var full = Resources.Load<Sprite>("UI/ImugiPortrait");
-            if (full == null || full.texture == null) return null;
-            var faceRect = new Rect(260, 584, 420, 420);
-            _imugiPieceSprite = Sprite.Create(full.texture, faceRect, new Vector2(0.5f, 0.5f), 100f);
-            return _imugiPieceSprite;
+            if (string.IsNullOrEmpty(id)) return null;
+            if (PieceSpriteCache.TryGetValue(id, out var cached) && cached != null) return cached;
+            var sprite = Resources.Load<Sprite>("UI/YutPieces/" + id);
+            if (sprite != null) PieceSpriteCache[id] = sprite;
+            return sprite;
         }
 
         static Color ColorForYokai(string id)
@@ -319,11 +326,20 @@ namespace Yoegoe.Minigames.Yut
                 rt.offsetMin = new Vector2(2f, 2f);
                 rt.offsetMax = new Vector2(-2f, -2f);
                 var img = go.GetComponent<Image>();
-                img.color = ColorForYokai(candidate.Id);
-
-                var label = CreateText(go.transform, "Label", InitialOf(candidate.DisplayName), 16, TextAnchor.MiddleCenter);
-                Stretch(label.rectTransform);
-                label.raycastTarget = false;
+                var pieceSprite = PieceSpriteFor(candidate.Id);
+                if (pieceSprite != null)
+                {
+                    img.sprite = pieceSprite;
+                    img.color = Color.white;
+                    img.preserveAspect = true;
+                }
+                else
+                {
+                    img.color = ColorForYokai(candidate.Id);
+                    var label = CreateText(go.transform, "Label", InitialOf(candidate.DisplayName), 16, TextAnchor.MiddleCenter);
+                    Stretch(label.rectTransform);
+                    label.raycastTarget = false;
+                }
 
                 // 클로저가 반복문 변수를 그대로 캡처하지 않도록 지역 복사본을 만든다.
                 string tappedId = candidate.Id;
@@ -466,7 +482,7 @@ namespace Yoegoe.Minigames.Yut
             _opponentPiece.offsetMin = Vector2.zero;
             _opponentPiece.offsetMax = Vector2.zero;
             var opponentImg = opponentGo.GetComponent<Image>();
-            var imugiSprite = ImugiPieceSprite();
+            var imugiSprite = PieceSpriteFor("Imugi");
             if (imugiSprite != null)
             {
                 opponentImg.sprite = imugiSprite;
@@ -475,7 +491,7 @@ namespace Yoegoe.Minigames.Yut
             }
             else
             {
-                opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f); // 에셋 못 찾을 때 폴백(옥토끼 말과 구분되는 파란 톤)
+                opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f); // 에셋 못 찾을 때 폴백
             }
             opponentGo.SetActive(false);
 
