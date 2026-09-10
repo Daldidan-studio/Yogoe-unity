@@ -29,6 +29,8 @@ namespace Yoegoe.UI
         Action onClosed;
         bool bonusUsed;
         bool opening;
+        GiftBundle.ContentKind lastGrantedKind;
+        OfferingData lastGrantedOffering;
 
         void Awake() => Instance = this;
 
@@ -54,6 +56,7 @@ namespace Yoegoe.UI
             onClosed = closed;
             bonusUsed = false;
             opening = false;
+            lastGrantedOffering = null;
             titleText.text = string.IsNullOrEmpty(messageBeforeOpen)
                 ? "선물꾸러미"
                 : messageBeforeOpen;
@@ -72,7 +75,12 @@ namespace Yoegoe.UI
 
         void ShowReward(GiftBundle.ContentKind kind, bool firstOpen)
         {
-            GiftBundle.Grant(kind, offerings, out string name, out Sprite icon);
+            GiftBundle.Grant(kind, offerings, out string name, out Sprite icon, out var grantedOffering);
+            if (firstOpen)
+            {
+                lastGrantedKind = kind;
+                lastGrantedOffering = grantedOffering;
+            }
             closedView.SetActive(false);
             openView.SetActive(true);
             rewardText.text = firstOpen ? name : ("하나 더!\n" + name);
@@ -121,7 +129,14 @@ namespace Yoegoe.UI
 
             bonusUsed = true;
             if (moreBtnGO != null) moreBtnGO.SetActive(false);
-            GiftBundle.GrantBonusRoll(offerings, out string name, out Sprite icon);
+            // 첫 개봉과 동일 내용 1회 추가 지급
+            GiftBundle.Grant(
+                lastGrantedKind,
+                offerings,
+                out string name,
+                out Sprite icon,
+                out _,
+                lastGrantedOffering);
             rewardText.text = "하나 더!\n" + name;
             if (rewardIcon != null)
             {

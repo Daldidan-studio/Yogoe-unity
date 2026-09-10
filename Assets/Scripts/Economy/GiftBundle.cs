@@ -37,12 +37,6 @@ namespace Yoegoe.Economy
             return true;
         }
 
-        /// <summary>광고 시청(스텁) 또는 광고보상권으로 추가 1회 지급용. 내용만 다시 굴림.</summary>
-        public static void GrantBonusRoll(OfferingData[] catalog, out string displayName, out Sprite icon)
-        {
-            Grant(RollContent(), catalog, out displayName, out icon);
-        }
-
         /// <summary>요구 들어주기 직후 호출. true면 꾸러미 지급.</summary>
         public static bool RollAfterRequestFulfilled()
         {
@@ -77,10 +71,21 @@ namespace Yoegoe.Economy
             return ContentKind.AdTicket;
         }
 
-        public static void Grant(ContentKind kind, OfferingData[] catalog, out string displayName, out Sprite icon)
+        /// <summary>
+        /// 꾸러미 내용 지급. specificOffering이 있으면 공양물 종류를 고정(광고 하나 더용).
+        /// grantedOffering은 Offering일 때 실제 지급된 공양물(폴백 시 null).
+        /// </summary>
+        public static void Grant(
+            ContentKind kind,
+            OfferingData[] catalog,
+            out string displayName,
+            out Sprite icon,
+            out OfferingData grantedOffering,
+            OfferingData specificOffering = null)
         {
             displayName = "";
             icon = null;
+            grantedOffering = null;
             switch (kind)
             {
                 case ContentKind.PurifiedWater:
@@ -103,12 +108,15 @@ namespace Yoegoe.Economy
                     displayName = "광고 보상권 x1";
                     break;
                 default:
-                    var pick = PickRandomOffering(catalog);
+                    var pick = specificOffering != null && specificOffering.kind != OfferingKind.PurifiedWater
+                        ? specificOffering
+                        : PickRandomOffering(catalog);
                     if (pick != null)
                     {
                         GameEconomy.Instance.AddOffering(pick, 1);
                         displayName = (string.IsNullOrEmpty(pick.displayName) ? pick.offeringId : pick.displayName) + " x1";
                         icon = pick.icon;
+                        grantedOffering = pick;
                     }
                     else
                     {
