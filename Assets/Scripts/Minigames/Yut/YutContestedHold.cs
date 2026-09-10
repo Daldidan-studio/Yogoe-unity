@@ -86,15 +86,16 @@ namespace Yoegoe.Minigames.Yut
 
             if (revealed && selectedIndex >= 0 && selectedIndex < Candidates.Count)
                 Owner.CommitContested(Candidates[selectedIndex]);
-            else
-                Owner.ClearCandidates();
+            else if (revealed)
+                Owner.CancelContestedReveal(); // 펼쳤는데 방향을 못 골랐다 — 마커는 남기고 펼친 것만 걷는다
+            // revealed==false(꾹 누르는 시간을 못 채우고 뗌)면 애초에 편 게 없으니 지울 것도 없다.
         }
 
         void Cancel()
         {
             finished = true;
             if (holdRoutine != null) { StopCoroutine(holdRoutine); holdRoutine = null; }
-            Owner.ClearCandidates();
+            if (revealed) Owner.CancelContestedReveal();
         }
     }
 }

@@ -573,6 +573,24 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
+        /// <summary>
+        /// 경합 밭을 펼쳤는데 방향을 못 고르고 손을 뗐을 때 — 펼친 후보 아이콘만 걷어내고 경합
+        /// 마커(⚔N) 자체는 남겨서 다시 꾹 눌러 시도할 수 있게 한다. ClearCandidates처럼 전체
+        /// 후보를 다 지우면 실패 한 번에 아무것도 못 고르는 상태로 남아버린다.
+        /// </summary>
+        public void CancelContestedReveal()
+        {
+            if (_revealedContestedIcons == null) return;
+            foreach (var go in _revealedContestedIcons)
+            {
+                if (go == null) continue;
+                _candidateMarkers.Remove(go);
+                Destroy(go);
+            }
+            _revealedContestedIcons = null;
+            _candidateHits.RemoveAll(h => h.rect == null);
+        }
+
         /// <summary>경합 밭에서 손을 뗀 지점이 유효한 후보를 가리키고 있었을 때 — 탭한 것과 동일하게 처리.</summary>
         public void CommitContested(YokaiMoveCandidate candidate) =>
             OnCandidateTapped?.Invoke(candidate.Id, candidate.UseShortcut);
