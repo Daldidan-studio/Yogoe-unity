@@ -1,4 +1,3 @@
-using System;
 using NUnit.Framework;
 using UnityEngine;
 using Yoegoe.Data;
@@ -121,7 +120,7 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void EnsureYutTokenFresh_WhileFull_NeverStartsCountdown()
         {
-            var now = DateTime.UtcNow;
+            var now = System.DateTime.UtcNow;
             economy.EnsureYutTokenFresh(now);
             Assert.AreEqual(0, economy.YutTokenRegenNextUtcTicks);
 
@@ -132,7 +131,7 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void TrySpendYutToken_FromFull_StartsThirtyMinuteCountdown()
         {
-            var before = DateTime.UtcNow;
+            var before = System.DateTime.UtcNow;
             economy.TrySpendYutToken(1);
             var expectedNoEarlierThan = before.Add(GameEconomy.YutTokenRegenInterval).Ticks;
 
@@ -142,7 +141,7 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void EnsureYutTokenFresh_AfterIntervalElapses_GrantsOneToken()
         {
-            var now = DateTime.UtcNow;
+            var now = System.DateTime.UtcNow;
             economy.TrySpendYutToken(1); // 5 -> 4, 카운트다운 시작
 
             economy.EnsureYutTokenFresh(now.Add(GameEconomy.YutTokenRegenInterval).AddSeconds(1));
@@ -154,11 +153,11 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void EnsureYutTokenFresh_LongOfflineGap_CatchesUpMultipleIntervalsButCapsAtMax()
         {
-            var now = DateTime.UtcNow;
+            var now = System.DateTime.UtcNow;
             economy.TrySpendYutToken(5); // 5 -> 0
 
             // 30분 x 10만큼 지났다고 가정 — 최대치(5)를 넘길 수 없어야 한다.
-            var muchLater = now.Add(TimeSpan.FromTicks(GameEconomy.YutTokenRegenInterval.Ticks * 10));
+            var muchLater = now.Add(System.TimeSpan.FromTicks(GameEconomy.YutTokenRegenInterval.Ticks * 10));
             economy.EnsureYutTokenFresh(muchLater);
 
             Assert.AreEqual(5, economy.YutToken);
@@ -168,7 +167,7 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void EnsureYutTokenFresh_BeforeIntervalElapses_GrantsNothing()
         {
-            var now = DateTime.UtcNow;
+            var now = System.DateTime.UtcNow;
             economy.TrySpendYutToken(1); // 5 -> 4
 
             economy.EnsureYutTokenFresh(now.Add(GameEconomy.YutTokenRegenInterval).AddSeconds(-1));
