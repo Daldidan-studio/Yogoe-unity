@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using UnityEngine;
 using Yoegoe.Data;
@@ -115,6 +116,64 @@ namespace Yoegoe.Tests.EditMode
             bool ok = economy.TrySpendYutToken(999);
             Assert.IsFalse(ok);
             Assert.AreEqual(5, economy.YutToken);
+        }
+
+        [Test]
+        public void EnsureYutTokenFresh_WhileFull_NeverStartsCountdown()
+        {
+            var now = DateTime.UtcNow;
+            economy.EnsureYutTokenFresh(now);
+            Assert.AreEqual(0, economy.YutTokenRegenNextUtcTicks);
+
+            economy.EnsureYutTokenFresh(now.AddDays(1));
+            Assert.AreEqual(5, economy.YutToken); // 가득 찬 동안은 그냥 대기 없이 유지
+        }
+
+        [Test]
+        public void TrySpendYutToken_FromFull_StartsThirtyMinuteCountdown()
+        {
+            var before = DateTime.UtcNow;
+            economy.TrySpendYutToken(1);
+            var expectedNoEarlierThan = before.Add(GameEconomy.YutTokenRegenInterval).Ticks;
+
+            Assert.GreaterOrEqual(economy.YutTokenRegenNextUtcTicks, expectedNoEarlierThan);
+        }
+
+        [Test]
+        public void EnsureYutTokenFresh_AfterIntervalElapses_GrantsOneToken()
+        {
+            var now = DateTime.UtcNow;
+            economy.TrySpendYutToken(1); // 5 -> 4, 카운트다운 시작
+
+            economy.EnsureYutTokenFresh(now.Add(GameEconomy.YutTokenRegenInterval).AddSeconds(1));
+
+            Assert.AreEqual(5, economy.YutToken);
+            Assert.AreEqual(0, economy.YutTokenRegenNextUtcTicks); // 다시 가득 참 -> 대기 없음
+        }
+
+        [Test]
+        public void EnsureYutTokenFresh_LongOfflineGap_CatchesUpMultipleIntervalsButCapsAtMax()
+        {
+            var now = DateTime.UtcNow;
+            economy.TrySpendYutToken(5); // 5 -> 0
+
+            // 30분 x 10만큼 지났다고 가정 — 최대치(5)를 넘길 수 없어야 한다.
+            var muchLater = now.Add(TimeSpan.FromTicks(GameEconomy.YutTokenRegenInterval.Ticks * 10));
+            economy.EnsureYutTokenFresh(muchLater);
+
+            Assert.AreEqual(5, economy.YutToken);
+            Assert.AreEqual(0, economy.YutTokenRegenNextUtcTicks);
+        }
+
+        [Test]
+        public void EnsureYutTokenFresh_BeforeIntervalElapses_GrantsNothing()
+        {
+            var now = DateTime.UtcNow;
+            economy.TrySpendYutToken(1); // 5 -> 4
+
+            economy.EnsureYutTokenFresh(now.Add(GameEconomy.YutTokenRegenInterval).AddSeconds(-1));
+
+            Assert.AreEqual(4, economy.YutToken);
         }
 
         [Test]

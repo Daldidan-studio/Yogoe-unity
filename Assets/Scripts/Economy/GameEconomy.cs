@@ -141,20 +141,61 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 윷 토큰 ----------------
+        /// <summary>기획 2·10장: 30분마다 1개 충전, 최대치에서는 카운트다운 없음(대기 없이 그대로 유지).</summary>
+        public static readonly TimeSpan YutTokenRegenInterval = TimeSpan.FromMinutes(30);
+
         public int YutTokenMax { get; private set; } = 5;
         public int YutToken { get; private set; }
+        /// <summary>다음 충전 예정 UTC ticks. 0이면 "충전 대기 없음"(가득 찼거나 아직 시작 안 함).</summary>
+        public long YutTokenRegenNextUtcTicks { get; private set; }
         public event Action<int> OnYutTokenChanged;
+
         public void AddYutToken(int amount)
         {
             YutToken = Math.Min(YutTokenMax, YutToken + amount);
+            if (YutToken >= YutTokenMax) YutTokenRegenNextUtcTicks = 0;
             OnYutTokenChanged?.Invoke(YutToken);
         }
+
         public bool TrySpendYutToken(int amount)
         {
             if (amount < 0 || YutToken < amount) return false;
+            bool wasFull = YutToken >= YutTokenMax;
             YutToken -= amount;
+            if (wasFull && YutToken < YutTokenMax)
+                YutTokenRegenNextUtcTicks = DateTime.UtcNow.Add(YutTokenRegenInterval).Ticks;
             OnYutTokenChanged?.Invoke(YutToken);
             return true;
+        }
+
+        /// <summary>
+        /// 벽시계 기준 30분마다 1개 충전 (기획 2·10장). Main의 Update/포그라운드 복귀 훅에서 호출한다 —
+        /// 온라인 중에도, 백그라운드에 있다 돌아왔을 때도 이 한 곳만 거치면 된다.
+        /// </summary>
+        public void EnsureYutTokenFresh(DateTime utcNow)
+        {
+            if (YutToken >= YutTokenMax)
+            {
+                YutTokenRegenNextUtcTicks = 0;
+                return;
+            }
+
+            if (YutTokenRegenNextUtcTicks <= 0)
+            {
+                YutTokenRegenNextUtcTicks = utcNow.Add(YutTokenRegenInterval).Ticks;
+                return;
+            }
+
+            bool changed = false;
+            while (YutToken < YutTokenMax && utcNow.Ticks >= YutTokenRegenNextUtcTicks)
+            {
+                YutToken++;
+                changed = true;
+                YutTokenRegenNextUtcTicks += YutTokenRegenInterval.Ticks;
+            }
+
+            if (YutToken >= YutTokenMax) YutTokenRegenNextUtcTicks = 0;
+            if (changed) OnYutTokenChanged?.Invoke(YutToken);
         }
 
         // ---------------- 공양물 인벤토리 (정화수 제외) ----------------
@@ -239,6 +280,9 @@ namespace Yoegoe.Economy
             PurifiedWater = s.startingPurifiedWater;
             YutTokenMax = Mathf.Max(1, s.yutTokenMax);
             YutToken = Mathf.Clamp(s.startingYutToken, 0, YutTokenMax);
+            YutTokenRegenNextUtcTicks = YutToken < YutTokenMax
+                ? DateTime.UtcNow.Add(YutTokenRegenInterval).Ticks
+                : 0;
 
             OfferingCounts.Clear();
             if (s.startingOfferings != null)
@@ -266,7 +310,7 @@ namespace Yoegoe.Economy
         /// <summary>세이브 스냅샷으로 재화를 덮어쓴다. 공양물 인벤은 ReplaceOfferingCounts로 별도 복원.</summary>
         public void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
             int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax,
-            int propsPurchasedCount = 0)
+            int propsPurchasedCount = 0, long yutTokenRegenNextUtcTicks = 0)
         {
             MeritPile = merit;
             PendingBatchMerit = pendingBatch;
@@ -276,6 +320,8 @@ namespace Yoegoe.Economy
             PurifiedWater = purifiedWater;
             YutTokenMax = Mathf.Max(1, yutTokenMax);
             YutToken = Mathf.Clamp(yutToken, 0, YutTokenMax);
+            // 0(구세이브·미기록)이면 EnsureYutTokenFresh가 다음 틱에 알아서 새 카운트다운을 시작한다.
+            YutTokenRegenNextUtcTicks = yutTokenRegenNextUtcTicks;
 
             OnMeritChanged?.Invoke(MeritPile);
             OnBatchMeritChanged?.Invoke();

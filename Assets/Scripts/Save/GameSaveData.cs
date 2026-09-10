@@ -32,6 +32,8 @@ namespace Yoegoe.Save
         public int purifiedWater;
         public int yutToken;
         public int yutTokenMax = 5;
+        /// <summary>다음 윷 토큰 충전 예정 UTC ticks (2·10장: 30분마다 1개). 0이면 구세이브/충전 대기 없음.</summary>
+        public long yutTokenRegenNextUtcTicks;
         /// <summary>플레이어가 구매한 기물 수 (prebuilt 제외). 다음 구매 비용 n = 이 값+1.</summary>
         public int propsPurchasedCount;
         /// <summary>선물꾸러미 연속 빈손 / 첫 확정 / 광고보상권.</summary>

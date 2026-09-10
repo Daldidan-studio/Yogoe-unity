@@ -77,6 +77,7 @@ namespace Yoegoe.Save
                     purifiedWater = GameEconomy.Instance.PurifiedWater,
                     yutToken = GameEconomy.Instance.YutToken,
                     yutTokenMax = GameEconomy.Instance.YutTokenMax,
+                    yutTokenRegenNextUtcTicks = GameEconomy.Instance.YutTokenRegenNextUtcTicks,
                     propsPurchasedCount = GameEconomy.Instance.PropsPurchasedCount,
                     giftMissStreak = 0,
                     giftFirstGrantDone = false,
@@ -229,7 +230,8 @@ namespace Yoegoe.Save
                 e.purifiedWater,
                 e.yutToken,
                 e.yutTokenMax,
-                e.propsPurchasedCount);
+                e.propsPurchasedCount,
+                e.yutTokenRegenNextUtcTicks);
             // null = 구세이브(필드 없음) → StartingState 인벤 유지. 배열 있으면(빈 배열 포함) 통째 교체.
             if (e.offerings != null)
                 ApplyOfferings(GameEconomy.Instance, e.offerings);

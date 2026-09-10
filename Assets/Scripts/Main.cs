@@ -164,6 +164,10 @@ namespace Yoegoe
             double gap = (now - lastActiveUtc).TotalSeconds;
             lastActiveUtc = now;
 
+            // 윷 토큰 충전(2·10장: 30분마다 1개)은 절대시각 비교라 매 프레임 불러도 싸다 —
+            // 포그라운드에 오래 켜둔 채로도 실제로 30분이 지나면 여기서 잡힌다.
+            GameEconomy.Instance?.EnsureYutTokenFresh(now);
+
             // Update가 멈췄다 재개되면(탭 숨김·잠금화면 등) gap이 커진다.
             if (gap >= WallClockCatchUpThresholdSeconds)
             {
@@ -202,6 +206,9 @@ namespace Yoegoe
             var now = DateTime.UtcNow;
             double gap = (now - lastActiveUtc).TotalSeconds;
             lastActiveUtc = now;
+
+            GameEconomy.Instance?.EnsureYutTokenFresh(now);
+
             if (gap < WallClockCatchUpThresholdSeconds) return;
 
             float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
