@@ -54,6 +54,9 @@ namespace Yoegoe.Minigames.Yut
         Image _logBarRightPortrait;
         RectTransform _logContent;
         ScrollRect _logScroll;
+        Text _logBarLeftNameText;
+        GameObject _miniThrowContainer;
+        Image[] _miniThrowSticks;
 
         // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
@@ -846,8 +849,10 @@ namespace Yoegoe.Minigames.Yut
             SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.68f, 0.94f, 0.9f, 0, 0, 0, 0);
             _logBar.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.16f, 0.92f);
 
-            _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true);
-            _logBarRightPortrait = BuildLogHeaderPortrait(_logBar.transform, "Rabbit", "옥토끼", left: false);
+            _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true, out var leftName);
+            _logBarRightPortrait = BuildLogHeaderPortrait(_logBar.transform, "Rabbit", "옥토끼", left: false, out _);
+            _logBarLeftNameText = leftName;
+            BuildOpponentMiniThrow(_logBarLeftPortrait.transform.parent);
 
             var scrollGo = new GameObject("ScrollArea", typeof(RectTransform));
             scrollGo.transform.SetParent(_logBar.transform, false);
@@ -886,7 +891,7 @@ namespace Yoegoe.Minigames.Yut
             _logScroll.content = _logContent;
         }
 
-        Image BuildLogHeaderPortrait(Transform parent, string spriteId, string displayLabel, bool left)
+        Image BuildLogHeaderPortrait(Transform parent, string spriteId, string displayLabel, bool left, out Text nameTextOut)
         {
             var go = new GameObject(left ? "LeftHeader" : "RightHeader", typeof(RectTransform));
             go.transform.SetParent(parent, false);
@@ -923,8 +928,79 @@ namespace Yoegoe.Minigames.Yut
             nameText.rectTransform.offsetMin = Vector2.zero;
             nameText.rectTransform.offsetMax = Vector2.zero;
             nameText.raycastTarget = false;
+            nameTextOut = nameText;
 
             return img;
+        }
+
+        /// <summary>이무기 초상 바로 밑(이름 자리)에 조그맣게 윷가락 4개를 숨겨둔다 — 평소엔 이름이
+        /// 보이고, 이무기가 던질 때만 이걸로 바뀐다(PlayOpponentMiniThrowAnim).</summary>
+        void BuildOpponentMiniThrow(Transform leftHeader)
+        {
+            var container = new GameObject("MiniThrow", typeof(RectTransform));
+            container.transform.SetParent(leftHeader, false);
+            var rt = (RectTransform)container.transform;
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0.28f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            _miniThrowContainer = container;
+
+            _miniThrowSticks = new Image[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var go = new GameObject($"Stick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(container.transform, false);
+                var srt = go.GetComponent<RectTransform>();
+                float slotW = 1f / 4;
+                srt.anchorMin = new Vector2(i * slotW + slotW * 0.12f, 0.15f);
+                srt.anchorMax = new Vector2((i + 1) * slotW - slotW * 0.12f, 0.85f);
+                srt.offsetMin = Vector2.zero;
+                srt.offsetMax = Vector2.zero;
+                var img = go.GetComponent<Image>();
+                ApplyStickFace(img, front: true, isBaekdoStick: i == 0);
+                _miniThrowSticks[i] = img;
+            }
+            container.SetActive(false);
+        }
+
+        /// <summary>
+        /// 이무기가 던질 때, 보드 한가운데 큰 연출 대신 초상 밑에 조그맣게 결과를 보여준다.
+        /// 이름 라벨을 잠깐 숨기고 그 자리에서 윷가락 4개가 빠르게 뒤집히며 결과를 드러낸다.
+        /// </summary>
+        public IEnumerator PlayOpponentMiniThrowAnim(YutThrowResult result)
+        {
+            EnsureBoard();
+            if (_miniThrowContainer == null) yield break;
+
+            var frontStates = DetermineFrontStates(result);
+            if (_logBarLeftNameText != null) _logBarLeftNameText.gameObject.SetActive(false);
+            _miniThrowContainer.SetActive(true);
+            for (int i = 0; i < 4; i++)
+                ApplyStickFace(_miniThrowSticks[i], front: true, isBaekdoStick: i == 0);
+
+            const float shakeDuration = 0.35f;
+            float t = 0f;
+            while (t < shakeDuration)
+            {
+                t += Time.unscaledDeltaTime;
+                for (int i = 0; i < 4; i++)
+                {
+                    var rt = _miniThrowSticks[i].rectTransform;
+                    rt.localRotation = Quaternion.Euler(0, 0, Mathf.Sin((Time.unscaledTime + i) * 28f) * 12f);
+                }
+                yield return null;
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                ApplyStickFace(_miniThrowSticks[i], frontStates[i], isBaekdoStick: i == 0);
+                _miniThrowSticks[i].rectTransform.localRotation = Quaternion.identity;
+            }
+            yield return new WaitForSecondsRealtime(0.5f);
+
+            _miniThrowContainer.SetActive(false);
+            if (_logBarLeftNameText != null) _logBarLeftNameText.gameObject.SetActive(true);
         }
 
         void EnsureRulesOverlay()
