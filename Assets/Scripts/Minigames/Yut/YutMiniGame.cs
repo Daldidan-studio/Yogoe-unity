@@ -47,6 +47,7 @@ namespace Yoegoe.Minigames.Yut
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         GameObject _rulesOverlay;
         readonly List<GameObject> _candidateMarkers = new();
+        List<GameObject> _revealedContestedIcons;
         readonly List<(RectTransform rect, string pieceId, bool useShortcut)> _candidateHits = new();
         GameObject _logBar;
         Image _logBarLeftPortrait;
@@ -536,7 +537,7 @@ namespace Yoegoe.Minigames.Yut
                 if (kv.Value.Count == 1)
                     _candidateMarkers.Add(BuildCandidateOnNode(kv.Key, kv.Value[0]));
                 else
-                    _candidateMarkers.AddRange(BuildCandidateCross(kv.Key, kv.Value));
+                    _candidateMarkers.Add(BuildContestedMarker(kv.Key, kv.Value));
             }
         }
 
@@ -547,7 +548,31 @@ namespace Yoegoe.Minigames.Yut
                 if (go != null) Destroy(go);
             _candidateMarkers.Clear();
             _candidateHits.Clear();
+            _revealedContestedIcons = null;
         }
+
+        /// <summary>YutContestedHold가 꾹 누른 지 HoldDelay가 지나면 호출 — 경합 밭 둘레에 후보를
+        /// 펼친다(개별 탭으로도 바로 고를 수 있음, 끌기로 고르는 건 HighlightContested가 담당).</summary>
+        public void RevealContested(int nodeId, List<YokaiMoveCandidate> group)
+        {
+            _revealedContestedIcons = BuildCandidateCross(nodeId, group);
+            _candidateMarkers.AddRange(_revealedContestedIcons);
+        }
+
+        /// <summary>드래그 방향이 가리키는 후보를 강조(선택 중 표시). index<0이면 전부 원래 크기로.</summary>
+        public void HighlightContested(int index)
+        {
+            if (_revealedContestedIcons == null) return;
+            for (int i = 0; i < _revealedContestedIcons.Count; i++)
+            {
+                var rt = _revealedContestedIcons[i] != null ? _revealedContestedIcons[i].transform as RectTransform : null;
+                if (rt != null) rt.localScale = Vector3.one * (i == index ? 1.35f : 1f);
+            }
+        }
+
+        /// <summary>경합 밭에서 손을 뗀 지점이 유효한 후보를 가리키고 있었을 때 — 탭한 것과 동일하게 처리.</summary>
+        public void CommitContested(YokaiMoveCandidate candidate) =>
+            OnCandidateTapped?.Invoke(candidate.Id, candidate.UseShortcut);
 
         /// <summary>
         /// 말 아이콘을 드래그해서 놓았을 때(YutPieceDragHandle) 호출된다. 지금 보드 위에 떠 있는
@@ -579,6 +604,33 @@ namespace Yoegoe.Minigames.Yut
             var img = go.GetComponent<Image>();
             ApplyCandidateVisual(img, candidate);
             WireCandidateButton(go, img, candidate.Id, candidate.UseShortcut);
+            StartCoroutine(PulseScale(rt));
+            return go;
+        }
+
+        /// <summary>경합 밭(후보 2마리 이상) 마커 — 탭 버튼이 아니라 YutContestedHold가 꾹 누르기·
+        /// 드래그·떼기를 전부 처리한다. 꾹 눌러 HoldDelay를 채워야 RevealContested로 후보가 펼쳐진다.</summary>
+        GameObject BuildContestedMarker(int nodeId, List<YokaiMoveCandidate> group)
+        {
+            var go = new GameObject($"Contested_{nodeId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(_pads[nodeId].transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.1f, 0.1f);
+            rt.anchorMax = new Vector2(0.9f, 0.9f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+            img.color = new Color(0.75f, 0.3f, 0.3f, 0.92f);
+
+            var label = CreateText(go.transform, "Count", $"⚔{group.Count}", 20, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform);
+            label.raycastTarget = false;
+
+            var hold = go.AddComponent<YutContestedHold>();
+            hold.Owner = this;
+            hold.NodeId = nodeId;
+            hold.Candidates = group;
+
             StartCoroutine(PulseScale(rt));
             return go;
         }
