@@ -230,6 +230,9 @@ namespace Yoegoe.Minigames.Yut
             label.verticalOverflow = VerticalWrapMode.Overflow;
             label.raycastTarget = false;
 
+            // 레이아웃이 자동으로 갱신될 때까지 기다리지 않고 이 프레임에 바로 크기를 확정한다 —
+            // 매치 시작 직후(첫 줄)처럼 캔버스가 막 켜진 시점엔 지연 레이아웃이 한 박자 늦을 수 있다.
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_logContent);
             StartCoroutine(ScrollLogToBottomNextFrame());
         }
 
