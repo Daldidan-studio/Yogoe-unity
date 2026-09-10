@@ -208,6 +208,23 @@ namespace Yoegoe.Minigames.Yut
         static string InitialOf(string displayName) =>
             string.IsNullOrEmpty(displayName) ? "?" : displayName.Substring(0, 1);
 
+        static Sprite _imugiPieceSprite;
+
+        /// <summary>
+        /// 이무기 말 토큰용 스프라이트. ShopScreen이 쓰는 Resources/UI/ImugiPortrait(전신 컷)에서
+        /// 얼굴 위주로 대략 크롭해서 재사용한다 — 말 전용 미니 아이콘 에셋이 나오기 전 임시.
+        /// (좌표는 1024x1024 원본 기준 눈대중 크롭이라 정확하지 않아도 됨.)
+        /// </summary>
+        static Sprite ImugiPieceSprite()
+        {
+            if (_imugiPieceSprite != null) return _imugiPieceSprite;
+            var full = Resources.Load<Sprite>("UI/ImugiPortrait");
+            if (full == null || full.texture == null) return null;
+            var faceRect = new Rect(260, 584, 420, 420);
+            _imugiPieceSprite = Sprite.Create(full.texture, faceRect, new Vector2(0.5f, 0.5f), 100f);
+            return _imugiPieceSprite;
+        }
+
         static Color ColorForYokai(string id)
         {
             int hash = 0;
@@ -429,7 +446,18 @@ namespace Yoegoe.Minigames.Yut
             _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
             _opponentPiece.offsetMin = Vector2.zero;
             _opponentPiece.offsetMax = Vector2.zero;
-            opponentGo.GetComponent<Image>().color = new Color(0.25f, 0.55f, 0.85f, 1f); // 옥토끼 말과 구분되는 파란 톤
+            var opponentImg = opponentGo.GetComponent<Image>();
+            var imugiSprite = ImugiPieceSprite();
+            if (imugiSprite != null)
+            {
+                opponentImg.sprite = imugiSprite;
+                opponentImg.color = Color.white;
+                opponentImg.preserveAspect = true;
+            }
+            else
+            {
+                opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f); // 에셋 못 찾을 때 폴백(옥토끼 말과 구분되는 파란 톤)
+            }
             opponentGo.SetActive(false);
 
             EnsureQuadrants();
