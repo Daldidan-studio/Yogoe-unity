@@ -25,6 +25,11 @@ namespace Yoegoe.Data
         [Tooltip("기물 스프라이트 Transform 배율.")]
         public float propScale = 0.6f;
 
+        [Header("UI 글자")]
+        [Tooltip("HUD·팝업·상세·말풍선 등 글자 배율. 1 = 기존, 1.15 ≈ 한 단계 키움.")]
+        [Range(0.8f, 2f)]
+        public float uiFontScale = 1.15f;
+
         [Header("그리기 순서 (sortingOrder)")]
         [Tooltip("배경 고정 order.")]
         public int backgroundSort = -100;

@@ -1,6 +1,7 @@
 using UnityEngine;
 using Yoegoe.Data;
 using Yoegoe.Economy;
+using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
@@ -317,7 +318,7 @@ namespace Yoegoe.Characters
                 propLabel = go.AddComponent<TextMesh>();
                 propLabel.anchor = TextAnchor.MiddleCenter;
                 propLabel.characterSize = 0.05f;
-                propLabel.fontSize = 42;
+                propLabel.fontSize = UiFonts.Size(42);
                 propLabel.color = new Color(1f, 0.95f, 0.8f);
                 var mr = go.GetComponent<MeshRenderer>();
                 if (mr != null) mr.sortingOrder = 1211;

@@ -55,8 +55,11 @@ namespace Yoegoe.Characters
         [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG 박스 안만.")]
         public float propDropRadius = 0.15f;
 
-        [Tooltip("기물 탭(공덕 수거) 시 스프라이트 bounds 바깥 여유(월드).")]
+        [Tooltip("기물 탭(공덕 수거) 시 스프라이트 bounds 바깥 여유(월드). TEMP: 본체 수거 비활성 — 자물쇠/드롭용 FindNearestProp에만 사용.")]
         public float propTapRadius = 0.12f;
+
+        [Tooltip("TEMP: 공덕 수거는 더미(***·숫자) 라벨만. 라벨 bounds 바깥 여유(월드).")]
+        public float pileLabelTapPadding = 0.18f;
 
         [Tooltip("자물쇠(미건립) 탭 여유. 0이면 bounds 안만 — 초가집처럼 작고 캐릭터와 겹치면 구매가 잘 안 됨.")]
         public float lockTapRadius = 0.28f;
@@ -220,29 +223,32 @@ namespace Yoegoe.Characters
             pressUnscaledTime = Time.unscaledTime;
             pressCharacter = FindNearestCharacter(screenPos);
             pressProp = FindNearestProp(screenPos);
+            // TEMP: 수거는 더미 라벨 전용 — 기물 본체 히트와 분리
+            var pileProp = FindNearestPileLabel(screenPos);
+            if (pileProp != null) pressProp = pileProp;
             dragCharacter = null;
-            pressTarget = ClassifyPressTarget();
+            pressTarget = ClassifyPressTarget(pileProp);
             phase = Phase.Pending;
             Debug.Log("[DEBUG-LOCK] OnPress: pressProp=" + (pressProp != null ? pressProp.name + " IsBuilt=" + pressProp.IsBuilt : "null")
                 + " pressCharacter=" + (pressCharacter != null ? pressCharacter.name : "null")
+                + " pile=" + (pileProp != null)
                 + " => pressTarget=" + pressTarget);
         }
 
         /// <summary>
-        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다. 우선순위: 잠긴 기물 > 캐릭터 >
-        /// 수거 대기 기물 > 빈 맵. 앉은 요괴를 탭하면 상세/혼잣말·드래그가 되고, 캐릭터
-        /// 스프라이트 밖(기물·더미)을 탭해야 수거된다. Hold/Release는 이 결과만 보고
-        /// 판단하며, 다시 반경을 재보거나 손 위치를 재검사하지 않는다.
+        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다.
+        /// TEMP 우선순위: 잠긴 기물 > 더미(*** ) 라벨 수거 > 캐릭터 > 빈 맵.
+        /// 기물 본체 탭으로는 수거하지 않는다. Hold/Release는 이 결과만 본다.
         /// </summary>
-        PressTarget ClassifyPressTarget()
+        PressTarget ClassifyPressTarget(PropSlot pileProp)
         {
             if (pressProp != null && !pressProp.IsBuilt) return PressTarget.LockedProp;
+            // TEMP: 더미 라벨이 요괴보다 위 — 라벨 탭은 수거 우선
+            if (pileProp != null) return PressTarget.CollectibleProp;
             // 기절 등으로 드래그 불가한 캐릭터도 탭(상세화면 진입)은 가능해야 한다 —
             // "기절한 요괴는 상세 화면 공양으로만 깨어난다" — 그래서 CanBeDraggedByPlayer로
             // 걸러내지 않는다. 드래그 가능 여부는 Hold에서 따로 본다.
-            // 수거보다 캐릭터를 앞세워, 점유 기물 더블탭이 상세가 아니라 수거로 먹히는 일을 막는다.
             if (pressCharacter != null) return PressTarget.Character;
-            if (pressProp != null && pressProp.HasPendingMerit) return PressTarget.CollectibleProp;
             return PressTarget.Empty;
         }
 
@@ -526,6 +532,31 @@ namespace Yoegoe.Characters
             var locked = PropManager.Instance.FindNearestUnbuiltProp(world, lockTapRadius);
             if (locked != null) return locked;
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
+        }
+
+        /// <summary>TEMP: 공덕 더미(***·숫자) TextMesh 라벨 히트만.</summary>
+        PropSlot FindNearestPileLabel(Vector2 screenPos)
+        {
+            if (targetCamera == null || PropManager.Instance == null) return null;
+            float depth = -targetCamera.transform.position.z;
+            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            world.z = 0f;
+
+            PropSlot best = null;
+            float bestScore = float.MaxValue;
+            var all = PropManager.Instance.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var p = all[i];
+                if (p == null) continue;
+                if (!p.TryGetPileLabelHitScore(world, pileLabelTapPadding, out float score)) continue;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = p;
+                }
+            }
+            return best;
         }
 
         private static bool IsBlockingUi(Vector2 screenPos)

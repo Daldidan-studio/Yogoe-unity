@@ -279,7 +279,7 @@ namespace Yoegoe.UI
             textRt.sizeDelta = new Vector2(520, 160);
             noticeText = textGO.AddComponent<Text>();
             noticeText.font = font;
-            noticeText.fontSize = 30;
+            noticeText.fontSize = UiFonts.Size(30);
             noticeText.alignment = TextAnchor.MiddleCenter;
             noticeText.color = new Color(1f, 0.95f, 0.85f);
             noticeText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -302,7 +302,7 @@ namespace Yoegoe.UI
             Stretch(labelRt);
             var label = labelGO.AddComponent<Text>();
             label.font = font;
-            label.fontSize = 28;
+            label.fontSize = UiFonts.Size(28);
             label.alignment = TextAnchor.MiddleCenter;
             label.color = Color.white;
             label.text = "확인";

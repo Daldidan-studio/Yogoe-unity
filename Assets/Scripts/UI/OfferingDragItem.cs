@@ -2,11 +2,12 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Yoegoe.Data;
+using Yoegoe.Economy;
 
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 상세화면 공양물/정화수 드래그. 초상 위에 놓으면 DetailScreen이 급여 처리.
+    /// 상세화면 공양물/정화수 드래그. 본문(초상·정보) 위에 놓으면 DetailScreen이 급여 처리.
     /// </summary>
     public class OfferingDragItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
@@ -19,6 +20,7 @@ namespace Yoegoe.UI
         RectTransform ghostRt;
         Image ghostImage;
         CanvasGroup sourceGroup;
+        bool dragActive;
 
         public void Configure(DetailScreen owner, OfferingData data, bool purified, Sprite icon)
         {
@@ -30,8 +32,24 @@ namespace Yoegoe.UI
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            dragActive = false;
             if (screen == null) return;
             if (!isPurifiedWater && offering == null) return;
+
+            if (isPurifiedWater)
+            {
+                if (GameEconomy.Instance == null || GameEconomy.Instance.PurifiedWater < 1)
+                {
+                    screen.NotifyFeedBlocked("정화수가 없어요");
+                    return;
+                }
+            }
+            else if (GameEconomy.Instance == null
+                     || GameEconomy.Instance.GetOfferingCount(offering) < 1)
+            {
+                screen.NotifyFeedBlocked("공양물이 없어요");
+                return;
+            }
 
             rootCanvas = GetComponentInParent<Canvas>();
             if (rootCanvas == null) return;
@@ -57,12 +75,13 @@ namespace Yoegoe.UI
             cg.alpha = 0.92f;
 
             ghostRt.position = eventData.position;
+            dragActive = true;
             screen.NotifyOfferingDragBegan();
         }
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (ghostRt == null) return;
+            if (!dragActive || ghostRt == null) return;
             ghostRt.position = eventData.position;
             screen?.NotifyOfferingDragMoved(eventData.position);
         }
@@ -75,11 +94,15 @@ namespace Yoegoe.UI
                 sourceGroup.alpha = 1f;
             }
 
-            bool dropped = screen != null && screen.TryAcceptOfferingDrop(eventData.position, offering, isPurifiedWater);
+            bool dropped = false;
+            if (dragActive && screen != null)
+                dropped = screen.TryAcceptOfferingDrop(eventData.position, offering, isPurifiedWater);
+
             if (ghostRt != null)
                 Destroy(ghostRt.gameObject);
             ghostRt = null;
             ghostImage = null;
+            dragActive = false;
 
             screen?.NotifyOfferingDragEnded(dropped);
         }

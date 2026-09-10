@@ -136,7 +136,7 @@ namespace Yoegoe.UI
                 new Vector2(0, -50), new Vector2(580, 100));
             titleText = titleGO.AddComponent<Text>();
             ApplyFont(titleText);
-            titleText.fontSize = 32;
+            titleText.fontSize = UiFonts.Size(32);
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.color = new Color(1f, 0.95f, 0.85f);
             titleText.raycastTarget = false;
@@ -148,7 +148,7 @@ namespace Yoegoe.UI
                 new Vector2(0, 10), new Vector2(560, 70));
             costText = costGO.AddComponent<Text>();
             ApplyFont(costText);
-            costText.fontSize = 28;
+            costText.fontSize = UiFonts.Size(28);
             costText.alignment = TextAnchor.MiddleCenter;
             costText.color = new Color(1f, 0.85f, 0.45f);
             costText.raycastTarget = false;
@@ -184,7 +184,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             labelText = textGO.AddComponent<Text>();
             ApplyFont(labelText);
-            labelText.fontSize = 32;
+            labelText.fontSize = UiFonts.Size(32);
             labelText.alignment = TextAnchor.MiddleCenter;
             labelText.color = Color.white;
             labelText.text = label;

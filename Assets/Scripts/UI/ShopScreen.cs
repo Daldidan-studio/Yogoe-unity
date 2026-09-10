@@ -451,7 +451,7 @@ namespace Yoegoe.UI
             rt.offsetMin = rt.offsetMax = Vector2.zero;
             var t = go.AddComponent<Text>();
             t.font = font;
-            t.fontSize = size;
+            t.fontSize = UiFonts.Size(size);
             t.alignment = TextAnchor.MiddleCenter;
             t.color = color;
             t.text = msg;

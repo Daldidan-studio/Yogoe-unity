@@ -286,7 +286,7 @@ namespace Yoegoe.UI
             rt.sizeDelta = new Vector2(500, 80);
             var t = go.AddComponent<Text>();
             t.font = font;
-            t.fontSize = size;
+            t.fontSize = UiFonts.Size(size);
             t.alignment = TextAnchor.MiddleCenter;
             t.color = color ?? new Color(1f, 0.95f, 0.85f);
             t.text = msg;

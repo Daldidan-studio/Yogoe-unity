@@ -3,6 +3,7 @@ using UnityEngine;
 using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
+using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
@@ -205,6 +206,37 @@ namespace Yoegoe.Characters
         public void ForceRefreshPileLabel() => RefreshPileLabel();
 
         /// <summary>
+        /// TEMP: 공덕 수거 히트 = 더미(***·숫자) 라벨만. 기물 본체는 포함하지 않는다.
+        /// </summary>
+        public bool TryGetPileLabelHitScore(Vector3 world, float padding, out float score)
+        {
+            score = float.MaxValue;
+            if (!HasPendingMerit) return false;
+            if (pileLabel == null || !pileLabel.gameObject.activeInHierarchy) return false;
+
+            var mr = pileLabel.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                Bounds b = mr.bounds;
+                b.Expand(Mathf.Max(0f, padding));
+                Vector3 p = world;
+                p.z = b.center.z;
+                if (!b.Contains(p)) return false;
+                score = Vector2.Distance(b.center, p);
+                return true;
+            }
+
+            // MeshRenderer 없을 때: LowerCenter 기준 대략 박스
+            Vector3 c = pileLabel.transform.position;
+            float halfW = 0.4f + Mathf.Max(0f, padding);
+            float h = 0.85f + Mathf.Max(0f, padding);
+            if (Mathf.Abs(world.x - c.x) > halfW) return false;
+            if (world.y < c.y - padding || world.y > c.y + h) return false;
+            score = Vector2.Distance(new Vector2(c.x, c.y + h * 0.5f), world);
+            return true;
+        }
+
+        /// <summary>
         /// 더미 표시 단계 0(빈) ~ 5.
         /// 경계 = 기물 분당 기본생산 × 1·3·10·20·30분 (7-2).
         /// </summary>
@@ -255,9 +287,9 @@ namespace Yoegoe.Characters
         {
             builtSprite = sprite;
             builtTint = tint;
-            occupiedByOwnerSprite = occupiedByOwner;
-            if (data != null && occupiedByOwner != null)
-                data.occupiedByOwnerSprite = occupiedByOwner;
+            occupiedByOwnerSprite = occupiedByOwner != null
+                ? occupiedByOwner
+                : data != null ? data.occupiedByOwnerSprite : null;
         }
 
         /// <summary>주인 전용 점유 아트가 있으면 기물 스프라이트를 바꾸고, 캐릭터 본체를 숨긴다.</summary>
@@ -354,7 +386,7 @@ namespace Yoegoe.Characters
             lockLabel.anchor = TextAnchor.MiddleCenter;
             lockLabel.alignment = TextAlignment.Center;
             lockLabel.characterSize = 0.07f;
-            lockLabel.fontSize = 42;
+            lockLabel.fontSize = UiFonts.Size(42);
             lockLabel.color = new Color(0.9f, 0.85f, 0.7f, 1f);
             if (sharedPileFont == null)
                 sharedPileFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -455,7 +487,7 @@ namespace Yoegoe.Characters
             pileLabel.anchor = TextAnchor.LowerCenter;
             pileLabel.alignment = TextAlignment.Center;
             pileLabel.characterSize = 0.08f;
-            pileLabel.fontSize = 48;
+            pileLabel.fontSize = UiFonts.Size(48);
             pileLabel.color = new Color(1f, 0.92f, 0.55f, 1f);
             if (sharedPileFont == null)
                 sharedPileFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

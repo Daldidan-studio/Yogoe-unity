@@ -35,7 +35,7 @@ namespace Yoegoe.UI
 
             var label = labelGO.AddComponent<Text>();
             label.font = font != null ? font : BuiltinFont();
-            label.fontSize = 36;
+            label.fontSize = UiFonts.Size(36);
             label.alignment = TextAnchor.MiddleCenter;
             label.color = new Color(1f, 0.95f, 0.55f, 1f);
             label.text = text;
@@ -59,7 +59,7 @@ namespace Yoegoe.UI
             rt.sizeDelta = new Vector2(280, 40);
             var label = go.AddComponent<Text>();
             label.font = font;
-            label.fontSize = 22;
+            label.fontSize = UiFonts.Size(22);
             label.alignment = TextAnchor.MiddleCenter;
             label.color = new Color(1f, 0.92f, 0.5f, 1f);
             label.text = text;

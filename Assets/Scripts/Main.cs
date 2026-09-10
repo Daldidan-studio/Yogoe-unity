@@ -16,6 +16,7 @@ namespace Yoegoe
     /// <summary>
     /// Main 씬 진입점. 카메라·맵·기물·캐릭터·HUD를 조립한다.
     /// 화면 크기: ArtScaleSettings.asset / 시작 재화·스탯: StartingStateSettings.asset
+    /// 기물 밸런스: Data/Props/*.asset / 배치 좌표: PropLayoutSettings.asset
     /// </summary>
     public class Main : MonoBehaviour
     {
@@ -39,6 +40,10 @@ namespace Yoegoe
         [Tooltip("비워두면 Resources/ArtScaleSettings 를 자동으로 찾는다. 맵·캐릭터·기물 배율은 그 에셋 하나에서 바꾼다.")]
         public ArtScaleSettings artScale;
 
+        [Header("기물 배치 (여기 말고 PropLayoutSettings.asset에서 조절)")]
+        [Tooltip("비워두면 Resources/PropLayoutSettings 를 자동으로 찾는다.")]
+        public PropLayoutSettings propLayout;
+
         [Header("맵 배경")]
         [Tooltip("전체 맵(섬 전경). Background_IslandOverview")]
         public Sprite overviewBackgroundSprite;
@@ -46,15 +51,6 @@ namespace Yoegoe
         public Sprite playfieldSprite;
         [Tooltip("전체맵 위치 보정(잔디=원점일 때 섬 잔디 정상과 맞추는 오프셋).")]
         public Vector2 overviewOffset = new Vector2(-0.05f, -0.32f);
-
-        [Header("기물 그림 (없으면 그 기물만 색깔 큐브로 대체)")]
-        public Sprite propSpriteGate;        // 솟대/문
-        public Sprite propSpriteWell;        // 우물
-        public Sprite propSpriteThatchedHut; // 초가집
-        public Sprite propSpriteSwing;       // 그네
-        public Sprite propSpriteStoneLion;   // 돌사자
-        public Sprite propSpriteMortar;      // 떡절구 (빈 기물)
-        public Sprite propSpriteMortarOccupiedRabbit; // 옥토끼 점유 연출
 
         [Header("HUD (상단 재화 바 + 하단 슬롯바)")]
         [Tooltip("한글 표시용 폰트. 비워두면 유니티 기본 폰트로 나오는데 한글이 깨질 수 있음 " +
@@ -138,20 +134,7 @@ namespace Yoegoe
             var propManagerGO = new GameObject("PropManager");
             propManagerGO.AddComponent<PropManager>();
 
-            // 기획 8장 시작: 우물·돌사자·떡절구 건립, 나머지 자물쇠
-            CreateProp("돌사자", new Vector3(-2.1f, 1.2f, 0), new Color(0.5f, 0.5f, 0.5f),
-                propSpriteStoneLion, prebuilt: true);
-            CreateProp("초가집", new Vector3(-0.6f, -0.2f, 0), new Color(0.55f, 0.45f, 0.35f),
-                propSpriteThatchedHut, prebuilt: false);
-            CreateProp("그네", new Vector3(2.0f, 0.8f, 0), new Color(0.5f, 0.4f, 0.3f),
-                propSpriteSwing, prebuilt: false);
-            CreateProp("솟대문", new Vector3(-1.9f, -1.3f, 0), new Color(0.6f, 0.55f, 0.5f),
-                propSpriteGate, prebuilt: false);
-            CreateProp("우물", new Vector3(1.6f, -1.4f, 0), new Color(0.4f, 0.45f, 0.55f),
-                propSpriteWell, prebuilt: true);
-            CreateProp("떡절구", new Vector3(0.5f, 1.35f, 0), new Color(0.75f, 0.55f, 0.35f),
-                propSpriteMortar, prebuilt: true, endingProp: true, endingOwner: CharacterId.Rabbit,
-                occupiedByOwnerSprite: propSpriteMortarOccupiedRabbit);
+            SpawnPropsFromLayout();
 
             CreateCharacter("옥토끼", new Vector3(-1f, 0.5f, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0f, 0.5f, 0), Color.black, samjokOData);
@@ -470,10 +453,33 @@ namespace Yoegoe
             renderer.material = mat;
         }
 
-        private void CreateProp(string name, Vector3 pos, Color color, Sprite sprite = null,
-            bool prebuilt = true, bool endingProp = false, CharacterId endingOwner = CharacterId.Rabbit,
-            Sprite occupiedByOwnerSprite = null)
+        private void SpawnPropsFromLayout()
         {
+            var layout = propLayout != null ? propLayout : PropLayoutSettings.Get();
+            if (layout?.placements == null || layout.placements.Length == 0)
+            {
+                Debug.LogError("[Main] PropLayoutSettings 배치가 비어 있습니다. " +
+                               "Assets/Resources/PropLayoutSettings.asset 을 확인하세요.");
+                return;
+            }
+
+            for (int i = 0; i < layout.placements.Length; i++)
+            {
+                var place = layout.placements[i];
+                if (place?.data == null)
+                {
+                    Debug.LogWarning($"[Main] PropLayoutSettings.placements[{i}] 에 PropData 가 없습니다.");
+                    continue;
+                }
+                CreateProp(place.data, place.position, place.fallbackColor);
+            }
+        }
+
+        private void CreateProp(PropData data, Vector3 pos, Color color)
+        {
+            string name = !string.IsNullOrEmpty(data.displayName) ? data.displayName
+                : (!string.IsNullOrEmpty(data.propId) ? data.propId : "Prop");
+            Sprite sprite = data.icon;
             GameObject go;
 
             if (sprite != null)
@@ -498,21 +504,9 @@ namespace Yoegoe
             }
 
             var slot = go.AddComponent<PropSlot>();
-
-            var data = ScriptableObject.CreateInstance<PropData>();
-            data.propId = name;
-            data.displayName = name;
-            data.icon = sprite;
-            data.baseProductionPerMinute = 100;
-            data.isPrebuilt = prebuilt;
-            data.isEndingProp = endingProp;
-            data.owner = endingOwner;
-            data.hasUniqueEndingAnimation = endingProp && endingOwner == CharacterId.Rabbit
-                && occupiedByOwnerSprite != null;
-            data.occupiedByOwnerSprite = occupiedByOwnerSprite;
             slot.data = data;
-            slot.SetBuiltAppearance(sprite, color, occupiedByOwnerSprite);
-            slot.ConfigureBuiltState(prebuilt);
+            slot.SetBuiltAppearance(sprite, color, data.occupiedByOwnerSprite);
+            slot.ConfigureBuiltState(data.isPrebuilt);
         }
 
         private void CreateCharacter(string name, Vector3 pos, Color color, CharacterData realData)

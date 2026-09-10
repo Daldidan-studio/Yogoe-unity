@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.Save;
@@ -11,7 +12,7 @@ namespace Yoegoe.UI
 {
     /// <summary>
     /// 캐릭터 상세화면. 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
-    /// 정화수·공양물은 드래그해서 초상 위에 놓아 먹인다.
+    /// 정화수·공양물은 드래그해서 본문(초상·정보) 위에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
     {
@@ -25,6 +26,8 @@ namespace Yoegoe.UI
         private Image portraitImage;
         private RectTransform portraitRt;
         private RectTransform portraitDropRt;
+        /// <summary>급여 드롭 판정용 — 초상만이 아니라 본문 전체(정보 패널 포함).</summary>
+        private RectTransform feedDropRt;
         private Image portraitPanelHighlight;
         private Vector3 portraitBaseScale = Vector3.one;
         private Text nameValueText;
@@ -50,6 +53,8 @@ namespace Yoegoe.UI
         private GrowthStage lastPortraitStage = GrowthStage.Hon;
         private Coroutine portraitEvolveFx;
         private bool offeringDragActive;
+        /// <summary>드래그 중 한 프레임이라도 드롭존 위였으면 터치 릴리즈 지터로 실패하지 않게.</summary>
+        private bool feedDropHoverLatched;
 
         struct CountBadge
         {
@@ -139,9 +144,7 @@ namespace Yoegoe.UI
 
             if (feedHintText != null)
             {
-                feedHintText.text = isNeok
-                    ? "정화수를 드래그해 넋에게 먹이세요"
-                    : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+                feedHintText.text = DefaultFeedHint();
             }
         }
 
@@ -355,39 +358,75 @@ namespace Yoegoe.UI
         public void NotifyOfferingDragBegan()
         {
             offeringDragActive = true;
+            feedDropHoverLatched = false;
             if (feedHintText != null)
-                feedHintText.text = "초상 위에 놓아 공양하세요";
+                feedHintText.text = "캐릭터 위에 놓아 공양하세요";
             SetPortraitDropHighlight(false);
         }
 
         public void NotifyOfferingDragMoved(Vector2 screenPos)
         {
-            SetPortraitDropHighlight(IsOverPortrait(screenPos));
+            bool over = IsOverFeedTarget(screenPos);
+            if (over) feedDropHoverLatched = true;
+            SetPortraitDropHighlight(over || feedDropHoverLatched);
         }
 
         public void NotifyOfferingDragEnded(bool accepted)
         {
             offeringDragActive = false;
+            feedDropHoverLatched = false;
             SetPortraitDropHighlight(false);
             if (feedHintText == null) return;
-            bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
             if (accepted)
+            {
                 feedHintText.text = "";
-            else
-                feedHintText.text = isNeok
-                    ? "정화수를 드래그해 넋에게 먹이세요"
-                    : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+                return;
+            }
+            // 실패 사유를 NotifyFeedBlocked 로 이미 넣었으면 유지
+            if (!string.IsNullOrEmpty(feedHintText.text)
+                && feedHintText.text != "캐릭터 위에 놓아 공양하세요")
+                return;
+            feedHintText.text = DefaultFeedHint();
+        }
+
+        public void NotifyFeedBlocked(string reason)
+        {
+            if (feedHintText != null && !string.IsNullOrEmpty(reason))
+                feedHintText.text = reason;
+        }
+
+        string DefaultFeedHint()
+        {
+            bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
+            return isNeok
+                ? "정화수를 드래그해 넋에게 먹이세요"
+                : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
         }
 
         public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
         {
-            if (!IsOverPortrait(screenPos)) return false;
+            bool overNow = IsOverFeedTarget(screenPos);
+            if (!overNow && !feedDropHoverLatched)
+            {
+                NotifyFeedBlocked("캐릭터(초상·정보) 위에 놓아 주세요");
+                return false;
+            }
+
+            if (CeremonyGate.BlocksWorldInput)
+            {
+                NotifyFeedBlocked("연출이 끝난 뒤 다시 시도해 주세요");
+                return false;
+            }
+
             bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
             if (isNeok)
             {
                 // 넋은 정화수만
                 if (!(purifiedWater || (offering != null && IsPurified(offering))))
+                {
+                    NotifyFeedBlocked("넋은 정화수만 먹을 수 있어요");
                     return false;
+                }
                 return OnFeedPurifiedWater();
             }
             if (purifiedWater || (offering != null && IsPurified(offering)))
@@ -396,13 +435,24 @@ namespace Yoegoe.UI
             return OnFeed(offering);
         }
 
-        bool IsOverPortrait(Vector2 screenPos)
+        bool IsOverFeedTarget(Vector2 screenPos)
         {
-            if (portraitDropRt == null) return false;
+            var target = feedDropRt != null ? feedDropRt : portraitDropRt;
+            if (target == null) return false;
             Camera cam = null;
             if (rootCanvas != null && rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
                 cam = rootCanvas.worldCamera;
-            return RectTransformUtility.RectangleContainsScreenPoint(portraitDropRt, screenPos, cam);
+            // 터치 릴리즈 오차 여유 (레퍼런스 해상도 기준 로컬 유닛)
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    target, screenPos, cam, out var local))
+                return false;
+            var r = target.rect;
+            const float pad = 28f;
+            r.xMin -= pad;
+            r.xMax += pad;
+            r.yMin -= pad;
+            r.yMax += pad;
+            return r.Contains(local);
         }
 
         void SetPortraitDropHighlight(bool on)
@@ -414,13 +464,33 @@ namespace Yoegoe.UI
         private bool OnFeedPurifiedWater()
         {
             if (currentAgent == null) return false;
-            if (!GameEconomy.Instance.TrySpendPurifiedWater(1)) return false;
+
+            if (GameEconomy.Instance == null || GameEconomy.Instance.PurifiedWater < 1)
+            {
+                NotifyFeedBlocked("정화수가 없어요");
+                return false;
+            }
+
+            // 혼 기력 풀이면 소모만 되고 변화가 없어 "안 먹힌다"로 보임 → 낭비 방지
+            if (currentAgent.Stats.Stage != GrowthStage.Neok
+                && currentAgent.Stats.Stamina >= 100f - 0.001f)
+            {
+                NotifyFeedBlocked("기력이 가득 찼어요");
+                return false;
+            }
+
+            if (!GameEconomy.Instance.TrySpendPurifiedWater(1))
+            {
+                NotifyFeedBlocked("정화수가 없어요");
+                return false;
+            }
 
             var pw = FindPurifiedWater();
             int gain = pw != null ? pw.staminaGain : 20;
             currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
             PlayGainPopup(gain, 0f);
             RefreshStats();
+            RefreshItemCounts();
             if (currentAgent.Stats.Stage == GrowthStage.Hon)
                 GameSaveBridge.SaveFromWorld();
             return true;
@@ -430,38 +500,44 @@ namespace Yoegoe.UI
         {
             if (currentAgent == null || offering == null) return false;
 
-            bool isPurified = IsPurified(offering);
+            if (IsPurified(offering))
+                return OnFeedPurifiedWater();
 
-            if (currentAgent.Stats.Stage == GrowthStage.Neok && !isPurified)
-                return false;
-
-            if (isPurified)
+            if (currentAgent.Stats.Stage == GrowthStage.Neok)
             {
-                if (!GameEconomy.Instance.TrySpendPurifiedWater(1)) return false;
-            }
-            else if (!GameEconomy.Instance.TrySpendOffering(offering, 1))
-            {
+                NotifyFeedBlocked("넋은 정화수만 먹을 수 있어요");
                 return false;
             }
 
-            var kind = isPurified ? OfferingKind.PurifiedWater : offering.kind;
-            bool preferred = !isPurified && IsPreferred(offering);
-            if (preferred) kind = OfferingKind.Preferred;
+            bool preferred = IsPreferred(offering);
+            bool hasRequest = currentAgent.Requests != null && currentAgent.Requests.HasOfferingRequest;
+            bool staminaFull = currentAgent.Stats.Stamina >= 100f - 0.001f;
 
+            // 기력 풀 + 요구 없음 + 비선호 → 체감상 "안 먹힘". 선호·요구 이행은 허용.
+            if (staminaFull && !hasRequest && !preferred)
+            {
+                NotifyFeedBlocked("기력이 가득 찼어요");
+                return false;
+            }
+
+            if (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendOffering(offering, 1))
+            {
+                NotifyFeedBlocked("공양물이 없어요");
+                return false;
+            }
+
+            var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
             int staminaGain = offering.staminaGain > 0 ? offering.staminaGain : 20;
             float intimacyGain = preferred ? 0.25f : 0f;
-            if (isPurified) intimacyGain = 0f;
 
             bool clearedOfferingRequest = false;
-            if (!isPurified
-                && currentAgent.Requests != null
+            if (currentAgent.Requests != null
                 && currentAgent.Requests.TryHandleFeed(offering, false, preferred,
                     out int reqStamina, out float reqIntimacy, out _))
             {
                 staminaGain = reqStamina;
                 intimacyGain = reqIntimacy;
                 if (intimacyGain > 0f) kind = OfferingKind.Preferred;
-                // 요구 맞춤/다른 공양 모두 요구 삭제 → 인벤 하이라이트도 제거
                 clearedOfferingRequest = true;
             }
 
@@ -747,10 +823,11 @@ namespace Yoegoe.UI
             CreateCloseBar(closeGO.transform, 45f);
             CreateCloseBar(closeGO.transform, -45f);
 
-            // 본문: 하단 바 위
+            // 본문: 하단 바 위 (급여 드롭 존)
             var body = new GameObject("Body");
             var bodyRt = SetupRect(body, rootRt, new Vector2(0f, 0.22f), new Vector2(1f, 1f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            feedDropRt = bodyRt;
             // top padding for close
             var bodyPad = new GameObject("BodyInner");
             var bodyInner = SetupRect(bodyPad, bodyRt, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.92f),
@@ -1111,7 +1188,7 @@ namespace Yoegoe.UI
             go.transform.SetParent(parent, false);
             var text = go.AddComponent<Text>();
             text.font = font;
-            text.fontSize = fontSize;
+            text.fontSize = UiFonts.Size(fontSize);
             text.alignment = alignment;
             text.color = LabelDark;
             text.text = initial;

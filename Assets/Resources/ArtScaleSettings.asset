@@ -16,6 +16,7 @@ MonoBehaviour:
   mapScale: 1
   characterScale: 0.35
   propScale: 0.6
+  uiFontScale: 1.15
   backgroundSort: -100
   propSortBase: 0
   characterSortBase: 100

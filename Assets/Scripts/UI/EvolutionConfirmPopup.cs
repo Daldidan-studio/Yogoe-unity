@@ -94,7 +94,7 @@ namespace Yoegoe.UI
             bodyRt.sizeDelta = new Vector2(580, 140);
             bodyText = bodyGO.AddComponent<Text>();
             bodyText.font = font;
-            bodyText.fontSize = 34;
+            bodyText.fontSize = UiFonts.Size(34);
             bodyText.alignment = TextAnchor.MiddleCenter;
             bodyText.color = new Color(1f, 0.95f, 0.85f);
             bodyText.raycastTarget = false;
@@ -121,7 +121,7 @@ namespace Yoegoe.UI
             labelRt.offsetMin = labelRt.offsetMax = Vector2.zero;
             var label = labelGO.AddComponent<Text>();
             label.font = font;
-            label.fontSize = 32;
+            label.fontSize = UiFonts.Size(32);
             label.alignment = TextAnchor.MiddleCenter;
             label.color = Color.white;
             label.text = "확인";

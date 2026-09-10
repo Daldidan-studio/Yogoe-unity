@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using Yoegoe.Data;
+using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
@@ -259,7 +260,7 @@ namespace Yoegoe.Characters
             var textGo = new GameObject(gameObject.name + "_Bubble");
             bubbleTextMesh = textGo.AddComponent<TextMesh>();
             bubbleTextMesh.characterSize = 0.045f;
-            bubbleTextMesh.fontSize = 48;
+            bubbleTextMesh.fontSize = UiFonts.Size(48);
             bubbleTextMesh.anchor = TextAnchor.MiddleCenter;
             bubbleTextMesh.alignment = TextAlignment.Center;
             bubbleTextMesh.color = new Color(0.15f, 0.1f, 0.08f);

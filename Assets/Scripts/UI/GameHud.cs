@@ -334,7 +334,7 @@ namespace Yoegoe.UI
                     Vector2.zero, Vector2.zero);
                 var tagText = tagTextGO.AddComponent<Text>();
                 tagText.font = font;
-                tagText.fontSize = 16;
+                tagText.fontSize = UiFonts.Size(16);
                 tagText.alignment = TextAnchor.MiddleCenter;
                 tagText.color = Color.white;
                 tagText.text = "일하는";
@@ -360,7 +360,7 @@ namespace Yoegoe.UI
                         Vector2.zero, Vector2.zero);
                     batchLabel = batchLabelGO.AddComponent<Text>();
                     batchLabel.font = font;
-                    batchLabel.fontSize = 14;
+                    batchLabel.fontSize = UiFonts.Size(14);
                     batchLabel.alignment = TextAnchor.MiddleCenter;
                     batchLabel.color = Color.white;
                     batchLabel.raycastTarget = false;
@@ -373,7 +373,7 @@ namespace Yoegoe.UI
                     new Vector2(0, -6), new Vector2(-10, 26));
                 var nameText = nameGO.AddComponent<Text>();
                 nameText.font = font;
-                nameText.fontSize = 20;
+                nameText.fontSize = UiFonts.Size(20);
                 nameText.alignment = TextAnchor.MiddleCenter;
                 nameText.color = Color.white;
                 nameText.raycastTarget = false;
@@ -434,7 +434,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var nameText = nameGO.AddComponent<Text>();
             nameText.font = font;
-            nameText.fontSize = 22;
+            nameText.fontSize = UiFonts.Size(22);
             nameText.alignment = TextAnchor.MiddleCenter;
             nameText.color = new Color(0.7f, 0.9f, 1f, 1f);
             nameText.raycastTarget = false;
@@ -718,7 +718,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var text = labelGO.AddComponent<Text>();
             text.font = font;
-            text.fontSize = 20;
+            text.fontSize = UiFonts.Size(20);
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.text = label;
@@ -790,7 +790,7 @@ namespace Yoegoe.UI
                 new Vector2(20, -8), new Vector2(-70, 28));
             upgradeNameText = nameGO.AddComponent<Text>();
             upgradeNameText.font = font;
-            upgradeNameText.fontSize = 20;
+            upgradeNameText.fontSize = UiFonts.Size(20);
             upgradeNameText.alignment = TextAnchor.MiddleLeft;
             upgradeNameText.color = Color.white;
             upgradeNameText.raycastTarget = false;
@@ -800,7 +800,7 @@ namespace Yoegoe.UI
                 new Vector2(20, 10), new Vector2(-70, 32));
             upgradeCostText = costGO.AddComponent<Text>();
             upgradeCostText.font = font;
-            upgradeCostText.fontSize = 24;
+            upgradeCostText.fontSize = UiFonts.Size(24);
             upgradeCostText.alignment = TextAnchor.MiddleLeft;
             upgradeCostText.color = new Color(1f, 0.92f, 0.55f);
             upgradeCostText.raycastTarget = false;
@@ -831,7 +831,7 @@ namespace Yoegoe.UI
             if (meritTextRt == null) meritTextRt = meritGO.AddComponent<RectTransform>();
             meritText = meritGO.AddComponent<Text>();
             meritText.font = font;
-            meritText.fontSize = 40;
+            meritText.fontSize = UiFonts.Size(40);
             meritText.color = new Color(1f, 0.95f, 0.85f);
             meritText.alignment = TextAnchor.MiddleLeft;
             meritText.raycastTarget = false;
@@ -868,7 +868,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var shopLabel = shopLabelGO.AddComponent<Text>();
             shopLabel.font = font;
-            shopLabel.fontSize = 26;
+            shopLabel.fontSize = UiFonts.Size(26);
             shopLabel.alignment = TextAnchor.MiddleCenter;
             shopLabel.color = new Color(1f, 0.95f, 0.85f);
             shopLabel.text = "상점";
@@ -891,7 +891,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var yutLabel = yutLabelGO.AddComponent<Text>();
             yutLabel.font = font;
-            yutLabel.fontSize = 26;
+            yutLabel.fontSize = UiFonts.Size(26);
             yutLabel.alignment = TextAnchor.MiddleCenter;
             yutLabel.color = new Color(1f, 0.95f, 0.85f);
             yutLabel.text = "윷놀이";
@@ -953,7 +953,7 @@ namespace Yoegoe.UI
             textLe.preferredWidth = textWidth;
             var text = textGO.AddComponent<Text>();
             text.font = font;
-            text.fontSize = 28;
+            text.fontSize = UiFonts.Size(28);
             text.color = new Color(1f, 0.98f, 0.92f);
             text.alignment = TextAnchor.MiddleLeft;
             text.text = label;

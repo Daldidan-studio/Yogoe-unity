@@ -130,6 +130,13 @@ namespace Yoegoe.Data
                 : Array.Empty<string>();
 
             data.preferredOfferings = ResolveOfferings(entry.preferredOfferings);
+
+            if (!string.IsNullOrEmpty(entry.endingPropId))
+            {
+                var ending = PropLayoutSettings.Get().FindByPropId(entry.endingPropId);
+                if (ending != null)
+                    data.endingProp = ending;
+            }
         }
 
         public static OfferingData FindOffering(string offeringId)

@@ -231,7 +231,7 @@ namespace Yoegoe.UI
             text.font = font != null
                 ? font
                 : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = size;
+            text.fontSize = UiFonts.Size(size);
             text.alignment = TextAnchor.MiddleCenter;
             text.color = color ?? Color.white;
             text.text = msg;

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Yoegoe.Data
 {
-    /// <summary>기물(맵 오브젝트) 정의 (기획서 7,8장). 돌탑/우물/떡절구는 MVP 시작 시 이미 건립된 상태(isPrebuilt).</summary>
+    /// <summary>기물(맵 오브젝트) 정의 (기획서 7,8장). Assets/Data/Props/*.asset. 배치는 PropLayoutSettings.</summary>
     [CreateAssetMenu(fileName = "PropData", menuName = "Yoegoe/Prop Data")]
     public class PropData : ScriptableObject
     {

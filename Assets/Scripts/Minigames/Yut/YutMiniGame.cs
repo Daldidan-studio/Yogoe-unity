@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Yoegoe.UI;
 
 namespace Yoegoe.Minigames.Yut
 {
@@ -712,7 +713,7 @@ namespace Yoegoe.Minigames.Yut
             }
             text.text = label;
             text.font = ResolveFont();
-            text.fontSize = 29;
+            text.fontSize = UiFonts.Size(29);
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
         }
@@ -746,7 +747,7 @@ namespace Yoegoe.Minigames.Yut
             var text = go.GetComponent<Text>();
             text.text = content;
             text.font = ResolveFont();
-            text.fontSize = size + 1;
+            text.fontSize = UiFonts.Size(size + 1);
             text.color = Color.white;
             text.alignment = anchor;
             return text;

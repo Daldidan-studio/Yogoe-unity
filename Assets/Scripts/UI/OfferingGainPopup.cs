@@ -102,7 +102,7 @@ namespace Yoegoe.UI
                 go.AddComponent<LayoutElement>().preferredHeight = size + 8;
                 var t = go.AddComponent<Text>();
                 t.font = font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                t.fontSize = size;
+                t.fontSize = UiFonts.Size(size);
                 t.fontStyle = FontStyle.Bold;
                 t.alignment = TextAnchor.MiddleCenter;
                 t.color = color;
