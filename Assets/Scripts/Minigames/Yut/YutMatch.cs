@@ -153,10 +153,14 @@ namespace Yoegoe.Minigames.Yut
 
                 if (YutMoveResolver.IsForkNode(p.NodeId))
                 {
+                    // 모/뒷모/방은 참(Start)이 아니므로 alreadyAtStart는 항상 false여야 한다.
+                    // true를 넘기면 ResolvesToFinish가 무조건 완주로 취급해 후보 칸이 실제
+                    // 목적지 대신 항상 참(0)으로 계산돼, 참 자리에 이 말의 후보 아이콘이
+                    // (상하 2개) 잘못 뜨는 버그가 있었다.
                     var shortcutPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: true);
                     var outerPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: false);
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(true, shortcutPath), true));
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(true, outerPath), false));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, shortcutPath), true));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, outerPath), false));
                     continue;
                 }
 
