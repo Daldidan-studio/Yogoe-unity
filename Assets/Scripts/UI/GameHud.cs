@@ -154,20 +154,32 @@ namespace Yoegoe.UI
             BuildCanvas();
         }
 
+        /// <summary>재화 칩 4개 + [+] 버튼이 한 줄에 다 들어가는 데 필요한 TopBar 최소 폭.</summary>
+        const float MinTopBarWidth = 750f;
+
         /// <summary>
         /// 윷 토큰 칩 옆 [+] 버튼 — BuildTopBar가 만든 최신 셸엔 이미 있지만, HasPrefabShell이라
         /// 통째로 건너뛰는 예전 Bake본에도 이름으로 찾아 붙여서 항상 나타나게 한다.
         /// </summary>
         void EnsureYutTokenPlusButton()
         {
-            if (yutTokenPlusButton != null) return;
-            var row = hudCanvas != null ? hudCanvas.transform.Find("TopBar/CurrencyRow") : null;
-            if (row == null) return;
+            if (yutTokenPlusButton == null)
+            {
+                var row = hudCanvas != null ? hudCanvas.transform.Find("TopBar/CurrencyRow") : null;
+                if (row != null)
+                {
+                    var existing = row.Find("YutTokenPlus");
+                    yutTokenPlusButton = existing != null
+                        ? existing.GetComponent<Button>()
+                        : CreateYutTokenPlusButton(row);
+                }
+            }
 
-            var existing = row.Find("YutTokenPlus");
-            yutTokenPlusButton = existing != null
-                ? existing.GetComponent<Button>()
-                : CreateYutTokenPlusButton(row);
+            // 예전 Bake본은 재화 칩 4개 기준 폭(690)으로 굳어 있어서, [+] 버튼이 추가된 뒤로는
+            // 오른쪽 칩(윷 토큰 등)이 잘려 보인다 — 최소 폭만 보장(더 넓게 손댔으면 안 줄임).
+            var topBarRt = hudCanvas != null ? hudCanvas.transform.Find("TopBar") as RectTransform : null;
+            if (topBarRt != null && topBarRt.sizeDelta.x < MinTopBarWidth)
+                topBarRt.sizeDelta = new Vector2(MinTopBarWidth, topBarRt.sizeDelta.y);
         }
 
         /// <summary>공덕 수거 연출 타겟(상단 공덕 텍스트)으로 꽃잎 Gather.</summary>
@@ -926,7 +938,7 @@ namespace Yoegoe.UI
         {
             var topGO = new GameObject("TopBar");
             var topRt = SetupRect(topGO, canvasTf, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(24, -24), new Vector2(690, 140));
+                new Vector2(24, -24), new Vector2(MinTopBarWidth, 140));
             var topBg = topGO.AddComponent<Image>();
             topBg.color = C.hudTopBar;
             topBg.raycastTarget = false;
