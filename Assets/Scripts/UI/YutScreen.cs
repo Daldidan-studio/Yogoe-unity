@@ -238,6 +238,11 @@ namespace Yoegoe.UI
             miniGame.ShowTurnTracker(match.PlayerTurnNumber, match.CurrentTurnResults);
         }
 
+        void HandleYutTokenChanged(int token)
+        {
+            if (miniGame != null) miniGame.RefreshHearts(token);
+        }
+
         void SubscribeMatchEvents()
         {
             if (match == null) return;
@@ -933,6 +938,13 @@ namespace Yoegoe.UI
 
         void HandleLeavePressed() => Close();
 
+        /// <summary>윷 토큰(하트) 옆 [+] — 메인 HUD와 같은 팝업(엽전 구매/광고 충전)을 윷놀이
+        /// 화면 안에서도 그대로 연다.</summary>
+        void HandleBuyTokensPressed()
+        {
+            if (YutTokenShopPopup.Instance != null) YutTokenShopPopup.Instance.Open();
+        }
+
         void HandlePiecesChanged()
         {
             if (match == null) return;
@@ -1272,9 +1284,18 @@ namespace Yoegoe.UI
             miniGame.OnThrowPressed -= HandleThrowPressed;
             miniGame.OnLeavePressed -= HandleLeavePressed;
             miniGame.OnCandidateTapped -= HandleCandidateTapped;
+            miniGame.OnBuyTokensPressed -= HandleBuyTokensPressed;
             miniGame.OnThrowPressed += HandleThrowPressed;
             miniGame.OnLeavePressed += HandleLeavePressed;
             miniGame.OnCandidateTapped += HandleCandidateTapped;
+            miniGame.OnBuyTokensPressed += HandleBuyTokensPressed;
+
+            // 윷놀이 화면 안에서 [+]로 토큰을 사도(또는 광고로 충전해도) 하트가 바로 갱신되게.
+            if (GameEconomy.Instance != null)
+            {
+                GameEconomy.Instance.OnYutTokenChanged -= HandleYutTokenChanged;
+                GameEconomy.Instance.OnYutTokenChanged += HandleYutTokenChanged;
+            }
 
             miniGame.font = font;
             miniGame.BindFromHierarchy();

@@ -27,6 +27,8 @@ namespace Yoegoe.Minigames.Yut
         /// 속도 기반 — 던지는 연출(아치 높이·회전·착지 퍼짐)에만 쓰고 결과 확률엔 영향 없다.</summary>
         public event Action<float> OnThrowPressed;
         public event Action OnLeavePressed;
+        /// <summary>윷 토큰(하트) 옆 [+] 버튼 — YutScreen이 YutTokenShopPopup을 연다.</summary>
+        public event Action OnBuyTokensPressed;
         /// <summary>족보 안내 오버레이가 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
         public event Action<bool> OnRulesPanelToggled;
         /// <summary>족보 안내를 유저가 닫기 버튼으로 직접 닫았을 때.</summary>
@@ -160,6 +162,15 @@ namespace Yoegoe.Minigames.Yut
         }
         static readonly Color HeartOn = new(0.95f, 0.25f, 0.35f);
         static readonly Color HeartOff = new(0.3f, 0.15f, 0.18f, 0.6f);
+
+        // 우상단 한 줄: [기록] [+ 토큰구매] [하트(윷 토큰)] — 하트가 오른쪽 끝(HeartsRightEdge)에
+        // 붙고, 그 왼쪽으로 +·기록 버튼이 이어진다. 세 자리 모두 여기 상수 하나로 관리한다.
+        const float HeartsRightEdge = 0.93f;
+        const float TokenPlusLeft = 0.673f;
+        const float TokenPlusRight = 0.713f;
+        const float PlayLogLeft = 0.533f;
+        const float PlayLogRight = 0.663f;
+        Button _tokenPlusButton;
 
         public void BindFromHierarchy()
         {
@@ -360,7 +371,7 @@ namespace Yoegoe.Minigames.Yut
 
             var go = new GameObject("PlayLogButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(transform, false);
-            SetAnchor((RectTransform)go.transform, 0.76f, 0.905f, 0.855f, 0.965f, 0, 0, 0, 0);
+            SetAnchor((RectTransform)go.transform, PlayLogLeft, 0.9f, PlayLogRight, 0.97f, 0, 0, 0, 0);
             var bg = go.GetComponent<Image>();
             bg.color = new Color(0.22f, 0.19f, 0.14f, 0.9f);
             _playLogButton = go.AddComponent<Button>();
@@ -371,6 +382,28 @@ namespace Yoegoe.Minigames.Yut
             label.raycastTarget = false;
 
             _playLogButton.onClick.AddListener(TogglePlayLog);
+        }
+
+        /// <summary>윷 토큰(하트) 바로 왼쪽의 [+] — 놀이판 안에서도 토큰을 충전/구매할 수 있게.
+        /// 실제 구매 로직(엽전/광고)은 YutScreen이 여는 YutTokenShopPopup이 담당하고, 여기선
+        /// 탭 이벤트만 올려보낸다(YutMiniGame은 재화를 모른다).</summary>
+        void EnsureTokenPlusButton()
+        {
+            if (_tokenPlusButton != null) return;
+
+            var go = new GameObject("TokenPlusButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(transform, false);
+            SetAnchor((RectTransform)go.transform, TokenPlusLeft, 0.9f, TokenPlusRight, 0.97f, 0, 0, 0, 0);
+            var bg = go.GetComponent<Image>();
+            bg.color = new Color(0.3f, 0.5f, 0.45f, 0.95f);
+            _tokenPlusButton = go.AddComponent<Button>();
+            _tokenPlusButton.targetGraphic = bg;
+
+            var label = CreateText(go.transform, "Label", "+", 26, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform);
+            label.raycastTarget = false;
+
+            _tokenPlusButton.onClick.AddListener(() => OnBuyTokensPressed?.Invoke());
         }
 
         void EnsurePlayLogPanel()
@@ -1042,6 +1075,7 @@ namespace Yoegoe.Minigames.Yut
                 new Color(0.12f, 0.22f, 0.18f, 0.92f), out _);
 
             BindOrCreateHearts();
+            EnsureTokenPlusButton();
             if (!TryBindPads())
                 CreatePads();
             BindOrCreatePieces();
@@ -1370,35 +1404,42 @@ namespace Yoegoe.Minigames.Yut
             rt.sizeDelta = new Vector2(0f, height);
         }
 
+        /// <summary>하트(윷 토큰) 자리는 "기록"·"+"(토큰 구매) 버튼과 한 줄에 나란히 있어야 해서,
+        /// found든 created든 매번 좌표를 다시 맞춘다 — 하나만 고치고 다른 쪽을 빼먹으면 baked
+        /// 씬에서만 옛 위치로 어긋나는 버그가 난다(다른 Ensure류와 같은 이유).</summary>
         void BindOrCreateHearts()
         {
             if (_heartIcons != null) return;
 
             const int heartCount = 5 /* 구 KSpirits.Core.GameConstants.HeartMax, 새 설계에 맞게 나중에 재조정 */;
-            if (transform.Find("Heart0") != null)
+            _heartIcons = new Image[heartCount];
+            bool foundAll = true;
+            for (int i = 0; i < heartCount; i++)
+            {
+                var t = transform.Find($"Heart{i}");
+                if (t == null) { foundAll = false; break; }
+                _heartIcons[i] = t.GetComponent<Image>();
+            }
+
+            if (!foundAll)
             {
                 _heartIcons = new Image[heartCount];
                 for (int i = 0; i < heartCount; i++)
                 {
-                    var t = transform.Find($"Heart{i}");
-                    if (t == null) { _heartIcons = null; break; }
-                    _heartIcons[i] = t.GetComponent<Image>();
+                    var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    heartGo.transform.SetParent(transform, false);
+                    _heartIcons[i] = heartGo.GetComponent<Image>();
                 }
-                if (_heartIcons != null) return;
             }
 
-            _heartIcons = new Image[heartCount];
             const float iconW = 0.035f;
             const float gap = 0.008f;
-            float totalW = _heartIcons.Length * iconW + (_heartIcons.Length - 1) * gap;
-            float startX = 0.95f - totalW;
-            for (int i = 0; i < _heartIcons.Length; i++)
+            float totalW = heartCount * iconW + (heartCount - 1) * gap;
+            float startX = HeartsRightEdge - totalW;
+            for (int i = 0; i < heartCount; i++)
             {
-                var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                heartGo.transform.SetParent(transform, false);
                 float x = startX + i * (iconW + gap);
-                SetAnchor(heartGo.GetComponent<RectTransform>(), x, 0.9f, x + iconW, 0.97f, 0, 0, 0, 0);
-                _heartIcons[i] = heartGo.GetComponent<Image>();
+                SetAnchor(_heartIcons[i].rectTransform, x, 0.9f, x + iconW, 0.97f, 0, 0, 0, 0);
             }
         }
 
