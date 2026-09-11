@@ -315,15 +315,28 @@ namespace Yoegoe.UI
 
         /// <summary>같은 시점 — "광고 보고 되살리기" 팝업. 선택이 끝날 때까지 이무기 보너스 턴
         /// 진행을 멈춘다(RunOpponentTurnRoutine의 awaitingReviveChoice 대기).</summary>
-        void HandlePlayerPiecesCapturedRevivable(IReadOnlyList<YutMatch.CapturedPieceSnapshot> snapshots)
+        void HandlePlayerPiecesCapturedRevivable(List<YutMatch.CapturedPieceSnapshot> snapshots)
         {
             if (snapshots == null || snapshots.Count == 0) return;
-            pendingReviveSnapshots = snapshots.ToList();
+            pendingReviveSnapshots = snapshots;
             awaitingReviveChoice = true;
-            string names = string.Join(", ", snapshots.Select(s => NameFor(s.PieceId)));
+            string names = JoinPieceNames(snapshots);
             ShowReviveChoice($"{names} 잡혔어요!\n광고 보고 되살릴까요?",
                 onYes: HandleReviveYes,
                 onNo: HandleReviveNo);
+        }
+
+        // LINQ(.Select)를 새 struct(CapturedPieceSnapshot)에 처음 쓰면 IL2CPP WebGL 빌드에서
+        // "RuntimeError: null function"이 나는 경우가 있어(제네릭 인스턴스 누락) — 수동 루프로 우회.
+        string JoinPieceNames(List<YutMatch.CapturedPieceSnapshot> snapshots)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < snapshots.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(NameFor(snapshots[i].PieceId));
+            }
+            return sb.ToString();
         }
 
         void HandleReviveYes() => StartCoroutine(ReviveAdRoutine());
@@ -335,7 +348,7 @@ namespace Yoegoe.UI
 
             if (match != null && pendingReviveSnapshots != null && match.ReviveCapturedPieces(pendingReviveSnapshots))
             {
-                string names = string.Join(", ", pendingReviveSnapshots.Select(s => NameFor(s.PieceId)));
+                string names = JoinPieceNames(pendingReviveSnapshots);
                 miniGame.ShowLogLine(pendingReviveSnapshots[0].PieceId, $"{names} 되살아났어요!");
                 GameSaveBridge.SaveFromWorld();
             }
@@ -550,15 +563,16 @@ namespace Yoegoe.UI
             miniGame.ShowOpponentPiece(opp.OnBoard);
             if (opp.OnBoard) miniGame.SetOpponentPieceIndex(opp.NodeId);
 
-            var roster = match.PlayerPieces
-                .Select(p =>
-                {
-                    teamById.TryGetValue(p.Id, out var agent);
-                    int stamina = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Stamina) : 0;
-                    int intimacy = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Intimacy) : 0;
-                    return new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p));
-                })
-                .ToList();
+            // LINQ(.Select/.ToList)를 새 struct(RosterEntry)에 처음 쓰면 IL2CPP WebGL 빌드에서
+            // "RuntimeError: null function"이 나는 경우가 있어(제네릭 인스턴스 누락) — 수동 루프로 우회.
+            var roster = new List<YutMiniGame.RosterEntry>(match.PlayerPieces.Count);
+            foreach (var p in match.PlayerPieces)
+            {
+                teamById.TryGetValue(p.Id, out var agent);
+                int stamina = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Stamina) : 0;
+                int intimacy = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Intimacy) : 0;
+                roster.Add(new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p)));
+            }
             miniGame.ShowRoster(roster);
         }
 

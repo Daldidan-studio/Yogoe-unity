@@ -67,7 +67,7 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>이무기가 내 말(스택이면 전원)을 잡았을 때 — 잡힌 말들. 게임로그 대사용.</summary>
         public event Action<IReadOnlyList<YutPiece>> OnPlayerPiecesCaptured;
         /// <summary>위와 같은 시점, "광고 보고 되살리기" 용으로 잡히기 직전 위치를 스냅샷으로 담아 전달.</summary>
-        public event Action<IReadOnlyList<CapturedPieceSnapshot>> OnPlayerPiecesCapturedRevivable;
+        public event Action<List<CapturedPieceSnapshot>> OnPlayerPiecesCapturedRevivable;
         /// <summary>내가 이무기를 잡았을 때. 게임로그 대사용.</summary>
         public event Action OnOpponentCaptured;
         /// <summary>
@@ -288,9 +288,11 @@ namespace Yoegoe.Minigames.Yut
             opponentPiece.NodeId = dest;
 
             var captured = playerPieces.Where(p => !p.Finished && p.NodeId == dest).ToList();
-            var revivable = captured
-                .Select(p => new CapturedPieceSnapshot(p.Id, p.NodeId, new List<int>(p.History)))
-                .ToList();
+            // LINQ(.Select)를 새 struct(CapturedPieceSnapshot)에 처음 쓰면 IL2CPP WebGL 빌드에서
+            // "RuntimeError: null function"이 나는 경우가 있어(제네릭 인스턴스 누락) — 수동 루프로 우회.
+            var revivable = new List<CapturedPieceSnapshot>(captured.Count);
+            foreach (var p in captured)
+                revivable.Add(new CapturedPieceSnapshot(p.Id, p.NodeId, new List<int>(p.History)));
             foreach (var p in captured) { p.NodeId = -1; p.History.Clear(); }
             if (captured.Count > 0)
             {
@@ -306,7 +308,7 @@ namespace Yoegoe.Minigames.Yut
         /// "광고 보고 되살리기" — 잡히기 직전 위치로 되돌린다. 그 사이 다른 수로 이미 상태가
         /// 바뀐(다시 움직였거나 다른 말과 겹친) 말은 안전하게 건너뛴다.
         /// </summary>
-        public bool ReviveCapturedPieces(IReadOnlyList<CapturedPieceSnapshot> snapshots)
+        public bool ReviveCapturedPieces(List<CapturedPieceSnapshot> snapshots)
         {
             if (snapshots == null || IsEnded) return false;
             bool any = false;
