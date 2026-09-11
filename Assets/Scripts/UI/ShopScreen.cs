@@ -91,6 +91,8 @@ namespace Yoegoe.UI
         Text packageBody;
         Text packagePriceBtnLabel;
 
+        Text currencyText;
+
         void Awake() => Instance = this;
 
         void Start()
@@ -112,15 +114,38 @@ namespace Yoegoe.UI
             dialogueIndex = 0;
             SetDialogue(ImugiLines[0]);
             RefreshSlots();
+            RefreshCurrencyBar();
+            if (GameEconomy.Instance != null)
+            {
+                GameEconomy.Instance.OnYeopjeonChanged -= OnYeopjeonChanged;
+                GameEconomy.Instance.OnMeritChanged -= OnMeritChanged;
+                GameEconomy.Instance.OnYeopjeonChanged += OnYeopjeonChanged;
+                GameEconomy.Instance.OnMeritChanged += OnMeritChanged;
+            }
             if (packagePopup != null) packagePopup.SetActive(false);
             root.SetActive(true);
         }
 
         public void Close()
         {
+            if (GameEconomy.Instance != null)
+            {
+                GameEconomy.Instance.OnYeopjeonChanged -= OnYeopjeonChanged;
+                GameEconomy.Instance.OnMeritChanged -= OnMeritChanged;
+            }
             if (packagePopup != null) packagePopup.SetActive(false);
             if (root != null) root.SetActive(false);
             GameSaveBridge.SaveFromWorld();
+        }
+
+        void OnYeopjeonChanged(int _) => RefreshCurrencyBar();
+        void OnMeritChanged(BigNumber _) => RefreshCurrencyBar();
+
+        /// <summary>상단 보유 엽전·공덕 표시 — 구매/리셋 등으로 재화가 바뀔 때마다 갱신.</summary>
+        void RefreshCurrencyBar()
+        {
+            if (currencyText == null || GameEconomy.Instance == null) return;
+            currencyText.text = $"엽전 {GameEconomy.Instance.Yeopjeon}   공덕 {GameEconomy.Instance.MeritPile.ToDisplayString()}";
         }
 
         void OnImugiTapped()
@@ -251,6 +276,9 @@ namespace Yoegoe.UI
             }
             else
                 bgImg.color = new Color(0.22f, 0.16f, 0.12f, 1f);
+
+            // 1.5) 상단 좌측 — 보유 엽전·공덕 (구매 여력을 바로 보게)
+            BuildCurrencyBar(rootRt);
 
             // 2) 이무기 — 책상 앞 통로 중앙 (발 기준)
             var imugiGO = new GameObject("Imugi");
@@ -439,6 +467,21 @@ namespace Yoegoe.UI
             MakeLabel(closeRt, "닫기", 28, Color.white);
 
             packagePopup.SetActive(false);
+        }
+
+        void BuildCurrencyBar(RectTransform parent)
+        {
+            var go = new GameObject("CurrencyBar");
+            var rt = Place(go, parent, new Vector2(0.06f, 0.96f), new Vector2(0f, 1f), new Vector2(380, 64));
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(0.12f, 0.09f, 0.07f, 0.85f);
+
+            currencyText = MakeLabel(rt, "", 24, new Color(1f, 0.95f, 0.85f));
+            currencyText.alignment = TextAnchor.MiddleLeft;
+            currencyText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var textRt = currencyText.GetComponent<RectTransform>();
+            textRt.offsetMin = new Vector2(18, 0);
+            textRt.offsetMax = new Vector2(-18, 0);
         }
 
         Text MakeLabel(RectTransform parent, string msg, int size, Color color)
