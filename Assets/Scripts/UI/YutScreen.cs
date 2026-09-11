@@ -633,41 +633,55 @@ namespace Yoegoe.UI
 
         void EnsureBuilt()
         {
-            if (HasPrefabShell) return;
-            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (!HasPrefabShell)
+            {
+                if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            var canvasGO = new GameObject("Canvas_Yut");
-            canvasGO.transform.SetParent(transform, false);
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 820;
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            canvasGO.AddComponent<GraphicRaycaster>();
+                var canvasGO = new GameObject("Canvas_Yut");
+                canvasGO.transform.SetParent(transform, false);
+                var canvas = canvasGO.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 820;
+                var scaler = canvasGO.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1080, 1920);
+                canvasGO.AddComponent<GraphicRaycaster>();
 
-            root = new GameObject("Panel", typeof(RectTransform));
+                root = new GameObject("Panel", typeof(RectTransform));
+                var rootRt = (RectTransform)root.transform;
+                rootRt.SetParent(canvasGO.transform, false);
+                Stretch(rootRt);
+                var bg = root.AddComponent<Image>();
+                bg.color = new Color(0.06f, 0.06f, 0.06f, 1f);
+
+                var gameGO = new GameObject("YutMiniGame", typeof(RectTransform));
+                var gameRt = (RectTransform)gameGO.transform;
+                gameRt.SetParent(rootRt, false);
+                Stretch(gameRt);
+                miniGame = gameGO.AddComponent<YutMiniGame>();
+                miniGame.font = font;
+                miniGame.BindFromHierarchy();
+                miniGame.Hide();
+
+                BuildNoticePanel(rootRt);
+                BuildChoicePanel(rootRt);
+
+                root.SetActive(false);
+            }
+
+            // 예전에 구운(Bake) YutScreen.prefab엔 리워드/되살리기 팝업이 없다(그 기능이 생기기
+            // 전에 구웠음) — HasPrefabShell이라 위 블록을 건너뛰어도 이 둘은 항상 있는지 보정한다.
+            // 없으면 rewardText/reviveRoot 등이 계속 null이라 특수 칸을 밟거나 말이 잡히는 순간
+            // NullReferenceException으로 죽는다.
+            EnsureExtraPanels();
+        }
+
+        void EnsureExtraPanels()
+        {
+            if (root == null) return;
             var rootRt = (RectTransform)root.transform;
-            rootRt.SetParent(canvasGO.transform, false);
-            Stretch(rootRt);
-            var bg = root.AddComponent<Image>();
-            bg.color = new Color(0.06f, 0.06f, 0.06f, 1f);
-
-            var gameGO = new GameObject("YutMiniGame", typeof(RectTransform));
-            var gameRt = (RectTransform)gameGO.transform;
-            gameRt.SetParent(rootRt, false);
-            Stretch(gameRt);
-            miniGame = gameGO.AddComponent<YutMiniGame>();
-            miniGame.font = font;
-            miniGame.BindFromHierarchy();
-            miniGame.Hide();
-
-            BuildNoticePanel(rootRt);
-            BuildChoicePanel(rootRt);
-            BuildRewardPanel(rootRt);
-            BuildRevivePanel(rootRt);
-
-            root.SetActive(false);
+            if (rewardRoot == null) BuildRewardPanel(rootRt);
+            if (reviveRoot == null) BuildRevivePanel(rootRt);
         }
 
         void WireRuntimeListeners()
