@@ -852,7 +852,7 @@ namespace Yoegoe.UI
             textRt.sizeDelta = new Vector2(550, 180);
             noticeText = textGO.AddComponent<Text>();
             noticeText.font = font;
-            noticeText.fontSize = UiFonts.Size(35);
+            noticeText.fontSize = UiFonts.Size(40);
             noticeText.alignment = TextAnchor.MiddleCenter;
             noticeText.color = new Color(1f, 0.95f, 0.85f);
             noticeText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -874,7 +874,7 @@ namespace Yoegoe.UI
             Stretch(labelRt);
             var label = labelGO.AddComponent<Text>();
             label.font = font;
-            label.fontSize = UiFonts.Size(33);
+            label.fontSize = UiFonts.Size(38);
             label.alignment = TextAnchor.MiddleCenter;
             label.color = Color.white;
             label.text = "확인";
@@ -927,7 +927,7 @@ namespace Yoegoe.UI
             textRt.sizeDelta = new Vector2(610, 220);
             choiceText = textGO.AddComponent<Text>();
             choiceText.font = font;
-            choiceText.fontSize = UiFonts.Size(33);
+            choiceText.fontSize = UiFonts.Size(38);
             choiceText.alignment = TextAnchor.MiddleCenter;
             choiceText.color = new Color(1f, 0.95f, 0.85f);
             choiceText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -957,7 +957,7 @@ namespace Yoegoe.UI
             Stretch(labelRt);
             var labelText = labelGO.AddComponent<Text>();
             labelText.font = font;
-            labelText.fontSize = UiFonts.Size(29);
+            labelText.fontSize = UiFonts.Size(34);
             labelText.alignment = TextAnchor.MiddleCenter;
             labelText.color = Color.white;
             labelText.text = label;
@@ -1018,7 +1018,7 @@ namespace Yoegoe.UI
             textRt.sizeDelta = new Vector2(610, 220);
             rewardText = textGO.AddComponent<Text>();
             rewardText.font = font;
-            rewardText.fontSize = UiFonts.Size(33);
+            rewardText.fontSize = UiFonts.Size(38);
             rewardText.alignment = TextAnchor.MiddleCenter;
             rewardText.color = new Color(1f, 0.95f, 0.85f);
             rewardText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -1083,7 +1083,7 @@ namespace Yoegoe.UI
             textRt.sizeDelta = new Vector2(610, 220);
             reviveText = textGO.AddComponent<Text>();
             reviveText.font = font;
-            reviveText.fontSize = UiFonts.Size(33);
+            reviveText.fontSize = UiFonts.Size(38);
             reviveText.alignment = TextAnchor.MiddleCenter;
             reviveText.color = new Color(1f, 0.95f, 0.85f);
             reviveText.horizontalOverflow = HorizontalWrapMode.Wrap;

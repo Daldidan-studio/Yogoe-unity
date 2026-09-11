@@ -217,7 +217,7 @@ namespace Yoegoe.Minigames.Yut
 
             BuildIdleThrowSticks(_throwZone.transform);
 
-            var label = CreateText(_throwZone.transform, "Label", "↑ 위로 슬라이드해서 던지기", 25, TextAnchor.LowerCenter);
+            var label = CreateText(_throwZone.transform, "Label", "↑ 위로 슬라이드해서 던지기", 30, TextAnchor.LowerCenter);
             SetAnchor(label.rectTransform, 0f, 0f, 1f, 0.34f, 0, 0, 0, 0);
             label.raycastTarget = false;
 
@@ -380,7 +380,7 @@ namespace Yoegoe.Minigames.Yut
                     : new Color(0.2f, 0.32f, 0.24f, 0.95f);
                 bubbleGo.GetComponent<Image>().raycastTarget = false;
 
-                var label = CreateText(bubbleGo.transform, "Text", text, 21,
+                var label = CreateText(bubbleGo.transform, "Text", text, 26,
                     leftSpeaking ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
                 var labelRt = label.rectTransform;
                 labelRt.anchorMin = Vector2.zero;
@@ -515,7 +515,7 @@ namespace Yoegoe.Minigames.Yut
             else
             {
                 img.color = ColorForYokai(id);
-                label = CreateText(go.transform, "Label", InitialOf(displayName), 25, TextAnchor.MiddleCenter);
+                label = CreateText(go.transform, "Label", InitialOf(displayName), 30, TextAnchor.MiddleCenter);
                 Stretch(label.rectTransform);
                 label.raycastTarget = false;
             }
@@ -783,7 +783,7 @@ namespace Yoegoe.Minigames.Yut
             else
             {
                 img.color = ColorForYokai(candidate.Id);
-                var label = CreateText(img.transform, "Label", InitialOf(candidate.DisplayName), 23, TextAnchor.MiddleCenter);
+                var label = CreateText(img.transform, "Label", InitialOf(candidate.DisplayName), 28, TextAnchor.MiddleCenter);
                 Stretch(label.rectTransform);
                 label.raycastTarget = false;
             }
@@ -912,7 +912,7 @@ namespace Yoegoe.Minigames.Yut
             var titleT = _turnTrackerPanel.Find("Title") as RectTransform;
             if (titleT == null)
             {
-                var title = CreateText(_turnTrackerPanel, "Title", "月下修練 · 달빛 수련", 17, TextAnchor.MiddleLeft);
+                var title = CreateText(_turnTrackerPanel, "Title", "月下修練 · 달빛 수련", 22, TextAnchor.MiddleLeft);
                 title.rectTransform.anchorMin = new Vector2(0f, 0.55f);
                 title.rectTransform.anchorMax = new Vector2(0.62f, 1f);
                 title.rectTransform.offsetMin = new Vector2(14f, 0f);
@@ -924,7 +924,7 @@ namespace Yoegoe.Minigames.Yut
             _turnTrackerNumberText = turnT != null ? turnT.GetComponent<Text>() : null;
             if (_turnTrackerNumberText == null)
             {
-                _turnTrackerNumberText = CreateText(_turnTrackerPanel, "TurnNumber", "", 16, TextAnchor.MiddleRight);
+                _turnTrackerNumberText = CreateText(_turnTrackerPanel, "TurnNumber", "", 21, TextAnchor.MiddleRight);
                 _turnTrackerNumberText.rectTransform.anchorMin = new Vector2(0.62f, 0.55f);
                 _turnTrackerNumberText.rectTransform.anchorMax = new Vector2(1f, 1f);
                 _turnTrackerNumberText.rectTransform.offsetMin = Vector2.zero;
@@ -937,7 +937,7 @@ namespace Yoegoe.Minigames.Yut
             _turnTrackerOrderText = orderT != null ? orderT.GetComponent<Text>() : null;
             if (_turnTrackerOrderText == null)
             {
-                _turnTrackerOrderText = CreateText(_turnTrackerPanel, "Order", "", 15, TextAnchor.MiddleLeft);
+                _turnTrackerOrderText = CreateText(_turnTrackerPanel, "Order", "", 20, TextAnchor.MiddleLeft);
                 _turnTrackerOrderText.rectTransform.anchorMin = new Vector2(0f, 0f);
                 _turnTrackerOrderText.rectTransform.anchorMax = new Vector2(1f, 0.55f);
                 _turnTrackerOrderText.rectTransform.offsetMin = new Vector2(14f, 0f);
@@ -1012,7 +1012,7 @@ namespace Yoegoe.Minigames.Yut
             Text captionText = captionT != null ? captionT.GetComponent<Text>() : null;
             if (captionText == null)
             {
-                captionText = CreateText(_rosterPanel, "Caption", "", 21, TextAnchor.MiddleCenter);
+                captionText = CreateText(_rosterPanel, "Caption", "", 26, TextAnchor.MiddleCenter);
                 SetAnchor(captionText.rectTransform, 0f, 0f, 1f, 0.3f, 0, 0, 0, 0);
                 captionText.color = new Color(0.85f, 0.8f, 0.7f, 0.85f);
                 captionText.raycastTarget = false;
@@ -1095,14 +1095,14 @@ namespace Yoegoe.Minigames.Yut
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
 
-            var plus = CreateText(rt, "Plus", "+", 30, TextAnchor.MiddleCenter);
+            var plus = CreateText(rt, "Plus", "+", 35, TextAnchor.MiddleCenter);
             plus.rectTransform.anchorMin = new Vector2(0f, 0.42f);
             plus.rectTransform.anchorMax = new Vector2(1f, 1f);
             plus.rectTransform.offsetMin = plus.rectTransform.offsetMax = Vector2.zero;
             plus.color = new Color(0.85f, 0.8f, 0.7f, 0.9f);
             plus.raycastTarget = false;
 
-            var label = CreateText(rt, "Label", "소환하기", 17, TextAnchor.MiddleCenter);
+            var label = CreateText(rt, "Label", "소환하기", 22, TextAnchor.MiddleCenter);
             label.rectTransform.anchorMin = new Vector2(0f, 0f);
             label.rectTransform.anchorMax = new Vector2(1f, 0.42f);
             label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
@@ -1134,7 +1134,7 @@ namespace Yoegoe.Minigames.Yut
             var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             // 위에서부터 고정 픽셀로 쌓는다(초상 60px → 이름 22px → 스탯 20px → 상태 18px) —
             // Row 실제 높이와 상관없이 서로 겹치지 않게.
-            const float portraitSize = 68f, nameH = 27f, statsH = 25f, statusH = 23f, gap = 4f;
+            const float portraitSize = 66f, nameH = 32f, statsH = 30f, statusH = 28f, gap = 3f;
 
             var portraitRt = (RectTransform)portraitGo.transform;
             portraitRt.SetParent(rt, false);
@@ -1146,18 +1146,18 @@ namespace Yoegoe.Minigames.Yut
             portrait.preserveAspect = true;
 
             float y = portraitSize + gap;
-            var nameText = CreateText(rt, "Name", "", 23, TextAnchor.MiddleCenter);
+            var nameText = CreateText(rt, "Name", "", 28, TextAnchor.MiddleCenter);
             AnchorTopStrip(nameText.rectTransform, y, nameH);
             nameText.raycastTarget = false;
             y += nameH + gap;
 
-            var statsText = CreateText(rt, "Stats", "", 20, TextAnchor.MiddleCenter);
+            var statsText = CreateText(rt, "Stats", "", 25, TextAnchor.MiddleCenter);
             AnchorTopStrip(statsText.rectTransform, y, statsH);
             statsText.color = new Color(0.8f, 0.9f, 0.95f);
             statsText.raycastTarget = false;
             y += statsH + gap;
 
-            var statusText = CreateText(rt, "Status", "", 19, TextAnchor.MiddleCenter);
+            var statusText = CreateText(rt, "Status", "", 24, TextAnchor.MiddleCenter);
             AnchorTopStrip(statusText.rectTransform, y, statusH);
             statusText.color = new Color(0.7f, 0.65f, 0.55f);
             statusText.raycastTarget = false;
@@ -1446,7 +1446,7 @@ namespace Yoegoe.Minigames.Yut
                 img.color = spriteId == "Imugi" ? new Color(0.25f, 0.55f, 0.85f) : new Color(0.9f, 0.85f, 0.75f);
             }
 
-            var nameText = CreateText(go.transform, "Name", displayLabel, 18, TextAnchor.MiddleCenter);
+            var nameText = CreateText(go.transform, "Name", displayLabel, 23, TextAnchor.MiddleCenter);
             nameText.rectTransform.anchorMin = new Vector2(0f, 0f);
             nameText.rectTransform.anchorMax = new Vector2(1f, 0.28f);
             nameText.rectTransform.offsetMin = Vector2.zero;
@@ -1549,7 +1549,7 @@ namespace Yoegoe.Minigames.Yut
 
             var rulesText = CreateText(_rulesOverlay.transform, "RulesText",
                 "윷놀이 족보 (16분의)\n\n빽도 -1\n도 1\n개 2\n걸 3\n윷 4 (한 번 더)\n모 5 (한 번 더)",
-                27, TextAnchor.MiddleCenter);
+                32, TextAnchor.MiddleCenter);
             SetAnchor(rulesText.rectTransform, 0.05f, 0.2f, 0.95f, 0.95f, 0, 0, 0, 0);
 
             var closeBtnNew = CreateButton(_rulesOverlay.transform, "Close", "닫기", () => ShowRulesOverlay(false));
@@ -1693,7 +1693,7 @@ namespace Yoegoe.Minigames.Yut
                 img.color = new Color(0.85f, 0.75f, 0.45f, 0.85f);
             }
 
-            var count = CreateText(go.transform, "Count", "x" + item.Count, 14, TextAnchor.MiddleCenter);
+            var count = CreateText(go.transform, "Count", "x" + item.Count, 19, TextAnchor.MiddleCenter);
             var countRt = count.rectTransform;
             countRt.anchorMin = new Vector2(0f, 0f);
             countRt.anchorMax = new Vector2(1f, 0.3f);
@@ -1926,13 +1926,13 @@ namespace Yoegoe.Minigames.Yut
             var text = button.GetComponentInChildren<Text>(true);
             if (text == null)
             {
-                text = CreateText(button.transform, "Label", label, 33, TextAnchor.MiddleCenter);
+                text = CreateText(button.transform, "Label", label, 38, TextAnchor.MiddleCenter);
                 Stretch(text.rectTransform);
                 text.raycastTarget = false;
             }
             text.text = label;
             text.font = ResolveFont();
-            text.fontSize = UiFonts.Size(34);
+            text.fontSize = UiFonts.Size(39);
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
         }
@@ -1953,7 +1953,7 @@ namespace Yoegoe.Minigames.Yut
             btn.targetGraphic = go.GetComponent<Image>();
             btn.onClick.AddListener(() => onClick?.Invoke());
 
-            var text = CreateText(go.transform, "Label", label, 29, TextAnchor.MiddleCenter);
+            var text = CreateText(go.transform, "Label", label, 34, TextAnchor.MiddleCenter);
             Stretch(text.rectTransform);
             text.raycastTarget = false;
             return btn;

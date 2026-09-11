@@ -136,8 +136,8 @@ namespace Yoegoe.UI
             dim.color = new Color(0f, 0f, 0f, 0.55f);
 
             var box = MakeBox(rootRt, new Vector2(590, 510));
-            MakeText(box, "윷 토큰", 41, new Vector2(0, 190));
-            tokenText = MakeText(box, "", 31, new Vector2(0, 125), new Color(0.9f, 0.85f, 0.7f));
+            MakeText(box, "윷 토큰", 46, new Vector2(0, 190));
+            tokenText = MakeText(box, "", 36, new Vector2(0, 125), new Color(0.9f, 0.85f, 0.7f));
 
             buyBtn = MakeButton(box, "BtnBuy", "", new Vector2(0, 20),
                 new Vector2(450, 115), new Color(0.35f, 0.5f, 0.35f, 1f), OnBuyClicked);
@@ -165,7 +165,7 @@ namespace Yoegoe.UI
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(onClick);
-            var text = MakeText(rt, label, 29, Vector2.zero);
+            var text = MakeText(rt, label, 34, Vector2.zero);
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             return btn;
         }
