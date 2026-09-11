@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0b5c7d31b344cff838cc5bf7d3a50a6, type: 3}
+  m_Name: UiStyleSettings
+  m_EditorClassIdentifier: 
+  colors:
+    detailBg: {r: 0.9, g: 0.9, b: 0.92, a: 1}
+    panel: {r: 1, g: 1, b: 1, a: 1}
+    border: {r: 0.15, g: 0.15, b: 0.18, a: 1}
+    portraitBg: {r: 0.78, g: 0.88, b: 0.95, a: 1}
+    portraitHighlight: {r: 0.55, g: 0.85, b: 0.55, a: 1}
+    accentBlue: {r: 0.35, g: 0.55, b: 0.95, a: 1}
+    intimacyPink: {r: 0.92, g: 0.35, b: 0.45, a: 1}
+    staminaGreen: {r: 0.35, g: 0.78, b: 0.42, a: 1}
+    barTrack: {r: 0.85, g: 0.85, b: 0.87, a: 1}
+    neokPortrait: {r: 0.45, g: 0.85, b: 1, a: 1}
+    mutedLabel: {r: 0.45, g: 0.45, b: 0.5, a: 1}
+    feedHint: {r: 0.35, g: 0.35, b: 0.4, a: 1}
+    badgeBg: {r: 0.12, g: 0.12, b: 0.14, a: 0.85}
+    offeringHighlight: {r: 1, g: 0.92, b: 0.45, a: 1}
+    offeringIdle: {r: 0.95, g: 0.95, b: 0.97, a: 1}
+    textDark: {r: 0.12, g: 0.12, b: 0.14, a: 1}
+    textCream: {r: 1, g: 0.95, b: 0.85, a: 1}
+    textOnDark: {r: 1, g: 0.98, b: 0.92, a: 1}
+    hudTopBar: {r: 0.1, g: 0.07, b: 0.06, a: 0.6}
+    hudSlotChip: {r: 0.11, g: 0.08, b: 0.07, a: 0.85}
+    hudSummonChip: {r: 0.08, g: 0.12, b: 0.14, a: 0.85}
+    hudStatusTag: {r: 0.2, g: 0.45, b: 0.85, a: 0.95}
+    hudBatchCollect: {r: 0.85, g: 0.55, b: 0.15, a: 0.95}
+    hudStaminaTrack: {r: 0.25, g: 0.2, b: 0.18, a: 1}
+    hudStaminaFill: {r: 0.35, g: 0.75, b: 0.4, a: 1}
+    hudUpgradeButton: {r: 0.18, g: 0.12, b: 0.08, a: 0.92}
+    hudUpgradeCost: {r: 1, g: 0.92, b: 0.55, a: 1}
+    hudShopButton: {r: 0.35, g: 0.25, b: 0.18, a: 0.92}
+    hudYutButton: {r: 0.2, g: 0.3, b: 0.4, a: 0.92}
+    hudSummonName: {r: 0.7, g: 0.9, b: 1, a: 1}
+    currencyYeopjeon: {r: 0.85, g: 0.72, b: 0.25, a: 1}
+    currencyHyang: {r: 0.75, g: 0.42, b: 0.85, a: 1}
+    currencyPurifiedWater: {r: 0.4, g: 0.68, b: 0.9, a: 1}
+    currencyYutToken: {r: 0.55, g: 0.75, b: 0.35, a: 1}
+    dim: {r: 0, g: 0, b: 0, a: 0.55}
+    popupBox: {r: 0.14, g: 0.1, b: 0.08, a: 0.98}
+    popupConfirm: {r: 0.3, g: 0.5, b: 0.45, a: 1}
+    popupCancel: {r: 0.4, g: 0.3, b: 0.28, a: 1}
+    popupCost: {r: 1, g: 0.85, b: 0.45, a: 1}
+  fontSizes:
+    caption: 14
+    small: 16
+    hint: 18
+    body: 20
+    label: 22
+    emphasis: 24
+    button: 26
+    title: 28
+    hudMerit: 40
+    hudCurrency: 28
+    hudSlotName: 20
+    hudSummonName: 22

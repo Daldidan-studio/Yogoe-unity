@@ -18,6 +18,10 @@ namespace Yoegoe.UI
     {
         public static GameHud Instance { get; private set; }
 
+        // 색·글자 크기: Resources/UiStyleSettings.asset
+        UiStyleSettings Style => UiStyleSettings.Get();
+        UiStyleSettings.Colors C => Style.colors;
+
         public Font font;
         public Sprite purifiedWaterIcon;
         public DetailScreen detailScreen;
@@ -314,7 +318,7 @@ namespace Yoegoe.UI
                 chipLayout.preferredHeight = 100;
 
                 var bg = chipGO.AddComponent<Image>();
-                bg.color = new Color(0.11f, 0.08f, 0.07f, 0.85f);
+                bg.color = C.hudSlotChip;
 
                 var capturedAgent = agent;
                 var button = chipGO.AddComponent<Button>();
@@ -328,13 +332,13 @@ namespace Yoegoe.UI
                 SetupRect(tagGO, chipRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f),
                     new Vector2(0, 4), new Vector2(72, 22));
                 var tagBg = tagGO.AddComponent<Image>();
-                tagBg.color = new Color(0.2f, 0.45f, 0.85f, 0.95f);
+                tagBg.color = C.hudStatusTag;
                 var tagTextGO = new GameObject("Label");
                 SetupRect(tagTextGO, tagGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                     Vector2.zero, Vector2.zero);
                 var tagText = tagTextGO.AddComponent<Text>();
                 tagText.font = font;
-                tagText.fontSize = UiFonts.Size(16);
+                tagText.fontSize = UiFonts.Small;
                 tagText.alignment = TextAnchor.MiddleCenter;
                 tagText.color = Color.white;
                 tagText.text = "일하는";
@@ -350,7 +354,7 @@ namespace Yoegoe.UI
                     SetupRect(batchRoot, chipRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f),
                         new Vector2(0, 30), new Vector2(148, 56));
                     var batchBg = batchRoot.AddComponent<Image>();
-                    batchBg.color = new Color(0.85f, 0.55f, 0.15f, 0.95f);
+                    batchBg.color = C.hudBatchCollect;
                     var batchBtn = batchRoot.AddComponent<Button>();
                     batchBtn.targetGraphic = batchBg;
                     var batchRt = batchRoot.GetComponent<RectTransform>();
@@ -360,7 +364,7 @@ namespace Yoegoe.UI
                         Vector2.zero, Vector2.zero);
                     batchLabel = batchLabelGO.AddComponent<Text>();
                     batchLabel.font = font;
-                    batchLabel.fontSize = UiFonts.Size(14);
+                    batchLabel.fontSize = UiFonts.Caption;
                     batchLabel.alignment = TextAnchor.MiddleCenter;
                     batchLabel.color = Color.white;
                     batchLabel.raycastTarget = false;
@@ -373,7 +377,7 @@ namespace Yoegoe.UI
                     new Vector2(0, -6), new Vector2(-10, 26));
                 var nameText = nameGO.AddComponent<Text>();
                 nameText.font = font;
-                nameText.fontSize = UiFonts.Size(20);
+                nameText.fontSize = UiFonts.HudSlotName;
                 nameText.alignment = TextAnchor.MiddleCenter;
                 nameText.color = Color.white;
                 nameText.raycastTarget = false;
@@ -382,13 +386,13 @@ namespace Yoegoe.UI
                 SetupRect(barBgGO, chipRt, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                     new Vector2(0, 10), new Vector2(130, 14));
                 var barBg = barBgGO.AddComponent<Image>();
-                barBg.color = new Color(0.25f, 0.2f, 0.18f, 1f);
+                barBg.color = C.hudStaminaTrack;
 
                 var barFillGO = new GameObject("StaminaBarFill");
                 var barFillRt = SetupRect(barFillGO, barBgGO.transform, Vector2.zero, Vector2.one,
                     new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
                 var barFill = barFillGO.AddComponent<Image>();
-                barFill.color = new Color(0.35f, 0.75f, 0.4f, 1f);
+                barFill.color = C.hudStaminaFill;
                 barFill.raycastTarget = false;
 
                 slotChips.Add(new SlotChip
@@ -420,7 +424,7 @@ namespace Yoegoe.UI
             chipLayout.preferredHeight = 100;
 
             var bg = chipGO.AddComponent<Image>();
-            bg.color = new Color(0.08f, 0.12f, 0.14f, 0.85f);
+            bg.color = C.hudSummonChip;
 
             var button = chipGO.AddComponent<Button>();
             button.targetGraphic = bg;
@@ -434,9 +438,9 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var nameText = nameGO.AddComponent<Text>();
             nameText.font = font;
-            nameText.fontSize = UiFonts.Size(22);
+            nameText.fontSize = UiFonts.HudSummonName;
             nameText.alignment = TextAnchor.MiddleCenter;
-            nameText.color = new Color(0.7f, 0.9f, 1f, 1f);
+            nameText.color = C.hudSummonName;
             nameText.raycastTarget = false;
             nameText.text = "+ 소환";
 
@@ -601,7 +605,7 @@ namespace Yoegoe.UI
                 {
                     upgradeCostText.text = cost.ToDisplayString();
                     upgradeCostText.color = canAfford
-                        ? new Color(1f, 0.92f, 0.55f)
+                        ? C.hudUpgradeCost
                         : new Color(0.75f, 0.4f, 0.35f);
                 }
 
@@ -718,7 +722,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var text = labelGO.AddComponent<Text>();
             text.font = font;
-            text.fontSize = UiFonts.Size(20);
+            text.fontSize = UiFonts.HudSlotName;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.text = label;
@@ -762,7 +766,7 @@ namespace Yoegoe.UI
                 new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0),
                 new Vector2(-28, 200), new Vector2(200, 96));
             var bg = upgradeButtonRoot.AddComponent<Image>();
-            bg.color = new Color(0.18f, 0.12f, 0.08f, 0.92f);
+            bg.color = C.hudUpgradeButton;
 
             var btn = upgradeButtonRoot.AddComponent<Button>();
             btn.targetGraphic = bg;
@@ -790,7 +794,7 @@ namespace Yoegoe.UI
                 new Vector2(20, -8), new Vector2(-70, 28));
             upgradeNameText = nameGO.AddComponent<Text>();
             upgradeNameText.font = font;
-            upgradeNameText.fontSize = UiFonts.Size(20);
+            upgradeNameText.fontSize = UiFonts.HudSlotName;
             upgradeNameText.alignment = TextAnchor.MiddleLeft;
             upgradeNameText.color = Color.white;
             upgradeNameText.raycastTarget = false;
@@ -800,9 +804,9 @@ namespace Yoegoe.UI
                 new Vector2(20, 10), new Vector2(-70, 32));
             upgradeCostText = costGO.AddComponent<Text>();
             upgradeCostText.font = font;
-            upgradeCostText.fontSize = UiFonts.Size(24);
+            upgradeCostText.fontSize = UiFonts.Emphasis;
             upgradeCostText.alignment = TextAnchor.MiddleLeft;
-            upgradeCostText.color = new Color(1f, 0.92f, 0.55f);
+            upgradeCostText.color = C.hudUpgradeCost;
             upgradeCostText.raycastTarget = false;
 
             upgradeButtonRoot.SetActive(false);
@@ -814,7 +818,7 @@ namespace Yoegoe.UI
             var topRt = SetupRect(topGO, canvasTf, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(24, -24), new Vector2(690, 140));
             var topBg = topGO.AddComponent<Image>();
-            topBg.color = new Color(0.1f, 0.07f, 0.06f, 0.6f);
+            topBg.color = C.hudTopBar;
             topBg.raycastTarget = false;
             var topLayout = topGO.AddComponent<VerticalLayoutGroup>();
             topLayout.padding = new RectOffset(16, 16, 10, 10);
@@ -831,8 +835,8 @@ namespace Yoegoe.UI
             if (meritTextRt == null) meritTextRt = meritGO.AddComponent<RectTransform>();
             meritText = meritGO.AddComponent<Text>();
             meritText.font = font;
-            meritText.fontSize = UiFonts.Size(40);
-            meritText.color = new Color(1f, 0.95f, 0.85f);
+            meritText.fontSize = UiFonts.HudMerit;
+            meritText.color = C.textCream;
             meritText.alignment = TextAnchor.MiddleLeft;
             meritText.raycastTarget = false;
 
@@ -846,17 +850,17 @@ namespace Yoegoe.UI
             rowLayout.childControlHeight = true;
 
             // 4종 재화가 말로만 구별돼서 헷갈린다는 피드백 — 재화별 색 아이콘 + 색 배경 칩으로 구분.
-            yeopjeonText = CreateCurrencyChip(rowGO.transform, "엽전 0", new Color(0.85f, 0.72f, 0.25f));
-            hyangText = CreateCurrencyChip(rowGO.transform, "향 0", new Color(0.75f, 0.42f, 0.85f));
-            purifiedWaterText = CreateCurrencyChip(rowGO.transform, "정화수 0", new Color(0.4f, 0.68f, 0.9f), purifiedWaterIcon);
-            yutTokenText = CreateCurrencyChip(rowGO.transform, "윷 0/0", new Color(0.55f, 0.75f, 0.35f));
+            yeopjeonText = CreateCurrencyChip(rowGO.transform, "엽전 0", C.currencyYeopjeon);
+            hyangText = CreateCurrencyChip(rowGO.transform, "향 0", C.currencyHyang);
+            purifiedWaterText = CreateCurrencyChip(rowGO.transform, "정화수 0", C.currencyPurifiedWater, purifiedWaterIcon);
+            yutTokenText = CreateCurrencyChip(rowGO.transform, "윷 0/0", C.currencyYutToken);
 
             // 우상단 상점 버튼
             var shopBtnGO = new GameObject("ShopButton");
             var shopRt = SetupRect(shopBtnGO, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
                 new Vector2(-24, -24), new Vector2(120, 64));
             var shopImg = shopBtnGO.AddComponent<Image>();
-            shopImg.color = new Color(0.35f, 0.25f, 0.18f, 0.92f);
+            shopImg.color = C.hudShopButton;
             var shopBtn = shopBtnGO.AddComponent<Button>();
             shopBtn.targetGraphic = shopImg;
             shopBtn.onClick.AddListener(() =>
@@ -868,9 +872,9 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var shopLabel = shopLabelGO.AddComponent<Text>();
             shopLabel.font = font;
-            shopLabel.fontSize = UiFonts.Size(26);
+            shopLabel.fontSize = UiFonts.Button;
             shopLabel.alignment = TextAnchor.MiddleCenter;
-            shopLabel.color = new Color(1f, 0.95f, 0.85f);
+            shopLabel.color = C.textCream;
             shopLabel.text = "상점";
             shopLabel.raycastTarget = false;
 
@@ -879,7 +883,7 @@ namespace Yoegoe.UI
             var yutRt = SetupRect(yutBtnGO, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
                 new Vector2(-24, -100), new Vector2(120, 64));
             var yutImg = yutBtnGO.AddComponent<Image>();
-            yutImg.color = new Color(0.2f, 0.3f, 0.4f, 0.92f);
+            yutImg.color = C.hudYutButton;
             var yutBtn = yutBtnGO.AddComponent<Button>();
             yutBtn.targetGraphic = yutImg;
             yutBtn.onClick.AddListener(() =>
@@ -891,9 +895,9 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var yutLabel = yutLabelGO.AddComponent<Text>();
             yutLabel.font = font;
-            yutLabel.fontSize = UiFonts.Size(26);
+            yutLabel.fontSize = UiFonts.Button;
             yutLabel.alignment = TextAnchor.MiddleCenter;
-            yutLabel.color = new Color(1f, 0.95f, 0.85f);
+            yutLabel.color = C.textCream;
             yutLabel.text = "윷놀이";
             yutLabel.raycastTarget = false;
         }
@@ -953,8 +957,8 @@ namespace Yoegoe.UI
             textLe.preferredWidth = textWidth;
             var text = textGO.AddComponent<Text>();
             text.font = font;
-            text.fontSize = UiFonts.Size(28);
-            text.color = new Color(1f, 0.98f, 0.92f);
+            text.fontSize = UiFonts.HudCurrency;
+            text.color = C.textOnDark;
             text.alignment = TextAnchor.MiddleLeft;
             text.text = label;
             text.raycastTarget = false;

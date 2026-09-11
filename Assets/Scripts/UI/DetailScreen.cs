@@ -63,16 +63,10 @@ namespace Yoegoe.UI
             public bool PurifiedWater;
         }
 
-        static readonly Color Bg = new Color(0.90f, 0.90f, 0.92f, 1f);
-        static readonly Color Panel = new Color(1f, 1f, 1f, 1f);
-        static readonly Color Border = new Color(0.15f, 0.15f, 0.18f, 1f);
-        static readonly Color PortraitBg = new Color(0.78f, 0.88f, 0.95f, 1f);
-        static readonly Color PortraitHighlight = new Color(0.55f, 0.85f, 0.55f, 1f);
-        static readonly Color LabelDark = new Color(0.12f, 0.12f, 0.14f, 1f);
-        static readonly Color AccentBlue = new Color(0.35f, 0.55f, 0.95f, 1f);
-        static readonly Color IntimacyPink = new Color(0.92f, 0.35f, 0.45f, 1f);
-        static readonly Color StaminaGreen = new Color(0.35f, 0.78f, 0.42f, 1f);
-        static readonly Color BarTrack = new Color(0.85f, 0.85f, 0.87f, 1f);
+        // 색·글자 크기: Resources/UiStyleSettings.asset
+        UiStyleSettings Style => UiStyleSettings.Get();
+        UiStyleSettings.Colors C => Style.colors;
+        UiStyleSettings.FontSizes F => Style.fontSizes;
 
         private void Start()
         {
@@ -294,7 +288,7 @@ namespace Yoegoe.UI
             if (stage == GrowthStage.Neok)
             {
                 portraitImage.sprite = GetNeokPlaceholderSprite();
-                portraitImage.color = new Color(0.45f, 0.85f, 1f, 1f);
+                portraitImage.color = C.neokPortrait;
             }
             else
             {
@@ -458,7 +452,7 @@ namespace Yoegoe.UI
         void SetPortraitDropHighlight(bool on)
         {
             if (portraitPanelHighlight == null) return;
-            portraitPanelHighlight.color = on ? PortraitHighlight : PortraitBg;
+            portraitPanelHighlight.color = on ? C.portraitHighlight : C.portraitBg;
         }
 
         private bool OnFeedPurifiedWater()
@@ -698,8 +692,8 @@ namespace Yoegoe.UI
             circleLe.preferredHeight = 72;
             var circleImg = circleGO.AddComponent<Image>();
             circleImg.color = highlight
-                ? new Color(1f, 0.92f, 0.45f, 1f)
-                : new Color(0.95f, 0.95f, 0.97f, 1f);
+                ? C.offeringHighlight
+                : C.offeringIdle;
 
             var iconGO = new GameObject("Icon");
             SetupRect(iconGO, circleGO.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -722,9 +716,9 @@ namespace Yoegoe.UI
             var tagLe = tagGO.AddComponent<LayoutElement>();
             tagLe.preferredHeight = 28;
             var tagBg = tagGO.AddComponent<Image>();
-            tagBg.color = AccentBlue;
+            tagBg.color = C.accentBlue;
             tagBg.raycastTarget = false;
-            var tagText = CreateText(tagGO.transform, label ?? "", 15, TextAnchor.MiddleCenter);
+            var tagText = CreateText(tagGO.transform, label ?? "", F.caption, TextAnchor.MiddleCenter);
             tagText.color = Color.white;
             SetupRect(tagText.gameObject, tagGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
@@ -736,10 +730,10 @@ namespace Yoegoe.UI
             SetupRect(badgeGO, iconParent, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-4f, -4f), new Vector2(36f, 22f));
             var bg = badgeGO.AddComponent<Image>();
-            bg.color = new Color(0.12f, 0.12f, 0.14f, 0.85f);
+            bg.color = C.badgeBg;
             bg.raycastTarget = false;
             int n = purified ? GameEconomy.Instance.PurifiedWater : GameEconomy.Instance.GetOfferingCount(offering);
-            var text = CreateText(badgeGO.transform, "x" + n, 14, TextAnchor.MiddleCenter);
+            var text = CreateText(badgeGO.transform, "x" + n, F.caption, TextAnchor.MiddleCenter);
             text.color = Color.white;
             SetupRect(text.gameObject, badgeGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
@@ -810,7 +804,7 @@ namespace Yoegoe.UI
             var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
             var dim = root.AddComponent<Image>();
-            dim.color = new Color(0f, 0f, 0f, 0.55f);
+            dim.color = C.dim;
             var dimBtn = root.AddComponent<Button>();
             dimBtn.targetGraphic = dim;
             dimBtn.onClick.AddListener(Close);
@@ -820,7 +814,7 @@ namespace Yoegoe.UI
             var dialogRt = SetupRect(dialog, rootRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1480f));
             var dialogBg = dialog.AddComponent<Image>();
-            dialogBg.color = Bg;
+            dialogBg.color = C.detailBg;
             // 다이얼로그 클릭이 딤 닫기를 치지 않게
             var dialogBlock = dialog.AddComponent<Button>();
             dialogBlock.targetGraphic = dialogBg;
@@ -831,7 +825,7 @@ namespace Yoegoe.UI
             SetupRect(closeGO, dialogRt, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-16f, -16f), new Vector2(56f, 56f));
             var closeImg = closeGO.AddComponent<Image>();
-            closeImg.color = Border;
+            closeImg.color = C.border;
             var closeBtn = closeGO.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
             closeBtn.onClick.AddListener(Close);
@@ -849,7 +843,7 @@ namespace Yoegoe.UI
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
 
             // 좌: 초상 (드롭 타겟)
-            var portraitPanel = CreateBorderedPanel(bodyInner, "PortraitPanel", PortraitBg);
+            var portraitPanel = CreateBorderedPanel(bodyInner, "PortraitPanel", C.portraitBg);
             portraitDropRt = portraitPanel.GetComponent<RectTransform>();
             SetupRect(portraitPanel, bodyInner, new Vector2(0f, 0f), new Vector2(0.42f, 1f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
@@ -878,25 +872,25 @@ namespace Yoegoe.UI
             infoLayout.childForceExpandWidth = true;
 
             // 이름 패널
-            var namePanel = CreateBorderedPanel(infoRt, "NamePanel", Panel);
+            var namePanel = CreateBorderedPanel(infoRt, "NamePanel", C.panel);
             namePanel.AddComponent<LayoutElement>().preferredHeight = 120;
             var nameInner = FindInner(namePanel);
-            var nameLabel = CreateText(nameInner, "이름", 22, TextAnchor.UpperLeft);
-            nameLabel.color = LabelDark;
+            var nameLabel = CreateText(nameInner, "이름", F.label, TextAnchor.UpperLeft);
+            nameLabel.color = C.textDark;
             nameLabel.fontStyle = FontStyle.Bold;
             SetupRect(nameLabel.gameObject, nameInner, new Vector2(0.05f, 0.55f), new Vector2(0.95f, 0.95f),
                 new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-            nameValueText = CreateText(nameInner, "", 28, TextAnchor.MiddleLeft);
-            nameValueText.color = LabelDark;
+            nameValueText = CreateText(nameInner, "", F.title, TextAnchor.MiddleLeft);
+            nameValueText.color = C.textDark;
             SetupRect(nameValueText.gameObject, nameInner, new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.58f),
                 new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
-            statusText = CreateText(nameInner, "", 16, TextAnchor.LowerRight);
-            statusText.color = new Color(0.45f, 0.45f, 0.5f);
+            statusText = CreateText(nameInner, "", F.small, TextAnchor.LowerRight);
+            statusText.color = C.mutedLabel;
             SetupRect(statusText.gameObject, nameInner, new Vector2(0.4f, 0.02f), new Vector2(0.95f, 0.28f),
                 new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
 
             // 스탯 패널 (친밀도 | 기력)
-            var statsPanel = CreateBorderedPanel(infoRt, "StatsPanel", Panel);
+            var statsPanel = CreateBorderedPanel(infoRt, "StatsPanel", C.panel);
             statsPanel.AddComponent<LayoutElement>().preferredHeight = 160;
             var statsInner = FindInner(statsPanel);
 
@@ -904,21 +898,21 @@ namespace Yoegoe.UI
             intimacyColGO = intCol;
             SetupRect(intCol, statsInner, new Vector2(0.03f, 0.08f), new Vector2(0.48f, 0.92f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            BuildStatColumn(intCol.transform, "친밀도", out intimacyLevelText, out intimacyFill, out intimacyFillRt, IntimacyPink, true);
+            BuildStatColumn(intCol.transform, "친밀도", out intimacyLevelText, out intimacyFill, out intimacyFillRt, C.intimacyPink, true);
 
             var staCol = new GameObject("StaminaCol");
             SetupRect(staCol, statsInner, new Vector2(0.52f, 0.08f), new Vector2(0.97f, 0.92f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            BuildStatColumn(staCol.transform, "기력", out staminaValueText, out staminaFill, out staminaFillRt, StaminaGreen, false);
+            BuildStatColumn(staCol.transform, "기력", out staminaValueText, out staminaFill, out staminaFillRt, C.staminaGreen, false);
 
             // 설명 패널
-            var descPanel = CreateBorderedPanel(infoRt, "DescPanel", Panel);
+            var descPanel = CreateBorderedPanel(infoRt, "DescPanel", C.panel);
             var descLe = descPanel.AddComponent<LayoutElement>();
             descLe.preferredHeight = 280;
             descLe.flexibleHeight = 1f;
             var descInner = FindInner(descPanel);
-            var descLabel = CreateText(descInner, "캐릭터 설명", 22, TextAnchor.UpperLeft);
-            descLabel.color = LabelDark;
+            var descLabel = CreateText(descInner, "캐릭터 설명", F.label, TextAnchor.UpperLeft);
+            descLabel.color = C.textDark;
             descLabel.fontStyle = FontStyle.Bold;
             SetupRect(descLabel.gameObject, descInner, new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f),
                 new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
@@ -941,8 +935,8 @@ namespace Yoegoe.UI
             var content = new GameObject("Content");
             var contentRt = SetupRect(content, vpRt, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
                 Vector2.zero, new Vector2(0f, 200f));
-            descriptionText = CreateText(contentRt, "", 20, TextAnchor.UpperLeft);
-            descriptionText.color = LabelDark;
+            descriptionText = CreateText(contentRt, "", F.body, TextAnchor.UpperLeft);
+            descriptionText.color = C.textDark;
             descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
             descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
             var descTextRt = SetupRect(descriptionText.gameObject, contentRt, new Vector2(0f, 0f), new Vector2(1f, 1f),
@@ -981,19 +975,19 @@ namespace Yoegoe.UI
 
             inventoryButtonGO = CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
 
-            feedHintText = CreateText(dialogRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", 18, TextAnchor.MiddleCenter);
-            feedHintText.color = new Color(0.35f, 0.35f, 0.4f);
+            feedHintText = CreateText(dialogRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", F.hint, TextAnchor.MiddleCenter);
+            feedHintText.color = C.feedHint;
             SetupRect(feedHintText.gameObject, dialogRt, new Vector2(0.5f, 0.205f), new Vector2(0.5f, 0.205f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880, 28));
 
             // 인벤토리 오버레이 (하단 바 위)
-            inventoryPanel = CreateBorderedPanel(dialogRt, "InventoryPanel", Panel);
+            inventoryPanel = CreateBorderedPanel(dialogRt, "InventoryPanel", C.panel);
             SetupRect(inventoryPanel, dialogRt, new Vector2(0.06f, 0.22f), new Vector2(0.94f, 0.42f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             inventoryPanel.SetActive(false);
             var invInner = FindInner(inventoryPanel);
-            var invTitle = CreateText(invInner, "인벤토리", 22, TextAnchor.UpperLeft);
-            invTitle.color = LabelDark;
+            var invTitle = CreateText(invInner, "인벤토리", F.label, TextAnchor.UpperLeft);
+            invTitle.color = C.textDark;
             invTitle.fontStyle = FontStyle.Bold;
             SetupRect(invTitle.gameObject, invInner, new Vector2(0.04f, 0.75f), new Vector2(0.5f, 0.95f),
                 new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
@@ -1010,21 +1004,21 @@ namespace Yoegoe.UI
         private void BuildStatColumn(Transform parent, string title, out Text valueText, out Image fill,
             out RectTransform fillRt, Color fillColor, bool showHeart)
         {
-            var titleT = CreateText(parent, title, 22, TextAnchor.UpperLeft);
-            titleT.color = LabelDark;
+            var titleT = CreateText(parent, title, F.label, TextAnchor.UpperLeft);
+            titleT.color = C.textDark;
             titleT.fontStyle = FontStyle.Bold;
             SetupRect(titleT.gameObject, parent, new Vector2(0f, 0.7f), new Vector2(0.55f, 1f),
                 new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
 
-            valueText = CreateText(parent, "", 22, TextAnchor.UpperRight);
-            valueText.color = LabelDark;
+            valueText = CreateText(parent, "", F.label, TextAnchor.UpperRight);
+            valueText.color = C.textDark;
             SetupRect(valueText.gameObject, parent, new Vector2(0.4f, 0.7f), new Vector2(1f, 1f),
                 new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
 
             if (showHeart)
             {
-                var heart = CreateText(parent, "♥", 22, TextAnchor.MiddleLeft);
-                heart.color = IntimacyPink;
+                var heart = CreateText(parent, "♥", F.label, TextAnchor.MiddleLeft);
+                heart.color = C.intimacyPink;
                 SetupRect(heart.gameObject, parent, new Vector2(0f, 0.15f), new Vector2(0.15f, 0.55f),
                     new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
             }
@@ -1034,7 +1028,7 @@ namespace Yoegoe.UI
             SetupRect(barBgGO, parent, new Vector2(barLeft, 0.22f), new Vector2(1f, 0.48f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             var barBg = barBgGO.AddComponent<Image>();
-            barBg.color = BarTrack;
+            barBg.color = C.barTrack;
 
             var fillGO = new GameObject("BarFill");
             fillRt = SetupRect(fillGO, barBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f),
@@ -1065,7 +1059,7 @@ namespace Yoegoe.UI
             iconBox.transform.SetParent(go.transform, false);
             iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
             var iconBg = iconBox.AddComponent<Image>();
-            iconBg.color = AccentBlue;
+            iconBg.color = C.accentBlue;
 
             Sprite icon = purifiedWaterIcon;
             var pw = FindPurifiedWater();
@@ -1083,7 +1077,7 @@ namespace Yoegoe.UI
             }
             else
             {
-                var placeholder = CreateText(iconBox.transform, "정", 28, TextAnchor.MiddleCenter);
+                var placeholder = CreateText(iconBox.transform, "정", F.title, TextAnchor.MiddleCenter);
                 placeholder.color = Color.white;
                 SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
                     new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
@@ -1097,9 +1091,9 @@ namespace Yoegoe.UI
             tag.transform.SetParent(go.transform, false);
             tag.AddComponent<LayoutElement>().preferredHeight = 28;
             var tagBg = tag.AddComponent<Image>();
-            tagBg.color = AccentBlue;
+            tagBg.color = C.accentBlue;
             tagBg.raycastTarget = false;
-            var t = CreateText(tag.transform, "정화수", 16, TextAnchor.MiddleCenter);
+            var t = CreateText(tag.transform, "정화수", F.small, TextAnchor.MiddleCenter);
             t.color = Color.white;
             SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
@@ -1125,7 +1119,7 @@ namespace Yoegoe.UI
             iconBox.transform.SetParent(go.transform, false);
             iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
             var iconBg = iconBox.AddComponent<Image>();
-            iconBg.color = AccentBlue;
+            iconBg.color = C.accentBlue;
             var btn = iconBox.AddComponent<Button>();
             btn.targetGraphic = iconBg;
             btn.onClick.AddListener(onClick);
@@ -1143,7 +1137,7 @@ namespace Yoegoe.UI
             else
             {
                 var placeholder = CreateText(iconBox.transform, label.Length > 0 ? label.Substring(0, 1) : "?",
-                    28, TextAnchor.MiddleCenter);
+                    F.title, TextAnchor.MiddleCenter);
                 placeholder.color = Color.white;
                 SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
                     new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
@@ -1154,8 +1148,8 @@ namespace Yoegoe.UI
             tag.transform.SetParent(go.transform, false);
             tag.AddComponent<LayoutElement>().preferredHeight = 28;
             var tagBg = tag.AddComponent<Image>();
-            tagBg.color = AccentBlue;
-            var t = CreateText(tag.transform, label, 16, TextAnchor.MiddleCenter);
+            tagBg.color = C.accentBlue;
+            var t = CreateText(tag.transform, label, F.small, TextAnchor.MiddleCenter);
             t.color = Color.white;
             SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
@@ -1167,7 +1161,7 @@ namespace Yoegoe.UI
             var outer = new GameObject(name);
             outer.transform.SetParent(parent, false);
             var outerImg = outer.AddComponent<Image>();
-            outerImg.color = Border;
+            outerImg.color = C.border;
 
             var inner = new GameObject("Inner");
             SetupRect(inner, outer.transform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f),
@@ -1205,7 +1199,7 @@ namespace Yoegoe.UI
             text.font = font;
             text.fontSize = UiFonts.Size(fontSize);
             text.alignment = alignment;
-            text.color = LabelDark;
+            text.color = C.textDark;
             text.text = initial;
             text.raycastTarget = false;
             return text;

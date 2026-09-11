@@ -17,6 +17,7 @@ namespace Yoegoe
     /// Main 씬 진입점. 카메라·맵·기물·캐릭터·HUD를 조립한다.
     /// 화면 크기: ArtScaleSettings.asset / 시작 재화·스탯: StartingStateSettings.asset
     /// 기물 밸런스: Data/Props/*.asset / 배치 좌표: PropLayoutSettings.asset
+    /// UI 색·글자: UiStyleSettings.asset
     /// </summary>
     public class Main : MonoBehaviour
     {
