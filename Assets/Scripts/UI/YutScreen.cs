@@ -29,8 +29,19 @@ namespace Yoegoe.UI
         /// <summary>말 이동 시 친밀도 +0.25(11장) 적용을 위한 piece id → 캐릭터 매핑.</summary>
         readonly Dictionary<string, CharacterAgent> teamById = new Dictionary<string, CharacterAgent>();
 
-        GameObject root;
-        YutMiniGame miniGame;
+        [Header("셸 (Prefab — 비어 있으면 Play 시 코드 조립)")]
+        [SerializeField] GameObject root;
+        [SerializeField] YutMiniGame miniGame;
+        [SerializeField] GameObject noticeRoot;
+        [SerializeField] Text noticeText;
+        [SerializeField] Button noticeOkButton;
+        [SerializeField] GameObject choiceRoot;
+        [SerializeField] Text choiceText;
+        [SerializeField] Button choiceContinueButton;
+        [SerializeField] Button choiceStopButton;
+
+        public bool HasPrefabShell => root != null && miniGame != null;
+
         YutMatch match;
         YutThrowOutcome? pendingOutcome;
 
@@ -39,12 +50,7 @@ namespace Yoegoe.UI
         bool awaitingFinishChoice;
         bool pendingBonusAfterContinue;
 
-        GameObject noticeRoot;
-        Text noticeText;
         Action pendingNoticeAction;
-
-        GameObject choiceRoot;
-        Text choiceText;
         Action pendingChoiceContinue;
         Action pendingChoiceStop;
 
@@ -53,12 +59,26 @@ namespace Yoegoe.UI
         void Start()
         {
             EnsureBuilt();
-            root.SetActive(false);
+            WireRuntimeListeners();
+            if (root != null) root.SetActive(false);
         }
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        /// <summary>에디터 Bake용. 보드까지 만들어 Prefab에서 레이아웃을 볼 수 있게 한다.</summary>
+        public void EnsureBuiltForBake()
+        {
+            EnsureBuilt();
+            if (miniGame != null)
+            {
+                miniGame.font = font;
+                miniGame.BindFromHierarchy();
+                miniGame.EnsureBoardForBake();
+            }
+            if (root != null) root.SetActive(true);
         }
 
         public void Open()
@@ -304,7 +324,7 @@ namespace Yoegoe.UI
 
         void EnsureBuilt()
         {
-            if (root != null) return;
+            if (HasPrefabShell) return;
             if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var canvasGO = new GameObject("Canvas_Yut");
@@ -331,15 +351,45 @@ namespace Yoegoe.UI
             miniGame = gameGO.AddComponent<YutMiniGame>();
             miniGame.font = font;
             miniGame.BindFromHierarchy();
-            miniGame.OnThrowPressed += HandleThrowPressed;
-            miniGame.OnLeavePressed += HandleLeavePressed;
-            miniGame.OnCandidateTapped += HandleCandidateTapped;
             miniGame.Hide();
 
             BuildNoticePanel(rootRt);
             BuildChoicePanel(rootRt);
 
             root.SetActive(false);
+        }
+
+        void WireRuntimeListeners()
+        {
+            if (miniGame == null) return;
+
+            miniGame.OnThrowPressed -= HandleThrowPressed;
+            miniGame.OnLeavePressed -= HandleLeavePressed;
+            miniGame.OnCandidateTapped -= HandleCandidateTapped;
+            miniGame.OnThrowPressed += HandleThrowPressed;
+            miniGame.OnLeavePressed += HandleLeavePressed;
+            miniGame.OnCandidateTapped += HandleCandidateTapped;
+
+            miniGame.font = font;
+            miniGame.BindFromHierarchy();
+
+            if (noticeOkButton != null)
+            {
+                noticeOkButton.onClick.RemoveAllListeners();
+                noticeOkButton.onClick.AddListener(OnNoticeOk);
+            }
+
+            if (choiceContinueButton != null)
+            {
+                choiceContinueButton.onClick.RemoveAllListeners();
+                choiceContinueButton.onClick.AddListener(OnChoiceContinueClicked);
+            }
+
+            if (choiceStopButton != null)
+            {
+                choiceStopButton.onClick.RemoveAllListeners();
+                choiceStopButton.onClick.AddListener(OnChoiceStopClicked);
+            }
         }
 
         void BuildNoticePanel(Transform parent)
@@ -380,9 +430,8 @@ namespace Yoegoe.UI
             btnRt.sizeDelta = new Vector2(220, 70);
             var btnImg = btnGO.AddComponent<Image>();
             btnImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
-            var btn = btnGO.AddComponent<Button>();
-            btn.targetGraphic = btnImg;
-            btn.onClick.AddListener(OnNoticeOk);
+            noticeOkButton = btnGO.AddComponent<Button>();
+            noticeOkButton.targetGraphic = btnImg;
 
             var labelGO = new GameObject("Label", typeof(RectTransform));
             var labelRt = (RectTransform)labelGO.transform;
@@ -448,13 +497,13 @@ namespace Yoegoe.UI
             choiceText.color = new Color(1f, 0.95f, 0.85f);
             choiceText.horizontalOverflow = HorizontalWrapMode.Wrap;
 
-            BuildChoiceButton(boxRt, new Vector2(-165, -130), "계속하기", OnChoiceContinueClicked);
-            BuildChoiceButton(boxRt, new Vector2(165, -130), "그만하고\n보상받기", OnChoiceStopClicked);
+            BuildChoiceButton(boxRt, new Vector2(-165, -130), "계속하기", out choiceContinueButton);
+            BuildChoiceButton(boxRt, new Vector2(165, -130), "그만하고\n보상받기", out choiceStopButton);
 
             choiceRoot.SetActive(false);
         }
 
-        void BuildChoiceButton(Transform parent, Vector2 pos, string label, UnityEngine.Events.UnityAction onClick)
+        void BuildChoiceButton(Transform parent, Vector2 pos, string label, out Button button)
         {
             var btnGO = new GameObject($"Btn_{label}", typeof(RectTransform));
             var btnRt = (RectTransform)btnGO.transform;
@@ -464,9 +513,8 @@ namespace Yoegoe.UI
             btnRt.sizeDelta = new Vector2(290, 100);
             var btnImg = btnGO.AddComponent<Image>();
             btnImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
-            var btn = btnGO.AddComponent<Button>();
-            btn.targetGraphic = btnImg;
-            btn.onClick.AddListener(onClick);
+            button = btnGO.AddComponent<Button>();
+            button.targetGraphic = btnImg;
 
             var labelGO = new GameObject("Label", typeof(RectTransform));
             var labelRt = (RectTransform)labelGO.transform;

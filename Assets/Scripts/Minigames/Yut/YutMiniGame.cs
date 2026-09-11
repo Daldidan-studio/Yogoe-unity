@@ -123,11 +123,31 @@ namespace Yoegoe.Minigames.Yut
             WireButton(_leaveButton, () => OnLeavePressed?.Invoke());
         }
 
+        void ForwardSwipeThrow(float power) => OnThrowPressed?.Invoke(power);
+
         /// <summary>탭 버튼 대신 아래→위 슬라이드로 던지는 입력 영역. 손 모양 힌트가 살짝 위아래로
         /// 통통 튀어서 "여기서 위로 밀어라"를 안내한다.</summary>
         void EnsureThrowSwipeZone()
         {
             if (_throwZone != null) return;
+
+            var existing = transform.Find("ThrowSwipeZone");
+            if (existing != null)
+            {
+                _throwZone = existing.gameObject;
+                _throwSwipe = existing.GetComponent<YutThrowSwipeZone>();
+                if (_throwSwipe == null)
+                    _throwSwipe = _throwZone.AddComponent<YutThrowSwipeZone>();
+                _throwSwipe.OnSwipeThrow -= ForwardSwipeThrow;
+                _throwSwipe.OnSwipeThrow += ForwardSwipeThrow;
+                if (Application.isPlaying)
+                {
+                    var labelRt = existing.Find("Label") as RectTransform;
+                    if (labelRt != null)
+                        StartCoroutine(BounceHint(labelRt));
+                }
+                return;
+            }
 
             _throwZone = new GameObject("ThrowSwipeZone", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _throwZone.transform.SetParent(transform, false);
@@ -139,9 +159,10 @@ namespace Yoegoe.Minigames.Yut
             label.raycastTarget = false;
 
             _throwSwipe = _throwZone.AddComponent<YutThrowSwipeZone>();
-            _throwSwipe.OnSwipeThrow += power => OnThrowPressed?.Invoke(power);
+            _throwSwipe.OnSwipeThrow += ForwardSwipeThrow;
 
-            StartCoroutine(BounceHint(label.rectTransform));
+            if (Application.isPlaying)
+                StartCoroutine(BounceHint(label.rectTransform));
         }
 
         IEnumerator BounceHint(RectTransform rt)
@@ -155,6 +176,13 @@ namespace Yoegoe.Minigames.Yut
         }
 
         public void Show()
+        {
+            gameObject.SetActive(true);
+            EnsureBoard();
+        }
+
+        /// <summary>에디터 Prefab Bake용 — 보드·로그바까지 만들어 Scene/Prefab에서 보이게 한다.</summary>
+        public void EnsureBoardForBake()
         {
             gameObject.SetActive(true);
             EnsureBoard();
@@ -776,7 +804,7 @@ namespace Yoegoe.Minigames.Yut
 
         void EnsureBoard()
         {
-            if (_boardRoot != null) return;
+            if (_boardRoot != null && _pads != null) return;
 
             var existing = transform.Find("YutBoard");
             if (existing != null)
@@ -792,23 +820,68 @@ namespace Yoegoe.Minigames.Yut
                 boardGo.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
             }
 
-            if (_heartIcons == null)
+            BindOrCreateHearts();
+            if (!TryBindPads())
+                CreatePads();
+            BindOrCreatePieces();
+
+            EnsureQuadrants();
+            EnsureRulesOverlay();
+            EnsureLogBar();
+        }
+
+        void BindOrCreateHearts()
+        {
+            if (_heartIcons != null) return;
+
+            const int heartCount = 5 /* 구 KSpirits.Core.GameConstants.HeartMax, 새 설계에 맞게 나중에 재조정 */;
+            if (transform.Find("Heart0") != null)
             {
-                _heartIcons = new Image[5 /* 구 KSpirits.Core.GameConstants.HeartMax, 새 설계에 맞게 나중에 재조정 */];
-                const float iconW = 0.035f;
-                const float gap = 0.008f;
-                float totalW = _heartIcons.Length * iconW + (_heartIcons.Length - 1) * gap;
-                float startX = 0.95f - totalW;
-                for (int i = 0; i < _heartIcons.Length; i++)
+                _heartIcons = new Image[heartCount];
+                for (int i = 0; i < heartCount; i++)
                 {
-                    var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                    heartGo.transform.SetParent(transform, false);
-                    float x = startX + i * (iconW + gap);
-                    SetAnchor(heartGo.GetComponent<RectTransform>(), x, 0.9f, x + iconW, 0.97f, 0, 0, 0, 0);
-                    _heartIcons[i] = heartGo.GetComponent<Image>();
+                    var t = transform.Find($"Heart{i}");
+                    if (t == null) { _heartIcons = null; break; }
+                    _heartIcons[i] = t.GetComponent<Image>();
                 }
+                if (_heartIcons != null) return;
             }
 
+            _heartIcons = new Image[heartCount];
+            const float iconW = 0.035f;
+            const float gap = 0.008f;
+            float totalW = _heartIcons.Length * iconW + (_heartIcons.Length - 1) * gap;
+            float startX = 0.95f - totalW;
+            for (int i = 0; i < _heartIcons.Length; i++)
+            {
+                var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                heartGo.transform.SetParent(transform, false);
+                float x = startX + i * (iconW + gap);
+                SetAnchor(heartGo.GetComponent<RectTransform>(), x, 0.9f, x + iconW, 0.97f, 0, 0, 0, 0);
+                _heartIcons[i] = heartGo.GetComponent<Image>();
+            }
+        }
+
+        bool TryBindPads()
+        {
+            if (_boardRoot == null || _boardRoot.Find("Node0") == null) return false;
+
+            _pads = new Image[YutBoardLayout.NodeCount];
+            for (int i = 0; i < YutBoardLayout.NodeCount; i++)
+            {
+                var t = _boardRoot.Find($"Node{i}");
+                if (t == null)
+                {
+                    _pads = null;
+                    return false;
+                }
+                _pads[i] = t.GetComponent<Image>();
+            }
+            return true;
+        }
+
+        void CreatePads()
+        {
             _pads = new Image[YutBoardLayout.NodeCount];
             for (int i = 0; i < YutBoardLayout.NodeCount; i++)
             {
@@ -824,41 +897,54 @@ namespace Yoegoe.Minigames.Yut
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);
                 _pads[i] = padImg;
             }
+        }
 
-            var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            pieceGo.transform.SetParent(_pads[0].transform, false);
-            _piece = pieceGo.GetComponent<RectTransform>();
-            _piece.anchorMin = new Vector2(0.15f, 0.15f);
-            _piece.anchorMax = new Vector2(0.85f, 0.85f);
-            _piece.offsetMin = Vector2.zero;
-            _piece.offsetMax = Vector2.zero;
-            pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
-            pieceGo.SetActive(false); // 튜토리얼 각본 대결 전용(SetPieceIndex) — 본게임(YutScreen)은 안 씀, 기본으로 숨겨둠
+        void BindOrCreatePieces()
+        {
+            if (_pads == null || _pads.Length == 0) return;
 
-            var opponentGo = new GameObject("ImugiPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            opponentGo.transform.SetParent(_pads[0].transform, false);
-            _opponentPiece = opponentGo.GetComponent<RectTransform>();
-            _opponentPiece.anchorMin = new Vector2(0.15f, 0.15f);
-            _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
-            _opponentPiece.offsetMin = Vector2.zero;
-            _opponentPiece.offsetMax = Vector2.zero;
-            var opponentImg = opponentGo.GetComponent<Image>();
-            var imugiSprite = PieceSpriteFor("Imugi");
-            if (imugiSprite != null)
-            {
-                opponentImg.sprite = imugiSprite;
-                opponentImg.color = Color.white;
-                opponentImg.preserveAspect = true;
-            }
+            var pieceT = _pads[0].transform.Find("YutPiece");
+            if (pieceT != null)
+                _piece = pieceT as RectTransform;
             else
             {
-                opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f); // 에셋 못 찾을 때 폴백
+                var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                pieceGo.transform.SetParent(_pads[0].transform, false);
+                _piece = pieceGo.GetComponent<RectTransform>();
+                _piece.anchorMin = new Vector2(0.15f, 0.15f);
+                _piece.anchorMax = new Vector2(0.85f, 0.85f);
+                _piece.offsetMin = Vector2.zero;
+                _piece.offsetMax = Vector2.zero;
+                pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
+                pieceGo.SetActive(false); // 튜토리얼 각본 대결 전용(SetPieceIndex) — 본게임은 안 씀
             }
-            opponentGo.SetActive(false);
 
-            EnsureQuadrants();
-            EnsureRulesOverlay();
-            EnsureLogBar();
+            var opponentT = _pads[0].transform.Find("ImugiPiece");
+            if (opponentT != null)
+                _opponentPiece = opponentT as RectTransform;
+            else
+            {
+                var opponentGo = new GameObject("ImugiPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                opponentGo.transform.SetParent(_pads[0].transform, false);
+                _opponentPiece = opponentGo.GetComponent<RectTransform>();
+                _opponentPiece.anchorMin = new Vector2(0.15f, 0.15f);
+                _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
+                _opponentPiece.offsetMin = Vector2.zero;
+                _opponentPiece.offsetMax = Vector2.zero;
+                var opponentImg = opponentGo.GetComponent<Image>();
+                var imugiSprite = PieceSpriteFor("Imugi");
+                if (imugiSprite != null)
+                {
+                    opponentImg.sprite = imugiSprite;
+                    opponentImg.color = Color.white;
+                    opponentImg.preserveAspect = true;
+                }
+                else
+                {
+                    opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f);
+                }
+                opponentGo.SetActive(false);
+            }
         }
 
         /// <summary>
@@ -870,6 +956,23 @@ namespace Yoegoe.Minigames.Yut
         void EnsureLogBar()
         {
             if (_logBar != null) return;
+
+            var existing = transform.Find("LogBar");
+            if (existing != null)
+            {
+                _logBar = existing.gameObject;
+                _logBarLeftPortrait = existing.Find("LeftHeader/Icon")?.GetComponent<Image>();
+                _logBarRightPortrait = existing.Find("RightHeader/Icon")?.GetComponent<Image>();
+                _logContent = existing.Find("Content") as RectTransform;
+                _miniThrowContainer = existing.Find("MiniThrow")?.gameObject;
+                if (_miniThrowContainer != null)
+                {
+                    _miniThrowSticks = new Image[4];
+                    for (int i = 0; i < 4; i++)
+                        _miniThrowSticks[i] = _miniThrowContainer.transform.Find($"Stick{i}")?.GetComponent<Image>();
+                }
+                return;
+            }
 
             _logBar = new GameObject("LogBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _logBar.transform.SetParent(transform, false);
@@ -1004,6 +1107,15 @@ namespace Yoegoe.Minigames.Yut
         {
             if (_rulesOverlay != null) return;
 
+            var existing = transform.Find("RulesOverlay");
+            if (existing != null)
+            {
+                _rulesOverlay = existing.gameObject;
+                var closeBtn = existing.Find("Close")?.GetComponent<Button>();
+                WireButton(closeBtn, () => ShowRulesOverlay(false));
+                return;
+            }
+
             _rulesOverlay = new GameObject("RulesOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _rulesOverlay.transform.SetParent(transform, false);
             SetAnchor((RectTransform)_rulesOverlay.transform, 0.14f, 0.32f, 0.86f, 0.64f, 0, 0, 0, 0);
@@ -1014,8 +1126,8 @@ namespace Yoegoe.Minigames.Yut
                 22, TextAnchor.MiddleCenter);
             SetAnchor(rulesText.rectTransform, 0.05f, 0.2f, 0.95f, 0.95f, 0, 0, 0, 0);
 
-            var closeBtn = CreateButton(_rulesOverlay.transform, "Close", "닫기", () => ShowRulesOverlay(false));
-            SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
+            var closeBtnNew = CreateButton(_rulesOverlay.transform, "Close", "닫기", () => ShowRulesOverlay(false));
+            SetAnchor(closeBtnNew.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
 
             _rulesOverlay.SetActive(false);
         }
@@ -1030,13 +1142,20 @@ namespace Yoegoe.Minigames.Yut
 
             _quadrants = new RectTransform[4];
             _quadrants[(int)YutBoardQuadrant.North] =
-                CreateQuadrantContainer("Quadrant_North", 0.42f, 0.49f, 0.63f, 0.575f);
+                FindOrCreateQuadrant("Quadrant_North", 0.42f, 0.49f, 0.63f, 0.575f);
             _quadrants[(int)YutBoardQuadrant.West] =
-                CreateQuadrantContainer("Quadrant_West", 0.13f, 0.32f, 0.33f, 0.53f);
+                FindOrCreateQuadrant("Quadrant_West", 0.13f, 0.32f, 0.33f, 0.53f);
             _quadrants[(int)YutBoardQuadrant.East] =
-                CreateQuadrantContainer("Quadrant_East", 0.67f, 0.32f, 0.87f, 0.53f);
+                FindOrCreateQuadrant("Quadrant_East", 0.67f, 0.32f, 0.87f, 0.53f);
             _quadrants[(int)YutBoardQuadrant.South] =
-                CreateQuadrantContainer("Quadrant_South", 0.3f, 0.22f, 0.7f, 0.33f);
+                FindOrCreateQuadrant("Quadrant_South", 0.3f, 0.22f, 0.7f, 0.33f);
+        }
+
+        RectTransform FindOrCreateQuadrant(string name, float xmin, float ymin, float xmax, float ymax)
+        {
+            var existing = transform.Find(name) as RectTransform;
+            if (existing != null) return existing;
+            return CreateQuadrantContainer(name, xmin, ymin, xmax, ymax);
         }
 
         RectTransform CreateQuadrantContainer(string name, float xmin, float ymin, float xmax, float ymax)

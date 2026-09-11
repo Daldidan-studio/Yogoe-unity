@@ -263,11 +263,17 @@ namespace Yoegoe
             shop.imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
             shopGO.SetActive(true);
 
-            var yutGO = new GameObject("YutScreen");
-            yutGO.SetActive(false);
-            var yut = yutGO.AddComponent<YutScreen>();
+            var yut = UnityEngine.Object.FindAnyObjectByType<YutScreen>(FindObjectsInactive.Include);
+            if (yut == null)
+            {
+                var yutGO = new GameObject("YutScreen");
+                yutGO.SetActive(false);
+                yut = yutGO.AddComponent<YutScreen>();
+                yutGO.SetActive(true);
+            }
             yut.font = hudFont;
-            yutGO.SetActive(true);
+            if (!yut.gameObject.activeSelf)
+                yut.gameObject.SetActive(true);
 
             var evoGO = new GameObject("EvolutionConfirmPopup");
             evoGO.SetActive(false);
