@@ -1070,7 +1070,22 @@ namespace Yoegoe.Minigames.Yut
                 }
                 _pads[i] = t.GetComponent<Image>();
             }
+
+            // 예전에 구운(Bake) 보드는 특수 칸이 생기기 전 색으로 저장돼 있을 수 있어 — 매번
+            // CreatePads()와 같은 규칙으로 다시 칠해서(코드가 항상 최종 소스) 반영되게 한다.
+            for (int i = 0; i < _pads.Length; i++)
+                RecolorPad(_pads[i], i);
             return true;
+        }
+
+        static void RecolorPad(Image pad, int nodeId)
+        {
+            if (pad == null) return;
+            pad.color = YutBoardLayout.IsSpecialReward(nodeId)
+                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 공양물·정화수·엽전 확정 수급
+                : IsWaypoint(nodeId)
+                    ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
+                    : new Color(0.35f, 0.32f, 0.28f, 0.9f);
         }
 
         void CreatePads()
@@ -1085,11 +1100,7 @@ namespace Yoegoe.Minigames.Yut
                 var padRt = padGo.GetComponent<RectTransform>();
                 SetAnchor(padRt, pos.x - half, pos.y - half, pos.x + half, pos.y + half, 0, 0, 0, 0);
                 var padImg = padGo.GetComponent<Image>();
-                padImg.color = YutBoardLayout.IsSpecialReward(i)
-                    ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 공양물·정화수·엽전 확정 수급
-                    : IsWaypoint(i)
-                        ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
-                        : new Color(0.35f, 0.32f, 0.28f, 0.9f);
+                RecolorPad(padImg, i);
                 _pads[i] = padImg;
             }
         }
