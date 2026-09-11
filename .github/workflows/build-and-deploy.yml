@@ -75,6 +75,11 @@ jobs:
           cp -a "$SOURCE_DIR/." "$DEPLOY_DIR/"
           echo "Using WebGL output at $SOURCE_DIR, deploying from $DEPLOY_DIR"
           sed -i "s|<head>|<head>\n    <base href=\"${{ env.BASE_PATH }}\">|" "$DEPLOY_DIR/index.html"
+          # 캐시 무효화용 쿼리스트링(v=PRODUCT_VERSION)에 커밋 SHA를 덧붙인다 — 버전 번호를
+          # 안 올려도 배포할 때마다 Build/*.wasm·.data·.framework.js URL이 달라져서, 브라우저가
+          # 예전 배포의 캐시된 파일(특히 wasm)을 새 로더와 섞어 쓰는 "call_indirect to a
+          # signature that does not match" 크래시를 막는다.
+          sed -i "s|var cacheBust = \"v=\([^\"]*\)\";|var cacheBust = \"v=\1-${GITHUB_SHA::8}\";|" "$DEPLOY_DIR/index.html"
           echo "BUILD_DIR=$DEPLOY_DIR" >> "$GITHUB_ENV"
 
       - name: Upload WebGL artifact
