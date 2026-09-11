@@ -157,6 +157,15 @@ namespace Yoegoe.Economy
             OnYutTokenChanged?.Invoke(YutToken);
         }
 
+        /// <summary>윷놀이 보물상자 전용 — 평소 상한(YutTokenMax)을 넘어 hardCap까지 쌓을 수 있다.</summary>
+        public void AddYutTokenOverflow(int amount, int hardCap)
+        {
+            int cap = Math.Max(YutTokenMax, hardCap);
+            YutToken = Math.Min(cap, YutToken + amount);
+            if (YutToken >= YutTokenMax) YutTokenRegenNextUtcTicks = 0;
+            OnYutTokenChanged?.Invoke(YutToken);
+        }
+
         public bool TrySpendYutToken(int amount)
         {
             if (amount < 0 || YutToken < amount) return false;

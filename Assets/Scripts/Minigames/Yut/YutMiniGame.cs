@@ -1329,10 +1329,56 @@ namespace Yoegoe.Minigames.Yut
         {
             if (pad == null) return;
             pad.color = YutBoardLayout.IsSpecialReward(nodeId)
-                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 공양물·정화수·엽전 확정 수급
+                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/공양물/보물상자(YutBoardLayout.SpecialSquareKind)
                 : IsWaypoint(nodeId)
                     ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);
+        }
+
+        /// <summary>매 윷판(매치)마다 새로 뽑히는 특수 칸 구성을 반영한다 — 색부터 다시 칠하고
+        /// (EnsureBoard는 세션당 한 번만 돌아서 두 번째 매치부터는 갱신 안 됨), 칸마다 어떤
+        /// 보상인지 보여줄 아이콘(엽전/그 칸에 배정된 공양물/보물상자)을 붙인다. 보물상자는
+        /// 안이 뭔지 숨기고 상자 아이콘만 보여준다(호출부가 그렇게 넘겨준다).</summary>
+        public void RefreshSpecialSquareVisuals(IReadOnlyDictionary<int, Sprite> iconsByNode)
+        {
+            EnsureBoard();
+            if (_pads == null) return;
+            for (int i = 0; i < _pads.Length; i++)
+            {
+                RecolorPad(_pads[i], i);
+                Sprite icon = iconsByNode != null && iconsByNode.TryGetValue(i, out var s) ? s : null;
+                SetSpecialSquareIcon(i, icon);
+            }
+        }
+
+        void SetSpecialSquareIcon(int nodeId, Sprite icon)
+        {
+            if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null) return;
+            var pad = _pads[nodeId];
+
+            var iconT = pad.transform.Find("SpecialIcon");
+            Image iconImg;
+            if (iconT == null)
+            {
+                var go = new GameObject("SpecialIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(pad.transform, false);
+                var rt = (RectTransform)go.transform;
+                rt.anchorMin = new Vector2(0.12f, 0.12f);
+                rt.anchorMax = new Vector2(0.88f, 0.88f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                iconImg = go.GetComponent<Image>();
+                iconImg.preserveAspect = true;
+                iconImg.raycastTarget = false;
+            }
+            else
+            {
+                iconImg = iconT.GetComponent<Image>();
+            }
+
+            iconImg.sprite = icon;
+            iconImg.color = Color.white;
+            iconImg.enabled = icon != null;
         }
 
         void CreatePads()
@@ -1702,6 +1748,9 @@ namespace Yoegoe.Minigames.Yut
             public Sprite Icon;
             public int Count;
             public string Label;
+            /// <summary>보통은 null(흰색 그대로). 보물상자 윷 토큰이 평소 상한을 넘긴 "보너스"일
+            /// 때처럼 다른 색으로 눈에 띄게 표시하고 싶을 때만 채운다.</summary>
+            public Color? Tint;
         }
 
         Transform _collectedItemsRoot;
@@ -1847,12 +1896,12 @@ namespace Yoegoe.Minigames.Yut
             if (item.Icon != null)
             {
                 img.sprite = item.Icon;
-                img.color = Color.white;
+                img.color = item.Tint ?? Color.white;
             }
             else
             {
                 img.sprite = null;
-                img.color = new Color(0.85f, 0.75f, 0.45f, 0.85f);
+                img.color = item.Tint ?? new Color(0.85f, 0.75f, 0.45f, 0.85f);
             }
 
             var count = CreateText(go.transform, "Count", "x" + item.Count, 19, TextAnchor.MiddleCenter);

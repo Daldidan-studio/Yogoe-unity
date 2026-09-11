@@ -85,13 +85,15 @@ namespace Yoegoe.Minigames.Yut
         /// </summary>
         public event Action<IReadOnlyList<string>> OnPlayerPieceFinished;
         /// <summary>내 말(스택이면 전원)이 특수 칸(YutBoardLayout.IsSpecialReward)에 실제로 도착했을
-        /// 때 — 공양물·정화수·엽전 확정 수급은 재화를 아는 호출부(YutScreen)가 처리한다.</summary>
-        public event Action<IReadOnlyList<string>> OnSpecialSquareReached;
+        /// 때(도착한 노드 id, 그 말들의 id) — 어떤 보상을 줄지는 재화를 아는 호출부(YutScreen)가
+        /// YutBoardLayout.GetSpecialKind(nodeId)로 종류를 보고 처리한다.</summary>
+        public event Action<int, IReadOnlyList<string>> OnSpecialSquareReached;
 
         public YutMatch(IEnumerable<(string id, string displayName)> playerTeam)
         {
             playerPieces = playerTeam.Select(t => new YutPiece(t.id, t.displayName, isPlayer: true)).ToList();
             opponentPiece = new YutPiece("imugi", "이무기", isPlayer: false);
+            YutBoardLayout.RegenerateSpecialSquares(); // 매 윷판마다 특수 칸을 새로 뽑는다
         }
 
         /// <summary>대기 말이 빽도로 들어올 때 서는 자리 — 참 바로 뒤(19번).</summary>
@@ -237,7 +239,7 @@ namespace Yoegoe.Minigames.Yut
                 }
 
                 OnPlayerPiecesMoved?.Invoke(movedIds);
-                if (YutBoardLayout.IsSpecialReward(dest)) OnSpecialSquareReached?.Invoke(movedIds);
+                if (YutBoardLayout.IsSpecialReward(dest)) OnSpecialSquareReached?.Invoke(dest, movedIds);
                 OnPiecesChanged?.Invoke();
                 return outcome.GrantsBonusThrow || capturedByEntry;
             }
@@ -288,7 +290,7 @@ namespace Yoegoe.Minigames.Yut
             }
 
             OnPlayerPiecesMoved?.Invoke(movedIds);
-            if (YutBoardLayout.IsSpecialReward(dest2)) OnSpecialSquareReached?.Invoke(movedIds);
+            if (YutBoardLayout.IsSpecialReward(dest2)) OnSpecialSquareReached?.Invoke(dest2, movedIds);
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured;
         }

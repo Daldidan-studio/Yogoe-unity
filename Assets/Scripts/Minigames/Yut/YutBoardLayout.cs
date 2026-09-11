@@ -16,10 +16,53 @@ namespace Yoegoe.Minigames.Yut
         public const int JjiMo = 15;  // 찌모 - 모서리
         public const int Bang = 22;   // 방 - 중앙 교차점
 
-        /// <summary>특수 칸(밟으면 공양물·정화수·엽전 확정 수급) — 바깥 둘레 네 변에 하나씩,
-        /// 이름 있는 칸(참·모·뒷모·찌모)이나 지름길 칸과는 겹치지 않게 뒀다.</summary>
-        static readonly HashSet<int> SpecialRewardNodeSet = new() { 3, 8, 13, 18 };
-        public static bool IsSpecialReward(int nodeId) => SpecialRewardNodeSet.Contains(nodeId);
+        /// <summary>특수 칸 종류. 엽전(밟으면 엽전 1개 확정) / 공양물(그 칸에 배정된 공양물 1개
+        /// 확정, 매치 시작 때 정해짐) / 보물상자(향·공양물·광고보상권·엽전·윷토큰 중 하나 랜덤).</summary>
+        public enum SpecialSquareKind { None, Coin, Offering, Treasure }
+
+        const int SpecialCoinCount = 3;
+        const int SpecialOfferingCount = 2;
+        const int SpecialTreasureCount = 1;
+
+        static readonly Dictionary<int, SpecialSquareKind> specialSquareKinds = new();
+
+        public static SpecialSquareKind GetSpecialKind(int nodeId) =>
+            specialSquareKinds.TryGetValue(nodeId, out var kind) ? kind : SpecialSquareKind.None;
+
+        public static bool IsSpecialReward(int nodeId) => GetSpecialKind(nodeId) != SpecialSquareKind.None;
+
+        /// <summary>
+        /// 매 윷판(매치)마다 새로 뽑는다 — 참(0)과 이름 있는 칸(모·뒷모·찌모·방)은 제외하고
+        /// 엽전 3칸 + 공양물 2칸 + 보물상자 1칸을 무작위로 배정한다. 어떤 노드가 어떤 공양물을
+        /// 받을지는 YutBoardLayout이 모른다(재화를 아는 YutScreen이 따로 정한다) — 여기선 칸의
+        /// 종류(kind)만 정한다.
+        /// </summary>
+        public static IReadOnlyDictionary<int, SpecialSquareKind> RegenerateSpecialSquares()
+        {
+            specialSquareKinds.Clear();
+
+            var candidates = new List<int>();
+            for (int i = 1; i < NodeCount; i++)
+            {
+                if (i == Mo || i == DwitMo || i == JjiMo || i == Bang) continue;
+                candidates.Add(i);
+            }
+            for (int i = candidates.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+            }
+
+            int idx = 0;
+            for (int i = 0; i < SpecialCoinCount && idx < candidates.Count; i++, idx++)
+                specialSquareKinds[candidates[idx]] = SpecialSquareKind.Coin;
+            for (int i = 0; i < SpecialOfferingCount && idx < candidates.Count; i++, idx++)
+                specialSquareKinds[candidates[idx]] = SpecialSquareKind.Offering;
+            for (int i = 0; i < SpecialTreasureCount && idx < candidates.Count; i++, idx++)
+                specialSquareKinds[candidates[idx]] = SpecialSquareKind.Treasure;
+
+            return specialSquareKinds;
+        }
 
         static readonly Vector2[] Points = BuildPoints();
 

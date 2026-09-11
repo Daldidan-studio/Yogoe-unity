@@ -37,6 +37,13 @@ namespace Yoegoe.Economy
             return true;
         }
 
+        /// <summary>윷놀이 보물상자 등 다른 출처에서 광고보상권을 직접 지급할 때.</summary>
+        public static void AddAdTickets(int amount)
+        {
+            if (amount <= 0) return;
+            AdTickets += amount;
+        }
+
         /// <summary>요구 들어주기 직후 호출. true면 꾸러미 지급.</summary>
         public static bool RollAfterRequestFulfilled()
         {
