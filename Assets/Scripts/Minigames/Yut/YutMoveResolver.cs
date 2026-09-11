@@ -30,15 +30,22 @@ namespace Yoegoe.Minigames.Yut
     /// </summary>
     public static class YutMoveResolver
     {
-        /// <summary>시작 노드부터 결과만큼 전진한 노드 id 경로(시작점 포함). steps는 1 이상이어야 한다
-        /// (빽도는 PeekBackwardDestination을 대신 쓴다).</summary>
-        public static int[] GetPath(int fromNode, YutThrowResult result, bool takeShortcut = true)
+        /// <summary>
+        /// 시작 노드부터 결과만큼 전진한 노드 id 경로(시작점 포함). steps는 1 이상이어야 한다
+        /// (빽도는 PeekBackwardDestination을 대신 쓴다).
+        /// arrivedFrom: 방(22)에 "멈춰 있던" 말이 바깥길(takeShortcut=false)로 나갈 때만 의미가
+        /// 있다 — 방은 두 대각선이 합류하는 지점이라 NextNode가 "어느 대각선에서 왔는지"를 봐야
+        /// 반대쪽으로 이어갈 수 있는데, previous를 안 넘기면 항상 "안 왔다(-1)"로 취급돼 지름길과
+        /// 똑같이 27로 나가버린다 — 후보 2개(지름길/바깥길)가 같은 칸에 겹쳐 보이던 버그의 원인.
+        /// 호출부가 그 말의 History 마지막 칸을 넘겨준다.
+        /// </summary>
+        public static int[] GetPath(int fromNode, YutThrowResult result, bool takeShortcut = true, int arrivedFrom = -1)
         {
             int steps = (int)result;
 
             var path = new List<int> { fromNode };
             int current = fromNode;
-            int previous = -1;
+            int previous = arrivedFrom;
             int remaining = steps;
 
             if (remaining > 0 && takeShortcut)

@@ -157,8 +157,13 @@ namespace Yoegoe.Minigames.Yut
                     // true를 넘기면 ResolvesToFinish가 무조건 완주로 취급해 후보 칸이 실제
                     // 목적지 대신 항상 참(0)으로 계산돼, 참 자리에 이 말의 후보 아이콘이
                     // (상하 2개) 잘못 뜨는 버그가 있었다.
+                    //
+                    // 방(22)의 바깥길(지름길 안 탐)은 "어느 대각선에서 왔는지"(History 마지막 칸)를
+                    // 넘겨야 한다 — 안 넘기면 지름길과 똑같이 27로 계산돼 두 후보가 같은 칸에
+                    // 겹쳐(위아래 2개) 보이던 버그가 있었다.
+                    int arrivedFrom = p.History.Count > 0 ? p.History[p.History.Count - 1] : -1;
                     var shortcutPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: true);
-                    var outerPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: false);
+                    var outerPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: false, arrivedFrom: arrivedFrom);
                     list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, shortcutPath), true));
                     list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, outerPath), false));
                     continue;
@@ -233,7 +238,13 @@ namespace Yoegoe.Minigames.Yut
 
             // 이미 참에 서 있던 말은 뭘 던지든 이번 던지기로 바로 완주(참을 "지나는" 셈).
             bool alreadyAtStart = wasOnBoard && fromNode == YutBoardLayout.Start;
-            var path = YutMoveResolver.GetPath(wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut);
+            // 방(22)에 멈춰 있다가 바깥길(지름길 안 탐)로 나갈 때만 의미 있음 — GetPlayerCandidates와
+            // 같은 이유로 History 마지막 칸을 넘겨야 방에서 반대쪽 대각선으로 정확히 이어간다.
+            int arrivedFromForOuter = (wasOnBoard && !useShortcut && piece.History.Count > 0)
+                ? piece.History[piece.History.Count - 1]
+                : -1;
+            var path = YutMoveResolver.GetPath(
+                wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut, arrivedFromForOuter);
 
             if (ResolvesToFinish(alreadyAtStart, path))
             {
