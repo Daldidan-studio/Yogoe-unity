@@ -1022,14 +1022,16 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>참가 요괴 명단을 최신 상태로 다시 그린다. 인원 수가 바뀔 때만 칩을 새로 만들고,
         /// 그 외엔 이미 만든 칩의 초상·이름·스탯·상태 텍스트만 갱신한다.
-        /// showSummonSlot이 true면(예: 고라니 미소환) 맨 끝에 "소환하기" 빈 슬롯을 하나 더 붙인다 —
-        /// 키우는 요괴 수만큼만 말을 쓸 수 있다는 걸 그 자리에서 바로 안내하기 위함.</summary>
-        public void ShowRoster(IReadOnlyList<RosterEntry> entries, bool showSummonSlot, Action onSummonTapped)
+        /// showExtraSlot이 true면 맨 끝에 빈 슬롯을 하나 더 붙인다 — 고라니 미소환이면
+        /// "소환하기", 소환은 됐지만 아직 넋이라 말로 못 쓰면 "진화 필요"(탭하면 YutScreen이
+        /// 진화 확인 다이얼로그를 띄운다). 키우는/쓸 수 있는 요괴 수만큼만 말을 쓸 수 있다는 걸
+        /// 그 자리에서 바로 안내하기 위함.</summary>
+        public void ShowRoster(IReadOnlyList<RosterEntry> entries, bool showExtraSlot, string extraSlotLabel, Action onExtraSlotTapped)
         {
             EnsureBoard();
             if (_rosterRow == null || entries == null) return;
 
-            int totalSlots = Mathf.Max(1, entries.Count + (showSummonSlot ? 1 : 0));
+            int totalSlots = Mathf.Max(1, entries.Count + (showExtraSlot ? 1 : 0));
 
             if (_rosterChips.Count != entries.Count)
             {
@@ -1067,15 +1069,17 @@ namespace Yoegoe.Minigames.Yut
 
             _rosterCaption.text = "이동한 요괴마다 친밀도 +0.25";
 
-            if (showSummonSlot)
+            if (showExtraSlot)
             {
                 if (_summonSlotChip == null) _summonSlotChip = BuildSummonSlotChip(_rosterRow);
                 RepositionRosterSlot(_summonSlotChip.GetComponent<RectTransform>(), entries.Count, totalSlots);
                 _summonSlotChip.SetActive(true);
+                var labelText = _summonSlotChip.transform.Find("Label")?.GetComponent<Text>();
+                if (labelText != null) labelText.text = extraSlotLabel ?? "";
                 var btn = _summonSlotChip.GetComponent<Button>();
                 btn.onClick.RemoveAllListeners();
-                if (onSummonTapped != null)
-                    btn.onClick.AddListener(() => onSummonTapped());
+                if (onExtraSlotTapped != null)
+                    btn.onClick.AddListener(() => onExtraSlotTapped());
             }
             else if (_summonSlotChip != null)
             {
@@ -1083,8 +1087,8 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        /// <summary>키우는 중이 아닌(아직 소환 안 한) 요괴 자리 — "소환하기"를 눌러 SummonPopup을
-        /// 열도록 YutScreen이 콜백을 넘겨준다(YutMiniGame은 소환 로직을 모른다).</summary>
+        /// <summary>키우는 중이 아니거나(소환 전) 아직 말로 못 쓰는(넋) 요괴 자리 — 라벨/탭 동작은
+        /// YutScreen이 매번 넘겨준다(YutMiniGame은 소환·진화 로직을 모른다).</summary>
         GameObject BuildSummonSlotChip(RectTransform parent)
         {
             var go = new GameObject("SummonSlot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -1102,7 +1106,7 @@ namespace Yoegoe.Minigames.Yut
             plus.color = new Color(0.85f, 0.8f, 0.7f, 0.9f);
             plus.raycastTarget = false;
 
-            var label = CreateText(rt, "Label", "소환하기", 22, TextAnchor.MiddleCenter);
+            var label = CreateText(rt, "Label", "", 22, TextAnchor.MiddleCenter);
             label.rectTransform.anchorMin = new Vector2(0f, 0f);
             label.rectTransform.anchorMax = new Vector2(1f, 0.42f);
             label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;

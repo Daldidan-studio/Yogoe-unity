@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.Minigames.Yut;
@@ -47,6 +48,12 @@ namespace Yoegoe.UI
         [SerializeField] Text reviveText;
         [SerializeField] Button reviveYesButton;
         [SerializeField] Button reviveNoButton;
+        [SerializeField] GameObject confirmRoot;
+        [SerializeField] Text confirmText;
+        [SerializeField] Button confirmYesButton;
+        [SerializeField] Button confirmNoButton;
+
+        const int EvolveWithPurifiedWaterCost = 5;
 
         /// <summary>특수 칸(도개걸윷모 밟았을 때 정화수·공양물·엽전 확정 수급) 보상 배율.</summary>
         const int SquareRewardBase = 1;
@@ -86,6 +93,8 @@ namespace Yoegoe.UI
         Action pendingRewardAd;
         Action pendingReviveYes;
         Action pendingReviveNo;
+        Action pendingConfirmYes;
+        Action pendingConfirmNo;
 
         void Awake() => Instance = this;
 
@@ -660,15 +669,116 @@ namespace Yoegoe.UI
                 int intimacy = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Intimacy) : 0;
                 roster.Add(new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p)));
             }
-            // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다 — 고라니를 아직 안 불렀으면
-            // 로스터 끝에 빈 슬롯 + "소환하기"를 붙여서 바로 안내한다.
-            bool showSummonSlot = !CharacterSummon.IsPresent(CharacterId.Gorani);
-            miniGame.ShowRoster(roster, showSummonSlot, OnSummonSlotTapped);
+            // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다. 고라니를 아직 안 불렀으면
+            // "소환하기", 불렀는데 아직 넋이라 말로 못 쓰면 "진화 필요" 슬롯을 안내한다.
+            bool showExtraSlot = false;
+            string extraLabel = null;
+            Action extraAction = null;
+            if (!CharacterSummon.IsPresent(CharacterId.Gorani))
+            {
+                showExtraSlot = true;
+                extraLabel = "소환하기";
+                extraAction = OnSummonSlotTapped;
+            }
+            else
+            {
+                var gorani = CharacterSummon.Find(CharacterId.Gorani);
+                if (gorani != null && gorani.Stats != null && gorani.Stats.Stage == GrowthStage.Neok)
+                {
+                    showExtraSlot = true;
+                    extraLabel = "진화 필요";
+                    extraAction = OnEvolveSlotTapped;
+                }
+            }
+            miniGame.ShowRoster(roster, showExtraSlot, extraLabel, extraAction);
         }
 
         void OnSummonSlotTapped()
         {
-            if (SummonPopup.Instance != null) SummonPopup.Instance.Open();
+            if (CharacterSummon.IsPresent(CharacterId.Gorani)) return;
+
+            if (!CharacterSummon.CanSummonGorani())
+            {
+                ShowNotice($"향이 부족합니다 (필요 {CharacterSummon.HyangCost}, 보유 {GameEconomy.Instance.Hyang}).", null);
+                return;
+            }
+
+            ShowConfirm($"향 {CharacterSummon.HyangCost}개를 피워 요괴를 부르시겠습니까?", "부르기", "취소",
+                () => StartCoroutine(SummonCeremonyRoutine()), null);
+        }
+
+        /// <summary>메인 화면 소환 연출(암전 → 넋 등장)과 같은 느낌을, 윷 화면 안에서 직접
+        /// 재현한다 — SummonCeremony는 월드 스페이스 연출이라 윷 화면의 불투명 패널에
+        /// 가려져 안 보인다(SummonPopup과 같은 문제). 대신 화면을 어둡게 했다 밝히면서 그
+        /// 사이에 넋을 소환해 "슬롯에 넋이 들어오는" 느낌만 살린다.</summary>
+        IEnumerator SummonCeremonyRoutine()
+        {
+            CeremonyGate.Begin();
+            var dimGo = new GameObject("SummonDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dimGo.transform.SetParent(root.transform, false);
+            Stretch((RectTransform)dimGo.transform);
+            dimGo.transform.SetAsLastSibling();
+            var dimImg = dimGo.GetComponent<Image>();
+            dimImg.color = new Color(0f, 0f, 0.05f, 0f);
+
+            float t = 0f;
+            const float dimIn = 0.45f;
+            while (t < dimIn)
+            {
+                t += Time.unscaledDeltaTime;
+                dimImg.color = new Color(0f, 0f, 0.05f, Mathf.Lerp(0f, 0.85f, t / dimIn));
+                yield return null;
+            }
+
+            var agent = CharacterSummon.TrySummonGorani(null, font);
+            yield return new WaitForSecondsRealtime(0.4f); // 슬롯에 넋이 들어오는 순간의 정적
+
+            t = 0f;
+            const float dimOut = 0.5f;
+            while (t < dimOut)
+            {
+                t += Time.unscaledDeltaTime;
+                dimImg.color = new Color(0f, 0f, 0.05f, Mathf.Lerp(0.85f, 0f, t / dimOut));
+                yield return null;
+            }
+            Destroy(dimGo);
+            CeremonyGate.End();
+
+            if (agent == null)
+            {
+                ShowNotice("소환에 실패했습니다.", null);
+                yield break;
+            }
+
+            HandlePiecesChanged();
+            GameSaveBridge.SaveFromWorld();
+        }
+
+        /// <summary>넋은 아직 윷놀이 말로 못 쓴다 — 정화수를 써서 즉시 진화시키는 지름길.</summary>
+        void OnEvolveSlotTapped()
+        {
+            var gorani = CharacterSummon.Find(CharacterId.Gorani);
+            if (gorani == null || gorani.Stats == null || gorani.Stats.Stage != GrowthStage.Neok) return;
+
+            ShowConfirm(
+                $"아직은 윷놀이를 할 수 없다.\n정화수 {EvolveWithPurifiedWaterCost}개를 써서 진화시킬까?",
+                "예", "아니오",
+                () => DoEvolveGorani(gorani), null);
+        }
+
+        void DoEvolveGorani(CharacterAgent gorani)
+        {
+            if (gorani == null || gorani.Stats == null || gorani.Stats.Stage != GrowthStage.Neok) return;
+
+            if (!GameEconomy.Instance.TrySpendPurifiedWater(EvolveWithPurifiedWaterCost))
+            {
+                ShowNotice("정화수가 부족합니다.", null);
+                return;
+            }
+
+            gorani.EvolveToHon(playFx: false); // 윷 화면 뒤라 월드 연출이 안 보이니 생략
+            GameSaveBridge.SaveFromWorld();
+            HandlePiecesChanged();
         }
 
         /// <summary>말 하나의 현재 보드 위치를 사람이 읽는 이름으로 — 대기/완주가 아니면 잘 알려진
@@ -768,6 +878,7 @@ namespace Yoegoe.UI
             var rootRt = (RectTransform)root.transform;
             if (rewardRoot == null) BuildRewardPanel(rootRt);
             if (reviveRoot == null) BuildRevivePanel(rootRt);
+            if (confirmRoot == null) BuildConfirmPanel(rootRt);
         }
 
         void WireRuntimeListeners()
@@ -824,6 +935,18 @@ namespace Yoegoe.UI
             {
                 reviveNoButton.onClick.RemoveAllListeners();
                 reviveNoButton.onClick.AddListener(OnReviveNoClicked);
+            }
+
+            if (confirmYesButton != null)
+            {
+                confirmYesButton.onClick.RemoveAllListeners();
+                confirmYesButton.onClick.AddListener(OnConfirmYesClicked);
+            }
+
+            if (confirmNoButton != null)
+            {
+                confirmNoButton.onClick.RemoveAllListeners();
+                confirmNoButton.onClick.AddListener(OnConfirmNoClicked);
             }
         }
 
@@ -1118,6 +1241,80 @@ namespace Yoegoe.UI
             var action = pendingReviveNo;
             pendingReviveYes = null;
             pendingReviveNo = null;
+            action?.Invoke();
+        }
+
+        /// <summary>범용 확인 팝업(소환하기/진화하기 등) — BuildRevivePanel과 구조는 같지만
+        /// 버튼 라벨을 ShowConfirm이 호출될 때마다 바꿀 수 있다.</summary>
+        void BuildConfirmPanel(Transform parent)
+        {
+            confirmRoot = new GameObject("Confirm", typeof(RectTransform));
+            var rt = (RectTransform)confirmRoot.transform;
+            rt.SetParent(parent, false);
+            Stretch(rt);
+            var dim = confirmRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.6f);
+
+            var box = new GameObject("Box", typeof(RectTransform));
+            var boxRt = (RectTransform)box.transform;
+            boxRt.SetParent(rt, false);
+            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
+            boxRt.sizeDelta = new Vector2(700, 410);
+            var boxImg = box.AddComponent<Image>();
+            boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
+
+            var textGO = new GameObject("Text", typeof(RectTransform));
+            var textRt = (RectTransform)textGO.transform;
+            textRt.SetParent(boxRt, false);
+            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
+            textRt.anchoredPosition = new Vector2(0, 70);
+            textRt.sizeDelta = new Vector2(610, 220);
+            confirmText = textGO.AddComponent<Text>();
+            confirmText.font = font;
+            confirmText.fontSize = UiFonts.Size(38);
+            confirmText.alignment = TextAnchor.MiddleCenter;
+            confirmText.color = new Color(1f, 0.95f, 0.85f);
+            confirmText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            BuildChoiceButton(boxRt, new Vector2(-165, -130), "예", out confirmYesButton);
+            BuildChoiceButton(boxRt, new Vector2(165, -130), "아니오", out confirmNoButton);
+
+            confirmRoot.SetActive(false);
+        }
+
+        void ShowConfirm(string message, string yesLabel, string noLabel, Action onYes, Action onNo)
+        {
+            confirmText.text = message;
+            SetButtonLabel(confirmYesButton, yesLabel);
+            SetButtonLabel(confirmNoButton, noLabel);
+            pendingConfirmYes = onYes;
+            pendingConfirmNo = onNo;
+            if (!root.activeSelf) root.SetActive(true);
+            confirmRoot.SetActive(true);
+        }
+
+        static void SetButtonLabel(Button button, string label)
+        {
+            if (button == null || string.IsNullOrEmpty(label)) return;
+            var text = button.GetComponentInChildren<Text>(true);
+            if (text != null) text.text = label;
+        }
+
+        void OnConfirmYesClicked()
+        {
+            confirmRoot.SetActive(false);
+            var action = pendingConfirmYes;
+            pendingConfirmYes = null;
+            pendingConfirmNo = null;
+            action?.Invoke();
+        }
+
+        void OnConfirmNoClicked()
+        {
+            confirmRoot.SetActive(false);
+            var action = pendingConfirmNo;
+            pendingConfirmYes = null;
+            pendingConfirmNo = null;
             action?.Invoke();
         }
 
