@@ -586,7 +586,15 @@ namespace Yoegoe.UI
                 int intimacy = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Intimacy) : 0;
                 roster.Add(new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p)));
             }
-            miniGame.ShowRoster(roster);
+            // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다 — 고라니를 아직 안 불렀으면
+            // 로스터 끝에 빈 슬롯 + "소환하기"를 붙여서 바로 안내한다.
+            bool showSummonSlot = !CharacterSummon.IsPresent(CharacterId.Gorani);
+            miniGame.ShowRoster(roster, showSummonSlot, OnSummonSlotTapped);
+        }
+
+        void OnSummonSlotTapped()
+        {
+            if (SummonPopup.Instance != null) SummonPopup.Instance.Open();
         }
 
         /// <summary>말 하나의 현재 보드 위치를 사람이 읽는 이름으로 — 대기/완주가 아니면 잘 알려진

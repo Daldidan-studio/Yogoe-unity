@@ -71,6 +71,7 @@ namespace Yoegoe.Minigames.Yut
         RectTransform _rosterRow;
         Text _rosterCaption;
         readonly List<RosterChip> _rosterChips = new();
+        GameObject _summonSlotChip;
 
         RectTransform _turnTrackerPanel;
         Text _turnTrackerNumberText;
@@ -1020,11 +1021,15 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>참가 요괴 명단을 최신 상태로 다시 그린다. 인원 수가 바뀔 때만 칩을 새로 만들고,
-        /// 그 외엔 이미 만든 칩의 초상·이름·스탯·상태 텍스트만 갱신한다.</summary>
-        public void ShowRoster(IReadOnlyList<RosterEntry> entries)
+        /// 그 외엔 이미 만든 칩의 초상·이름·스탯·상태 텍스트만 갱신한다.
+        /// showSummonSlot이 true면(예: 고라니 미소환) 맨 끝에 "소환하기" 빈 슬롯을 하나 더 붙인다 —
+        /// 키우는 요괴 수만큼만 말을 쓸 수 있다는 걸 그 자리에서 바로 안내하기 위함.</summary>
+        public void ShowRoster(IReadOnlyList<RosterEntry> entries, bool showSummonSlot, Action onSummonTapped)
         {
             EnsureBoard();
             if (_rosterRow == null || entries == null) return;
+
+            int totalSlots = Mathf.Max(1, entries.Count + (showSummonSlot ? 1 : 0));
 
             if (_rosterChips.Count != entries.Count)
             {
@@ -1033,13 +1038,14 @@ namespace Yoegoe.Minigames.Yut
                 _rosterChips.Clear();
 
                 for (int i = 0; i < entries.Count; i++)
-                    _rosterChips.Add(BuildRosterChip(_rosterRow, i, entries.Count));
+                    _rosterChips.Add(BuildRosterChip(_rosterRow, i, totalSlots));
             }
 
             for (int i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
                 var chip = _rosterChips[i];
+                RepositionRosterSlot(chip.Root, i, totalSlots);
 
                 var sprite = PieceSpriteFor(entry.Id);
                 if (sprite != null)
@@ -1060,6 +1066,62 @@ namespace Yoegoe.Minigames.Yut
             }
 
             _rosterCaption.text = "이동한 요괴마다 친밀도 +0.25";
+
+            if (showSummonSlot)
+            {
+                if (_summonSlotChip == null) _summonSlotChip = BuildSummonSlotChip(_rosterRow);
+                RepositionRosterSlot(_summonSlotChip.GetComponent<RectTransform>(), entries.Count, totalSlots);
+                _summonSlotChip.SetActive(true);
+                var btn = _summonSlotChip.GetComponent<Button>();
+                btn.onClick.RemoveAllListeners();
+                if (onSummonTapped != null)
+                    btn.onClick.AddListener(() => onSummonTapped());
+            }
+            else if (_summonSlotChip != null)
+            {
+                _summonSlotChip.SetActive(false);
+            }
+        }
+
+        /// <summary>키우는 중이 아닌(아직 소환 안 한) 요괴 자리 — "소환하기"를 눌러 SummonPopup을
+        /// 열도록 YutScreen이 콜백을 넘겨준다(YutMiniGame은 소환 로직을 모른다).</summary>
+        GameObject BuildSummonSlotChip(RectTransform parent)
+        {
+            var go = new GameObject("SummonSlot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            var bg = go.GetComponent<Image>();
+            bg.color = new Color(0.3f, 0.3f, 0.28f, 0.4f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = bg;
+
+            var plus = CreateText(rt, "Plus", "+", 30, TextAnchor.MiddleCenter);
+            plus.rectTransform.anchorMin = new Vector2(0f, 0.42f);
+            plus.rectTransform.anchorMax = new Vector2(1f, 1f);
+            plus.rectTransform.offsetMin = plus.rectTransform.offsetMax = Vector2.zero;
+            plus.color = new Color(0.85f, 0.8f, 0.7f, 0.9f);
+            plus.raycastTarget = false;
+
+            var label = CreateText(rt, "Label", "소환하기", 17, TextAnchor.MiddleCenter);
+            label.rectTransform.anchorMin = new Vector2(0f, 0f);
+            label.rectTransform.anchorMax = new Vector2(1f, 0.42f);
+            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+            label.color = new Color(0.85f, 0.8f, 0.7f, 0.9f);
+            label.raycastTarget = false;
+
+            return go;
+        }
+
+        /// <summary>로스터 줄에서 index/count번째 칸 위치로 앵커한다 — 요괴 칩과 소환 슬롯 칩이
+        /// 같은 규칙으로 나란히 놓이게 공용으로 쓴다.</summary>
+        static void RepositionRosterSlot(RectTransform rt, int index, int count)
+        {
+            float slotW = 1f / count;
+            const float pad = 0.03f;
+            rt.anchorMin = new Vector2(index * slotW + pad, 0f);
+            rt.anchorMax = new Vector2((index + 1) * slotW - pad, 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
         }
 
         RosterChip BuildRosterChip(RectTransform parent, int index, int count)
@@ -1067,12 +1129,7 @@ namespace Yoegoe.Minigames.Yut
             var go = new GameObject($"Chip{index}", typeof(RectTransform));
             var rt = go.GetComponent<RectTransform>();
             rt.SetParent(parent, false);
-            float slotW = 1f / count;
-            const float pad = 0.03f;
-            rt.anchorMin = new Vector2(index * slotW + pad, 0f);
-            rt.anchorMax = new Vector2((index + 1) * slotW - pad, 1f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
+            RepositionRosterSlot(rt, index, count);
 
             var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             // 위에서부터 고정 픽셀로 쌓는다(초상 60px → 이름 22px → 스탯 20px → 상태 18px) —
