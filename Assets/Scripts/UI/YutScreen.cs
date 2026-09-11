@@ -75,7 +75,7 @@ namespace Yoegoe.UI
 
         /// <summary>이번 매치에서 특수 칸으로 모은 것들 — 동(東) 구역에 표시, 매치가 끝나면 요약
         /// 다이얼로그로도 보여준다. 새 매치 시작할 때 비운다(재시작 복원 시엔 다시 0부터).</summary>
-        readonly Dictionary<string, int> matchOfferingCounts = new Dictionary<string, int>();
+        readonly Dictionary<OfferingData, int> matchOfferingCounts = new Dictionary<OfferingData, int>();
         int matchPurifiedWaterTotal;
         int matchYeopjeonTotal;
 
@@ -499,9 +499,8 @@ namespace Yoegoe.UI
             {
                 int offeringAmount = SquareRewardBase * multiplier;
                 GameEconomy.Instance.AddOffering(pendingSquareOffering, offeringAmount);
-                string name = pendingSquareOffering.displayName;
-                matchOfferingCounts.TryGetValue(name, out int cur);
-                matchOfferingCounts[name] = cur + offeringAmount;
+                matchOfferingCounts.TryGetValue(pendingSquareOffering, out int cur);
+                matchOfferingCounts[pendingSquareOffering] = cur + offeringAmount;
             }
             pendingSquareOffering = null;
 
@@ -509,16 +508,41 @@ namespace Yoegoe.UI
             GameSaveBridge.SaveFromWorld();
         }
 
-        /// <summary>동(東) 구역에 이번 매치에서 특수 칸으로 모은 것들을 보여준다.</summary>
+        /// <summary>동(東) 구역에 이번 매치에서 특수 칸으로 모은 것들을 아이콘으로 보여준다.</summary>
         void RefreshCollectedItemsDisplay()
         {
             if (miniGame == null) return;
-            var lines = new List<string>();
+            var items = new List<YutMiniGame.CollectedItemView>();
             foreach (var kv in matchOfferingCounts)
-                lines.Add($"{kv.Key} {kv.Value}");
-            if (matchPurifiedWaterTotal > 0) lines.Add($"정화수 {matchPurifiedWaterTotal}");
-            if (matchYeopjeonTotal > 0) lines.Add($"엽전 {matchYeopjeonTotal}");
-            miniGame.ShowCollectedItems(lines);
+            {
+                if (kv.Key == null || kv.Value <= 0) continue;
+                items.Add(new YutMiniGame.CollectedItemView
+                {
+                    Icon = kv.Key.icon,
+                    Count = kv.Value,
+                    Label = kv.Key.displayName,
+                });
+            }
+            if (matchPurifiedWaterTotal > 0)
+            {
+                var water = CharacterCatalog.FindOffering("purifiedwater");
+                items.Add(new YutMiniGame.CollectedItemView
+                {
+                    Icon = water != null ? water.icon : null,
+                    Count = matchPurifiedWaterTotal,
+                    Label = "정화수",
+                });
+            }
+            if (matchYeopjeonTotal > 0)
+            {
+                items.Add(new YutMiniGame.CollectedItemView
+                {
+                    Icon = YutMiniGame.YeopjeonIcon(),
+                    Count = matchYeopjeonTotal,
+                    Label = "엽전",
+                });
+            }
+            miniGame.ShowCollectedItems(items);
         }
 
         /// <summary>매치 종료 다이얼로그에 덧붙일 "이번 판에 얻은 것" 한 줄 요약. 없으면 null.</summary>
@@ -526,7 +550,10 @@ namespace Yoegoe.UI
         {
             var parts = new List<string>();
             foreach (var kv in matchOfferingCounts)
-                parts.Add($"{kv.Key} {kv.Value}개");
+            {
+                if (kv.Key == null || kv.Value <= 0) continue;
+                parts.Add($"{kv.Key.displayName} {kv.Value}개");
+            }
             if (matchPurifiedWaterTotal > 0) parts.Add($"정화수 {matchPurifiedWaterTotal}개");
             if (matchYeopjeonTotal > 0) parts.Add($"엽전 {matchYeopjeonTotal}개");
             return parts.Count > 0 ? string.Join(", ", parts) + "를 얻었다" : null;

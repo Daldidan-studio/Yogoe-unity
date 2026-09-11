@@ -1601,27 +1601,106 @@ namespace Yoegoe.Minigames.Yut
             return _quadrants[(int)quadrant];
         }
 
-        Text _collectedItemsText;
+        /// <summary>동(東) 구역에 모은 아이템 한 칸 — 아이콘 + 개수.</summary>
+        public struct CollectedItemView
+        {
+            public Sprite Icon;
+            public int Count;
+            public string Label;
+        }
+
+        Transform _collectedItemsRoot;
+        static Sprite _yeopjeonIcon;
+
+        /// <summary>엽전 아이콘. Resources/UI/Currency/Yeopjeon.</summary>
+        public static Sprite YeopjeonIcon()
+        {
+            if (_yeopjeonIcon == null)
+                _yeopjeonIcon = Resources.Load<Sprite>("UI/Currency/Yeopjeon");
+            return _yeopjeonIcon;
+        }
 
         /// <summary>동(東) 구역 — 이번 매치에서 특수 칸으로 모은 것들(공양물·정화수·엽전)을
-        /// 목록으로 보여준다. YutScreen이 재화를 지급할 때마다 최신 목록을 넘겨준다.</summary>
-        public void ShowCollectedItems(List<string> lines)
+        /// 아이콘+개수로 보여준다. YutScreen이 재화를 지급할 때마다 최신 목록을 넘겨준다.</summary>
+        public void ShowCollectedItems(IReadOnlyList<CollectedItemView> items)
         {
             var east = GetQuadrant(YutBoardQuadrant.East);
-            if (_collectedItemsText == null)
+            EnsureCollectedItemsRoot(east);
+
+            for (int i = _collectedItemsRoot.childCount - 1; i >= 0; i--)
+                Destroy(_collectedItemsRoot.GetChild(i).gameObject);
+
+            if (items == null || items.Count == 0) return;
+
+            for (int i = 0; i < items.Count; i++)
+                CreateCollectedItemChip(_collectedItemsRoot, items[i]);
+        }
+
+        void EnsureCollectedItemsRoot(Transform east)
+        {
+            if (_collectedItemsRoot != null) return;
+
+            // 예전에 텍스트만 쓰던 Items 노드는 치운다
+            var legacy = east.Find("Items");
+            if (legacy != null)
+                Destroy(legacy.gameObject);
+
+            var existing = east.Find("ItemIcons");
+            if (existing != null)
             {
-                var existing = east.Find("Items");
-                _collectedItemsText = existing != null ? existing.GetComponent<Text>() : null;
-            }
-            if (_collectedItemsText == null)
-            {
-                _collectedItemsText = CreateText(east, "Items", "", 15, TextAnchor.UpperCenter);
-                Stretch(_collectedItemsText.rectTransform);
-                _collectedItemsText.color = new Color(0.9f, 0.85f, 0.6f);
-                _collectedItemsText.raycastTarget = false;
+                _collectedItemsRoot = existing;
+                return;
             }
 
-            _collectedItemsText.text = lines != null && lines.Count > 0 ? string.Join("\n", lines) : "";
+            var go = new GameObject("ItemIcons", typeof(RectTransform));
+            go.transform.SetParent(east, false);
+            var rt = go.GetComponent<RectTransform>();
+            Stretch(rt);
+
+            var grid = go.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(42f, 54f);
+            grid.spacing = new Vector2(4f, 2f);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 2;
+            grid.childAlignment = TextAnchor.UpperCenter;
+            grid.padding = new RectOffset(2, 2, 2, 2);
+            _collectedItemsRoot = go.transform;
+        }
+
+        void CreateCollectedItemChip(Transform parent, CollectedItemView item)
+        {
+            var go = new GameObject("Item", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGo.transform.SetParent(go.transform, false);
+            var iconRt = iconGo.GetComponent<RectTransform>();
+            iconRt.anchorMin = new Vector2(0.1f, 0.28f);
+            iconRt.anchorMax = new Vector2(0.9f, 1f);
+            iconRt.offsetMin = Vector2.zero;
+            iconRt.offsetMax = Vector2.zero;
+            var img = iconGo.GetComponent<Image>();
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+            if (item.Icon != null)
+            {
+                img.sprite = item.Icon;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.sprite = null;
+                img.color = new Color(0.85f, 0.75f, 0.45f, 0.85f);
+            }
+
+            var count = CreateText(go.transform, "Count", "x" + item.Count, 14, TextAnchor.MiddleCenter);
+            var countRt = count.rectTransform;
+            countRt.anchorMin = new Vector2(0f, 0f);
+            countRt.anchorMax = new Vector2(1f, 0.3f);
+            countRt.offsetMin = Vector2.zero;
+            countRt.offsetMax = Vector2.zero;
+            count.color = new Color(0.95f, 0.9f, 0.7f);
+            count.raycastTarget = false;
         }
 
         /// <summary>
