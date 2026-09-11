@@ -105,7 +105,9 @@ namespace Yoegoe.UI
             canvasGO.transform.SetParent(transform, false);
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 810;
+            // YutScreen(820)의 로스터 "소환하기" 슬롯에서도 열리므로 그보다 위에 있어야 한다 —
+            // 예전엔 810이라 윷놀이 화면 뒤에 가려져서 눌러도 안 보였다.
+            canvas.sortingOrder = 830;
 
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
