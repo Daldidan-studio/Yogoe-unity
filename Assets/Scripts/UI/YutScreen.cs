@@ -757,6 +757,25 @@ namespace Yoegoe.UI
         void HandleContinueAfterFinish()
         {
             awaitingFinishChoice = false;
+            // 말이 하나 골인해서 계속하기로 했으면 — 이제 그 자리엔 더 노려볼 보상이 없으니
+            // 특수 칸을 새로 배치할지 물어본다. 그만 받는 쪽(HandleStopAfterFinish)은 매치가
+            // 바로 끝나서 물어볼 필요가 없다.
+            ShowConfirm("완주한 자리를 빼고 특수 칸을 새로 배치할까요?\n(말 위치는 그대로 유지돼요)",
+                "예", "아니오",
+                onYes: () => { ResetSpecialSquares(); ProceedAfterFinishContinue(); },
+                onNo: ProceedAfterFinishContinue);
+        }
+
+        /// <summary>특수 칸(엽전/공양물/보물상자) 배치만 다시 뽑는다 — 말 위치·역사는 안 건드린다.</summary>
+        void ResetSpecialSquares()
+        {
+            YutBoardLayout.RegenerateSpecialSquares();
+            AssignSpecialOfferings();
+            ApplySpecialSquareVisuals();
+        }
+
+        void ProceedAfterFinishContinue()
+        {
             if (pendingBonusAfterContinue)
                 miniGame.SetThrowVisible(true);
             else

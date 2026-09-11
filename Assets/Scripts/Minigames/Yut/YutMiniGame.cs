@@ -565,32 +565,37 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>한 칸에 말이 한 마리면 예전처럼 칸 가운데 크게, 업혀서 여럿이면 겹치지 않게
         /// 그 칸 폭을 나눠 가로로 나란히 붙여 배치한다.</summary>
+        /// <summary>한 칸에 말이 한 마리면 예전처럼 칸 가운데 크게, 업혀서 여럿이면 칸 폭에
+        /// 욱여넣어 작아지는 대신 평소 크기를 유지한 채 가로로 겹치며 퍼진다 — 칸 밖으로
+        /// 넘쳐도 된다(마스크가 없어 잘리지 않는다).</summary>
         void PlaceGroupOnNode(List<RectTransform> pieces, int nodeId)
         {
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
-            var pad = _pads[nodeId].transform;
+            var padRt = _pads[nodeId].rectTransform;
             int count = pieces.Count;
+            var pieceSize = new Vector2(padRt.rect.width * 0.64f, padRt.rect.height * 0.64f);
 
             for (int i = 0; i < count; i++)
             {
                 var piece = pieces[i];
                 Vector3 fromPos = piece.position;
-                piece.SetParent(pad, false);
+                piece.SetParent(padRt, false);
+
+                piece.anchorMin = piece.anchorMax = new Vector2(0.5f, 0.5f);
+                piece.pivot = new Vector2(0.5f, 0.5f);
+                piece.sizeDelta = pieceSize;
 
                 if (count <= 1)
                 {
-                    piece.anchorMin = new Vector2(0.18f, 0.18f);
-                    piece.anchorMax = new Vector2(0.82f, 0.82f);
+                    piece.anchoredPosition = Vector2.zero;
                 }
                 else
                 {
-                    float slotW = 1f / count;
-                    float slotPad = slotW * 0.08f;
-                    piece.anchorMin = new Vector2(i * slotW + slotPad, 0.18f);
-                    piece.anchorMax = new Vector2((i + 1) * slotW - slotPad, 0.82f);
+                    float spreadStep = pieceSize.x * 0.62f; // 서로 살짝 겹치도록 한 칸보다 좁게
+                    float centerOffset = (i - (count - 1) / 2f) * spreadStep;
+                    piece.anchoredPosition = new Vector2(centerOffset, 0f);
                 }
-                piece.offsetMin = Vector2.zero;
-                piece.offsetMax = Vector2.zero;
+
                 SlideIn(piece, fromPos);
             }
         }
