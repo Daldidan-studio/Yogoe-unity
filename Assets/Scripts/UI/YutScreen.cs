@@ -112,6 +112,14 @@ namespace Yoegoe.UI
         {
             EnsureBuilt();
 
+            // 나갔다 왔거나(Close) 앱을 껐다 켜서(ApplyFromSave) 이어할 매치가 이미 있으면
+            // 토큰을 새로 안 쓰고 그대로 이어서 보여준다.
+            if (match != null && !match.IsEnded)
+            {
+                ResumeExistingMatch();
+                return;
+            }
+
             if (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendYutToken(1))
             {
                 ShowNotice("윷 토큰이 부족합니다.", null);
@@ -145,14 +153,7 @@ namespace Yoegoe.UI
         void BeginMatch(List<(string id, string name)> team)
         {
             match = new YutMatch(team);
-            match.OnPiecesChanged += HandlePiecesChanged;
-            match.OnMatchEnded += HandleMatchEnded;
-            match.OnPlayerPiecesMoved += HandlePlayerPiecesMoved;
-            match.OnPlayerPiecesCaptured += HandlePlayerPiecesCaptured;
-            match.OnPlayerPiecesCapturedRevivable += HandlePlayerPiecesCapturedRevivable;
-            match.OnOpponentCaptured += HandleOpponentCaptured;
-            match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
-            match.OnSpecialSquareReached += HandleSpecialSquareReached;
+            SubscribeMatchEvents();
 
             awaitingFinishChoice = false;
             awaitingSquareReward = false;
@@ -167,24 +168,134 @@ namespace Yoegoe.UI
             GameSaveBridge.SaveFromWorld();
         }
 
+        /// <summary>이미 진행 중이던(나갔다 왔거나 앱 재시작으로 복원된) 매치를 그대로 보여준다 —
+        /// 토큰 소모·팀 재구성 없이 화면만 다시 연다.</summary>
+        void ResumeExistingMatch()
+        {
+            root.SetActive(true);
+            miniGame.Show();
+            miniGame.SetLeaveVisible(true);
+            miniGame.SetThrowVisible(true);
+            miniGame.RefreshHearts(GameEconomy.Instance != null ? GameEconomy.Instance.YutToken : 0);
+            HandlePiecesChanged();
+        }
+
+        void SubscribeMatchEvents()
+        {
+            if (match == null) return;
+            UnsubscribeMatchEvents();
+            match.OnPiecesChanged += HandlePiecesChanged;
+            match.OnMatchEnded += HandleMatchEnded;
+            match.OnPlayerPiecesMoved += HandlePlayerPiecesMoved;
+            match.OnPlayerPiecesCaptured += HandlePlayerPiecesCaptured;
+            match.OnPlayerPiecesCapturedRevivable += HandlePlayerPiecesCapturedRevivable;
+            match.OnOpponentCaptured += HandleOpponentCaptured;
+            match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
+            match.OnSpecialSquareReached += HandleSpecialSquareReached;
+        }
+
+        void UnsubscribeMatchEvents()
+        {
+            if (match == null) return;
+            match.OnPiecesChanged -= HandlePiecesChanged;
+            match.OnMatchEnded -= HandleMatchEnded;
+            match.OnPlayerPiecesMoved -= HandlePlayerPiecesMoved;
+            match.OnPlayerPiecesCaptured -= HandlePlayerPiecesCaptured;
+            match.OnPlayerPiecesCapturedRevivable -= HandlePlayerPiecesCapturedRevivable;
+            match.OnOpponentCaptured -= HandleOpponentCaptured;
+            match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
+            match.OnSpecialSquareReached -= HandleSpecialSquareReached;
+        }
+
+        /// <summary>
+        /// "나가기"를 눌러도 승패가 안 난 매치는 메모리에 그대로 둔다 — 다시 열면 이어서 하고,
+        /// 세이브에도 매번 담겨서 앱을 껐다 켜도 이어진다. 승패가 이미 난 매치만 완전히 정리한다.
+        /// </summary>
         public void Close()
         {
-            if (match != null)
+            if (match != null && match.IsEnded)
             {
-                match.OnPiecesChanged -= HandlePiecesChanged;
-                match.OnMatchEnded -= HandleMatchEnded;
-                match.OnPlayerPiecesMoved -= HandlePlayerPiecesMoved;
-                match.OnPlayerPiecesCaptured -= HandlePlayerPiecesCaptured;
-                match.OnPlayerPiecesCapturedRevivable -= HandlePlayerPiecesCapturedRevivable;
-                match.OnOpponentCaptured -= HandleOpponentCaptured;
-                match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
-                match.OnSpecialSquareReached -= HandleSpecialSquareReached;
+                UnsubscribeMatchEvents();
                 match = null;
             }
+            // 팝업이 떠 있던 채로 나가면 그 선택은 그냥 흘려보낸다(다음에 열면 던지기 대기 상태로).
             pendingOutcome = null;
+            awaitingFinishChoice = false;
+            pendingBonusAfterContinue = false;
+            awaitingSquareReward = false;
+            pendingBonusAfterSquareReward = false;
+            pendingSquareOffering = null;
+            awaitingReviveChoice = false;
+            pendingReviveSnapshots = null;
+            // root만 꺼두면 팝업 자신의 activeSelf는 그대로 남아있어서, 다음에 다시 열 때
+            // (ResumeExistingMatch) 엉뚱하게 같이 떠버린다 — 하나씩 확실히 내려둔다.
+            if (noticeRoot != null) noticeRoot.SetActive(false);
+            if (choiceRoot != null) choiceRoot.SetActive(false);
+            if (rewardRoot != null) rewardRoot.SetActive(false);
+            if (reviveRoot != null) reviveRoot.SetActive(false);
             if (miniGame != null) miniGame.Hide();
             if (root != null) root.SetActive(false);
             GameSaveBridge.SaveFromWorld();
+        }
+
+        /// <summary>세이브용 스냅샷 — 진행 중(승패 안 난) 매치가 없으면 null.</summary>
+        public YutMatchSave CaptureForSave()
+        {
+            if (match == null || match.IsEnded) return null;
+            return new YutMatchSave
+            {
+                playerPieces = match.PlayerPieces.Select(ToPieceSave).ToArray(),
+                opponentPiece = ToPieceSave(match.OpponentPiece)
+            };
+        }
+
+        static YutPieceSave ToPieceSave(YutPiece p) => new YutPieceSave
+        {
+            id = p.Id,
+            displayName = p.DisplayName,
+            nodeId = p.NodeId,
+            finished = p.Finished,
+            history = p.History.ToArray()
+        };
+
+        /// <summary>부팅 시 세이브에 진행 중이던 매치가 있으면 조용히(화면은 안 열고) 복원해서,
+        /// 유저가 윷놀이를 다시 열면 ResumeExistingMatch로 바로 이어지게 해 둔다.</summary>
+        public void ApplyFromSave(YutMatchSave saved)
+        {
+            if (saved?.playerPieces == null || saved.playerPieces.Length == 0) return;
+
+            EnsureBuilt();
+            if (match != null) UnsubscribeMatchEvents();
+
+            teamById.Clear();
+            var agents = CharacterAgent.All.Where(a => a != null && a.Stats != null).ToList();
+            var team = new List<(string id, string name)>();
+            foreach (var ps in saved.playerPieces)
+            {
+                var agent = agents.FirstOrDefault(a =>
+                    (a.Data != null ? a.Data.id.ToString() : a.name) == ps.id);
+                if (agent != null) teamById[ps.id] = agent;
+                team.Add((ps.id, ps.displayName));
+            }
+
+            match = new YutMatch(team);
+            for (int i = 0; i < saved.playerPieces.Length && i < match.PlayerPieces.Count; i++)
+                ApplyPieceSave(match.PlayerPieces[i], saved.playerPieces[i]);
+            if (saved.opponentPiece != null)
+                ApplyPieceSave(match.OpponentPiece, saved.opponentPiece);
+
+            SubscribeMatchEvents();
+            awaitingFinishChoice = false;
+            awaitingSquareReward = false;
+            awaitingReviveChoice = false;
+        }
+
+        static void ApplyPieceSave(YutPiece piece, YutPieceSave save)
+        {
+            piece.NodeId = save.nodeId;
+            piece.Finished = save.finished;
+            piece.History.Clear();
+            if (save.history != null) piece.History.AddRange(save.history);
         }
 
         /// <summary>기획 11장: 말을 움직일 때마다 그 요괴 친밀도 +0.25.</summary>

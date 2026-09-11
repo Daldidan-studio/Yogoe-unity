@@ -19,6 +19,28 @@ namespace Yoegoe.Save
         public EconomySave economy = new EconomySave();
         public PropSave[] props = Array.Empty<PropSave>();
         public AgentSave[] agents = Array.Empty<AgentSave>();
+
+        /// <summary>진행 중이던 윷놀이 매치(있을 때만). null이면 매치 없음 — 앱을 껐다 켜거나
+        /// 나갔다 들어와도 보드 상태(말 위치·완주 여부)를 그대로 이어간다.</summary>
+        public YutMatchSave yutMatch;
+    }
+
+    [Serializable]
+    public class YutMatchSave
+    {
+        public YutPieceSave[] playerPieces = Array.Empty<YutPieceSave>();
+        public YutPieceSave opponentPiece = new YutPieceSave();
+    }
+
+    [Serializable]
+    public class YutPieceSave
+    {
+        public string id;
+        public string displayName;
+        /// <summary>-1이면 대기(보드 밖).</summary>
+        public int nodeId = -1;
+        public bool finished;
+        public int[] history = Array.Empty<int>();
     }
 
     [Serializable]

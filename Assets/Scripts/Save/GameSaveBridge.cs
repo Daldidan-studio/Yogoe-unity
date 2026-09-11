@@ -5,6 +5,7 @@ using Yoegoe.Characters;
 using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
+using Yoegoe.UI;
 
 namespace Yoegoe.Save
 {
@@ -136,6 +137,9 @@ namespace Yoegoe.Save
                 };
             }
 
+            if (YutScreen.Instance != null)
+                data.yutMatch = YutScreen.Instance.CaptureForSave();
+
             return data;
         }
 
@@ -204,6 +208,10 @@ namespace Yoegoe.Save
                     }
                 }
             }
+
+            // 진행 중이던 윷놀이 매치 — 있으면 조용히 복원(화면은 유저가 윷놀이를 열 때 이어짐).
+            if (YutScreen.Instance != null)
+                YutScreen.Instance.ApplyFromSave(data.yutMatch);
         }
 
         /// <summary>콜드스타트 시 세이브에 고라니가 있으면 월드에 스폰 (향 소모 없음).</summary>
