@@ -655,6 +655,13 @@ namespace Yoegoe.UI
                 .ToList();
             miniGame.ShowYokaiPieces(infos);
 
+            // 참(시작점)에 멈춘 것과 완주(골인)한 건 구별돼야 한다 — 완주하면 보드에서 빠지는
+            // 대신 동(東) 구역 하단에 작은 초상으로 표시한다.
+            var finishedIds = new List<string>();
+            foreach (var p in match.PlayerPieces)
+                if (p.Finished) finishedIds.Add(p.Id);
+            miniGame.ShowFinishedPieces(finishedIds);
+
             var opp = match.OpponentPiece;
             miniGame.ShowOpponentPiece(opp.OnBoard);
             if (opp.OnBoard) miniGame.SetOpponentPieceIndex(opp.NodeId);
@@ -896,8 +903,18 @@ namespace Yoegoe.UI
             if (!string.IsNullOrEmpty(collected))
                 message += $"\n{collected}";
 
-            ShowNotice(message, Close);
+            // 끝나도 메인으로 바로 안 나간다 — 유저가 직접 나가기를 누를 때까지 윷판을 그대로 보여준다.
+            ShowNotice(message, OnMatchEndedNoticeOk);
             GameSaveBridge.SaveFromWorld();
+        }
+
+        void OnMatchEndedNoticeOk()
+        {
+            if (match != null && match.IsEnded)
+            {
+                UnsubscribeMatchEvents();
+                match = null;
+            }
         }
 
         string NameFor(string pieceId) =>

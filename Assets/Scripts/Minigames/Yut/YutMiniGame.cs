@@ -730,6 +730,10 @@ namespace Yoegoe.Minigames.Yut
                 else
                     _candidateMarkers.AddRange(BuildCandidateCross(kv.Key, kv.Value));
             }
+
+            // 후보 아이콘뿐 아니라 갈 수 있는 칸 자체도 빛나게 강조한다.
+            foreach (var nodeId in byNode.Keys)
+                HighlightPad(nodeId);
         }
 
         /// <summary>FlashCandidates로 띄운 후보 마커를 전부 지운다.</summary>
@@ -739,6 +743,45 @@ namespace Yoegoe.Minigames.Yut
                 if (go != null) Destroy(go);
             _candidateMarkers.Clear();
             _candidateHits.Clear();
+            ClearPadHighlights();
+        }
+
+        readonly Dictionary<int, Color> _highlightedPadOriginals = new();
+        bool _padHighlightRunning;
+
+        void HighlightPad(int nodeId)
+        {
+            if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null) return;
+            if (!_highlightedPadOriginals.ContainsKey(nodeId))
+                _highlightedPadOriginals[nodeId] = _pads[nodeId].color;
+            if (!_padHighlightRunning)
+                StartCoroutine(PadHighlightRoutine());
+        }
+
+        void ClearPadHighlights()
+        {
+            foreach (var kv in _highlightedPadOriginals)
+                if (_pads != null && kv.Key < _pads.Length && _pads[kv.Key] != null)
+                    _pads[kv.Key].color = kv.Value;
+            _highlightedPadOriginals.Clear();
+        }
+
+        /// <summary>갈 수 있는 칸을 노란빛으로 은은하게 펄스시킨다 — 후보가 남아있는 동안만 돈다.</summary>
+        IEnumerator PadHighlightRoutine()
+        {
+            _padHighlightRunning = true;
+            var glow = new Color(1f, 0.92f, 0.35f, 1f);
+            while (_highlightedPadOriginals.Count > 0)
+            {
+                float pulse = 0.55f + 0.45f * Mathf.Sin(Time.unscaledTime * 6f);
+                foreach (var nodeId in _highlightedPadOriginals.Keys)
+                {
+                    if (_pads == null || nodeId >= _pads.Length || _pads[nodeId] == null) continue;
+                    _pads[nodeId].color = Color.Lerp(_highlightedPadOriginals[nodeId], glow, pulse);
+                }
+                yield return null;
+            }
+            _padHighlightRunning = false;
         }
 
         /// <summary>
@@ -1707,7 +1750,11 @@ namespace Yoegoe.Minigames.Yut
             var go = new GameObject("ItemIcons", typeof(RectTransform));
             go.transform.SetParent(east, false);
             var rt = go.GetComponent<RectTransform>();
-            Stretch(rt);
+            // 동 구역 아래쪽(0~0.32)은 완주한 말 자리로 남겨둔다.
+            rt.anchorMin = new Vector2(0f, 0.32f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
 
             var grid = go.AddComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(42f, 54f);
@@ -1717,6 +1764,69 @@ namespace Yoegoe.Minigames.Yut
             grid.childAlignment = TextAnchor.UpperCenter;
             grid.padding = new RectOffset(2, 2, 2, 2);
             _collectedItemsRoot = go.transform;
+        }
+
+        Transform _finishedPiecesRoot;
+
+        void EnsureFinishedPiecesRoot(Transform east)
+        {
+            if (_finishedPiecesRoot != null) return;
+
+            var existing = east.Find("FinishedPieces");
+            if (existing != null)
+            {
+                _finishedPiecesRoot = existing;
+                return;
+            }
+
+            var go = new GameObject("FinishedPieces", typeof(RectTransform));
+            go.transform.SetParent(east, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0.3f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var layout = go.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 3f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.padding = new RectOffset(2, 2, 2, 2);
+            _finishedPiecesRoot = go.transform;
+        }
+
+        /// <summary>완주(골인)한 말들 — 참(시작점)에 그냥 멈춰 있는 것과 헷갈리지 않게, 보드에서
+        /// 빠진 대신 동(東) 구역 하단에 작은 초상으로 한 줄 보여준다.</summary>
+        public void ShowFinishedPieces(List<string> ids)
+        {
+            var east = GetQuadrant(YutBoardQuadrant.East);
+            EnsureFinishedPiecesRoot(east);
+
+            for (int i = _finishedPiecesRoot.childCount - 1; i >= 0; i--)
+                Destroy(_finishedPiecesRoot.GetChild(i).gameObject);
+            if (ids == null) return;
+
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var go = new GameObject("Finished", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(_finishedPiecesRoot, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(30f, 30f);
+                var img = go.GetComponent<Image>();
+                var sprite = PieceSpriteFor(ids[i]);
+                if (sprite != null)
+                {
+                    img.sprite = sprite;
+                    img.color = Color.white;
+                    img.preserveAspect = true;
+                }
+                else
+                {
+                    img.color = ColorForYokai(ids[i]);
+                }
+                img.raycastTarget = false;
+            }
         }
 
         void CreateCollectedItemChip(Transform parent, CollectedItemView item)
