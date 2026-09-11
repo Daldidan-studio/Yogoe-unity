@@ -58,12 +58,18 @@ namespace Yoegoe.Save
 
         public static void SaveFromWorld()
         {
+            // Play 중이 아니거나 Economy 부팅 전이면 OnApplicationQuit 등에서 NRE 남
+            if (GameEconomy.Instance == null) return;
             var data = CaptureFromWorld();
             GameSaveService.Save(data);
         }
 
         public static GameSaveData CaptureFromWorld()
         {
+            if (GameEconomy.Instance == null)
+                throw new System.InvalidOperationException(
+                    "[GameSaveBridge] GameEconomy.Instance 가 없습니다. SaveFromWorld는 Play 중에만 호출하세요.");
+
             var data = new GameSaveData
             {
                 version = GameSaveMigration.CurrentVersion,
