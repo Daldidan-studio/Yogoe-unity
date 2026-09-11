@@ -1116,6 +1116,17 @@ namespace Yoegoe.Minigames.Yut
             return go;
         }
 
+        /// <summary>소환 연출용 — 로스터 "소환하기" 슬롯의 현재 월드 위치(없으면 null).
+        /// YutScreen이 암전 연출 중 그 자리로 넋 아이콘을 떨어뜨리는 데 쓴다.</summary>
+        public Vector3? GetSummonSlotWorldPosition()
+        {
+            if (_summonSlotChip == null || !_summonSlotChip.activeSelf) return null;
+            return _summonSlotChip.GetComponent<RectTransform>().position;
+        }
+
+        /// <summary>소환 연출용 — 고라니(넋) 아이콘. 아직 스폰 전이어도 CharacterData 기준으로 찾는다.</summary>
+        public Sprite GetGoraniSprite() => PieceSpriteFor("Gorani");
+
         /// <summary>로스터 줄에서 index/count번째 칸 위치로 앵커한다 — 요괴 칩과 소환 슬롯 칩이
         /// 같은 규칙으로 나란히 놓이게 공용으로 쓴다.</summary>
         static void RepositionRosterSlot(RectTransform rt, int index, int count)

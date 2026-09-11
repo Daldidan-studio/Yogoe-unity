@@ -97,6 +97,19 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>대기 말이 빽도로 들어올 때 서는 자리 — 참 바로 뒤(19번).</summary>
         const int BaekdoEntryNode = 19;
 
+        /// <summary>매치 도중 새로 혼으로 진화한 요괴를 즉시 대기 말로 합류시킨다(넋일 땐 애초에
+        /// 후보에 안 잡혀서 여태 못 왔던 것). 이미 이 매치에 있으면(id 중복) 아무것도 안 한다.</summary>
+        public bool TryAddPlayerPiece(string id, string displayName)
+        {
+            if (IsEnded) return false;
+            foreach (var p in playerPieces)
+                if (p.Id == id) return false;
+
+            playerPieces.Add(new YutPiece(id, displayName, isPlayer: true));
+            OnPiecesChanged?.Invoke();
+            return true;
+        }
+
         public YutThrowOutcome ThrowForPlayer()
         {
             var outcome = YutThrowRoller.Roll();

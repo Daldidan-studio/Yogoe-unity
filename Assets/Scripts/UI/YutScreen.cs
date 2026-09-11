@@ -726,19 +726,28 @@ namespace Yoegoe.UI
             while (t < dimIn)
             {
                 t += Time.unscaledDeltaTime;
-                dimImg.color = new Color(0f, 0f, 0.05f, Mathf.Lerp(0f, 0.85f, t / dimIn));
+                // 완전히 새까맣게는 안 하고(0.72) — 소환하기 슬롯이 은은하게 비쳐서 "저기로
+                // 떨어진다"는 느낌이 나게. 메인 화면 SummonCeremony와 같은 어둡기.
+                dimImg.color = new Color(0f, 0f, 0.05f, Mathf.Lerp(0f, 0.72f, t / dimIn));
                 yield return null;
             }
 
             var agent = CharacterSummon.TrySummonGorani(null, font);
-            yield return new WaitForSecondsRealtime(0.4f); // 슬롯에 넋이 들어오는 순간의 정적
+
+            // 넋 아이콘이 화면 위에서 로스터의 "소환하기" 슬롯 자리로 떨어져 안착하는 연출 —
+            // dimGo의 자식으로 붙여서 암전 위에 확실히 보이게 한다(YutMiniGame 쪽에 붙이면
+            // 암전 오버레이보다 그리기 순서가 앞서서 안 보였다).
+            if (agent != null)
+                yield return PlaySummonDrop(dimGo.transform);
+            else
+                yield return new WaitForSecondsRealtime(0.4f);
 
             t = 0f;
             const float dimOut = 0.5f;
             while (t < dimOut)
             {
                 t += Time.unscaledDeltaTime;
-                dimImg.color = new Color(0f, 0f, 0.05f, Mathf.Lerp(0.85f, 0f, t / dimOut));
+                dimImg.color = new Color(0f, 0f, 0.05f, Mathf.Lerp(0.72f, 0f, t / dimOut));
                 yield return null;
             }
             Destroy(dimGo);
@@ -752,6 +761,60 @@ namespace Yoegoe.UI
 
             HandlePiecesChanged();
             GameSaveBridge.SaveFromWorld();
+        }
+
+        /// <summary>넋 아이콘을 화면 위쪽에서 로스터의 "소환하기" 슬롯 위치까지 떨어뜨린다.
+        /// 슬롯 위치를 못 구하면(레이아웃 준비 전 등) 화면 중앙으로 대신 떨어뜨린다.</summary>
+        IEnumerator PlaySummonDrop(Transform parent)
+        {
+            var go = new GameObject("SummonDrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(64f, 64f);
+            var img = go.GetComponent<Image>();
+            var sprite = miniGame != null ? miniGame.GetGoraniSprite() : null;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+                img.preserveAspect = true;
+            }
+            else
+            {
+                img.color = new Color(0.45f, 0.85f, 1f, 1f); // 고라니 넋 플레이스홀더 색과 맞춤
+            }
+
+            Vector3? slotPos = miniGame != null ? miniGame.GetSummonSlotWorldPosition() : null;
+            Vector3 targetPos = slotPos ?? rt.position;
+            Vector3 startPos = targetPos + new Vector3(0f, 520f, 0f);
+            rt.position = startPos;
+
+            const float fall = 0.55f;
+            float t = 0f;
+            while (t < fall)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / fall);
+                float eased = 1f - (1f - u) * (1f - u);
+                rt.position = Vector3.Lerp(startPos, targetPos, eased);
+                yield return null;
+            }
+
+            const float bounce = 0.2f;
+            t = 0f;
+            while (t < bounce)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / bounce);
+                float bob = Mathf.Sin(u * Mathf.PI) * 10f * (1f - u);
+                rt.position = targetPos + new Vector3(0f, bob, 0f);
+                yield return null;
+            }
+
+            rt.position = targetPos;
+            yield return new WaitForSecondsRealtime(0.2f);
+            Destroy(go);
         }
 
         /// <summary>넋은 아직 윷놀이 말로 못 쓴다 — 정화수를 써서 즉시 진화시키는 지름길.</summary>
@@ -777,6 +840,19 @@ namespace Yoegoe.UI
             }
 
             gorani.EvolveToHon(playFx: false); // 윷 화면 뒤라 월드 연출이 안 보이니 생략
+
+            // 진화했으면 지금 이 매치에도 바로 대기 말로 합류시킨다 — 다음 판까지 안 기다리고
+            // 곧장 다른 말들처럼 로스터에 뜨게.
+            if (match != null && !match.IsEnded)
+            {
+                string id = gorani.Data != null ? gorani.Data.id.ToString() : gorani.name;
+                string name = gorani.Data != null && !string.IsNullOrEmpty(gorani.Data.displayName)
+                    ? gorani.Data.displayName
+                    : gorani.name;
+                if (match.TryAddPlayerPiece(id, name))
+                    teamById[id] = gorani;
+            }
+
             GameSaveBridge.SaveFromWorld();
             HandlePiecesChanged();
         }
