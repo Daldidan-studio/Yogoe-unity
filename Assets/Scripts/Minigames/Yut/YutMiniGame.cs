@@ -1601,6 +1601,29 @@ namespace Yoegoe.Minigames.Yut
             return _quadrants[(int)quadrant];
         }
 
+        Text _collectedItemsText;
+
+        /// <summary>동(東) 구역 — 이번 매치에서 특수 칸으로 모은 것들(공양물·정화수·엽전)을
+        /// 목록으로 보여준다. YutScreen이 재화를 지급할 때마다 최신 목록을 넘겨준다.</summary>
+        public void ShowCollectedItems(List<string> lines)
+        {
+            var east = GetQuadrant(YutBoardQuadrant.East);
+            if (_collectedItemsText == null)
+            {
+                var existing = east.Find("Items");
+                _collectedItemsText = existing != null ? existing.GetComponent<Text>() : null;
+            }
+            if (_collectedItemsText == null)
+            {
+                _collectedItemsText = CreateText(east, "Items", "", 15, TextAnchor.UpperCenter);
+                Stretch(_collectedItemsText.rectTransform);
+                _collectedItemsText.color = new Color(0.9f, 0.85f, 0.6f);
+                _collectedItemsText.raycastTarget = false;
+            }
+
+            _collectedItemsText.text = lines != null && lines.Count > 0 ? string.Join("\n", lines) : "";
+        }
+
         /// <summary>
         /// 윷가락 4개를 던져서 흩뿌리는 연출. 결과(result)에 맞는 앞/뒤 패턴으로 착지한다 —
         /// 뒤집힌 가락 개수 = 0(모)/1(도·빽도)/2(개)/3(걸)/4(윷). 0번 가락은 빨간 점으로

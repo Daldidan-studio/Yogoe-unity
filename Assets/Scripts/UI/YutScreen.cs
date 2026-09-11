@@ -73,6 +73,12 @@ namespace Yoegoe.UI
         bool awaitingReviveChoice;
         List<YutMatch.CapturedPieceSnapshot> pendingReviveSnapshots;
 
+        /// <summary>이번 매치에서 특수 칸으로 모은 것들 — 동(東) 구역에 표시, 매치가 끝나면 요약
+        /// 다이얼로그로도 보여준다. 새 매치 시작할 때 비운다(재시작 복원 시엔 다시 0부터).</summary>
+        readonly Dictionary<string, int> matchOfferingCounts = new Dictionary<string, int>();
+        int matchPurifiedWaterTotal;
+        int matchYeopjeonTotal;
+
         Action pendingNoticeAction;
         Action pendingChoiceContinue;
         Action pendingChoiceStop;
@@ -158,6 +164,9 @@ namespace Yoegoe.UI
             awaitingFinishChoice = false;
             awaitingSquareReward = false;
             awaitingReviveChoice = false;
+            matchOfferingCounts.Clear();
+            matchPurifiedWaterTotal = 0;
+            matchYeopjeonTotal = 0;
             root.SetActive(true);
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
@@ -166,6 +175,7 @@ namespace Yoegoe.UI
             miniGame.RefreshHearts(GameEconomy.Instance.YutToken);
             HandlePiecesChanged();
             HandleTurnTrackerChanged();
+            RefreshCollectedItemsDisplay();
             GameSaveBridge.SaveFromWorld();
         }
 
@@ -180,6 +190,7 @@ namespace Yoegoe.UI
             miniGame.RefreshHearts(GameEconomy.Instance != null ? GameEconomy.Instance.YutToken : 0);
             HandlePiecesChanged();
             HandleTurnTrackerChanged();
+            RefreshCollectedItemsDisplay(); // 나갔다 왔거나 재시작 복원 — 이번 매치에서 모은 건 추적 안 해서 빈 채로 시작
         }
 
         void HandleTurnTrackerChanged()
@@ -477,12 +488,48 @@ namespace Yoegoe.UI
 
         void GrantSquareReward(int multiplier)
         {
-            GameEconomy.Instance.AddPurifiedWater(SquareRewardBase * multiplier);
-            GameEconomy.Instance.AddYeopjeon(SquareRewardBase * multiplier);
+            int purifiedAmount = SquareRewardBase * multiplier;
+            int yeopjeonAmount = SquareRewardBase * multiplier;
+            GameEconomy.Instance.AddPurifiedWater(purifiedAmount);
+            GameEconomy.Instance.AddYeopjeon(yeopjeonAmount);
+            matchPurifiedWaterTotal += purifiedAmount;
+            matchYeopjeonTotal += yeopjeonAmount;
+
             if (pendingSquareOffering != null)
-                GameEconomy.Instance.AddOffering(pendingSquareOffering, SquareRewardBase * multiplier);
+            {
+                int offeringAmount = SquareRewardBase * multiplier;
+                GameEconomy.Instance.AddOffering(pendingSquareOffering, offeringAmount);
+                string name = pendingSquareOffering.displayName;
+                matchOfferingCounts.TryGetValue(name, out int cur);
+                matchOfferingCounts[name] = cur + offeringAmount;
+            }
             pendingSquareOffering = null;
+
+            RefreshCollectedItemsDisplay();
             GameSaveBridge.SaveFromWorld();
+        }
+
+        /// <summary>동(東) 구역에 이번 매치에서 특수 칸으로 모은 것들을 보여준다.</summary>
+        void RefreshCollectedItemsDisplay()
+        {
+            if (miniGame == null) return;
+            var lines = new List<string>();
+            foreach (var kv in matchOfferingCounts)
+                lines.Add($"{kv.Key} {kv.Value}");
+            if (matchPurifiedWaterTotal > 0) lines.Add($"정화수 {matchPurifiedWaterTotal}");
+            if (matchYeopjeonTotal > 0) lines.Add($"엽전 {matchYeopjeonTotal}");
+            miniGame.ShowCollectedItems(lines);
+        }
+
+        /// <summary>매치 종료 다이얼로그에 덧붙일 "이번 판에 얻은 것" 한 줄 요약. 없으면 null.</summary>
+        string BuildCollectedItemsSummary()
+        {
+            var parts = new List<string>();
+            foreach (var kv in matchOfferingCounts)
+                parts.Add($"{kv.Key} {kv.Value}개");
+            if (matchPurifiedWaterTotal > 0) parts.Add($"정화수 {matchPurifiedWaterTotal}개");
+            if (matchYeopjeonTotal > 0) parts.Add($"엽전 {matchYeopjeonTotal}개");
+            return parts.Count > 0 ? string.Join(", ", parts) + "를 얻었다" : null;
         }
 
         void ResumeAfterSquareReward()
@@ -623,16 +670,20 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(false);
             miniGame.ClearCandidates();
 
+            string message = playerWon
+                ? $"승리! 향 {WinHyangReward}개 + 엽전 {WinYeopjeonReward}개 획득"
+                : "패배했습니다.";
             if (playerWon)
             {
                 GameEconomy.Instance.AddHyang(WinHyangReward);
                 GameEconomy.Instance.AddYeopjeon(WinYeopjeonReward);
-                ShowNotice($"승리! 향 {WinHyangReward}개 + 엽전 {WinYeopjeonReward}개 획득", Close);
             }
-            else
-            {
-                ShowNotice("패배했습니다.", Close);
-            }
+
+            string collected = BuildCollectedItemsSummary();
+            if (!string.IsNullOrEmpty(collected))
+                message += $"\n{collected}";
+
+            ShowNotice(message, Close);
             GameSaveBridge.SaveFromWorld();
         }
 
