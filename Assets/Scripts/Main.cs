@@ -288,13 +288,21 @@ namespace Yoegoe
             batch.font = hudFont;
             batchGO.SetActive(true);
 
-            var hudGO = new GameObject("Hud");
-            hudGO.SetActive(false);
-            var hud = hudGO.AddComponent<GameHud>();
+            // 씬/프리팹에 HUD 셸이 있으면 재사용 (에디터에서 배치 가능)
+            var hud = UnityEngine.Object.FindAnyObjectByType<GameHud>(FindObjectsInactive.Include);
+            if (hud == null)
+            {
+                var hudGO = new GameObject("Hud");
+                hudGO.SetActive(false);
+                hud = hudGO.AddComponent<GameHud>();
+                hudGO.SetActive(true);
+            }
+
             hud.font = hudFont;
             hud.purifiedWaterIcon = purifiedWaterIcon;
             hud.detailScreen = detail;
-            hudGO.SetActive(true);
+            if (!hud.gameObject.activeSelf)
+                hud.gameObject.SetActive(true);
         }
 
         /// <summary>

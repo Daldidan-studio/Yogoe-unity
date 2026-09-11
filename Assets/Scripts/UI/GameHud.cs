@@ -12,7 +12,9 @@ using Yoegoe.Save;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 메인 HUD (기획서/프로토타입 1장: 상단 재화 바 + 하단 슬롯바)를 코드로 직접 만든다.
+    /// 메인 HUD (상단 재화 바 + 하단 슬롯바).
+    /// Prefab/씬에 셸(Canvas·TopBar·버튼·SlotBar 루트)이 있으면 그대로 쓰고,
+    /// 없으면 런타임에 조립한다. 슬롯 칩은 항상 코드로 갱신.
     /// </summary>
     public class GameHud : MonoBehaviour
     {
@@ -22,23 +24,32 @@ namespace Yoegoe.UI
         UiStyleSettings Style => UiStyleSettings.Get();
         UiStyleSettings.Colors C => Style.colors;
 
+        [Header("주입 (Main)")]
         public Font font;
         public Sprite purifiedWaterIcon;
         public DetailScreen detailScreen;
 
-        private Canvas hudCanvas;
-        private Text meritText;
-        private RectTransform meritTextRt;
-        private Text yeopjeonText;
-        private Text hyangText;
-        private Text purifiedWaterText;
-        private Text yutTokenText;
+        [Header("셸 (Prefab/씬 — 비어 있으면 Play 시 코드 조립)")]
+        [SerializeField] Canvas hudCanvas;
+        [SerializeField] Text meritText;
+        [SerializeField] RectTransform meritTextRt;
+        [SerializeField] Text yeopjeonText;
+        [SerializeField] Text hyangText;
+        [SerializeField] Text purifiedWaterText;
+        [SerializeField] Text yutTokenText;
+        [SerializeField] Button shopButton;
+        [SerializeField] Button yutButton;
+        [SerializeField] Transform slotBarRoot;
+        [SerializeField] GameObject upgradeButtonRoot;
+        [SerializeField] RectTransform upgradeButtonRt;
+        [SerializeField] Image upgradeIconImage;
+        [SerializeField] Text upgradeNameText;
+        [SerializeField] Text upgradeCostText;
 
-        private GameObject upgradeButtonRoot;
-        private RectTransform upgradeButtonRt;
-        private Image upgradeIconImage;
-        private Text upgradeNameText;
-        private Text upgradeCostText;
+        /// <summary>Prefab/씬에 HUD 셸이 이미 연결돼 있는지.</summary>
+        public bool HasPrefabShell =>
+            hudCanvas != null && slotBarRoot != null && meritText != null;
+
         private bool upgradeHoldActive;
         private float upgradeHoldTimer;
         private const float UpgradeHoldInitialDelay = 0.35f;
@@ -123,9 +134,20 @@ namespace Yoegoe.UI
 
         private void Start()
         {
-            BuildCanvas();
+            EnsureHudShell();
+            WireRuntimeListeners();
             RefreshCurrencies();
             RefreshUpgradeButton();
+        }
+
+        /// <summary>
+        /// Prefab 셸이 있으면 유지, 없으면 코드로 조립.
+        /// 에디터 Bake도 이 경로를 쓴다.
+        /// </summary>
+        public void EnsureHudShell()
+        {
+            if (HasPrefabShell) return;
+            BuildCanvas();
         }
 
         /// <summary>공덕 수거 연출 타겟(상단 공덕 텍스트)으로 꽃잎 Gather.</summary>
@@ -300,8 +322,6 @@ namespace Yoegoe.UI
             chip.LastBatchLabel = "일괄 수거\n" + amount.ToDisplayString() + "\n(광고×3)";
             chip.BatchButtonLabel.text = chip.LastBatchLabel;
         }
-
-        private Transform slotBarRoot;
 
         private void RebuildSlotBar()
         {
@@ -662,6 +682,48 @@ namespace Yoegoe.UI
 
         // ---------------- 빌드 ----------------
 
+        void WireRuntimeListeners()
+        {
+            if (shopButton != null)
+            {
+                shopButton.onClick.RemoveAllListeners();
+                shopButton.onClick.AddListener(() =>
+                {
+                    if (ShopScreen.Instance != null) ShopScreen.Instance.Open();
+                });
+            }
+
+            if (yutButton != null)
+            {
+                yutButton.onClick.RemoveAllListeners();
+                yutButton.onClick.AddListener(() =>
+                {
+                    if (YutScreen.Instance != null) YutScreen.Instance.Open();
+                });
+            }
+
+            WireUpgradeHoldTriggers();
+        }
+
+        void WireUpgradeHoldTriggers()
+        {
+            if (upgradeButtonRoot == null) return;
+
+            var trigger = upgradeButtonRoot.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = upgradeButtonRoot.AddComponent<EventTrigger>();
+            trigger.triggers.Clear();
+
+            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            down.callback.AddListener(_ => OnUpgradePointerDown());
+            trigger.triggers.Add(down);
+            var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+            up.callback.AddListener(_ => OnUpgradePointerUp());
+            trigger.triggers.Add(up);
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => OnUpgradePointerUp());
+            trigger.triggers.Add(exit);
+        }
+
         private void BuildCanvas()
         {
             var canvasGO = new GameObject("Canvas_HUD");
@@ -771,17 +833,6 @@ namespace Yoegoe.UI
             var btn = upgradeButtonRoot.AddComponent<Button>();
             btn.targetGraphic = bg;
 
-            var trigger = upgradeButtonRoot.AddComponent<EventTrigger>();
-            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            down.callback.AddListener(_ => OnUpgradePointerDown());
-            trigger.triggers.Add(down);
-            var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-            up.callback.AddListener(_ => OnUpgradePointerUp());
-            trigger.triggers.Add(up);
-            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
-            exit.callback.AddListener(_ => OnUpgradePointerUp());
-            trigger.triggers.Add(exit);
-
             var iconGO = new GameObject("Icon");
             SetupRect(iconGO, upgradeButtonRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f),
                 new Vector2(12, 0), new Vector2(56, 56));
@@ -861,12 +912,8 @@ namespace Yoegoe.UI
                 new Vector2(-24, -24), new Vector2(120, 64));
             var shopImg = shopBtnGO.AddComponent<Image>();
             shopImg.color = C.hudShopButton;
-            var shopBtn = shopBtnGO.AddComponent<Button>();
-            shopBtn.targetGraphic = shopImg;
-            shopBtn.onClick.AddListener(() =>
-            {
-                if (ShopScreen.Instance != null) ShopScreen.Instance.Open();
-            });
+            shopButton = shopBtnGO.AddComponent<Button>();
+            shopButton.targetGraphic = shopImg;
             var shopLabelGO = new GameObject("Label");
             SetupRect(shopLabelGO, shopRt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
@@ -884,12 +931,8 @@ namespace Yoegoe.UI
                 new Vector2(-24, -100), new Vector2(120, 64));
             var yutImg = yutBtnGO.AddComponent<Image>();
             yutImg.color = C.hudYutButton;
-            var yutBtn = yutBtnGO.AddComponent<Button>();
-            yutBtn.targetGraphic = yutImg;
-            yutBtn.onClick.AddListener(() =>
-            {
-                if (YutScreen.Instance != null) YutScreen.Instance.Open();
-            });
+            yutButton = yutBtnGO.AddComponent<Button>();
+            yutButton.targetGraphic = yutImg;
             var yutLabelGO = new GameObject("Label");
             SetupRect(yutLabelGO, yutRt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
