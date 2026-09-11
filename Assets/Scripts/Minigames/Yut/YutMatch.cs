@@ -129,9 +129,9 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 던진 결과로 지금 움직일 수 있는 내 말(또는 스택 대표) 후보 목록. 말이 모/뒷모/방 갈림길에
-        /// 정확히 멈춰 있으면 지름길로 가는 후보와 바깥길로 가는 후보를 둘 다 내놓는다 — 어느 쪽으로
-        /// 갈지는 유저가 고른다. 빽도가 나오면 대기 말 중 하나를 참 뒤(BaekdoEntryNode)로 보내는
-        /// 것도 후보로 내놓는다(대기 말이 빽도로 들어오는 변형 규칙).
+        /// 정확히 멈춰 있으면 무조건 지름길 후보만 하나 내놓는다(바깥길 선택지는 없음). 빽도가
+        /// 나오면 대기 말 중 하나를 참 뒤(BaekdoEntryNode)로 보내는 것도 후보로 내놓는다(대기 말이
+        /// 빽도로 들어오는 변형 규칙).
         /// </summary>
         public IReadOnlyList<YutMoveCandidate> GetPlayerCandidates(YutThrowResult result)
         {
@@ -166,19 +166,12 @@ namespace Yoegoe.Minigames.Yut
 
                 if (YutMoveResolver.IsForkNode(p.NodeId))
                 {
-                    // 모/뒷모/방은 참(Start)이 아니므로 alreadyAtStart는 항상 false여야 한다.
-                    // true를 넘기면 ResolvesToFinish가 무조건 완주로 취급해 후보 칸이 실제
-                    // 목적지 대신 항상 참(0)으로 계산돼, 참 자리에 이 말의 후보 아이콘이
-                    // (상하 2개) 잘못 뜨는 버그가 있었다.
-                    //
-                    // 방(22)의 바깥길(지름길 안 탐)은 "어느 대각선에서 왔는지"(History 마지막 칸)를
-                    // 넘겨야 한다 — 안 넘기면 지름길과 똑같이 27로 계산돼 두 후보가 같은 칸에
-                    // 겹쳐(위아래 2개) 보이던 버그가 있었다.
-                    int arrivedFrom = p.History.Count > 0 ? p.History[p.History.Count - 1] : -1;
+                    // 모/뒷모/방에 정확히 멈춰 있던 말은 무조건 지름길로 나간다 — 바깥길을
+                    // 선택할 수 있게 후보를 따로 안 준다.
+                    // (alreadyAtStart=false: 모/뒷모/방은 참이 아니므로. true를 넘기면
+                    // ResolvesToFinish가 무조건 완주로 취급해 후보가 항상 참으로 잘못 계산됐었다.)
                     var shortcutPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: true);
-                    var outerPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: false, arrivedFrom: arrivedFrom);
                     list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, shortcutPath), true));
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, outerPath), false));
                     continue;
                 }
 

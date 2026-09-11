@@ -1096,7 +1096,7 @@ namespace Yoegoe.Minigames.Yut
                 }
 
                 chip.Name.text = entry.DisplayName;
-                chip.Stats.text = $"♦{entry.Stamina} ♡{entry.Intimacy}";
+                chip.Stats.text = $"♡{entry.Intimacy}"; // 기력은 윷판에서 안 보여줘도 된다는 요청으로 제외
                 chip.Status.text = entry.StatusLabel;
             }
 
