@@ -37,6 +37,7 @@ namespace Yoegoe.UI
         [SerializeField] Text hyangText;
         [SerializeField] Text purifiedWaterText;
         [SerializeField] Text yutTokenText;
+        [SerializeField] Button yutTokenPlusButton;
         [SerializeField] Button shopButton;
         [SerializeField] Button yutButton;
         [SerializeField] Transform slotBarRoot;
@@ -135,6 +136,7 @@ namespace Yoegoe.UI
         private void Start()
         {
             EnsureHudShell();
+            EnsureYutTokenPlusButton();
             WireRuntimeListeners();
             RefreshCurrencies();
             RefreshUpgradeButton();
@@ -148,6 +150,22 @@ namespace Yoegoe.UI
         {
             if (HasPrefabShell) return;
             BuildCanvas();
+        }
+
+        /// <summary>
+        /// 윷 토큰 칩 옆 [+] 버튼 — BuildTopBar가 만든 최신 셸엔 이미 있지만, HasPrefabShell이라
+        /// 통째로 건너뛰는 예전 Bake본에도 이름으로 찾아 붙여서 항상 나타나게 한다.
+        /// </summary>
+        void EnsureYutTokenPlusButton()
+        {
+            if (yutTokenPlusButton != null) return;
+            var row = hudCanvas != null ? hudCanvas.transform.Find("TopBar/CurrencyRow") : null;
+            if (row == null) return;
+
+            var existing = row.Find("YutTokenPlus");
+            yutTokenPlusButton = existing != null
+                ? existing.GetComponent<Button>()
+                : CreateYutTokenPlusButton(row);
         }
 
         /// <summary>공덕 수거 연출 타겟(상단 공덕 텍스트)으로 꽃잎 Gather.</summary>
@@ -702,6 +720,15 @@ namespace Yoegoe.UI
                 });
             }
 
+            if (yutTokenPlusButton != null)
+            {
+                yutTokenPlusButton.onClick.RemoveAllListeners();
+                yutTokenPlusButton.onClick.AddListener(() =>
+                {
+                    if (YutTokenShopPopup.Instance != null) YutTokenShopPopup.Instance.Open();
+                });
+            }
+
             WireUpgradeHoldTriggers();
         }
 
@@ -905,6 +932,7 @@ namespace Yoegoe.UI
             hyangText = CreateCurrencyChip(rowGO.transform, "향 0", C.currencyHyang);
             purifiedWaterText = CreateCurrencyChip(rowGO.transform, "정화수 0", C.currencyPurifiedWater, purifiedWaterIcon);
             yutTokenText = CreateCurrencyChip(rowGO.transform, "윷 0/0", C.currencyYutToken);
+            yutTokenPlusButton = CreateYutTokenPlusButton(rowGO.transform);
 
             // 우상단 상점 버튼
             var shopBtnGO = new GameObject("ShopButton");
@@ -1006,6 +1034,37 @@ namespace Yoegoe.UI
             text.text = label;
             text.raycastTarget = false;
             return text;
+        }
+
+        /// <summary>윷 토큰 칩 옆 작은 [+] — 눌러 YutTokenShopPopup(엽전 구매/광고 충전)을 연다.</summary>
+        Button CreateYutTokenPlusButton(Transform parent)
+        {
+            const float size = 40f;
+            var go = new GameObject("YutTokenPlus");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<LayoutElement>().preferredWidth = size;
+
+            var img = go.AddComponent<Image>();
+            img.color = C.currencyYutToken;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(go.transform, false);
+            var labelRt = labelGO.AddComponent<RectTransform>();
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            var label = labelGO.AddComponent<Text>();
+            label.font = font;
+            label.fontSize = UiFonts.HudCurrency;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = C.textOnDark;
+            label.text = "+";
+            label.raycastTarget = false;
+
+            return btn;
         }
 
         private static Sprite s_currencyDotSprite;

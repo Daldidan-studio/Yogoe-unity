@@ -294,6 +294,12 @@ namespace Yoegoe
             batch.font = hudFont;
             batchGO.SetActive(true);
 
+            var yutShopGO = new GameObject("YutTokenShopPopup");
+            yutShopGO.SetActive(false);
+            var yutShop = yutShopGO.AddComponent<YutTokenShopPopup>();
+            yutShop.font = hudFont;
+            yutShopGO.SetActive(true);
+
             // 씬/프리팹에 HUD 셸이 있으면 재사용 (에디터에서 배치 가능)
             var hud = UnityEngine.Object.FindAnyObjectByType<GameHud>(FindObjectsInactive.Include);
             if (hud == null)

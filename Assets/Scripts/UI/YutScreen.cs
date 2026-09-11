@@ -43,11 +43,16 @@ namespace Yoegoe.UI
         [SerializeField] Text rewardText;
         [SerializeField] Button rewardPlainButton;
         [SerializeField] Button rewardAdButton;
+        [SerializeField] GameObject reviveRoot;
+        [SerializeField] Text reviveText;
+        [SerializeField] Button reviveYesButton;
+        [SerializeField] Button reviveNoButton;
 
         /// <summary>특수 칸(도개걸윷모 밟았을 때 정화수·공양물·엽전 확정 수급) 보상 배율.</summary>
         const int SquareRewardBase = 1;
         const int SquareRewardAdMultiplier = 2;
         const float SquareRewardAdWatchSeconds = 0.8f; // BatchCollectPopup과 동일한 "광고 시청" 연출용 지연
+        const float ReviveAdWatchSeconds = 0.8f;
 
         public bool HasPrefabShell => root != null && miniGame != null;
 
@@ -64,11 +69,17 @@ namespace Yoegoe.UI
         bool pendingBonusAfterSquareReward;
         OfferingData pendingSquareOffering;
 
+        /// <summary>"광고 보고 말 되살리기" 팝업이 떠 있는 동안 이무기 보너스 턴 진행을 멈춘다.</summary>
+        bool awaitingReviveChoice;
+        List<YutMatch.CapturedPieceSnapshot> pendingReviveSnapshots;
+
         Action pendingNoticeAction;
         Action pendingChoiceContinue;
         Action pendingChoiceStop;
         Action pendingRewardPlain;
         Action pendingRewardAd;
+        Action pendingReviveYes;
+        Action pendingReviveNo;
 
         void Awake() => Instance = this;
 
@@ -138,12 +149,14 @@ namespace Yoegoe.UI
             match.OnMatchEnded += HandleMatchEnded;
             match.OnPlayerPiecesMoved += HandlePlayerPiecesMoved;
             match.OnPlayerPiecesCaptured += HandlePlayerPiecesCaptured;
+            match.OnPlayerPiecesCapturedRevivable += HandlePlayerPiecesCapturedRevivable;
             match.OnOpponentCaptured += HandleOpponentCaptured;
             match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
             match.OnSpecialSquareReached += HandleSpecialSquareReached;
 
             awaitingFinishChoice = false;
             awaitingSquareReward = false;
+            awaitingReviveChoice = false;
             root.SetActive(true);
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
@@ -162,6 +175,7 @@ namespace Yoegoe.UI
                 match.OnMatchEnded -= HandleMatchEnded;
                 match.OnPlayerPiecesMoved -= HandlePlayerPiecesMoved;
                 match.OnPlayerPiecesCaptured -= HandlePlayerPiecesCaptured;
+                match.OnPlayerPiecesCapturedRevivable -= HandlePlayerPiecesCapturedRevivable;
                 match.OnOpponentCaptured -= HandleOpponentCaptured;
                 match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
                 match.OnSpecialSquareReached -= HandleSpecialSquareReached;
@@ -186,6 +200,42 @@ namespace Yoegoe.UI
         {
             foreach (var p in captured)
                 miniGame.ShowLogLine(p.Id, $"{p.DisplayName} : 으악, 잡혀버렸어요!! 이무기 님 한번 더...!");
+        }
+
+        /// <summary>같은 시점 — "광고 보고 되살리기" 팝업. 선택이 끝날 때까지 이무기 보너스 턴
+        /// 진행을 멈춘다(RunOpponentTurnRoutine의 awaitingReviveChoice 대기).</summary>
+        void HandlePlayerPiecesCapturedRevivable(IReadOnlyList<YutMatch.CapturedPieceSnapshot> snapshots)
+        {
+            if (snapshots == null || snapshots.Count == 0) return;
+            pendingReviveSnapshots = snapshots.ToList();
+            awaitingReviveChoice = true;
+            string names = string.Join(", ", snapshots.Select(s => NameFor(s.PieceId)));
+            ShowReviveChoice($"{names} 잡혔어요!\n광고 보고 되살릴까요?",
+                onYes: HandleReviveYes,
+                onNo: HandleReviveNo);
+        }
+
+        void HandleReviveYes() => StartCoroutine(ReviveAdRoutine());
+
+        IEnumerator ReviveAdRoutine()
+        {
+            // 실제 광고 SDK가 붙기 전까지 BatchCollectPopup과 동일한 짧은 지연으로 시청을 흉내낸다.
+            yield return new WaitForSecondsRealtime(ReviveAdWatchSeconds);
+
+            if (match != null && pendingReviveSnapshots != null && match.ReviveCapturedPieces(pendingReviveSnapshots))
+            {
+                string names = string.Join(", ", pendingReviveSnapshots.Select(s => NameFor(s.PieceId)));
+                miniGame.ShowLogLine(pendingReviveSnapshots[0].PieceId, $"{names} 되살아났어요!");
+                GameSaveBridge.SaveFromWorld();
+            }
+            pendingReviveSnapshots = null;
+            awaitingReviveChoice = false;
+        }
+
+        void HandleReviveNo()
+        {
+            pendingReviveSnapshots = null;
+            awaitingReviveChoice = false;
         }
 
         /// <summary>내가 이무기를 잡았을 때 게임로그 대사.</summary>
@@ -360,6 +410,11 @@ namespace Yoegoe.UI
                 bonus = match.ApplyOpponentMove(outcome);
                 if (match.IsEnded) yield break;
 
+                // 말이 잡혔으면 "광고 보고 되살리기" 팝업이 뜬다 — 선택이 끝날 때까지 다음 던지기를 멈춘다.
+                if (awaitingReviveChoice)
+                    yield return new WaitUntil(() => !awaitingReviveChoice);
+                if (match == null || match.IsEnded) yield break;
+
                 if (bonus)
                     yield return new WaitForSecondsRealtime(0.4f);
             } while (bonus && guard < 20);
@@ -472,6 +527,7 @@ namespace Yoegoe.UI
             BuildNoticePanel(rootRt);
             BuildChoicePanel(rootRt);
             BuildRewardPanel(rootRt);
+            BuildRevivePanel(rootRt);
 
             root.SetActive(false);
         }
@@ -519,6 +575,18 @@ namespace Yoegoe.UI
                 rewardAdButton.onClick.RemoveAllListeners();
                 rewardAdButton.onClick.AddListener(OnRewardAdClicked);
             }
+
+            if (reviveYesButton != null)
+            {
+                reviveYesButton.onClick.RemoveAllListeners();
+                reviveYesButton.onClick.AddListener(OnReviveYesClicked);
+            }
+
+            if (reviveNoButton != null)
+            {
+                reviveNoButton.onClick.RemoveAllListeners();
+                reviveNoButton.onClick.AddListener(OnReviveNoClicked);
+            }
         }
 
         void BuildNoticePanel(Transform parent)
@@ -534,7 +602,7 @@ namespace Yoegoe.UI
             var boxRt = (RectTransform)box.transform;
             boxRt.SetParent(rt, false);
             boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
-            boxRt.sizeDelta = new Vector2(600, 320);
+            boxRt.sizeDelta = new Vector2(640, 350);
             var boxImg = box.AddComponent<Image>();
             boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
 
@@ -543,10 +611,10 @@ namespace Yoegoe.UI
             textRt.SetParent(boxRt, false);
             textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
             textRt.anchoredPosition = new Vector2(0, 30);
-            textRt.sizeDelta = new Vector2(520, 160);
+            textRt.sizeDelta = new Vector2(550, 180);
             noticeText = textGO.AddComponent<Text>();
             noticeText.font = font;
-            noticeText.fontSize = UiFonts.Size(30);
+            noticeText.fontSize = UiFonts.Size(35);
             noticeText.alignment = TextAnchor.MiddleCenter;
             noticeText.color = new Color(1f, 0.95f, 0.85f);
             noticeText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -556,7 +624,7 @@ namespace Yoegoe.UI
             btnRt.SetParent(boxRt, false);
             btnRt.anchorMin = btnRt.anchorMax = btnRt.pivot = new Vector2(0.5f, 0.5f);
             btnRt.anchoredPosition = new Vector2(0, -110);
-            btnRt.sizeDelta = new Vector2(220, 70);
+            btnRt.sizeDelta = new Vector2(250, 85);
             var btnImg = btnGO.AddComponent<Image>();
             btnImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
             noticeOkButton = btnGO.AddComponent<Button>();
@@ -568,7 +636,7 @@ namespace Yoegoe.UI
             Stretch(labelRt);
             var label = labelGO.AddComponent<Text>();
             label.font = font;
-            label.fontSize = UiFonts.Size(28);
+            label.fontSize = UiFonts.Size(33);
             label.alignment = TextAnchor.MiddleCenter;
             label.color = Color.white;
             label.text = "확인";
@@ -609,7 +677,7 @@ namespace Yoegoe.UI
             var boxRt = (RectTransform)box.transform;
             boxRt.SetParent(rt, false);
             boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
-            boxRt.sizeDelta = new Vector2(660, 380);
+            boxRt.sizeDelta = new Vector2(700, 410);
             var boxImg = box.AddComponent<Image>();
             boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
 
@@ -618,10 +686,10 @@ namespace Yoegoe.UI
             textRt.SetParent(boxRt, false);
             textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
             textRt.anchoredPosition = new Vector2(0, 70);
-            textRt.sizeDelta = new Vector2(580, 200);
+            textRt.sizeDelta = new Vector2(610, 220);
             choiceText = textGO.AddComponent<Text>();
             choiceText.font = font;
-            choiceText.fontSize = UiFonts.Size(28);
+            choiceText.fontSize = UiFonts.Size(33);
             choiceText.alignment = TextAnchor.MiddleCenter;
             choiceText.color = new Color(1f, 0.95f, 0.85f);
             choiceText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -639,7 +707,7 @@ namespace Yoegoe.UI
             btnRt.SetParent(parent, false);
             btnRt.anchorMin = btnRt.anchorMax = btnRt.pivot = new Vector2(0.5f, 0.5f);
             btnRt.anchoredPosition = pos;
-            btnRt.sizeDelta = new Vector2(290, 100);
+            btnRt.sizeDelta = new Vector2(320, 115);
             var btnImg = btnGO.AddComponent<Image>();
             btnImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
             button = btnGO.AddComponent<Button>();
@@ -651,7 +719,7 @@ namespace Yoegoe.UI
             Stretch(labelRt);
             var labelText = labelGO.AddComponent<Text>();
             labelText.font = font;
-            labelText.fontSize = UiFonts.Size(24);
+            labelText.fontSize = UiFonts.Size(29);
             labelText.alignment = TextAnchor.MiddleCenter;
             labelText.color = Color.white;
             labelText.text = label;
@@ -700,7 +768,7 @@ namespace Yoegoe.UI
             var boxRt = (RectTransform)box.transform;
             boxRt.SetParent(rt, false);
             boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
-            boxRt.sizeDelta = new Vector2(660, 380);
+            boxRt.sizeDelta = new Vector2(700, 410);
             var boxImg = box.AddComponent<Image>();
             boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
 
@@ -709,10 +777,10 @@ namespace Yoegoe.UI
             textRt.SetParent(boxRt, false);
             textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
             textRt.anchoredPosition = new Vector2(0, 70);
-            textRt.sizeDelta = new Vector2(580, 200);
+            textRt.sizeDelta = new Vector2(610, 220);
             rewardText = textGO.AddComponent<Text>();
             rewardText.font = font;
-            rewardText.fontSize = UiFonts.Size(28);
+            rewardText.fontSize = UiFonts.Size(33);
             rewardText.alignment = TextAnchor.MiddleCenter;
             rewardText.color = new Color(1f, 0.95f, 0.85f);
             rewardText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -747,6 +815,71 @@ namespace Yoegoe.UI
             var action = pendingRewardAd;
             pendingRewardPlain = null;
             pendingRewardAd = null;
+            action?.Invoke();
+        }
+
+        /// <summary>이무기한테 말이 잡혔을 때 "광고 보고 되살리기"/"그냥 두기" 팝업.
+        /// BuildChoicePanel과 구조는 같고 버튼 라벨·핸들러만 다르다.</summary>
+        void BuildRevivePanel(Transform parent)
+        {
+            reviveRoot = new GameObject("Revive", typeof(RectTransform));
+            var rt = (RectTransform)reviveRoot.transform;
+            rt.SetParent(parent, false);
+            Stretch(rt);
+            var dim = reviveRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.6f);
+
+            var box = new GameObject("Box", typeof(RectTransform));
+            var boxRt = (RectTransform)box.transform;
+            boxRt.SetParent(rt, false);
+            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
+            boxRt.sizeDelta = new Vector2(700, 410);
+            var boxImg = box.AddComponent<Image>();
+            boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
+
+            var textGO = new GameObject("Text", typeof(RectTransform));
+            var textRt = (RectTransform)textGO.transform;
+            textRt.SetParent(boxRt, false);
+            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
+            textRt.anchoredPosition = new Vector2(0, 70);
+            textRt.sizeDelta = new Vector2(610, 220);
+            reviveText = textGO.AddComponent<Text>();
+            reviveText.font = font;
+            reviveText.fontSize = UiFonts.Size(33);
+            reviveText.alignment = TextAnchor.MiddleCenter;
+            reviveText.color = new Color(1f, 0.95f, 0.85f);
+            reviveText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            BuildChoiceButton(boxRt, new Vector2(-165, -130), "광고 보고\n되살리기", out reviveYesButton);
+            BuildChoiceButton(boxRt, new Vector2(165, -130), "그냥 두기", out reviveNoButton);
+
+            reviveRoot.SetActive(false);
+        }
+
+        void ShowReviveChoice(string message, Action onYes, Action onNo)
+        {
+            reviveText.text = message;
+            pendingReviveYes = onYes;
+            pendingReviveNo = onNo;
+            if (!root.activeSelf) root.SetActive(true);
+            reviveRoot.SetActive(true);
+        }
+
+        void OnReviveYesClicked()
+        {
+            reviveRoot.SetActive(false);
+            var action = pendingReviveYes;
+            pendingReviveYes = null;
+            pendingReviveNo = null;
+            action?.Invoke();
+        }
+
+        void OnReviveNoClicked()
+        {
+            reviveRoot.SetActive(false);
+            var action = pendingReviveNo;
+            pendingReviveYes = null;
+            pendingReviveNo = null;
             action?.Invoke();
         }
 

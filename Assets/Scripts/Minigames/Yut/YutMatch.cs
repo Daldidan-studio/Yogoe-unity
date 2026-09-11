@@ -18,6 +18,21 @@ namespace Yoegoe.Minigames.Yut
     /// </summary>
     public class YutMatch
     {
+        /// <summary>말 하나가 잡히기 직전 위치 스냅샷 — "광고 보고 되살리기"로 원래 자리에 되돌리는 데 쓴다.</summary>
+        public readonly struct CapturedPieceSnapshot
+        {
+            public readonly string PieceId;
+            public readonly int NodeId;
+            public readonly IReadOnlyList<int> History;
+
+            public CapturedPieceSnapshot(string pieceId, int nodeId, IReadOnlyList<int> history)
+            {
+                PieceId = pieceId;
+                NodeId = nodeId;
+                History = history;
+            }
+        }
+
         public readonly struct YutMoveCandidate
         {
             public readonly string PieceId;
@@ -51,6 +66,8 @@ namespace Yoegoe.Minigames.Yut
         public event Action<IReadOnlyList<string>> OnPlayerPiecesMoved;
         /// <summary>이무기가 내 말(스택이면 전원)을 잡았을 때 — 잡힌 말들. 게임로그 대사용.</summary>
         public event Action<IReadOnlyList<YutPiece>> OnPlayerPiecesCaptured;
+        /// <summary>위와 같은 시점, "광고 보고 되살리기" 용으로 잡히기 직전 위치를 스냅샷으로 담아 전달.</summary>
+        public event Action<IReadOnlyList<CapturedPieceSnapshot>> OnPlayerPiecesCapturedRevivable;
         /// <summary>내가 이무기를 잡았을 때. 게임로그 대사용.</summary>
         public event Action OnOpponentCaptured;
         /// <summary>
@@ -271,11 +288,39 @@ namespace Yoegoe.Minigames.Yut
             opponentPiece.NodeId = dest;
 
             var captured = playerPieces.Where(p => !p.Finished && p.NodeId == dest).ToList();
+            var revivable = captured
+                .Select(p => new CapturedPieceSnapshot(p.Id, p.NodeId, new List<int>(p.History)))
+                .ToList();
             foreach (var p in captured) { p.NodeId = -1; p.History.Clear(); }
-            if (captured.Count > 0) OnPlayerPiecesCaptured?.Invoke(captured);
+            if (captured.Count > 0)
+            {
+                OnPlayerPiecesCaptured?.Invoke(captured);
+                OnPlayerPiecesCapturedRevivable?.Invoke(revivable);
+            }
 
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured.Count > 0;
+        }
+
+        /// <summary>
+        /// "광고 보고 되살리기" — 잡히기 직전 위치로 되돌린다. 그 사이 다른 수로 이미 상태가
+        /// 바뀐(다시 움직였거나 다른 말과 겹친) 말은 안전하게 건너뛴다.
+        /// </summary>
+        public bool ReviveCapturedPieces(IReadOnlyList<CapturedPieceSnapshot> snapshots)
+        {
+            if (snapshots == null || IsEnded) return false;
+            bool any = false;
+            foreach (var snap in snapshots)
+            {
+                var piece = playerPieces.FirstOrDefault(p => p.Id == snap.PieceId && !p.Finished && p.NodeId < 0);
+                if (piece == null) continue;
+                piece.NodeId = snap.NodeId;
+                piece.History.Clear();
+                piece.History.AddRange(snap.History);
+                any = true;
+            }
+            if (any) OnPiecesChanged?.Invoke();
+            return any;
         }
 
         /// <summary>
