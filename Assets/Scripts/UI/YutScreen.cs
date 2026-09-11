@@ -299,6 +299,38 @@ namespace Yoegoe.UI
             var opp = match.OpponentPiece;
             miniGame.ShowOpponentPiece(opp.OnBoard);
             if (opp.OnBoard) miniGame.SetOpponentPieceIndex(opp.NodeId);
+
+            var roster = match.PlayerPieces
+                .Select(p =>
+                {
+                    teamById.TryGetValue(p.Id, out var agent);
+                    int stamina = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Stamina) : 0;
+                    int intimacy = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Intimacy) : 0;
+                    return new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p));
+                })
+                .ToList();
+            miniGame.ShowRoster(roster);
+        }
+
+        /// <summary>말 하나의 현재 보드 위치를 사람이 읽는 이름으로 — 대기/완주가 아니면 잘 알려진
+        /// 이름 있는 칸(참·도·개·걸·윷·모·뒷모·찌모·방)만 그대로, 그 외는 "N칸째"로 안전하게 표기.</summary>
+        static string PositionLabelFor(YutPiece p)
+        {
+            if (p.Finished) return "완주";
+            if (p.NodeId < 0) return "출발 대기";
+            return p.NodeId switch
+            {
+                YutBoardLayout.Start => "참",
+                1 => "도",
+                2 => "개",
+                3 => "걸",
+                4 => "윷",
+                YutBoardLayout.Mo => "모",
+                YutBoardLayout.DwitMo => "뒷모",
+                YutBoardLayout.JjiMo => "찌모",
+                YutBoardLayout.Bang => "방",
+                _ => $"{p.NodeId}칸"
+            };
         }
 
         void HandleMatchEnded(bool playerWon)

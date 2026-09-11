@@ -68,6 +68,48 @@ namespace Yoegoe.Minigames.Yut
         readonly Dictionary<string, RectTransform> _yokaiPieces = new();
         readonly Dictionary<string, Text> _yokaiPieceLabels = new();
 
+        RectTransform _rosterPanel;
+        RectTransform _rosterRow;
+        Text _rosterCaption;
+        readonly List<RosterChip> _rosterChips = new();
+
+        readonly struct RosterChip
+        {
+            public readonly RectTransform Root;
+            public readonly Image Portrait;
+            public readonly Text Name;
+            public readonly Text Stats;
+            public readonly Text Status;
+
+            public RosterChip(RectTransform root, Image portrait, Text name, Text stats, Text status)
+            {
+                Root = root;
+                Portrait = portrait;
+                Name = name;
+                Stats = stats;
+                Status = status;
+            }
+        }
+
+        /// <summary>윷놀이 화면 최하단 요괴 명단 한 줄(초상·이름·기력♦친밀도♡·보드 위치) 항목.</summary>
+        public readonly struct RosterEntry
+        {
+            public readonly string Id;
+            public readonly string DisplayName;
+            public readonly int Stamina;
+            public readonly int Intimacy;
+            public readonly string StatusLabel;
+
+            public RosterEntry(string id, string displayName, int stamina, int intimacy, string statusLabel)
+            {
+                Id = id;
+                DisplayName = displayName;
+                Stamina = stamina;
+                Intimacy = intimacy;
+                StatusLabel = statusLabel;
+            }
+        }
+
         static readonly Color YutStickFront = new(0.92f, 0.88f, 0.78f);
         static readonly Color YutStickBack = new(0.35f, 0.3f, 0.26f);
         static readonly Color BaekdoMarkColor = new(0.85f, 0.25f, 0.3f);
@@ -145,6 +187,13 @@ namespace Yoegoe.Minigames.Yut
                     _throwSwipe = _throwZone.AddComponent<YutThrowSwipeZone>();
                 _throwSwipe.OnSwipeThrow -= ForwardSwipeThrow;
                 _throwSwipe.OnSwipeThrow += ForwardSwipeThrow;
+                // 예전 Bake본은 보드와 떨어진 자리/색으로 저장돼 있을 수 있어 — 매번 보드 하단에
+                // 이어붙는 위치/색으로 다시 맞춘다(코드가 항상 최종 소스, 밭 배치와 동일한 원칙).
+                SetAnchor((RectTransform)existing, 0.1f, 0.13f, 0.9f, 0.2f, 0, 0, 0, 0);
+                var existingImg = existing.GetComponent<Image>();
+                if (existingImg != null) existingImg.color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
+                if (existing.Find("IdleStick0") == null)
+                    BuildIdleThrowSticks(existing);
                 if (Application.isPlaying)
                 {
                     var labelRt = existing.Find("Label") as RectTransform;
@@ -156,11 +205,16 @@ namespace Yoegoe.Minigames.Yut
 
             _throwZone = new GameObject("ThrowSwipeZone", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _throwZone.transform.SetParent(transform, false);
-            SetAnchor((RectTransform)_throwZone.transform, 0.2f, 0.02f, 0.8f, 0.18f, 0, 0, 0, 0);
-            _throwZone.GetComponent<Image>().color = new Color(0.25f, 0.22f, 0.18f, 0.55f);
+            // 보드(_boardRoot) 아래쪽 가장자리(y=0.2)에 바로 이어 붙여서 보드의 연장처럼 보이게 —
+            // 폭도 보드와 동일(0.1~0.9), 배경색도 보드 배경색과 맞춘다. 화면 맨 아래(y<0.13)는
+            // RosterPanel(요괴 명단) 자리로 비워둔다.
+            SetAnchor((RectTransform)_throwZone.transform, 0.1f, 0.13f, 0.9f, 0.2f, 0, 0, 0, 0);
+            _throwZone.GetComponent<Image>().color = new Color(0.12f, 0.22f, 0.18f, 0.92f);
 
-            var label = CreateText(_throwZone.transform, "Label", "↑ 위로 슬라이드해서 던지기", 24, TextAnchor.MiddleCenter);
-            Stretch(label.rectTransform);
+            BuildIdleThrowSticks(_throwZone.transform);
+
+            var label = CreateText(_throwZone.transform, "Label", "↑ 위로 슬라이드해서 던지기", 20, TextAnchor.LowerCenter);
+            SetAnchor(label.rectTransform, 0f, 0f, 1f, 0.34f, 0, 0, 0, 0);
             label.raycastTarget = false;
 
             _throwSwipe = _throwZone.AddComponent<YutThrowSwipeZone>();
@@ -168,6 +222,42 @@ namespace Yoegoe.Minigames.Yut
 
             if (Application.isPlaying)
                 StartCoroutine(BounceHint(label.rectTransform));
+        }
+
+        /// <summary>
+        /// 던지기 전 대기 상태의 윷가락 4개 — 실제로 던져질 때(PlayThrowAnim)와 같은 에셋을 써서
+        /// "여기 놓인 진짜 윷을 집어 던진다"는 느낌을 준다. 던지는 순간엔 SetThrowVisible(false)로
+        /// 이 존 전체가 꺼지고, PlayThrowAnim이 별도 스틱을 만들어 애니메이션하므로 서로 안 겹친다.
+        /// </summary>
+        void BuildIdleThrowSticks(Transform parent)
+        {
+            EnsureStickSprites();
+            const float stickW = 20f, stickH = 86f, gap = 14f;
+            float totalW = stickW * 4 + gap * 3;
+            float startX = -totalW / 2f + stickW / 2f;
+            for (int i = 0; i < 4; i++)
+            {
+                var go = new GameObject($"IdleStick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(parent, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.72f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(stickW, stickH);
+                rt.anchoredPosition = new Vector2(startX + i * (stickW + gap), 0f);
+                var img = go.GetComponent<Image>();
+                ApplyStickFace(img, front: true, isBaekdoStick: i == 0);
+                if (i == 0 && (_stickFrontBaekdo == null || img.sprite != _stickFrontBaekdo))
+                {
+                    var markGo = new GameObject("BaekdoMark", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    markGo.transform.SetParent(rt, false);
+                    var markRt = markGo.GetComponent<RectTransform>();
+                    markRt.anchorMin = new Vector2(0.5f, 0.85f);
+                    markRt.anchorMax = new Vector2(0.5f, 0.85f);
+                    markRt.sizeDelta = new Vector2(8f, 8f);
+                    markGo.GetComponent<Image>().color = BaekdoMarkColor;
+                }
+                img.raycastTarget = false;
+            }
         }
 
         IEnumerator BounceHint(RectTransform rt)
@@ -732,8 +822,8 @@ namespace Yoegoe.Minigames.Yut
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = pad.anchorMin + Vector2.Scale(dir, size);
                 rt.anchorMax = pad.anchorMax + Vector2.Scale(dir, size);
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
+                rt.offsetMin = pad.offsetMin;
+                rt.offsetMax = pad.offsetMax;
                 var img = go.GetComponent<Image>();
                 ApplyCandidateVisual(img, candidate);
                 WireCandidateButton(go, img, candidate.Id, candidate.UseShortcut);
@@ -854,6 +944,150 @@ namespace Yoegoe.Minigames.Yut
             EnsureQuadrants();
             EnsureRulesOverlay();
             EnsureLogBar();
+            EnsureRosterPanel();
+        }
+
+        /// <summary>
+        /// 화면 최하단(y 0~0.13) — 참가 요괴 전체를 초상화·이름·기력(♦)·친밀도(♡)·보드 위치와 함께
+        /// 한 줄로 보여준다. ThrowSwipeZone(0.13~0.2)과 겹치지 않게 그 아래 자리에 둔다.
+        /// </summary>
+        void EnsureRosterPanel()
+        {
+            if (_rosterPanel != null) return;
+
+            var existing = transform.Find("RosterPanel");
+            if (existing != null)
+            {
+                _rosterPanel = existing as RectTransform;
+            }
+            else
+            {
+                var go = new GameObject("RosterPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(transform, false);
+                _rosterPanel = go.GetComponent<RectTransform>();
+                SetAnchor(_rosterPanel, 0.02f, 0f, 0.98f, 0.13f, 0, 0, 0, 0);
+                go.GetComponent<Image>().color = new Color(0.08f, 0.08f, 0.07f, 0.85f);
+            }
+
+            var rowT = _rosterPanel.Find("Row") as RectTransform;
+            if (rowT == null)
+            {
+                var rowGo = new GameObject("Row", typeof(RectTransform));
+                rowT = rowGo.GetComponent<RectTransform>();
+                rowT.SetParent(_rosterPanel, false);
+                SetAnchor(rowT, 0f, 0.3f, 1f, 1f, 0, 0, 0, 0);
+            }
+            _rosterRow = rowT;
+
+            var captionT = _rosterPanel.Find("Caption") as RectTransform;
+            Text captionText = captionT != null ? captionT.GetComponent<Text>() : null;
+            if (captionText == null)
+            {
+                captionText = CreateText(_rosterPanel, "Caption", "", 16, TextAnchor.MiddleCenter);
+                SetAnchor(captionText.rectTransform, 0f, 0f, 1f, 0.3f, 0, 0, 0, 0);
+                captionText.color = new Color(0.85f, 0.8f, 0.7f, 0.85f);
+                captionText.raycastTarget = false;
+            }
+            _rosterCaption = captionText;
+        }
+
+        /// <summary>참가 요괴 명단을 최신 상태로 다시 그린다. 인원 수가 바뀔 때만 칩을 새로 만들고,
+        /// 그 외엔 이미 만든 칩의 초상·이름·스탯·상태 텍스트만 갱신한다.</summary>
+        public void ShowRoster(IReadOnlyList<RosterEntry> entries)
+        {
+            EnsureBoard();
+            if (_rosterRow == null || entries == null) return;
+
+            if (_rosterChips.Count != entries.Count)
+            {
+                foreach (var chip in _rosterChips)
+                    if (chip.Root != null) Destroy(chip.Root.gameObject);
+                _rosterChips.Clear();
+
+                for (int i = 0; i < entries.Count; i++)
+                    _rosterChips.Add(BuildRosterChip(_rosterRow, i, entries.Count));
+            }
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                var chip = _rosterChips[i];
+
+                var sprite = PieceSpriteFor(entry.Id);
+                if (sprite != null)
+                {
+                    chip.Portrait.sprite = sprite;
+                    chip.Portrait.color = Color.white;
+                    chip.Portrait.preserveAspect = true;
+                }
+                else
+                {
+                    chip.Portrait.sprite = null;
+                    chip.Portrait.color = ColorForYokai(entry.Id);
+                }
+
+                chip.Name.text = entry.DisplayName;
+                chip.Stats.text = $"♦{entry.Stamina} ♡{entry.Intimacy}";
+                chip.Status.text = entry.StatusLabel;
+            }
+
+            _rosterCaption.text = "이동한 요괴마다 친밀도 +0.25";
+        }
+
+        RosterChip BuildRosterChip(RectTransform parent, int index, int count)
+        {
+            var go = new GameObject($"Chip{index}", typeof(RectTransform));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            float slotW = 1f / count;
+            const float pad = 0.03f;
+            rt.anchorMin = new Vector2(index * slotW + pad, 0f);
+            rt.anchorMax = new Vector2((index + 1) * slotW - pad, 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            // 위에서부터 고정 픽셀로 쌓는다(초상 60px → 이름 22px → 스탯 20px → 상태 18px) —
+            // Row 실제 높이와 상관없이 서로 겹치지 않게.
+            const float portraitSize = 60f, nameH = 22f, statsH = 20f, statusH = 18f, gap = 3f;
+
+            var portraitRt = (RectTransform)portraitGo.transform;
+            portraitRt.SetParent(rt, false);
+            portraitRt.anchorMin = portraitRt.anchorMax = new Vector2(0.5f, 1f);
+            portraitRt.pivot = new Vector2(0.5f, 1f);
+            portraitRt.sizeDelta = new Vector2(portraitSize, portraitSize);
+            portraitRt.anchoredPosition = new Vector2(0f, 0f);
+            var portrait = portraitGo.GetComponent<Image>();
+            portrait.preserveAspect = true;
+
+            float y = portraitSize + gap;
+            var nameText = CreateText(rt, "Name", "", 18, TextAnchor.MiddleCenter);
+            AnchorTopStrip(nameText.rectTransform, y, nameH);
+            nameText.raycastTarget = false;
+            y += nameH + gap;
+
+            var statsText = CreateText(rt, "Stats", "", 15, TextAnchor.MiddleCenter);
+            AnchorTopStrip(statsText.rectTransform, y, statsH);
+            statsText.color = new Color(0.8f, 0.9f, 0.95f);
+            statsText.raycastTarget = false;
+            y += statsH + gap;
+
+            var statusText = CreateText(rt, "Status", "", 14, TextAnchor.MiddleCenter);
+            AnchorTopStrip(statusText.rectTransform, y, statusH);
+            statusText.color = new Color(0.7f, 0.65f, 0.55f);
+            statusText.raycastTarget = false;
+
+            return new RosterChip(rt, portrait, nameText, statsText, statusText);
+        }
+
+        /// <summary>부모 위쪽 기준 y(px) 지점부터 height(px)만큼의 가로 전체 폭 띠를 앵커한다.</summary>
+        static void AnchorTopStrip(RectTransform rt, float yFromTop, float height)
+        {
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -yFromTop);
+            rt.sizeDelta = new Vector2(0f, height);
         }
 
         void BindOrCreateHearts()
