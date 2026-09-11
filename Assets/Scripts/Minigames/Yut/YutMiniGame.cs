@@ -52,11 +52,16 @@ namespace Yoegoe.Minigames.Yut
         GameObject _logBar;
         Image _logBarLeftPortrait;
         Image _logBarRightPortrait;
+        RectTransform _logViewport;
         RectTransform _logContent;
+        ScrollRect _logScroll;
         GameObject _miniThrowContainer;
         Image[] _miniThrowSticks;
         readonly List<(bool leftSpeaking, string text)> _logHistory = new();
-        const int MaxVisibleLogLines = 5;
+        /// <summary>스크롤로 다시 볼 수 있게 최근 N줄까지 보관(화면엔 뷰포트만큼만 보이고 위·아래로 민다).</summary>
+        const int MaxLogHistory = 40;
+        const float LogBubbleHeight = 44f;
+        const float LogBubbleGap = 6f;
 
         // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
@@ -220,9 +225,7 @@ namespace Yoegoe.Minigames.Yut
         /// 보드 위쪽 게임로그에 대사 한 줄을 채팅처럼 쌓아 올린다(말풍선). speakerId가 "Imugi"면
         /// 왼쪽 정렬(이무기 초상도 살짝 키워 강조), 그 외(플레이어 쪽 요괴 id)면 오른쪽 정렬 —
         /// 실제 말한 요괴가 옥토끼가 아니어도(예: 삼족오가 잡힘) 헤더 초상은 고정, 말풍선 텍스트만
-        /// 그 이름을 쓴다. 최근 MaxVisibleLogLines줄만 남기고 매번 다시 그린다 — ScrollRect·
-        /// VerticalLayoutGroup·ContentSizeFitter 조합이 이 프로젝트 환경에서 안 뜨는 문제가 있어서,
-        /// 이 파일 다른 곳처럼 좌표를 직접 계산하는 방식(항상 되는 걸 확인한 방식)으로 바꿨다.
+        /// 그 이름을 쓴다. Content는 ScrollRect라 예전 대사도 위로 밀어 다시 볼 수 있다.
         /// </summary>
         public void ShowLogLine(string speakerId, string text)
         {
@@ -236,36 +239,52 @@ namespace Yoegoe.Minigames.Yut
                 _logBarRightPortrait.rectTransform.localScale = Vector3.one * (!leftSpeaking ? 1.12f : 1f);
 
             _logHistory.Add((leftSpeaking, text));
-            if (_logHistory.Count > MaxVisibleLogLines) _logHistory.RemoveAt(0);
+            if (_logHistory.Count > MaxLogHistory) _logHistory.RemoveAt(0);
             RebuildLogView();
         }
 
         void RebuildLogView()
         {
+            if (_logContent == null) return;
+
             for (int i = _logContent.childCount - 1; i >= 0; i--)
                 Destroy(_logContent.GetChild(i).gameObject);
 
             int count = _logHistory.Count;
-            if (count == 0) return;
+            if (count == 0)
+            {
+                _logContent.sizeDelta = new Vector2(0f, 0f);
+                return;
+            }
 
-            float rowH = 1f / count;
-            float pad = rowH * 0.08f;
+            float viewportH = _logViewport != null ? Mathf.Abs(_logViewport.rect.height) : 0f;
+            float contentH = count * (LogBubbleHeight + LogBubbleGap) + LogBubbleGap;
+            if (contentH < viewportH) contentH = viewportH;
+
+            _logContent.anchorMin = new Vector2(0f, 1f);
+            _logContent.anchorMax = new Vector2(1f, 1f);
+            _logContent.pivot = new Vector2(0.5f, 1f);
+            _logContent.sizeDelta = new Vector2(0f, contentH);
+            _logContent.anchoredPosition = Vector2.zero;
+
+            float viewportW = _logViewport != null ? Mathf.Abs(_logViewport.rect.width) : ((RectTransform)_logContent.parent).rect.width;
+            float bubbleW = Mathf.Max(120f, viewportW * 0.74f);
+
             for (int i = 0; i < count; i++)
             {
                 var (leftSpeaking, text) = _logHistory[i];
-                float yTop = 1f - i * rowH;
-                float yBottom = 1f - (i + 1) * rowH;
+                float y = -(LogBubbleGap + i * (LogBubbleHeight + LogBubbleGap));
 
                 var bubbleGo = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 bubbleGo.transform.SetParent(_logContent, false);
                 var bubbleRt = bubbleGo.GetComponent<RectTransform>();
-                bubbleRt.anchorMin = new Vector2(leftSpeaking ? 0f : 0.26f, yBottom + pad);
-                bubbleRt.anchorMax = new Vector2(leftSpeaking ? 0.74f : 1f, yTop - pad);
-                bubbleRt.offsetMin = Vector2.zero;
-                bubbleRt.offsetMax = Vector2.zero;
+                bubbleRt.anchorMin = bubbleRt.anchorMax = bubbleRt.pivot = new Vector2(leftSpeaking ? 0f : 1f, 1f);
+                bubbleRt.sizeDelta = new Vector2(bubbleW, LogBubbleHeight);
+                bubbleRt.anchoredPosition = new Vector2(leftSpeaking ? 4f : -4f, y);
                 bubbleGo.GetComponent<Image>().color = leftSpeaking
                     ? new Color(0.22f, 0.2f, 0.3f, 0.95f)
                     : new Color(0.2f, 0.32f, 0.24f, 0.95f);
+                bubbleGo.GetComponent<Image>().raycastTarget = false;
 
                 var label = CreateText(bubbleGo.transform, "Text", text, 16,
                     leftSpeaking ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
@@ -278,6 +297,10 @@ namespace Yoegoe.Minigames.Yut
                 label.verticalOverflow = VerticalWrapMode.Truncate;
                 label.raycastTarget = false;
             }
+
+            Canvas.ForceUpdateCanvases();
+            if (_logScroll != null)
+                _logScroll.verticalNormalizedPosition = 0f;
         }
 
         /// <summary>매치 시작/재입장 때 이전 대화가 안 남게 게임로그를 비운다.</summary>
@@ -287,6 +310,9 @@ namespace Yoegoe.Minigames.Yut
             if (_logContent == null) return;
             for (int i = _logContent.childCount - 1; i >= 0; i--)
                 Destroy(_logContent.GetChild(i).gameObject);
+            _logContent.sizeDelta = new Vector2(0f, 0f);
+            if (_logScroll != null)
+                _logScroll.verticalNormalizedPosition = 1f;
         }
 
         /// <summary>상대(이무기 등) 말 표시를 켜고 끈다. 켜기 전까지는 판 위에 안 보인다.</summary>
@@ -949,9 +975,8 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 보드 위쪽 게임로그 — 위쪽은 이무기(왼쪽)·옥토끼(팀 대표, 오른쪽) 초상이 고정으로 있고,
-        /// 그 아래는 말풍선이 카톡처럼 쌓이는 자리. ScrollRect+Mask+레이아웃 컴포넌트 조합 대신,
-        /// 이 파일 다른 곳(보드 칸·후보 마커 등)과 똑같이 좌표를 직접 계산해서 배치한다 — 최근
-        /// MaxVisibleLogLines줄만 보이고, 그 이상 쌓이면 오래된 줄부터 밀려 나간다.
+        /// 그 아래 Viewport/Content는 ScrollRect로 말풍선이 카톡처럼 쌓인다. 넘치면 손가락으로
+        /// 위·아래 스크롤. VerticalLayoutGroup 없이 말풍선 좌표만 직접 잡고 ScrollRect만 붙인다.
         /// </summary>
         void EnsureLogBar()
         {
@@ -963,7 +988,6 @@ namespace Yoegoe.Minigames.Yut
                 _logBar = existing.gameObject;
                 _logBarLeftPortrait = existing.Find("LeftHeader/Icon")?.GetComponent<Image>();
                 _logBarRightPortrait = existing.Find("RightHeader/Icon")?.GetComponent<Image>();
-                _logContent = existing.Find("Content") as RectTransform;
                 _miniThrowContainer = existing.Find("MiniThrow")?.gameObject;
                 if (_miniThrowContainer != null)
                 {
@@ -971,6 +995,7 @@ namespace Yoegoe.Minigames.Yut
                     for (int i = 0; i < 4; i++)
                         _miniThrowSticks[i] = _miniThrowContainer.transform.Find($"Stick{i}")?.GetComponent<Image>();
                 }
+                EnsureLogScrollArea();
                 return;
             }
 
@@ -982,11 +1007,77 @@ namespace Yoegoe.Minigames.Yut
             _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true, out _);
             _logBarRightPortrait = BuildLogHeaderPortrait(_logBar.transform, "Rabbit", "옥토끼", left: false, out _);
             BuildOpponentMiniThrow(_logBar.transform);
+            EnsureLogScrollArea();
+        }
 
-            var contentGo = new GameObject("Content", typeof(RectTransform));
-            contentGo.transform.SetParent(_logBar.transform, false);
-            _logContent = contentGo.GetComponent<RectTransform>();
-            SetAnchor(_logContent, 0.02f, 0.02f, 0.98f, 0.72f, 0, 0, 0, 0);
+        /// <summary>
+        /// Prefab에 Viewport가 없으면 예전 Content를 Viewport로 올리고 안쪽에 Content를 새로 둔다.
+        /// ScrollRect는 LogBar에 붙여 헤더는 고정·대사만 스크롤되게 한다.
+        /// </summary>
+        void EnsureLogScrollArea()
+        {
+            if (_logBar == null) return;
+            if (_logScroll != null && _logContent != null && _logViewport != null) return;
+
+            var root = _logBar.transform;
+            var viewportT = root.Find("Viewport") as RectTransform;
+            var contentT = root.Find("Viewport/Content") as RectTransform
+                           ?? root.Find("Content") as RectTransform;
+
+            // 예전 Prefab: Content가 곧 뷰포트 자리 → Viewport로 이름 바꾸고 자식 Content 생성
+            if (viewportT == null && contentT != null && contentT.parent == root)
+            {
+                contentT.gameObject.name = "Viewport";
+                viewportT = contentT;
+                contentT = null;
+            }
+
+            if (viewportT == null)
+            {
+                var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                viewportGo.transform.SetParent(root, false);
+                viewportT = viewportGo.GetComponent<RectTransform>();
+                SetAnchor(viewportT, 0.02f, 0.02f, 0.98f, 0.72f, 0, 0, 0, 0);
+            }
+
+            var viewportImg = viewportT.GetComponent<Image>();
+            if (viewportImg == null) viewportImg = viewportT.gameObject.AddComponent<Image>();
+            viewportImg.color = new Color(0f, 0f, 0f, 0.01f); // 레이캐스트용(거의 투명)
+            viewportImg.raycastTarget = true;
+
+            if (viewportT.GetComponent<RectMask2D>() == null)
+                viewportT.gameObject.AddComponent<RectMask2D>();
+
+            if (contentT == null)
+                contentT = viewportT.Find("Content") as RectTransform;
+            if (contentT == null)
+            {
+                var contentGo = new GameObject("Content", typeof(RectTransform));
+                contentGo.transform.SetParent(viewportT, false);
+                contentT = contentGo.GetComponent<RectTransform>();
+            }
+
+            contentT.anchorMin = new Vector2(0f, 1f);
+            contentT.anchorMax = new Vector2(1f, 1f);
+            contentT.pivot = new Vector2(0.5f, 1f);
+            contentT.anchoredPosition = Vector2.zero;
+            contentT.sizeDelta = new Vector2(0f, 0f);
+
+            _logViewport = viewportT;
+            _logContent = contentT;
+
+            _logScroll = _logBar.GetComponent<ScrollRect>();
+            if (_logScroll == null) _logScroll = _logBar.AddComponent<ScrollRect>();
+            _logScroll.viewport = _logViewport;
+            _logScroll.content = _logContent;
+            _logScroll.horizontal = false;
+            _logScroll.vertical = true;
+            _logScroll.movementType = ScrollRect.MovementType.Clamped;
+            _logScroll.inertia = true;
+            _logScroll.decelerationRate = 0.135f;
+            _logScroll.scrollSensitivity = 40f;
+            _logScroll.verticalScrollbar = null;
+            _logScroll.horizontalScrollbar = null;
         }
 
         Image BuildLogHeaderPortrait(Transform parent, string spriteId, string displayLabel, bool left, out Text nameTextOut)
