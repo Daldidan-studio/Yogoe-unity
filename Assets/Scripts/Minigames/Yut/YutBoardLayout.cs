@@ -64,6 +64,16 @@ namespace Yoegoe.Minigames.Yut
             return specialSquareKinds;
         }
 
+        /// <summary>세이브 복원 전용 — 새로 뽑지 않고 저장돼 있던 배치를 그대로 되살린다
+        /// (나갔다 들어오거나 앱을 재시작해도 특수 칸이 안 바뀌게).</summary>
+        public static void RestoreSpecialSquares(IReadOnlyDictionary<int, SpecialSquareKind> saved)
+        {
+            specialSquareKinds.Clear();
+            if (saved == null) return;
+            foreach (var kv in saved)
+                specialSquareKinds[kv.Key] = kv.Value;
+        }
+
         static readonly Vector2[] Points = BuildPoints();
 
         /// <summary>노드 id(0~28) → 보드 영역 기준 정규화 좌표(0~1, 좌하단 원점).</summary>

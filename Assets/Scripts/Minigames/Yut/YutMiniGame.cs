@@ -340,7 +340,11 @@ namespace Yoegoe.Minigames.Yut
         {
             var go = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             var rt = (RectTransform)go.transform;
-            rt.SetParent(anchor.parent, false);
+            // anchor.parent(칸 하나)에 붙이면 그 칸 안에서만 맨 위로 와서, 옆 칸(형제 순서상 뒤에
+            // 오는 칸)에 말풍선이 걸쳐 나올 때 그 칸의 말한테 가려졌다 — 최상위(transform)에
+            // 붙여서 보드 위 어떤 칸·말보다도 항상 위에 그려지게 한다. 위치는 world position
+            // (.position)으로 잡으므로 부모를 바꿔도 계산은 그대로 유효하다.
+            rt.SetParent(transform, false);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(220f, 56f);

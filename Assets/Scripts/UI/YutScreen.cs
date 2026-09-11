@@ -193,6 +193,7 @@ namespace Yoegoe.UI
         void BeginMatch(List<(string id, string name)> team)
         {
             match = new YutMatch(team);
+            YutBoardLayout.RegenerateSpecialSquares(); // 진짜 새 매치일 때만 새로 뽑는다
             SubscribeMatchEvents();
 
             awaitingFinishChoice = false;
@@ -303,14 +304,39 @@ namespace Yoegoe.UI
             GameSaveBridge.SaveFromWorld();
         }
 
-        /// <summary>세이브용 스냅샷 — 진행 중(승패 안 난) 매치가 없으면 null.</summary>
+        /// <summary>세이브용 스냅샷 — 진행 중(승패 안 난) 매치가 없으면 null. 특수 칸 배치도 같이
+        /// 담아야 나갔다 들어오거나 앱을 재시작해도 말 위치·특수 칸이 둘 다 그대로 이어진다.</summary>
         public YutMatchSave CaptureForSave()
         {
             if (match == null || match.IsEnded) return null;
+
+            var squareNodeIds = new List<int>();
+            var squareKinds = new List<int>();
+            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
+            {
+                var kind = YutBoardLayout.GetSpecialKind(nodeId);
+                if (kind == YutBoardLayout.SpecialSquareKind.None) continue;
+                squareNodeIds.Add(nodeId);
+                squareKinds.Add((int)kind);
+            }
+
+            var offeringNodeIds = new List<int>();
+            var offeringIds = new List<string>();
+            foreach (var kv in specialOfferingByNode)
+            {
+                if (kv.Value == null) continue;
+                offeringNodeIds.Add(kv.Key);
+                offeringIds.Add(kv.Value.offeringId);
+            }
+
             return new YutMatchSave
             {
                 playerPieces = match.PlayerPieces.Select(ToPieceSave).ToArray(),
-                opponentPiece = ToPieceSave(match.OpponentPiece)
+                opponentPiece = ToPieceSave(match.OpponentPiece),
+                specialSquareNodeIds = squareNodeIds.ToArray(),
+                specialSquareKinds = squareKinds.ToArray(),
+                specialOfferingNodeIds = offeringNodeIds.ToArray(),
+                specialOfferingIds = offeringIds.ToArray(),
             };
         }
 
@@ -349,14 +375,40 @@ namespace Yoegoe.UI
             if (saved.opponentPiece != null)
                 ApplyPieceSave(match.OpponentPiece, saved.opponentPiece);
 
+            RestoreSpecialSquares(saved);
+
             SubscribeMatchEvents();
             awaitingFinishChoice = false;
             awaitingSquareReward = false;
             awaitingReviveChoice = false;
-            // YutMatch 생성자가 특수 칸을 새로 뽑았으니(재시작할 때마다 그 판 구성은 못 살림 —
-            // 이번 매치 누적치처럼 단순화) 공양물도 그에 맞춰 다시 배정한다. 화면 자체는 유저가
-            // 윷놀이를 다시 열 때(ResumeExistingMatch) 아이콘까지 반영된다.
-            AssignSpecialOfferings();
+        }
+
+        /// <summary>말 위치는 그대로 복원되는데 특수 칸만 새로 섞이면 안 되니, 저장된 배치가
+        /// 있으면 그대로 되살리고 — 그 배치 자체가 없는 옛 세이브일 때만 어쩔 수 없이 새로 뽑는다.</summary>
+        void RestoreSpecialSquares(YutMatchSave saved)
+        {
+            if (saved.specialSquareNodeIds == null || saved.specialSquareNodeIds.Length == 0)
+            {
+                YutBoardLayout.RegenerateSpecialSquares();
+                AssignSpecialOfferings();
+                return;
+            }
+
+            var kinds = new Dictionary<int, YutBoardLayout.SpecialSquareKind>();
+            for (int i = 0; i < saved.specialSquareNodeIds.Length && i < saved.specialSquareKinds.Length; i++)
+                kinds[saved.specialSquareNodeIds[i]] = (YutBoardLayout.SpecialSquareKind)saved.specialSquareKinds[i];
+            YutBoardLayout.RestoreSpecialSquares(kinds);
+
+            specialOfferingByNode.Clear();
+            if (saved.specialOfferingNodeIds != null && saved.specialOfferingIds != null)
+            {
+                var pool = GetOfferingPool();
+                for (int i = 0; i < saved.specialOfferingNodeIds.Length && i < saved.specialOfferingIds.Length; i++)
+                {
+                    var offering = pool.FirstOrDefault(o => o.offeringId == saved.specialOfferingIds[i]);
+                    if (offering != null) specialOfferingByNode[saved.specialOfferingNodeIds[i]] = offering;
+                }
+            }
         }
 
         static void ApplyPieceSave(YutPiece piece, YutPieceSave save)
@@ -714,8 +766,12 @@ namespace Yoegoe.UI
 
         void HandleSquareRewardPlain()
         {
-            GrantSquareReward(SquareRewardBase);
-            ResumeAfterSquareReward();
+            bool wasTreasure = pendingSquareReward?.Kind == SquareRewardKind.Treasure;
+            string desc = GrantSquareReward(SquareRewardBase);
+            if (wasTreasure && desc != null)
+                ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
+            else
+                ResumeAfterSquareReward();
         }
 
         void HandleSquareRewardAd() => StartCoroutine(SquareRewardAdRoutine());
@@ -724,15 +780,23 @@ namespace Yoegoe.UI
         {
             // BatchCollectPopup과 같은 패턴 — 실제 광고 SDK가 붙기 전까지 짧은 지연으로 "시청 중"을 흉내낸다.
             yield return new WaitForSecondsRealtime(SquareRewardAdWatchSeconds);
-            GrantSquareReward(SquareRewardAdMultiplier);
-            ResumeAfterSquareReward();
+            bool wasTreasure = pendingSquareReward?.Kind == SquareRewardKind.Treasure;
+            string desc = GrantSquareReward(SquareRewardAdMultiplier);
+            if (wasTreasure && desc != null)
+                ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
+            else
+                ResumeAfterSquareReward();
         }
 
-        void GrantSquareReward(int multiplier)
+        /// <summary>실제로 재화를 지급하고 놀이기록에 남긴다. 엽전/공양물 칸은 밟기 전에 이미
+        /// 뭐가 나올지 안내했지만, 보물상자는 안이 안 보이는 채로 골랐으니 반환값(뭘 받았는지
+        /// 설명)을 호출부가 팝업으로 따로 알려준다.</summary>
+        string GrantSquareReward(int multiplier)
         {
-            if (pendingSquareReward == null) return;
+            if (pendingSquareReward == null) return null;
             var reward = pendingSquareReward.Value;
             int amount = reward.Amount * multiplier;
+            string description = null;
 
             switch (reward.Kind)
             {
@@ -740,18 +804,21 @@ namespace Yoegoe.UI
                     GameEconomy.Instance.AddYeopjeon(amount);
                     matchYeopjeonTotal += amount;
                     miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
+                    description = $"엽전 {amount}개";
                     break;
 
                 case SquareRewardKind.Hyang:
                     GameEconomy.Instance.AddHyang(amount);
                     matchHyangTotal += amount;
                     miniGame.AddPlayLogEntry($"향 {amount}개 획득.");
+                    description = $"향 {amount}개";
                     break;
 
                 case SquareRewardKind.AdTicket:
                     GiftBundle.AddAdTickets(amount);
                     matchAdTicketTotal += amount;
                     miniGame.AddPlayLogEntry($"광고보상권 {amount}개 획득.");
+                    description = $"광고보상권 {amount}개";
                     break;
 
                 case SquareRewardKind.Offering:
@@ -761,6 +828,7 @@ namespace Yoegoe.UI
                         matchOfferingCounts.TryGetValue(reward.Offering, out int cur);
                         matchOfferingCounts[reward.Offering] = cur + amount;
                         miniGame.AddPlayLogEntry($"{reward.Offering.displayName} {amount}개 획득.");
+                        description = $"{reward.Offering.displayName} {amount}개";
                     }
                     break;
 
@@ -768,12 +836,14 @@ namespace Yoegoe.UI
                     GameEconomy.Instance.AddYutTokenOverflow(amount, YutTokenHardCap);
                     matchYutTokenTotal += amount;
                     miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
+                    description = $"윷 토큰 {amount}개";
                     break;
             }
 
             pendingSquareReward = null;
             RefreshCollectedItemsDisplay();
             GameSaveBridge.SaveFromWorld();
+            return description;
         }
 
         /// <summary>동(東) 구역에 이번 매치에서 특수 칸으로 모은 것들을 아이콘으로 보여준다.</summary>

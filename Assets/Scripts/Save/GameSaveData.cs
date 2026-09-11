@@ -30,6 +30,16 @@ namespace Yoegoe.Save
     {
         public YutPieceSave[] playerPieces = Array.Empty<YutPieceSave>();
         public YutPieceSave opponentPiece = new YutPieceSave();
+
+        /// <summary>이번 매치에서 뽑힌 특수 칸(엽전/공양물/보물상자) 배치 — 나갔다 들어오거나
+        /// 앱을 껐다 켜도 말 위치는 그대로인데 특수 칸만 새로 섞이면 안 되므로 저장한다.
+        /// nodeId/kind가 병렬 배열(같은 인덱스끼리 짝)인 이유는 JsonUtility가 Dictionary를
+        /// 직렬화하지 못해서다.</summary>
+        public int[] specialSquareNodeIds = Array.Empty<int>();
+        public int[] specialSquareKinds = Array.Empty<int>();
+        /// <summary>공양물 칸마다 무슨 공양물이 배정됐는지(offeringId) — 위와 같은 이유로 병렬 배열.</summary>
+        public int[] specialOfferingNodeIds = Array.Empty<int>();
+        public string[] specialOfferingIds = Array.Empty<string>();
     }
 
     [Serializable]

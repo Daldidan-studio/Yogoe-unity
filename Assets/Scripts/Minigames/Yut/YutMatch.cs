@@ -94,11 +94,14 @@ namespace Yoegoe.Minigames.Yut
         /// YutBoardLayout.GetSpecialKind(nodeId)로 종류를 보고 처리한다.</summary>
         public event Action<int, IReadOnlyList<string>> OnSpecialSquareReached;
 
+        /// <summary>특수 칸 배치는 여기서 안 건드린다 — 진짜 새 매치면 호출부(YutScreen.BeginMatch)가
+        /// YutBoardLayout.RegenerateSpecialSquares()를 부르고, 세이브 복원(ApplyFromSave)이면
+        /// 저장된 배치를 그대로 되살린다. 예전엔 생성자가 매번 새로 뽑아서, 나갔다 들어오거나
+        /// 앱을 재시작하면 말 위치는 그대로인데 특수 칸만 새로 섞이는 버그가 있었다.</summary>
         public YutMatch(IEnumerable<(string id, string displayName)> playerTeam)
         {
             playerPieces = playerTeam.Select(t => new YutPiece(t.id, t.displayName, isPlayer: true)).ToList();
             opponentPiece = new YutPiece("imugi", "이무기", isPlayer: false);
-            YutBoardLayout.RegenerateSpecialSquares(); // 매 윷판마다 특수 칸을 새로 뽑는다
         }
 
         /// <summary>대기 말이 빽도로 들어올 때 서는 자리 — 참 바로 뒤(19번).</summary>
