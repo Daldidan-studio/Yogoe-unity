@@ -118,7 +118,18 @@ namespace Yoegoe.UI
 
         static void PulseGlow(CharacterAgent agent, bool bright)
         {
-            var mr = agent != null ? agent.GetComponent<MeshRenderer>() : null;
+            if (agent == null) return;
+
+            var sr = agent.GetComponentInChildren<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.color = bright
+                    ? Color.Lerp(Color.white, new Color(0.85f, 1f, 1f, 1f), 0.55f)
+                    : Color.white;
+                return;
+            }
+
+            var mr = agent.GetComponent<MeshRenderer>();
             if (mr == null || mr.material == null) return;
             Color c = CharacterSummon.GoraniPlaceholderColor;
             if (bright) c = Color.Lerp(c, Color.white, 0.45f);

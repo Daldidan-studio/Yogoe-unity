@@ -142,9 +142,14 @@ namespace Yoegoe.Characters
             }
 
             Vector3 baseScale = transform.localScale;
+            var sr = GetComponentInChildren<SpriteRenderer>();
             var mr = GetComponent<MeshRenderer>();
             Color baseColor = Color.white;
-            if (mr != null && mr.material != null)
+            if (sr != null)
+            {
+                baseColor = sr.color;
+            }
+            else if (mr != null && mr.material != null)
             {
                 if (mr.material.HasProperty("_BaseColor"))
                     baseColor = mr.material.GetColor("_BaseColor");
@@ -162,13 +167,25 @@ namespace Yoegoe.Characters
                     t += Time.deltaTime;
                     float u = Mathf.Sin(Mathf.Clamp01(t / half) * Mathf.PI);
                     transform.localScale = baseScale * (1f + 0.22f * u);
-                    SetMeshAlpha(mr, 0.55f + 0.45f * (1f - u));
+                    float a = 0.55f + 0.45f * (1f - u);
+                    if (sr != null)
+                    {
+                        var c = baseColor;
+                        c.a = a;
+                        sr.color = c;
+                    }
+                    else
+                        SetMeshAlpha(mr, a);
                     yield return null;
                 }
             }
 
             transform.localScale = baseScale;
-            if (mr != null && mr.material != null)
+            if (sr != null)
+            {
+                sr.color = baseColor;
+            }
+            else if (mr != null && mr.material != null)
             {
                 if (mr.material.HasProperty("_BaseColor")) mr.material.SetColor("_BaseColor", baseColor);
                 if (mr.material.HasProperty("_Color")) mr.material.color = baseColor;

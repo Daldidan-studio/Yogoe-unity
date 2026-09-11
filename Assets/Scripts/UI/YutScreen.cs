@@ -773,7 +773,7 @@ namespace Yoegoe.UI
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(64f, 64f);
             var img = go.GetComponent<Image>();
-            var sprite = miniGame != null ? miniGame.GetGoraniSprite() : null;
+            var sprite = miniGame != null ? miniGame.GetNeokSprite() : CharacterSpawner.NeokFlameSprite();
             if (sprite != null)
             {
                 img.sprite = sprite;
@@ -782,7 +782,7 @@ namespace Yoegoe.UI
             }
             else
             {
-                img.color = new Color(0.45f, 0.85f, 1f, 1f); // 고라니 넋 플레이스홀더 색과 맞춤
+                img.color = new Color(0.45f, 0.85f, 1f, 1f); // 불꽃 에셋 없을 때 폴백
             }
 
             Vector3? slotPos = miniGame != null ? miniGame.GetSummonSlotWorldPosition() : null;

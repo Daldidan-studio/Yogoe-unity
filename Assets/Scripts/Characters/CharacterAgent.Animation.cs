@@ -19,6 +19,8 @@ namespace Yoegoe.Characters
         private void ApplyAnimationFrameImmediate()
         {
             if (spriteRenderer == null || Data == null) return;
+            // 넋은 불꽃 스프라이트를 유지 — 혼 걷기 시트로 덮어쓰지 않는다
+            if (Stats.Stage == GrowthStage.Neok) return;
             bool wantsWalk = Stats.State == ActionState.Walking
                 || Stats.State == ActionState.Playing;
             Sprite[] frames = ResolveAnimationFrames(wantsWalk, out bool flipX);
@@ -34,6 +36,7 @@ namespace Yoegoe.Characters
         /// </summary>
         private void UpdateWalkAnimation(float dt)
         {
+            if (Stats.Stage == GrowthStage.Neok) return;
             if (spriteRenderer == null)
                 spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             if (spriteRenderer == null || Data == null) return;

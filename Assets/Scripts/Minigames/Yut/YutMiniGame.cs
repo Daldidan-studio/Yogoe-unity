@@ -477,6 +477,7 @@ namespace Yoegoe.Minigames.Yut
             }
 
             var waiting = new List<RectTransform>();
+            var byNode = new Dictionary<int, List<RectTransform>>();
             foreach (var info in pieces)
             {
                 if (!_yokaiPieces.TryGetValue(info.Id, out var piece) || piece == null)
@@ -487,10 +488,22 @@ namespace Yoegoe.Minigames.Yut
                 }
 
                 if (info.NodeId < 0)
+                {
                     waiting.Add(piece); // 남(South) 구역에 한꺼번에 나란히 배치
+                }
                 else
-                    PlaceOnNode(piece, info.NodeId);
+                {
+                    if (!byNode.TryGetValue(info.NodeId, out var list))
+                    {
+                        list = new List<RectTransform>();
+                        byNode[info.NodeId] = list;
+                    }
+                    list.Add(piece);
+                }
             }
+            // 같은 칸에 업힌 말이 여럿이면 겹쳐 보이지 않게 그 칸 안에서 가로로 나란히 배치.
+            foreach (var kv in byNode)
+                PlaceGroupOnNode(kv.Value, kv.Key);
             LayoutWaitingPieces(waiting);
         }
 
@@ -550,16 +563,36 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        void PlaceOnNode(RectTransform piece, int nodeId)
+        /// <summary>한 칸에 말이 한 마리면 예전처럼 칸 가운데 크게, 업혀서 여럿이면 겹치지 않게
+        /// 그 칸 폭을 나눠 가로로 나란히 붙여 배치한다.</summary>
+        void PlaceGroupOnNode(List<RectTransform> pieces, int nodeId)
         {
-            Vector3 fromPos = piece.position;
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
-            piece.SetParent(_pads[nodeId].transform, false);
-            piece.anchorMin = new Vector2(0.18f, 0.18f);
-            piece.anchorMax = new Vector2(0.82f, 0.82f);
-            piece.offsetMin = Vector2.zero;
-            piece.offsetMax = Vector2.zero;
-            SlideIn(piece, fromPos);
+            var pad = _pads[nodeId].transform;
+            int count = pieces.Count;
+
+            for (int i = 0; i < count; i++)
+            {
+                var piece = pieces[i];
+                Vector3 fromPos = piece.position;
+                piece.SetParent(pad, false);
+
+                if (count <= 1)
+                {
+                    piece.anchorMin = new Vector2(0.18f, 0.18f);
+                    piece.anchorMax = new Vector2(0.82f, 0.82f);
+                }
+                else
+                {
+                    float slotW = 1f / count;
+                    float slotPad = slotW * 0.08f;
+                    piece.anchorMin = new Vector2(i * slotW + slotPad, 0.18f);
+                    piece.anchorMax = new Vector2((i + 1) * slotW - slotPad, 0.82f);
+                }
+                piece.offsetMin = Vector2.zero;
+                piece.offsetMax = Vector2.zero;
+                SlideIn(piece, fromPos);
+            }
         }
 
         /// <summary>
@@ -1124,8 +1157,12 @@ namespace Yoegoe.Minigames.Yut
             return _summonSlotChip.GetComponent<RectTransform>().position;
         }
 
-        /// <summary>소환 연출용 — 고라니(넋) 아이콘. 아직 스폰 전이어도 CharacterData 기준으로 찾는다.</summary>
-        public Sprite GetGoraniSprite() => PieceSpriteFor("Gorani");
+        /// <summary>소환 연출용 — 넋(도깨비불) 아이콘.</summary>
+        public Sprite GetNeokSprite() => CharacterSpawner.NeokFlameSprite();
+
+        /// <summary>소환 연출용 — 고라니(넋) 아이콘. 아직 스폰 전이어도 CharacterData 기준으로 찾는다.
+        /// 넋 단계는 혼 초상이 아니라 불꽃 에셋을 쓴다.</summary>
+        public Sprite GetGoraniSprite() => GetNeokSprite() ?? PieceSpriteFor("Gorani");
 
         /// <summary>로스터 줄에서 index/count번째 칸 위치로 앵커한다 — 요괴 칩과 소환 슬롯 칩이
         /// 같은 규칙으로 나란히 놓이게 공용으로 쓴다.</summary>

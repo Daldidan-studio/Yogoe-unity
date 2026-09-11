@@ -87,6 +87,8 @@ namespace Yoegoe.Characters
                 yield return new WaitForSecondsRealtime(0.55f);
             }
 
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             var meshRenderer = GetComponent<MeshRenderer>();
             Vector3 neokScale = transform.localScale;
             const float fadeOut = 0.45f;
@@ -97,6 +99,7 @@ namespace Yoegoe.Characters
                 float u = Mathf.Clamp01(t / fadeOut);
                 float e = u * u;
                 transform.localScale = Vector3.Lerp(neokScale, Vector3.zero, e);
+                SetSpriteAlpha(spriteRenderer, 1f - u);
                 SetMeshAlpha(meshRenderer, 1f - u);
                 yield return null;
             }
@@ -164,6 +167,14 @@ namespace Yoegoe.Characters
             evolvingToHon = false;
             CeremonyGate.End();
             Yoegoe.Save.GameSaveBridge.SaveFromWorld();
+        }
+
+        private static void SetSpriteAlpha(SpriteRenderer sr, float alpha)
+        {
+            if (sr == null) return;
+            var c = sr.color;
+            c.a = alpha;
+            sr.color = c;
         }
 
         private static void SetMeshAlpha(MeshRenderer meshRenderer, float alpha)

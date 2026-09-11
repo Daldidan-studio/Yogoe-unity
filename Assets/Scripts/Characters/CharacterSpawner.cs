@@ -6,6 +6,17 @@ namespace Yoegoe.Characters
     /// <summary>캐릭터 GameObject + CharacterAgent 생성 (Main·소환·세이브 복원 공용).</summary>
     public static class CharacterSpawner
     {
+        const string NeokFlameResourcePath = "UI/NeokFlame";
+        static Sprite _neokFlameSprite;
+
+        /// <summary>넋(도깨비불) 스프라이트. Resources/UI/NeokFlame.</summary>
+        public static Sprite NeokFlameSprite()
+        {
+            if (_neokFlameSprite == null)
+                _neokFlameSprite = Resources.Load<Sprite>(NeokFlameResourcePath);
+            return _neokFlameSprite;
+        }
+
         public static CharacterAgent Spawn(
             CharacterData data,
             Vector3 pos,
@@ -17,41 +28,54 @@ namespace Yoegoe.Characters
 
             string name = string.IsNullOrEmpty(data.displayName) ? data.id.ToString() : data.displayName;
             bool hasArt = FirstSprite(data) != null;
-            bool usePlaceholder = forceNeokPlaceholder || !hasArt;
+            bool useNeokFlame = forceNeokPlaceholder || !hasArt;
             var scale = ArtScaleSettings.GetOrDefault();
 
-            GameObject go;
-            CharacterAgent agent;
+            GameObject go = new GameObject("Char_" + name);
+            go.transform.position = pos;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingOrder = scale.SortOrderForCharacter(pos.y);
+            go.transform.localScale = Vector3.one * scale.characterScale;
 
-            if (!usePlaceholder)
+            if (useNeokFlame)
             {
-                go = new GameObject("Char_" + name);
-                go.transform.position = pos;
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = FirstSprite(data);
-                sr.sortingOrder = scale.SortOrderForCharacter(pos.y);
-                go.transform.localScale = Vector3.one * scale.characterScale;
-                agent = go.AddComponent<CharacterAgent>();
+                // 넋: 혼 아트가 있어도 소환 직후엔 작은 불꽃
+                var flame = NeokFlameSprite();
+                if (flame != null)
+                {
+                    sr.sprite = flame;
+                    sr.color = Color.white;
+                }
+                else
+                {
+                    // 에셋 로드 실패 시에만 예전 구체 폴백
+                    Object.DestroyImmediate(sr);
+                    Object.DestroyImmediate(go);
+                    go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    go.name = "Char_" + name;
+                    go.transform.position = pos;
+                    go.transform.localScale = Vector3.one * 0.35f;
+                    var col = go.GetComponent<Collider>();
+                    if (col != null) Object.Destroy(col);
+                    ApplyUrpColor(go.GetComponent<Renderer>(), fallbackColor);
+                }
             }
             else
             {
-                // 넋: 혼 아트가 있어도 소환 직후엔 도깨비불 플레이스홀더
-                go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                go.name = "Char_" + name;
-                go.transform.position = pos;
-                go.transform.localScale = Vector3.one * 0.35f;
-                var col = go.GetComponent<Collider>();
-                if (col != null) Object.Destroy(col);
-                ApplyUrpColor(go.GetComponent<Renderer>(), fallbackColor);
-                agent = go.AddComponent<CharacterAgent>();
+                sr.sprite = FirstSprite(data);
+                sr.color = Color.white;
             }
 
+            var agent = go.AddComponent<CharacterAgent>();
             agent.Data = data;
             agent.bubbleFont = bubbleFont;
+            var boundSr = go.GetComponent<SpriteRenderer>();
+            if (boundSr != null)
+                agent.BindSpriteRenderer(boundSr);
             return agent;
         }
 
-        /// <summary>넋 구체 → 혼 스프라이트 렌더러로 교체.</summary>
+        /// <summary>넋 불꽃 → 혼 스프라이트 렌더러로 교체.</summary>
         public static void EnsureHonVisual(CharacterAgent agent)
         {
             if (agent == null || agent.Data == null) return;
@@ -84,6 +108,7 @@ namespace Yoegoe.Characters
             if (sr == null) return;
 
             sr.sprite = sprite;
+            sr.color = Color.white;
             sr.sortingOrder = scale.SortOrderForCharacter(go.transform.position.y);
             go.transform.localScale = Vector3.one * scale.characterScale;
 

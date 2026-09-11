@@ -288,7 +288,7 @@ namespace Yoegoe.UI
             if (stage == GrowthStage.Neok)
             {
                 portraitImage.sprite = GetNeokPlaceholderSprite();
-                portraitImage.color = C.neokPortrait;
+                portraitImage.color = Color.white;
             }
             else
             {
@@ -765,6 +765,10 @@ namespace Yoegoe.UI
         private Sprite GetNeokPlaceholderSprite()
         {
             if (neokPlaceholderSprite != null) return neokPlaceholderSprite;
+            neokPlaceholderSprite = CharacterSpawner.NeokFlameSprite();
+            if (neokPlaceholderSprite != null) return neokPlaceholderSprite;
+
+            // 에셋 없을 때만 예전 원형 폴백
             const int size = 64;
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
             tex.filterMode = FilterMode.Bilinear;
