@@ -208,7 +208,7 @@ namespace Yoegoe.UI
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
             miniGame.SetThrowVisible(true);
-            miniGame.ShowLogLine("Imugi", "이무기 : 좋다, 한번 놀아보자꾸나.");
+            // 말풍선 규칙 1번: 던지기 전에는 어떤 요괴도(이무기 포함) 말하지 않는다.
             miniGame.RefreshHearts(GameEconomy.Instance.YutToken);
             HandlePiecesChanged();
             HandleTurnTrackerChanged();
@@ -370,11 +370,17 @@ namespace Yoegoe.UI
                     agent.AddIntimacy(0.25f);
         }
 
-        /// <summary>이무기한테 내 말이 잡혔을 때 게임로그 대사. 잡힌 말 자기 이름으로 반응한다.</summary>
+        /// <summary>이무기한테 내 말이 잡혔을 때 — 말풍선 규칙: 반드시 먼저 "으악"이라고 말한
+        /// 뒤에 출발점으로 돌아간다. 이 시점엔 모델 위치(NodeId)는 이미 -1이지만 화면상 말은
+        /// 아직 잡힌 자리에 있다(OnPiecesChanged가 이 다음에 따로 발행되어야 실제로 이동한다) —
+        /// 그래서 여기서 말풍선을 먼저 띄우면 자연히 "말하고 나서 이동"이 된다.</summary>
         void HandlePlayerPiecesCaptured(IReadOnlyList<YutPiece> captured)
         {
             foreach (var p in captured)
-                miniGame.ShowLogLine(p.Id, $"{p.DisplayName} : 으악, 잡혀버렸어요!! 이무기 님 한번 더...!");
+            {
+                miniGame.ShowPieceBubble(p.Id, "으악!! 잡혀버렸어요!");
+                miniGame.AddPlayLogEntry($"{p.DisplayName} 잡힘.");
+            }
         }
 
         /// <summary>같은 시점 — "광고 보고 되살리기" 팝업. 선택이 끝날 때까지 이무기 보너스 턴
@@ -413,7 +419,8 @@ namespace Yoegoe.UI
             if (match != null && pendingReviveSnapshots != null && match.ReviveCapturedPieces(pendingReviveSnapshots))
             {
                 string names = JoinPieceNames(pendingReviveSnapshots);
-                miniGame.ShowLogLine(pendingReviveSnapshots[0].PieceId, $"{names} 되살아났어요!");
+                miniGame.ShowPieceBubble(pendingReviveSnapshots[0].PieceId, "되살아났어요!");
+                miniGame.AddPlayLogEntry($"{names} 되살아남.");
                 GameSaveBridge.SaveFromWorld();
             }
             pendingReviveSnapshots = null;
@@ -426,9 +433,12 @@ namespace Yoegoe.UI
             awaitingReviveChoice = false;
         }
 
-        /// <summary>내가 이무기를 잡았을 때 게임로그 대사.</summary>
-        void HandleOpponentCaptured() =>
-            miniGame.ShowLogLine("Imugi", "이무기 : 크윽...! 방심했다, 한 번 더 던지거라!");
+        /// <summary>내가 이무기를 잡았을 때.</summary>
+        void HandleOpponentCaptured()
+        {
+            miniGame.ShowOpponentBubble("크윽...! 방심했다, 한 번 더 던지거라!");
+            miniGame.AddPlayLogEntry("이무기 잡음.");
+        }
 
         /// <summary>power(0~1)는 슬라이드 속도 기반 — 던지는 연출에만 쓰고 결과 확률엔 영향 없다.</summary>
         void HandleThrowPressed(float power)
@@ -438,12 +448,92 @@ namespace Yoegoe.UI
             StartCoroutine(PlayerThrowRoutine(outcome, power));
         }
 
+        /// <summary>말풍선 규칙 2번 — 옥토끼가 결과를 말한다. 윷/모는 "다시"만 알리고 칸수는
+        /// 말하지 않는다(어차피 보너스라 이번 결과로는 안 움직일 수도 있어서).</summary>
+        static string RabbitThrowLine(YutThrowResult result)
+        {
+            switch (result)
+            {
+                case YutThrowResult.Yut: return "윷이군. 다시.";
+                case YutThrowResult.Mo: return "모군. 다시.";
+                case YutThrowResult.Baekdo: return "빽도. 뒤로 돌아가요!";
+                default:
+                    int steps = result switch
+                    {
+                        YutThrowResult.Do => 1,
+                        YutThrowResult.Gae => 2,
+                        YutThrowResult.Geol => 3,
+                        _ => 0,
+                    };
+                    return $"{result.DisplayName()}. {steps}칸 이동할 수 있어요!";
+            }
+        }
+
+        /// <summary>말풍선 규칙 2번 — 각 요괴는 아래 조건 중 하나에 해당할 때만(우선순위 순으로
+        /// 하나만) 말한다. 일반 칸으로만 이동 가능하거나 아예 이동할 수 없으면 말하지 않는다.</summary>
+        string BubbleLineFor(YutMatch.YutMoveCandidate c)
+        {
+            switch (YutBoardLayout.GetSpecialKind(c.DestinationNode))
+            {
+                case YutBoardLayout.SpecialSquareKind.Treasure: return "보물상자로 갈 수 있어.";
+                case YutBoardLayout.SpecialSquareKind.Offering: return "공양물을 얻을 수 있어.";
+                case YutBoardLayout.SpecialSquareKind.Coin: return "엽전을 얻을 수 있어.";
+            }
+
+            if (match.OpponentPiece.OnBoard && match.OpponentPiece.NodeId == c.DestinationNode)
+                return "이무기 님을 잡을 수 있어.";
+
+            var ally = match.PlayerPieces.FirstOrDefault(
+                p => !p.Finished && p.Id != c.PieceId && p.OnBoard && p.NodeId == c.DestinationNode);
+            if (ally != null) return $"{ally.DisplayName}와 업을 수 있어.";
+
+            if (c.WillFinish) return "완주할 수 있어.";
+
+            return null;
+        }
+
+        void ShowMoveCandidateBubbles(IReadOnlyList<YutMatch.YutMoveCandidate> candidates)
+        {
+            foreach (var c in candidates)
+            {
+                string line = BubbleLineFor(c);
+                if (line != null) miniGame.ShowPieceBubble(c.PieceId, line);
+            }
+        }
+
+        /// <summary>말이 실제로 움직인 뒤 — 놀이기록(짧은 사건형 문장)에 한 줄 남긴다. 말풍선
+        /// 대사와는 분리된 별개 기록이라 여기 텍스트는 대화체가 아니라 사건 요약체로 쓴다.</summary>
+        void LogPlayerMoveOutcome(string pieceId, string moverName, YutThrowOutcome outcome, bool bonusTurn)
+        {
+            var movedPiece = match.PlayerPieces.FirstOrDefault(p => p.Id == pieceId);
+            if (movedPiece != null)
+            {
+                if (movedPiece.Finished)
+                {
+                    miniGame.AddPlayLogEntry($"{moverName} 완주.");
+                }
+                else
+                {
+                    miniGame.AddPlayLogEntry(
+                        $"{outcome.Result.DisplayName()}. {moverName} {PositionLabelFor(movedPiece)}(으)로 이동.");
+                    var partners = match.PlayerPieces
+                        .Where(p => !p.Finished && p.Id != pieceId && p.NodeId == movedPiece.NodeId)
+                        .Select(p => p.DisplayName)
+                        .ToList();
+                    if (partners.Count > 0)
+                        miniGame.AddPlayLogEntry($"{string.Join(", ", partners)}와 업음.");
+                }
+            }
+            if (bonusTurn)
+                miniGame.AddPlayLogEntry("다시 던짐.");
+        }
+
         IEnumerator PlayerThrowRoutine(YutThrowOutcome outcome, float power)
         {
             miniGame.SetThrowVisible(false);
             yield return miniGame.PlayThrowAnim(outcome.Result, power);
             if (match == null || match.IsEnded) yield break;
-            miniGame.ShowLogLine("Rabbit", $"옥토끼 : {outcome.Result.DisplayName()}.");
+            miniGame.ShowPieceBubble("Rabbit", RabbitThrowLine(outcome.Result));
 
             var candidates = match.GetPlayerCandidates(outcome.Result);
             if (candidates.Count == 0)
@@ -452,6 +542,8 @@ namespace Yoegoe.UI
                 yield return RunOpponentTurnRoutine();
                 yield break;
             }
+
+            ShowMoveCandidateBubbles(candidates);
 
             pendingOutcome = outcome;
             var uiCandidates = candidates
@@ -466,8 +558,10 @@ namespace Yoegoe.UI
             miniGame.ClearCandidates();
             var outcome = pendingOutcome.Value;
             pendingOutcome = null;
+            string moverName = NameFor(pieceId);
 
             bool bonusTurn = match.ApplyPlayerMove(pieceId, useShortcut, outcome);
+            LogPlayerMoveOutcome(pieceId, moverName, outcome, bonusTurn);
             if (match.IsEnded) return; // HandleMatchEnded가 이미 결과 처리
 
             if (awaitingSquareReward)
@@ -640,16 +734,19 @@ namespace Yoegoe.UI
                 case SquareRewardKind.Yeopjeon:
                     GameEconomy.Instance.AddYeopjeon(amount);
                     matchYeopjeonTotal += amount;
+                    miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
                     break;
 
                 case SquareRewardKind.Hyang:
                     GameEconomy.Instance.AddHyang(amount);
                     matchHyangTotal += amount;
+                    miniGame.AddPlayLogEntry($"향 {amount}개 획득.");
                     break;
 
                 case SquareRewardKind.AdTicket:
                     GiftBundle.AddAdTickets(amount);
                     matchAdTicketTotal += amount;
+                    miniGame.AddPlayLogEntry($"광고보상권 {amount}개 획득.");
                     break;
 
                 case SquareRewardKind.Offering:
@@ -658,12 +755,14 @@ namespace Yoegoe.UI
                         GameEconomy.Instance.AddOffering(reward.Offering, amount);
                         matchOfferingCounts.TryGetValue(reward.Offering, out int cur);
                         matchOfferingCounts[reward.Offering] = cur + amount;
+                        miniGame.AddPlayLogEntry($"{reward.Offering.displayName} {amount}개 획득.");
                     }
                     break;
 
                 case SquareRewardKind.YutToken:
                     GameEconomy.Instance.AddYutTokenOverflow(amount, YutTokenHardCap);
                     matchYutTokenTotal += amount;
+                    miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
                     break;
             }
 
@@ -807,10 +906,14 @@ namespace Yoegoe.UI
                 var outcome = match.ThrowForOpponent();
                 yield return miniGame.PlayOpponentMiniThrowAnim(outcome.Result);
                 if (match == null || match.IsEnded) yield break;
-                miniGame.ShowLogLine("Imugi", $"이무기 : {outcome.Result.DisplayName()}.");
+                miniGame.ShowOpponentBubble($"{outcome.Result.DisplayName()}!");
 
                 bonus = match.ApplyOpponentMove(outcome);
                 if (match.IsEnded) yield break;
+                if (match.OpponentPiece.OnBoard)
+                    miniGame.AddPlayLogEntry($"이무기, {PositionLabelFor(match.OpponentPiece)}(으)로 이동.");
+                if (bonus)
+                    miniGame.AddPlayLogEntry("다시 던짐.");
 
                 // 말이 잡혔으면 "광고 보고 되살리기" 팝업이 뜬다 — 선택이 끝날 때까지 다음 던지기를 멈춘다.
                 if (awaitingReviveChoice)
@@ -866,6 +969,7 @@ namespace Yoegoe.UI
             bool showExtraSlot = false;
             string extraLabel = null;
             Action extraAction = null;
+            Sprite extraIcon = null;
             if (!CharacterSummon.IsPresent(CharacterId.Gorani))
             {
                 showExtraSlot = true;
@@ -880,9 +984,11 @@ namespace Yoegoe.UI
                     showExtraSlot = true;
                     extraLabel = "진화 필요";
                     extraAction = OnEvolveSlotTapped;
+                    // "+"가 아니라 넋 아이콘을 계속 보여줘서 이미 소환된 상태임을 알린다.
+                    extraIcon = miniGame.GetNeokSprite();
                 }
             }
-            miniGame.ShowRoster(roster, showExtraSlot, extraLabel, extraAction);
+            miniGame.ShowRoster(roster, showExtraSlot, extraLabel, extraAction, extraIcon);
         }
 
         void OnSummonSlotTapped()
@@ -1295,11 +1401,15 @@ namespace Yoegoe.UI
         void OnNoticeOk()
         {
             noticeRoot.SetActive(false);
+            // 매치 종료 안내(승리)는 action(OnMatchEndedNoticeOk) 안에서 match를 null로 비운다 —
+            // action 실행 "후"에 match == null을 검사하면 그 케이스까지 "매치 시작 전 안내"로
+            // 오인해 화면을 닫아버린다(완주해도 윷판이 사라지던 버그). action 실행 전 상태로 판단한다.
+            bool matchWasNullBeforeAction = match == null;
             var action = pendingNoticeAction;
             pendingNoticeAction = null;
             action?.Invoke();
             // 매치 시작 전 안내(토큰 부족 등)였다면 화면 자체를 다시 닫는다.
-            if (match == null && root != null) root.SetActive(false);
+            if (matchWasNullBeforeAction && root != null) root.SetActive(false);
         }
 
         /// <summary>말 골인 때 "계속하기"/"그만하고 보상받기" 둘 중 하나를 고르게 하는 팝업.</summary>

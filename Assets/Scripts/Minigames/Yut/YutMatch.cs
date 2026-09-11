@@ -39,12 +39,17 @@ namespace Yoegoe.Minigames.Yut
             public readonly int DestinationNode;
             /// <summary>모/뒷모/방 갈림길에서 지름길 쪽 후보인지. 갈림길이 아니면 의미 없음(둘 다 false).</summary>
             public readonly bool UseShortcut;
+            /// <summary>이번 이동으로 실제 완주하는지 — DestinationNode만으로는 구분이 안 된다("참을
+            /// 지나서 완주"와 "참에 정확히 멈춰서 대기"가 둘 다 Start(0)로 표시되기 때문). 말풍선
+            /// 규칙("참을 지나 완주할 수 있을 때") 판정용.</summary>
+            public readonly bool WillFinish;
 
-            public YutMoveCandidate(string pieceId, int destinationNode, bool useShortcut)
+            public YutMoveCandidate(string pieceId, int destinationNode, bool useShortcut, bool willFinish)
             {
                 PieceId = pieceId;
                 DestinationNode = destinationNode;
                 UseShortcut = useShortcut;
+                WillFinish = willFinish;
             }
         }
 
@@ -149,11 +154,11 @@ namespace Yoegoe.Minigames.Yut
                 {
                     if (isBaekdo)
                     {
-                        list.Add(new YutMoveCandidate(p.Id, BaekdoEntryNode, false));
+                        list.Add(new YutMoveCandidate(p.Id, BaekdoEntryNode, false, false));
                         continue;
                     }
                     var path = YutMoveResolver.GetPath(YutBoardLayout.Start, result);
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, path), false));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, path), false, ResolvesToFinish(false, path)));
                     continue;
                 }
 
@@ -162,7 +167,7 @@ namespace Yoegoe.Minigames.Yut
                 if (isBaekdo)
                 {
                     int back = YutMoveResolver.PeekBackwardDestination(p.NodeId, p.History);
-                    list.Add(new YutMoveCandidate(p.Id, back, false));
+                    list.Add(new YutMoveCandidate(p.Id, back, false, false));
                     continue;
                 }
 
@@ -173,13 +178,13 @@ namespace Yoegoe.Minigames.Yut
                     // (alreadyAtStart=false: 모/뒷모/방은 참이 아니므로. true를 넘기면
                     // ResolvesToFinish가 무조건 완주로 취급해 후보가 항상 참으로 잘못 계산됐었다.)
                     var shortcutPath = YutMoveResolver.GetPath(p.NodeId, result, takeShortcut: true);
-                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, shortcutPath), true));
+                    list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(false, shortcutPath), true, ResolvesToFinish(false, shortcutPath)));
                     continue;
                 }
 
                 var boardPath = YutMoveResolver.GetPath(p.NodeId, result);
                 bool atStart = p.NodeId == YutBoardLayout.Start;
-                list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(atStart, boardPath), false));
+                list.Add(new YutMoveCandidate(p.Id, ResolveDisplayDestination(atStart, boardPath), false, ResolvesToFinish(atStart, boardPath)));
             }
 
             return list;
