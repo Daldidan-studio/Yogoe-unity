@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Yoegoe.Minigames.Yut
@@ -14,6 +15,11 @@ namespace Yoegoe.Minigames.Yut
         public const int DwitMo = 10; // 뒷모 - 대각선 B 진입
         public const int JjiMo = 15;  // 찌모 - 모서리
         public const int Bang = 22;   // 방 - 중앙 교차점
+
+        /// <summary>특수 칸(밟으면 공양물·정화수·엽전 확정 수급) — 바깥 둘레 네 변에 하나씩,
+        /// 이름 있는 칸(참·모·뒷모·찌모)이나 지름길 칸과는 겹치지 않게 뒀다.</summary>
+        static readonly HashSet<int> SpecialRewardNodeSet = new() { 3, 8, 13, 18 };
+        public static bool IsSpecialReward(int nodeId) => SpecialRewardNodeSet.Contains(nodeId);
 
         static readonly Vector2[] Points = BuildPoints();
 

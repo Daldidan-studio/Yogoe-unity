@@ -1085,9 +1085,11 @@ namespace Yoegoe.Minigames.Yut
                 var padRt = padGo.GetComponent<RectTransform>();
                 SetAnchor(padRt, pos.x - half, pos.y - half, pos.x + half, pos.y + half, 0, 0, 0, 0);
                 var padImg = padGo.GetComponent<Image>();
-                padImg.color = IsWaypoint(i)
-                    ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
-                    : new Color(0.35f, 0.32f, 0.28f, 0.9f);
+                padImg.color = YutBoardLayout.IsSpecialReward(i)
+                    ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 공양물·정화수·엽전 확정 수급
+                    : IsWaypoint(i)
+                        ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
+                        : new Color(0.35f, 0.32f, 0.28f, 0.9f);
                 _pads[i] = padImg;
             }
         }

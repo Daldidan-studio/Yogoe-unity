@@ -59,6 +59,9 @@ namespace Yoegoe.Minigames.Yut
         /// "여기서 그만 받을지, 남은 말로 계속할지" 물어보는 용도.
         /// </summary>
         public event Action<IReadOnlyList<string>> OnPlayerPieceFinished;
+        /// <summary>내 말(스택이면 전원)이 특수 칸(YutBoardLayout.IsSpecialReward)에 실제로 도착했을
+        /// 때 — 공양물·정화수·엽전 확정 수급은 재화를 아는 호출부(YutScreen)가 처리한다.</summary>
+        public event Action<IReadOnlyList<string>> OnSpecialSquareReached;
 
         public YutMatch(IEnumerable<(string id, string displayName)> playerTeam)
         {
@@ -179,6 +182,7 @@ namespace Yoegoe.Minigames.Yut
                 }
 
                 OnPlayerPiecesMoved?.Invoke(movedIds);
+                if (YutBoardLayout.IsSpecialReward(dest)) OnSpecialSquareReached?.Invoke(movedIds);
                 OnPiecesChanged?.Invoke();
                 return outcome.GrantsBonusThrow || capturedByEntry;
             }
@@ -223,6 +227,7 @@ namespace Yoegoe.Minigames.Yut
             }
 
             OnPlayerPiecesMoved?.Invoke(movedIds);
+            if (YutBoardLayout.IsSpecialReward(dest2)) OnSpecialSquareReached?.Invoke(movedIds);
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured;
         }

@@ -39,6 +39,15 @@ namespace Yoegoe.UI
         [SerializeField] Text choiceText;
         [SerializeField] Button choiceContinueButton;
         [SerializeField] Button choiceStopButton;
+        [SerializeField] GameObject rewardRoot;
+        [SerializeField] Text rewardText;
+        [SerializeField] Button rewardPlainButton;
+        [SerializeField] Button rewardAdButton;
+
+        /// <summary>특수 칸(도개걸윷모 밟았을 때 정화수·공양물·엽전 확정 수급) 보상 배율.</summary>
+        const int SquareRewardBase = 1;
+        const int SquareRewardAdMultiplier = 2;
+        const float SquareRewardAdWatchSeconds = 0.8f; // BatchCollectPopup과 동일한 "광고 시청" 연출용 지연
 
         public bool HasPrefabShell => root != null && miniGame != null;
 
@@ -50,9 +59,16 @@ namespace Yoegoe.UI
         bool awaitingFinishChoice;
         bool pendingBonusAfterContinue;
 
+        /// <summary>특수 칸 보상 팝업("그냥 받기"/"광고 보고 2배")이 떠 있는 동안 다음 턴 진행을 멈춘다.</summary>
+        bool awaitingSquareReward;
+        bool pendingBonusAfterSquareReward;
+        OfferingData pendingSquareOffering;
+
         Action pendingNoticeAction;
         Action pendingChoiceContinue;
         Action pendingChoiceStop;
+        Action pendingRewardPlain;
+        Action pendingRewardAd;
 
         void Awake() => Instance = this;
 
@@ -124,8 +140,10 @@ namespace Yoegoe.UI
             match.OnPlayerPiecesCaptured += HandlePlayerPiecesCaptured;
             match.OnOpponentCaptured += HandleOpponentCaptured;
             match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
+            match.OnSpecialSquareReached += HandleSpecialSquareReached;
 
             awaitingFinishChoice = false;
+            awaitingSquareReward = false;
             root.SetActive(true);
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
@@ -146,6 +164,7 @@ namespace Yoegoe.UI
                 match.OnPlayerPiecesCaptured -= HandlePlayerPiecesCaptured;
                 match.OnOpponentCaptured -= HandleOpponentCaptured;
                 match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
+                match.OnSpecialSquareReached -= HandleSpecialSquareReached;
                 match = null;
             }
             pendingOutcome = null;
@@ -213,6 +232,13 @@ namespace Yoegoe.UI
             bool bonusTurn = match.ApplyPlayerMove(pieceId, useShortcut, outcome);
             if (match.IsEnded) return; // HandleMatchEnded가 이미 결과 처리
 
+            if (awaitingSquareReward)
+            {
+                // 특수 칸 보상 팝업("그냥 받기"/"광고 보고 2배")이 이미 떴다 — 그 선택이 끝나야 다음이 진행된다.
+                pendingBonusAfterSquareReward = bonusTurn;
+                return;
+            }
+
             if (awaitingFinishChoice)
             {
                 // 골인 다이얼로그("계속하기"/"그만하기")가 이미 떴다 — 그 선택이 끝나야 다음이 진행된다.
@@ -221,6 +247,64 @@ namespace Yoegoe.UI
             }
 
             if (bonusTurn)
+                miniGame.SetThrowVisible(true);
+            else
+                StartCoroutine(RunOpponentTurnRoutine());
+        }
+
+        /// <summary>
+        /// 말이 특수 칸(YutBoardLayout.IsSpecialReward)에 도착했을 때 — 공양물 하나를 무작위로
+        /// 골라 정화수·엽전과 함께 "그냥 받기(1개씩 확정)"/"광고 보고 2배" 팝업을 띄운다. 완주와
+        /// 달리 매치를 막지 않고, 선택 즉시 재화를 지급한다(칸에서 얻은 건 패배해도 유지).
+        /// </summary>
+        void HandleSpecialSquareReached(IReadOnlyList<string> pieceIds)
+        {
+            var settings = StartingStateSettings.Get();
+            var pool = settings.startingOfferings?
+                .Where(o => o != null && o.kind != OfferingKind.PurifiedWater)
+                .ToList();
+            pendingSquareOffering = pool != null && pool.Count > 0
+                ? pool[UnityEngine.Random.Range(0, pool.Count)]
+                : null;
+
+            awaitingSquareReward = true;
+            miniGame.SetThrowVisible(false);
+            string offeringName = pendingSquareOffering != null ? pendingSquareOffering.displayName : "공양물";
+            ShowRewardChoice($"특수 칸 발견!\n{offeringName} · 정화수 · 엽전을 얻을 수 있어요.",
+                onPlain: HandleSquareRewardPlain,
+                onAd: HandleSquareRewardAd);
+        }
+
+        void HandleSquareRewardPlain()
+        {
+            GrantSquareReward(SquareRewardBase);
+            ResumeAfterSquareReward();
+        }
+
+        void HandleSquareRewardAd() => StartCoroutine(SquareRewardAdRoutine());
+
+        IEnumerator SquareRewardAdRoutine()
+        {
+            // BatchCollectPopup과 같은 패턴 — 실제 광고 SDK가 붙기 전까지 짧은 지연으로 "시청 중"을 흉내낸다.
+            yield return new WaitForSecondsRealtime(SquareRewardAdWatchSeconds);
+            GrantSquareReward(SquareRewardAdMultiplier);
+            ResumeAfterSquareReward();
+        }
+
+        void GrantSquareReward(int multiplier)
+        {
+            GameEconomy.Instance.AddPurifiedWater(SquareRewardBase * multiplier);
+            GameEconomy.Instance.AddYeopjeon(SquareRewardBase * multiplier);
+            if (pendingSquareOffering != null)
+                GameEconomy.Instance.AddOffering(pendingSquareOffering, SquareRewardBase * multiplier);
+            pendingSquareOffering = null;
+            GameSaveBridge.SaveFromWorld();
+        }
+
+        void ResumeAfterSquareReward()
+        {
+            awaitingSquareReward = false;
+            if (pendingBonusAfterSquareReward)
                 miniGame.SetThrowVisible(true);
             else
                 StartCoroutine(RunOpponentTurnRoutine());
@@ -387,6 +471,7 @@ namespace Yoegoe.UI
 
             BuildNoticePanel(rootRt);
             BuildChoicePanel(rootRt);
+            BuildRewardPanel(rootRt);
 
             root.SetActive(false);
         }
@@ -421,6 +506,18 @@ namespace Yoegoe.UI
             {
                 choiceStopButton.onClick.RemoveAllListeners();
                 choiceStopButton.onClick.AddListener(OnChoiceStopClicked);
+            }
+
+            if (rewardPlainButton != null)
+            {
+                rewardPlainButton.onClick.RemoveAllListeners();
+                rewardPlainButton.onClick.AddListener(OnRewardPlainClicked);
+            }
+
+            if (rewardAdButton != null)
+            {
+                rewardAdButton.onClick.RemoveAllListeners();
+                rewardAdButton.onClick.AddListener(OnRewardAdClicked);
             }
         }
 
@@ -585,6 +682,71 @@ namespace Yoegoe.UI
             var action = pendingChoiceStop;
             pendingChoiceContinue = null;
             pendingChoiceStop = null;
+            action?.Invoke();
+        }
+
+        /// <summary>특수 칸 보상 "그냥 받기"/"광고 보고 2배" 팝업. BuildChoicePanel과 구조는 같고
+        /// 버튼 라벨·핸들러만 다르다.</summary>
+        void BuildRewardPanel(Transform parent)
+        {
+            rewardRoot = new GameObject("SquareReward", typeof(RectTransform));
+            var rt = (RectTransform)rewardRoot.transform;
+            rt.SetParent(parent, false);
+            Stretch(rt);
+            var dim = rewardRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.6f);
+
+            var box = new GameObject("Box", typeof(RectTransform));
+            var boxRt = (RectTransform)box.transform;
+            boxRt.SetParent(rt, false);
+            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
+            boxRt.sizeDelta = new Vector2(660, 380);
+            var boxImg = box.AddComponent<Image>();
+            boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
+
+            var textGO = new GameObject("Text", typeof(RectTransform));
+            var textRt = (RectTransform)textGO.transform;
+            textRt.SetParent(boxRt, false);
+            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
+            textRt.anchoredPosition = new Vector2(0, 70);
+            textRt.sizeDelta = new Vector2(580, 200);
+            rewardText = textGO.AddComponent<Text>();
+            rewardText.font = font;
+            rewardText.fontSize = UiFonts.Size(28);
+            rewardText.alignment = TextAnchor.MiddleCenter;
+            rewardText.color = new Color(1f, 0.95f, 0.85f);
+            rewardText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            BuildChoiceButton(boxRt, new Vector2(-165, -130), "그냥 받기", out rewardPlainButton);
+            BuildChoiceButton(boxRt, new Vector2(165, -130), "광고 보고\n2배로 받기", out rewardAdButton);
+
+            rewardRoot.SetActive(false);
+        }
+
+        void ShowRewardChoice(string message, Action onPlain, Action onAd)
+        {
+            rewardText.text = message;
+            pendingRewardPlain = onPlain;
+            pendingRewardAd = onAd;
+            if (!root.activeSelf) root.SetActive(true);
+            rewardRoot.SetActive(true);
+        }
+
+        void OnRewardPlainClicked()
+        {
+            rewardRoot.SetActive(false);
+            var action = pendingRewardPlain;
+            pendingRewardPlain = null;
+            pendingRewardAd = null;
+            action?.Invoke();
+        }
+
+        void OnRewardAdClicked()
+        {
+            rewardRoot.SetActive(false);
+            var action = pendingRewardAd;
+            pendingRewardPlain = null;
+            pendingRewardAd = null;
             action?.Invoke();
         }
 
