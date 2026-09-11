@@ -38,6 +38,8 @@ namespace Yoegoe.UI
         [SerializeField] Text purifiedWaterText;
         [SerializeField] Text yutTokenText;
         [SerializeField] Button yutTokenPlusButton;
+        [SerializeField] Button tempResetButton;
+        [SerializeField] Button tempClearCacheButton;
         [SerializeField] Button shopButton;
         [SerializeField] Button yutButton;
         [SerializeField] Transform slotBarRoot;
@@ -729,7 +731,37 @@ namespace Yoegoe.UI
                 });
             }
 
+            WireTempDebugButtons();
             WireUpgradeHoldTriggers();
+        }
+
+        /// <summary>
+        /// "초기화"/"캐시 날리기" 버튼은 Button.onClick.AddListener를 코드로만 붙이는데, 이건
+        /// UnityEvent의 "런타임 전용" 리스너라 프리팹으로 구우면 리스너가 통째로 날아간다
+        /// (Bake 당시 BuildTempDebugButtons가 실행되며 붙인 리스너는 저장되지 않음).
+        /// HasPrefabShell이라 BuildCanvas 자체를 건너뛰는 예전 Bake본에서도 버튼은 남아있으니,
+        /// 이름으로 찾아 매번 다시 연결해서 "버튼이 안 먹히는" 문제를 없앤다.
+        /// </summary>
+        void WireTempDebugButtons()
+        {
+            if (hudCanvas == null) return;
+
+            if (tempResetButton == null)
+                tempResetButton = hudCanvas.transform.Find("TempResetButton")?.GetComponent<Button>();
+            if (tempClearCacheButton == null)
+                tempClearCacheButton = hudCanvas.transform.Find("TempClearCacheButton")?.GetComponent<Button>();
+
+            if (tempResetButton != null)
+            {
+                tempResetButton.onClick.RemoveAllListeners();
+                tempResetButton.onClick.AddListener(OnTempResetClicked);
+            }
+
+            if (tempClearCacheButton != null)
+            {
+                tempClearCacheButton.onClick.RemoveAllListeners();
+                tempClearCacheButton.onClick.AddListener(OnClearCacheClicked);
+            }
         }
 
         void WireUpgradeHoldTriggers()
