@@ -55,6 +55,14 @@ namespace Yoegoe.Minigames.Yut
         public YutPiece OpponentPiece => opponentPiece;
         public bool IsEnded { get; private set; }
 
+        /// <summary>月下修練(달빛 수련) 헤더용 — 내 차례가 몇 번째인지(1부터), 이번 턴에 보너스로
+        /// 이어 던진 결과 순서. 이무기 턴으로 넘어갔다가 다시 내 차례가 되면 StartNewPlayerTurn이
+        /// 순서를 비우고 번호를 올린다.</summary>
+        public int PlayerTurnNumber { get; private set; } = 1;
+        readonly List<YutThrowResult> currentTurnResults = new List<YutThrowResult>();
+        public IReadOnlyList<YutThrowResult> CurrentTurnResults => currentTurnResults;
+        public event Action OnTurnTrackerChanged;
+
         /// <summary>말 이동·잡기·완주가 있을 때마다 (화면 갱신 신호 — 페이로드 없이 최신 상태를 다시 읽으면 됨).</summary>
         public event Action OnPiecesChanged;
         /// <summary>매치 종료. true면 플레이어 승리.</summary>
@@ -89,7 +97,22 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>대기 말이 빽도로 들어올 때 서는 자리 — 참 바로 뒤(19번).</summary>
         const int BaekdoEntryNode = 19;
 
-        public YutThrowOutcome ThrowForPlayer() => YutThrowRoller.Roll();
+        public YutThrowOutcome ThrowForPlayer()
+        {
+            var outcome = YutThrowRoller.Roll();
+            currentTurnResults.Add(outcome.Result);
+            OnTurnTrackerChanged?.Invoke();
+            return outcome;
+        }
+
+        /// <summary>이무기 턴이 끝나고 내 차례가 다시 시작될 때 호출 — 차례 번호를 올리고 이번
+        /// 턴에 나온 순서를 비운다(月下修練 헤더용).</summary>
+        public void StartNewPlayerTurn()
+        {
+            PlayerTurnNumber++;
+            currentTurnResults.Clear();
+            OnTurnTrackerChanged?.Invoke();
+        }
 
         /// <summary>
         /// 던진 결과로 지금 움직일 수 있는 내 말(또는 스택 대표) 후보 목록. 말이 모/뒷모/방 갈림길에

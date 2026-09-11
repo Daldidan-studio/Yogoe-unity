@@ -72,6 +72,10 @@ namespace Yoegoe.Minigames.Yut
         Text _rosterCaption;
         readonly List<RosterChip> _rosterChips = new();
 
+        RectTransform _turnTrackerPanel;
+        Text _turnTrackerNumberText;
+        Text _turnTrackerOrderText;
+
         readonly struct RosterChip
         {
             public readonly RectTransform Root;
@@ -878,6 +882,97 @@ namespace Yoegoe.Minigames.Yut
             EnsureRulesOverlay();
             EnsureLogBar();
             EnsureRosterPanel();
+            EnsureTurnTracker();
+        }
+
+        /// <summary>
+        /// 月下修練(달빛 수련) 헤더 — LogBar 바로 위(y 0.68~0.75)에 내 차례 번호와, 이번 턴에
+        /// 보너스(윷/모)로 이어 던진 결과 순서를 보여준다. 턴이 끝나면(이무기 턴으로 넘어가면)
+        /// 다음 내 차례 시작할 때 YutMatch가 순서를 비우고 번호를 올린다.
+        /// </summary>
+        void EnsureTurnTracker()
+        {
+            if (_turnTrackerPanel != null) return;
+
+            var existing = transform.Find("TurnTracker") as RectTransform;
+            if (existing != null)
+            {
+                _turnTrackerPanel = existing;
+            }
+            else
+            {
+                var go = new GameObject("TurnTracker", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(transform, false);
+                _turnTrackerPanel = go.GetComponent<RectTransform>();
+                go.GetComponent<Image>().color = new Color(0.1f, 0.09f, 0.06f, 0.9f);
+            }
+            SetAnchor(_turnTrackerPanel, 0.06f, 0.68f, 0.94f, 0.75f, 0, 0, 0, 0);
+
+            var titleT = _turnTrackerPanel.Find("Title") as RectTransform;
+            if (titleT == null)
+            {
+                var title = CreateText(_turnTrackerPanel, "Title", "月下修練 · 달빛 수련", 17, TextAnchor.MiddleLeft);
+                title.rectTransform.anchorMin = new Vector2(0f, 0.55f);
+                title.rectTransform.anchorMax = new Vector2(0.62f, 1f);
+                title.rectTransform.offsetMin = new Vector2(14f, 0f);
+                title.rectTransform.offsetMax = Vector2.zero;
+                title.raycastTarget = false;
+            }
+
+            var turnT = _turnTrackerPanel.Find("TurnNumber") as RectTransform;
+            _turnTrackerNumberText = turnT != null ? turnT.GetComponent<Text>() : null;
+            if (_turnTrackerNumberText == null)
+            {
+                _turnTrackerNumberText = CreateText(_turnTrackerPanel, "TurnNumber", "", 16, TextAnchor.MiddleRight);
+                _turnTrackerNumberText.rectTransform.anchorMin = new Vector2(0.62f, 0.55f);
+                _turnTrackerNumberText.rectTransform.anchorMax = new Vector2(1f, 1f);
+                _turnTrackerNumberText.rectTransform.offsetMin = Vector2.zero;
+                _turnTrackerNumberText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+                _turnTrackerNumberText.color = new Color(1f, 0.9f, 0.7f);
+                _turnTrackerNumberText.raycastTarget = false;
+            }
+
+            var orderT = _turnTrackerPanel.Find("Order") as RectTransform;
+            _turnTrackerOrderText = orderT != null ? orderT.GetComponent<Text>() : null;
+            if (_turnTrackerOrderText == null)
+            {
+                _turnTrackerOrderText = CreateText(_turnTrackerPanel, "Order", "", 15, TextAnchor.MiddleLeft);
+                _turnTrackerOrderText.rectTransform.anchorMin = new Vector2(0f, 0f);
+                _turnTrackerOrderText.rectTransform.anchorMax = new Vector2(1f, 0.55f);
+                _turnTrackerOrderText.rectTransform.offsetMin = new Vector2(14f, 0f);
+                _turnTrackerOrderText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+                _turnTrackerOrderText.color = new Color(0.85f, 0.9f, 0.95f);
+                _turnTrackerOrderText.raycastTarget = false;
+            }
+        }
+
+        /// <summary>내 차례 번호와 이번 턴에 나온 결과 순서를 갱신한다. results는 YutMatch가 들고
+        /// 있는 리스트를 그대로 받아 인덱서로만 순회한다(새 struct에 LINQ 쓰면 IL2CPP WebGL에서
+        /// "null function"이 나던 문제 때문에 — 여기선 enum이라 더 안전하지만 관례상 통일).</summary>
+        public void ShowTurnTracker(int turnNumber, IReadOnlyList<YutThrowResult> results)
+        {
+            EnsureBoard();
+            if (_turnTrackerNumberText != null)
+                _turnTrackerNumberText.text = $"나의 {turnNumber}번째 차례";
+
+            if (_turnTrackerOrderText != null)
+            {
+                if (results == null || results.Count == 0)
+                {
+                    _turnTrackerOrderText.text = "나온 순서 — · 윷·모는 한 번 더";
+                }
+                else
+                {
+                    var sb = new System.Text.StringBuilder("나온 순서 — ");
+                    for (int i = 0; i < results.Count; i++)
+                    {
+                        if (i > 0) sb.Append(" → ");
+                        sb.Append(results[i].DisplayName());
+                    }
+                    sb.Append(" · 윷·모는 한 번 더");
+                    _turnTrackerOrderText.text = sb.ToString();
+                }
+            }
         }
 
         /// <summary>
@@ -1166,6 +1261,8 @@ namespace Yoegoe.Minigames.Yut
             if (existing != null)
             {
                 _logBar = existing.gameObject;
+                // 예전 Bake본은 TurnTracker가 생기기 전 자리(0.68~0.9)로 저장돼 있을 수 있어 재조정.
+                SetAnchor((RectTransform)existing, 0.06f, 0.75f, 0.94f, 0.9f, 0, 0, 0, 0);
                 _logBarLeftPortrait = existing.Find("LeftHeader/Icon")?.GetComponent<Image>();
                 _logBarRightPortrait = existing.Find("RightHeader/Icon")?.GetComponent<Image>();
                 _miniThrowContainer = existing.Find("MiniThrow")?.gameObject;
@@ -1181,7 +1278,8 @@ namespace Yoegoe.Minigames.Yut
 
             _logBar = new GameObject("LogBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _logBar.transform.SetParent(transform, false);
-            SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.68f, 0.94f, 0.9f, 0, 0, 0, 0);
+            // 위쪽 살짝(0.68~0.75)은 TurnTracker(달빛 수련 — 차례/이번 턴 나온 순서) 자리로 내준다.
+            SetAnchor((RectTransform)_logBar.transform, 0.06f, 0.75f, 0.94f, 0.9f, 0, 0, 0, 0);
             _logBar.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.16f, 0.92f);
 
             _logBarLeftPortrait = BuildLogHeaderPortrait(_logBar.transform, "Imugi", "이무기", left: true, out _);

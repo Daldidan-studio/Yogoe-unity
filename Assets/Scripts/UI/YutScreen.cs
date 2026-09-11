@@ -165,6 +165,7 @@ namespace Yoegoe.UI
             miniGame.ShowLogLine("Imugi", "이무기 : 좋다, 한번 놀아보자꾸나.");
             miniGame.RefreshHearts(GameEconomy.Instance.YutToken);
             HandlePiecesChanged();
+            HandleTurnTrackerChanged();
             GameSaveBridge.SaveFromWorld();
         }
 
@@ -178,6 +179,13 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(true);
             miniGame.RefreshHearts(GameEconomy.Instance != null ? GameEconomy.Instance.YutToken : 0);
             HandlePiecesChanged();
+            HandleTurnTrackerChanged();
+        }
+
+        void HandleTurnTrackerChanged()
+        {
+            if (match == null) return;
+            miniGame.ShowTurnTracker(match.PlayerTurnNumber, match.CurrentTurnResults);
         }
 
         void SubscribeMatchEvents()
@@ -192,6 +200,7 @@ namespace Yoegoe.UI
             match.OnOpponentCaptured += HandleOpponentCaptured;
             match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
             match.OnSpecialSquareReached += HandleSpecialSquareReached;
+            match.OnTurnTrackerChanged += HandleTurnTrackerChanged;
         }
 
         void UnsubscribeMatchEvents()
@@ -205,6 +214,7 @@ namespace Yoegoe.UI
             match.OnOpponentCaptured -= HandleOpponentCaptured;
             match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
             match.OnSpecialSquareReached -= HandleSpecialSquareReached;
+            match.OnTurnTrackerChanged -= HandleTurnTrackerChanged;
         }
 
         /// <summary>
@@ -544,7 +554,10 @@ namespace Yoegoe.UI
             } while (bonus && guard < 20);
 
             if (match != null && !match.IsEnded)
+            {
+                match.StartNewPlayerTurn();
                 miniGame.SetThrowVisible(true);
+            }
         }
 
         void HandleLeavePressed() => Close();
