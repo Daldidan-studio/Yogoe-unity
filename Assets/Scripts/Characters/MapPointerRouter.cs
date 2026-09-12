@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Yoegoe.Core;
 using Yoegoe.Debugging;
+using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
@@ -99,6 +100,9 @@ namespace Yoegoe.Characters
             FlushPendingMonologueTapIfDue();
 
             if (CeremonyGate.BlocksWorldInput) return;
+            // 윷은 풀스크린 UI인데 보드 칸 Image가 raycast를 안 먹는 구멍이 있어,
+            // 휠/핀치가 IsBlockingUi를 통과해 본맵 카메라로 새는 경우가 있다.
+            if (YutScreen.Instance != null && YutScreen.Instance.IsOpen) return;
 
             // 핀치·휠은 단일 포인터 제스처보다 우선
             if (TryHandlePinchZoom()) return;
@@ -155,6 +159,15 @@ namespace Yoegoe.Characters
             if (dist < 8f) return true;
 
             Vector2 mid = (p0 + p1) * 0.5f;
+            if (IsBlockingUi(mid) || IsBlockingUi(p0) || IsBlockingUi(p1))
+            {
+                if (pinchActive)
+                {
+                    pinchActive = false;
+                    phase = Phase.Idle;
+                }
+                return true;
+            }
 
             if (!pinchActive)
             {

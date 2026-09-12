@@ -66,6 +66,9 @@ namespace Yoegoe.UI
 
         public bool HasPrefabShell => root != null && miniGame != null;
 
+        /// <summary>윷 화면이 떠 있는 동안 본맵 핀치/휠 줌·드래그가 새면 안 된다.</summary>
+        public bool IsOpen => root != null && root.activeInHierarchy;
+
         YutMatch match;
         YutThrowOutcome? pendingOutcome;
 
