@@ -1713,8 +1713,14 @@ namespace Yoegoe.Minigames.Yut
                 FindOrCreateQuadrant("Quadrant_South", 0.3f, 0.22f, 0.7f, 0.33f);
         }
 
-        RectTransform FindOrCreateQuadrant(string name, float xmin, float ymin, float xmax, float ymax) =>
-            FindOrCreatePanel(transform, name, xmin, ymin, xmax, ymax, new Color(0, 0, 0, 0), out _);
+        RectTransform FindOrCreateQuadrant(string name, float xmin, float ymin, float xmax, float ymax)
+        {
+            // 투명 Image라도 raycastTarget=true면 보드 위 후보/말 클릭·드래그를 가로챈다.
+            var rt = FindOrCreatePanel(transform, name, xmin, ymin, xmax, ymax, new Color(0, 0, 0, 0), out _);
+            var img = rt.GetComponent<Image>();
+            if (img != null) img.raycastTarget = false;
+            return rt;
+        }
 
         /// <summary>다른 기능(대기말/특수능력/완주말+보물 등)이 자기 UI를 붙일 구역 컨테이너.</summary>
         public RectTransform GetQuadrant(YutBoardQuadrant quadrant)
@@ -1928,6 +1934,7 @@ namespace Yoegoe.Minigames.Yut
                 rt.sizeDelta = new Vector2(22f, 110f);
                 rt.anchoredPosition = ToLocal(origin);
                 var img = go.GetComponent<Image>();
+                img.raycastTarget = false;
                 ApplyStickFace(img, front: true, isBaekdoStick: i == 0);
                 // 에셋에 빽도 점이 없으면 예전처럼 빨간 점 자식
                 if (i == 0 && (_stickFrontBaekdo == null || img.sprite != _stickFrontBaekdo))
@@ -1938,7 +1945,9 @@ namespace Yoegoe.Minigames.Yut
                     markRt.anchorMin = new Vector2(0.5f, 0.85f);
                     markRt.anchorMax = new Vector2(0.5f, 0.85f);
                     markRt.sizeDelta = new Vector2(8f, 8f);
-                    markGo.GetComponent<Image>().color = BaekdoMarkColor;
+                    var markImg = markGo.GetComponent<Image>();
+                    markImg.color = BaekdoMarkColor;
+                    markImg.raycastTarget = false;
                 }
                 go.transform.SetAsLastSibling();
                 sticks[i] = rt;

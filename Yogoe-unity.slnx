@@ -1,6 +1,7 @@
 ﻿<Solution>
+  <Project Path="Yoegoe.UI.Editor.csproj" />
   <Project Path="Yoegoe.Runtime.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Yoegoe.Tests.EditMode.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
 </Solution>
