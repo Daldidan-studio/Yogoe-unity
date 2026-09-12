@@ -94,6 +94,8 @@ namespace Yoegoe.UI
         bool awaitingSquareReward;
         bool pendingBonusAfterSquareReward;
         PendingSquareReward? pendingSquareReward;
+        /// <summary>보물상자 칸에서 굴린 보상인지 — Kind는 실제 지급 재화라서 출처는 따로 기억한다.</summary>
+        bool pendingSquareRewardFromTreasure;
 
         /// <summary>매치 시작 때 한 번 뽑는다 — 공양물 칸(YutBoardLayout.SpecialSquareKind.Offering)
         /// 노드마다 어떤 공양물을 줄지. 매치 내내 고정(같은 칸을 다시 밟아도 같은 공양물).</summary>
@@ -291,6 +293,7 @@ namespace Yoegoe.UI
             awaitingSquareReward = false;
             pendingBonusAfterSquareReward = false;
             pendingSquareReward = null;
+            pendingSquareRewardFromTreasure = false;
             awaitingReviveChoice = false;
             pendingReviveSnapshots = null;
             // root만 꺼두면 팝업 자신의 activeSelf는 그대로 남아있어서, 다음에 다시 열 때
@@ -703,6 +706,7 @@ namespace Yoegoe.UI
         void HandleSpecialSquareReached(int nodeId, IReadOnlyList<string> pieceIds)
         {
             string message;
+            pendingSquareRewardFromTreasure = false;
             switch (YutBoardLayout.GetSpecialKind(nodeId))
             {
                 case YutBoardLayout.SpecialSquareKind.Coin:
@@ -721,6 +725,7 @@ namespace Yoegoe.UI
 
                 case YutBoardLayout.SpecialSquareKind.Treasure:
                     pendingSquareReward = RollTreasureReward();
+                    pendingSquareRewardFromTreasure = true;
                     message = "보물상자 발견!\n무엇이 들어있을까요?";
                     break;
 
@@ -766,7 +771,7 @@ namespace Yoegoe.UI
 
         void HandleSquareRewardPlain()
         {
-            bool wasTreasure = pendingSquareReward?.Kind == SquareRewardKind.Treasure;
+            bool wasTreasure = pendingSquareRewardFromTreasure;
             string desc = GrantSquareReward(SquareRewardBase);
             if (wasTreasure && desc != null)
                 ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
@@ -780,7 +785,7 @@ namespace Yoegoe.UI
         {
             // BatchCollectPopup과 같은 패턴 — 실제 광고 SDK가 붙기 전까지 짧은 지연으로 "시청 중"을 흉내낸다.
             yield return new WaitForSecondsRealtime(SquareRewardAdWatchSeconds);
-            bool wasTreasure = pendingSquareReward?.Kind == SquareRewardKind.Treasure;
+            bool wasTreasure = pendingSquareRewardFromTreasure;
             string desc = GrantSquareReward(SquareRewardAdMultiplier);
             if (wasTreasure && desc != null)
                 ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
@@ -841,6 +846,7 @@ namespace Yoegoe.UI
             }
 
             pendingSquareReward = null;
+            pendingSquareRewardFromTreasure = false;
             RefreshCollectedItemsDisplay();
             GameSaveBridge.SaveFromWorld();
             return description;
