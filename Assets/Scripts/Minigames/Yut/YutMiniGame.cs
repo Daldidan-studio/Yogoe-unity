@@ -23,6 +23,16 @@ namespace Yoegoe.Minigames.Yut
         /// </summary>
         public Font font;
 
+        [Header("말 크기 (Inspector에서 조절)")]
+        [Tooltip("보드 칸 한 변 대비 말 크기 비율. 기본 0.64")]
+        [SerializeField, Range(0.2f, 1.2f)] float boardPieceFill = 0.64f;
+        [Tooltip("South 대기말 — 슬롯 가로 여백 비율(슬롯 폭 대비). 키울수록 말 작아짐. 기본 0.1")]
+        [SerializeField, Range(0f, 0.45f)] float waitingPieceSidePad = 0.1f;
+        [Tooltip("South 대기말 — 위아래 inset(0~0.5). 키울수록 말 작아짐. 기본 0.05")]
+        [SerializeField, Range(0f, 0.45f)] float waitingPieceVerticalInset = 0.05f;
+        [Tooltip("한 칸에 업힌 말들의 가로 간격(말 폭 대비). 기본 0.62")]
+        [SerializeField, Range(0.3f, 1f)] float stackedPieceSpread = 0.62f;
+
         /// <summary>탭이 아니라 아래→위 슬라이드로 던지기가 완료됐을 때. power(0~1)는 슬라이드
         /// 속도 기반 — 던지는 연출(아치 높이·회전·착지 퍼짐)에만 쓰고 결과 확률엔 영향 없다.</summary>
         public event Action<float> OnThrowPressed;
@@ -69,6 +79,9 @@ namespace Yoegoe.Minigames.Yut
         // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
         readonly Dictionary<string, RectTransform> _yokaiPieces = new();
         readonly Dictionary<string, Text> _yokaiPieceLabels = new();
+        /// <summary>Inspector에서 말 크기를 바꿀 때 Play 중에도 다시 깔 수 있게, 마지막 Show 입력을 기억한다.</summary>
+        List<YokaiPieceInfo> _lastYokaiPieces;
+        bool _suppressPieceSlide;
 
         RectTransform _rosterPanel;
         RectTransform _rosterRow;
@@ -571,6 +584,10 @@ namespace Yoegoe.Minigames.Yut
             EnsureBoard();
             if (_pads == null || _pads.Length == 0 || pieces == null) return;
 
+            _lastYokaiPieces = new List<YokaiPieceInfo>(pieces.Count);
+            for (int i = 0; i < pieces.Count; i++)
+                _lastYokaiPieces.Add(pieces[i]);
+
             var keep = new HashSet<string>();
             foreach (var info in pieces) keep.Add(info.Id);
             var stale = new List<string>();
@@ -614,6 +631,15 @@ namespace Yoegoe.Minigames.Yut
             LayoutWaitingPieces(waiting);
         }
 
+        void OnValidate()
+        {
+            // Play 중 Inspector에서 말 크기 필드를 바꾸면 바로 다시 배치한다(슬라이드 연출은 생략).
+            if (!Application.isPlaying || _lastYokaiPieces == null || _lastYokaiPieces.Count == 0) return;
+            _suppressPieceSlide = true;
+            try { ShowYokaiPieces(_lastYokaiPieces); }
+            finally { _suppressPieceSlide = false; }
+        }
+
         RectTransform BuildYokaiPieceVisual(string id, string displayName, out Text label)
         {
             var go = new GameObject($"YokaiPiece_{id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -655,23 +681,23 @@ namespace Yoegoe.Minigames.Yut
             if (south == null) return;
 
             int count = pieces.Count;
+            float sidePad = Mathf.Clamp01(waitingPieceSidePad);
+            float vInset = Mathf.Clamp(waitingPieceVerticalInset, 0f, 0.49f);
             for (int i = 0; i < count; i++)
             {
                 var piece = pieces[i];
                 Vector3 fromPos = piece.position;
                 piece.SetParent(south, false);
                 float slotW = 1f / count;
-                float pad = slotW * 0.1f;
-                piece.anchorMin = new Vector2(i * slotW + pad, 0.05f);
-                piece.anchorMax = new Vector2((i + 1) * slotW - pad, 0.95f);
+                float pad = slotW * sidePad;
+                piece.anchorMin = new Vector2(i * slotW + pad, vInset);
+                piece.anchorMax = new Vector2((i + 1) * slotW - pad, 1f - vInset);
                 piece.offsetMin = Vector2.zero;
                 piece.offsetMax = Vector2.zero;
                 SlideIn(piece, fromPos);
             }
         }
 
-        /// <summary>한 칸에 말이 한 마리면 예전처럼 칸 가운데 크게, 업혀서 여럿이면 겹치지 않게
-        /// 그 칸 폭을 나눠 가로로 나란히 붙여 배치한다.</summary>
         /// <summary>한 칸에 말이 한 마리면 예전처럼 칸 가운데 크게, 업혀서 여럿이면 칸 폭에
         /// 욱여넣어 작아지는 대신 평소 크기를 유지한 채 가로로 겹치며 퍼진다 — 칸 밖으로
         /// 넘쳐도 된다(마스크가 없어 잘리지 않는다).</summary>
@@ -680,7 +706,8 @@ namespace Yoegoe.Minigames.Yut
             nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
             var padRt = _pads[nodeId].rectTransform;
             int count = pieces.Count;
-            var pieceSize = new Vector2(padRt.rect.width * 0.64f, padRt.rect.height * 0.64f);
+            float fill = Mathf.Max(0.01f, boardPieceFill);
+            var pieceSize = new Vector2(padRt.rect.width * fill, padRt.rect.height * fill);
 
             for (int i = 0; i < count; i++)
             {
@@ -698,7 +725,7 @@ namespace Yoegoe.Minigames.Yut
                 }
                 else
                 {
-                    float spreadStep = pieceSize.x * 0.62f; // 서로 살짝 겹치도록 한 칸보다 좁게
+                    float spreadStep = pieceSize.x * stackedPieceSpread; // 서로 살짝 겹치도록 한 칸보다 좁게
                     float centerOffset = (i - (count - 1) / 2f) * spreadStep;
                     piece.anchoredPosition = new Vector2(centerOffset, 0f);
                 }
@@ -714,6 +741,7 @@ namespace Yoegoe.Minigames.Yut
         /// </summary>
         void SlideIn(RectTransform rt, Vector3 fromPos)
         {
+            if (_suppressPieceSlide) return;
             Vector3 toPos = rt.position;
             if ((toPos - fromPos).sqrMagnitude < 1f) return; // 실질적으로 제자리면 생략
             rt.position = fromPos;

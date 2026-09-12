@@ -31,6 +31,9 @@ namespace Yoegoe.Minigames.Yut
 
         public static bool IsSpecialReward(int nodeId) => GetSpecialKind(nodeId) != SpecialSquareKind.None;
 
+        /// <summary>지급이 끝난 특수 칸을 보드에서 지운다 — 같은 칸을 다시 밟아도 보상이 안 나온다.</summary>
+        public static void ClearSpecialSquare(int nodeId) => specialSquareKinds.Remove(nodeId);
+
         /// <summary>
         /// 매 윷판(매치)마다 새로 뽑는다 — 참(0)과 이름 있는 칸(모·뒷모·찌모·방)은 제외하고
         /// 엽전 3칸 + 공양물 2칸 + 보물상자 1칸을 무작위로 배정한다. 어떤 노드가 어떤 공양물을

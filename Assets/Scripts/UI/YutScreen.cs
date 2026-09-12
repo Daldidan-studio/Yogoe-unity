@@ -96,6 +96,8 @@ namespace Yoegoe.UI
         PendingSquareReward? pendingSquareReward;
         /// <summary>보물상자 칸에서 굴린 보상인지 — Kind는 실제 지급 재화라서 출처는 따로 기억한다.</summary>
         bool pendingSquareRewardFromTreasure;
+        /// <summary>지급이 끝나면 지울 특수 칸 노드. -1이면 없음.</summary>
+        int pendingSquareRewardNodeId = -1;
 
         /// <summary>매치 시작 때 한 번 뽑는다 — 공양물 칸(YutBoardLayout.SpecialSquareKind.Offering)
         /// 노드마다 어떤 공양물을 줄지. 매치 내내 고정(같은 칸을 다시 밟아도 같은 공양물).</summary>
@@ -294,6 +296,7 @@ namespace Yoegoe.UI
             pendingBonusAfterSquareReward = false;
             pendingSquareReward = null;
             pendingSquareRewardFromTreasure = false;
+            pendingSquareRewardNodeId = -1;
             awaitingReviveChoice = false;
             pendingReviveSnapshots = null;
             // root만 꺼두면 팝업 자신의 activeSelf는 그대로 남아있어서, 다음에 다시 열 때
@@ -707,6 +710,7 @@ namespace Yoegoe.UI
         {
             string message;
             pendingSquareRewardFromTreasure = false;
+            pendingSquareRewardNodeId = nodeId;
             switch (YutBoardLayout.GetSpecialKind(nodeId))
             {
                 case YutBoardLayout.SpecialSquareKind.Coin:
@@ -715,13 +719,13 @@ namespace Yoegoe.UI
                     break;
 
                 case YutBoardLayout.SpecialSquareKind.Offering:
-                {
-                    specialOfferingByNode.TryGetValue(nodeId, out var offering);
-                    pendingSquareReward = new PendingSquareReward(SquareRewardKind.Offering, offering, 1);
-                    string offeringName = offering != null ? offering.displayName : "공양물";
-                    message = $"공양물 칸 발견!\n{offeringName}을(를) 얻을 수 있어요.";
-                    break;
-                }
+                    {
+                        specialOfferingByNode.TryGetValue(nodeId, out var offering);
+                        pendingSquareReward = new PendingSquareReward(SquareRewardKind.Offering, offering, 1);
+                        string offeringName = offering != null ? offering.displayName : "공양물";
+                        message = $"공양물 칸 발견!\n{offeringName}을(를) 얻을 수 있어요.";
+                        break;
+                    }
 
                 case YutBoardLayout.SpecialSquareKind.Treasure:
                     pendingSquareReward = RollTreasureReward();
@@ -730,6 +734,7 @@ namespace Yoegoe.UI
                     break;
 
                 default:
+                    pendingSquareRewardNodeId = -1;
                     return;
             }
 
@@ -847,9 +852,21 @@ namespace Yoegoe.UI
 
             pendingSquareReward = null;
             pendingSquareRewardFromTreasure = false;
+            ClearConsumedSpecialSquare();
             RefreshCollectedItemsDisplay();
             GameSaveBridge.SaveFromWorld();
             return description;
+        }
+
+        /// <summary>보상을 받은 특수 칸은 보드·세이브에서 제거한다(아이콘/색도 일반 칸으로 되돌림).</summary>
+        void ClearConsumedSpecialSquare()
+        {
+            if (pendingSquareRewardNodeId < 0) return;
+            int nodeId = pendingSquareRewardNodeId;
+            pendingSquareRewardNodeId = -1;
+            YutBoardLayout.ClearSpecialSquare(nodeId);
+            specialOfferingByNode.Remove(nodeId);
+            ApplySpecialSquareVisuals();
         }
 
         /// <summary>동(東) 구역에 이번 매치에서 특수 칸으로 모은 것들을 아이콘으로 보여준다.</summary>
@@ -934,16 +951,11 @@ namespace Yoegoe.UI
                 onStop: HandleStopAfterFinish);
         }
 
+        /// <summary>말이 하나 골인해서 계속하기로 했으면 — 기존 말은 그대로 두고 게임 이어가기
         void HandleContinueAfterFinish()
         {
             awaitingFinishChoice = false;
-            // 말이 하나 골인해서 계속하기로 했으면 — 이제 그 자리엔 더 노려볼 보상이 없으니
-            // 특수 칸을 새로 배치할지 물어본다. 그만 받는 쪽(HandleStopAfterFinish)은 매치가
-            // 바로 끝나서 물어볼 필요가 없다.
-            ShowConfirm("완주한 자리를 빼고 특수 칸을 새로 배치할까요?\n(말 위치는 그대로 유지돼요)",
-                "예", "아니오",
-                onYes: () => { ResetSpecialSquares(); ProceedAfterFinishContinue(); },
-                onNo: ProceedAfterFinishContinue);
+            ProceedAfterFinishContinue();
         }
 
         /// <summary>특수 칸(엽전/공양물/보물상자) 배치만 다시 뽑는다 — 말 위치·역사는 안 건드린다.</summary>
