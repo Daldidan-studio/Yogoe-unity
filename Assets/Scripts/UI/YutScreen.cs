@@ -106,12 +106,16 @@ namespace Yoegoe.UI
         bool autoPlayRunning;
         /// <summary>0이면 매치 종료까지. N이면 골인 스택이 N 이상일 때 그만하기.</summary>
         int autoPlayStopAtStack;
-        /// <summary>true면 보물상자 내용 확인→받기/광고 2배 UI까지 간 뒤 멈춘다.</summary>
-        bool autoPlayStopAtTreasureReward;
+        /// <summary>true면 특수칸 내용 확인→받기/광고 2배 UI까지 간 뒤 멈춘다.</summary>
+        bool autoPlayStopAtSquareReward;
+        /// <summary>true면 도전과제 보물상자×3 안내(notice)까지 간 뒤 멈춘다.</summary>
+        bool autoPlayStopAtChallengeReward;
         /// <summary>true면 이무기를 잡아 참 아래 대기까지 간 뒤 멈춘다.</summary>
         bool autoPlayStopAtImugiCapture;
         bool autoPlayImugiCaptureReached;
         YutThrowResult? debugForcedThrow;
+        /// <summary>한 번이 아니라 매 던지기마다 같은 결과를 강제(도전 연속 모/빽도 QA).</summary>
+        YutThrowResult? debugForcedThrowRepeat;
 #endif
 
         /// <summary>특수 칸 보상 — 팝업·비행·지급 흐름은 Presenter.</summary>
@@ -804,6 +808,12 @@ namespace Yoegoe.UI
                 bool bonus = forced == YutThrowResult.Yut || forced == YutThrowResult.Mo;
                 outcome = new YutThrowOutcome(forced, bonus);
             }
+            else if (debugForcedThrowRepeat.HasValue)
+            {
+                var forced = debugForcedThrowRepeat.Value;
+                bool bonus = forced == YutThrowResult.Yut || forced == YutThrowResult.Mo;
+                outcome = new YutThrowOutcome(forced, bonus);
+            }
             else
 #endif
             {
@@ -1360,32 +1370,6 @@ namespace Yoegoe.UI
         {
             if (match == null) return;
 
-            var infos = match.PlayerPieces
-                .Where(p => !p.Finished)
-                .Select(p => new YutMiniGame.YokaiPieceInfo(p.Id, p.DisplayName, p.NodeId))
-                .ToList();
-            miniGame.ShowYokaiPieces(infos);
-
-            // 참(시작점)에 멈춘 것과 완주(골인)한 건 구별돼야 한다 — 완주하면 보드에서 빠지는
-            // 대신 동(東) 구역 하단에 작은 초상으로 표시한다.
-            var finishedIds = new List<string>();
-            foreach (var p in match.PlayerPieces)
-                if (p.Finished) finishedIds.Add(p.Id);
-            miniGame.ShowFinishedPieces(finishedIds);
-
-            var opp = match.OpponentPiece;
-            if (opp.OnBoard)
-            {
-                miniGame.ShowOpponentPiece(true);
-                miniGame.SetOpponentPieceIndex(opp.NodeId);
-            }
-            else
-            {
-                // 잡힌 뒤(또는 입장 전) 대기 — 참먹이 칸이 아니라 바로 아래.
-                miniGame.ShowOpponentPiece(true);
-                miniGame.PlaceOpponentWaitingBelowStart();
-            }
-
             // LINQ(.Select/.ToList)를 새 struct(RosterEntry)에 처음 쓰면 IL2CPP WebGL 빌드에서
             // "RuntimeError: null function"이 나는 경우가 있어(제네릭 인스턴스 누락) — 수동 루프로 우회.
             var roster = new List<YutMiniGame.RosterEntry>(match.PlayerPieces.Count);
@@ -1394,7 +1378,10 @@ namespace Yoegoe.UI
                 teamById.TryGetValue(p.Id, out var agent);
                 int stamina = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Stamina) : 0;
                 int intimacy = agent != null && agent.Stats != null ? Mathf.RoundToInt(agent.Stats.Intimacy) : 0;
-                roster.Add(new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p)));
+                // 출발 전·잡혀 복귀는 슬롯에 말 대기, 보드/완주는 슬롯 실루엣.
+                bool waitingInSlot = !p.Finished && p.NodeId < 0;
+                roster.Add(new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p),
+                    waitingInSlot));
             }
             // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다. 고라니를 아직 안 불렀으면
             // "소환하기", 불렀는데 아직 넋이라 말로 못 쓰면 "진화 필요" 슬롯을 안내한다.
@@ -1420,7 +1407,34 @@ namespace Yoegoe.UI
                     extraIcon = miniGame.GetNeokSprite();
                 }
             }
+            // 대기말을 슬롯에 붙이려면 로스터 칩이 먼저 있어야 한다.
             miniGame.ShowRoster(roster, showExtraSlot, extraLabel, extraAction, extraIcon);
+
+            var infos = match.PlayerPieces
+                .Where(p => !p.Finished)
+                .Select(p => new YutMiniGame.YokaiPieceInfo(p.Id, p.DisplayName, p.NodeId))
+                .ToList();
+            miniGame.ShowYokaiPieces(infos);
+
+            // 참(시작점)에 멈춘 것과 완주(골인)한 건 구별돼야 한다 — 완주하면 보드에서 빠지는
+            // 대신 동(東) 구역 하단에 작은 초상으로 표시한다.
+            var finishedIds = new List<string>();
+            foreach (var p in match.PlayerPieces)
+                if (p.Finished) finishedIds.Add(p.Id);
+            miniGame.ShowFinishedPieces(finishedIds);
+
+            var opp = match.OpponentPiece;
+            if (opp.OnBoard)
+            {
+                miniGame.ShowOpponentPiece(true);
+                miniGame.SetOpponentPieceIndex(opp.NodeId);
+            }
+            else
+            {
+                // 잡힌 뒤(또는 입장 전) 대기 — 참먹이 칸이 아니라 바로 아래.
+                miniGame.ShowOpponentPiece(true);
+                miniGame.PlaceOpponentWaitingBelowStart();
+            }
         }
 
         void OnSummonSlotTapped()
@@ -2326,9 +2340,11 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(true);
 
             autoPlayStopAtStack = Mathf.Max(0, stopAtStack);
-            autoPlayStopAtTreasureReward = false;
+            autoPlayStopAtSquareReward = false;
+            autoPlayStopAtChallengeReward = false;
             autoPlayStopAtImugiCapture = false;
             autoPlayImugiCaptureReached = false;
+            debugForcedThrowRepeat = null;
             autoPlayRunning = true;
             autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
             Debug.Log(autoPlayStopAtStack > 0
@@ -2336,9 +2352,16 @@ namespace Yoegoe.UI
                 : $"[Yut QA] 자동 플레이 시작 — 매치 종료까지 (말 {match.PlayerPieces.Count}개, throwVisible={miniGame.IsThrowVisible})");
         }
 
-        /// <summary>QA: 보물상자를 밟아 내용물 확인 → 그냥 받기/광고 2배 UI까지 자동으로 간 뒤 멈춘다.</summary>
-        public void DebugStartTreasureRewardQa()
+        /// <summary>QA: 지정 특수칸을 밟아 Presenter 보상 UI(받기/광고)까지 자동으로 간 뒤 멈춘다.
+        /// 보물상자는 내용 확인 notice를 먼저 넘긴다.</summary>
+        public void DebugStartSquareRewardQa(YutBoardLayout.SpecialSquareKind kind)
         {
+            if (kind == YutBoardLayout.SpecialSquareKind.None)
+            {
+                Debug.LogWarning("[Yut QA] 특수칸 종류가 None입니다.");
+                return;
+            }
+
             EnsureBuilt();
             if (root == null || miniGame == null)
             {
@@ -2357,9 +2380,9 @@ namespace Yoegoe.UI
             if (!EnsureMatchReadyForFinishSim(1))
                 return;
 
-            if (!SetupBoardForTreasureRewardQa())
+            if (!SetupBoardForSquareRewardQa(kind))
             {
-                Debug.LogWarning("[Yut QA] 보물상자 QA 보드 준비 실패.");
+                Debug.LogWarning($"[Yut QA] 특수칸 QA 보드 준비 실패 ({kind}).");
                 return;
             }
 
@@ -2373,13 +2396,156 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(true);
 
             autoPlayStopAtStack = 0;
-            autoPlayStopAtTreasureReward = true;
+            autoPlayStopAtSquareReward = true;
+            autoPlayStopAtChallengeReward = false;
             autoPlayStopAtImugiCapture = false;
             autoPlayImugiCaptureReached = false;
             debugForcedThrow = YutThrowResult.Do;
+            debugForcedThrowRepeat = null;
             autoPlayRunning = true;
             autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
-            Debug.Log("[Yut QA] 보물상자 보상 UI까지 자동 진행 — 내용 확인 후 받기/광고 선택에서 멈춤");
+            Debug.Log($"[Yut QA] 특수칸 Presenter ({SquareRewardQaLabel(kind)}) — 받기/광고 선택까지 자동 진행 후 정지");
+        }
+
+        /// <summary>하위 호환 — 보물상자 Presenter QA.</summary>
+        public void DebugStartTreasureRewardQa() =>
+            DebugStartSquareRewardQa(YutBoardLayout.SpecialSquareKind.Treasure);
+
+        static string SquareRewardQaLabel(YutBoardLayout.SpecialSquareKind kind) => kind switch
+        {
+            YutBoardLayout.SpecialSquareKind.Coin => "엽전",
+            YutBoardLayout.SpecialSquareKind.Offering => "공양물",
+            YutBoardLayout.SpecialSquareKind.Treasure => "보물상자",
+            YutBoardLayout.SpecialSquareKind.PurifiedWater => "정화수",
+            _ => kind.ToString(),
+        };
+
+        /// <summary>QA: 지정 도전과제를 완료해 보물상자×3 안내까지 자동으로 간 뒤 멈춘다.</summary>
+        public void DebugStartChallengeQa(YutChallengeKind kind)
+        {
+            EnsureBuilt();
+            if (root == null || miniGame == null)
+            {
+                Debug.LogWarning("[Yut QA] YutScreen 셸이 없습니다.");
+                return;
+            }
+
+            DebugStopAutoPlay();
+
+            if (match != null)
+            {
+                UnsubscribeMatchEvents();
+                match = null;
+            }
+
+            int needPieces = kind == YutChallengeKind.FinishAllUncaptured
+                ? YutRewards.ChallengeFinishAllPieceCount
+                : 1;
+            if (!EnsureMatchReadyForFinishSim(needPieces))
+                return;
+
+            if (!SetupBoardForChallengeQa(kind))
+            {
+                Debug.LogWarning($"[Yut QA] 도전과제 QA 보드 준비 실패 ({kind}).");
+                return;
+            }
+
+            challenge.Restore(kind, completed: false, failed: false, streak: 0, this);
+
+            ClearBlockingUiForFinishSim();
+            miniGame.BindFromHierarchy();
+            HandlePiecesChanged();
+            ApplySpecialSquareVisuals();
+            challenge.RefreshBanner(this);
+            root.SetActive(true);
+            miniGame.Show();
+            miniGame.SetLeaveVisible(true);
+            miniGame.SetThrowVisible(true);
+
+            autoPlayStopAtStack = 0;
+            autoPlayStopAtSquareReward = false;
+            autoPlayStopAtChallengeReward = true;
+            autoPlayStopAtImugiCapture = false;
+            autoPlayImugiCaptureReached = false;
+            debugForcedThrow = null;
+            debugForcedThrowRepeat = kind switch
+            {
+                YutChallengeKind.ConsecutiveMo => YutThrowResult.Mo,
+                YutChallengeKind.ConsecutiveBaekdo => YutThrowResult.Baekdo,
+                YutChallengeKind.FinishAllUncaptured => null,
+                _ => null,
+            };
+            if (kind == YutChallengeKind.FinishAllUncaptured)
+                debugForcedThrow = YutThrowResult.Do;
+
+            autoPlayRunning = true;
+            autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
+            Debug.Log($"[Yut QA] 도전과제 Presenter ({ChallengeQaLabel(kind)}) — 보물상자×3 안내까지 자동 진행 후 정지");
+        }
+
+        static string ChallengeQaLabel(YutChallengeKind kind) => kind switch
+        {
+            YutChallengeKind.ConsecutiveMo => $"모 {YutRewards.ChallengeConsecutiveNeeded}연속",
+            YutChallengeKind.ConsecutiveBaekdo => $"빽도 {YutRewards.ChallengeConsecutiveNeeded}연속",
+            YutChallengeKind.FinishAllUncaptured => "미잡힘 넷 완주",
+            _ => kind.ToString(),
+        };
+
+        /// <summary>도전 QA용 보드. 연속 모/빽도는 대기 말+이무기 멀리.
+        /// 미잡힘 완주는 말 넷을 참에 업어 두고 한 수로 전원 완주.</summary>
+        bool SetupBoardForChallengeQa(YutChallengeKind kind)
+        {
+            if (match == null || match.PlayerPieces.Count == 0) return false;
+
+            // 특수칸이 경로를 가리지 않게 멀리.
+            var kinds = new Dictionary<int, YutBoardLayout.SpecialSquareKind>
+            {
+                { 8, YutBoardLayout.SpecialSquareKind.Coin },
+                { 9, YutBoardLayout.SpecialSquareKind.Coin },
+                { 11, YutBoardLayout.SpecialSquareKind.Coin },
+                { 12, YutBoardLayout.SpecialSquareKind.Offering },
+                { 13, YutBoardLayout.SpecialSquareKind.Offering },
+                { 14, YutBoardLayout.SpecialSquareKind.Treasure },
+                { 16, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+                { 17, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+            };
+            YutBoardLayout.RestoreSpecialSquares(kinds);
+            AssignSpecialOfferings();
+
+            match.OpponentPiece.NodeId = YutBoardLayout.JjiMo;
+            match.OpponentPiece.Finished = false;
+            match.OpponentPiece.History.Clear();
+            match.OpponentPiece.History.Add(YutBoardLayout.JjiMo);
+
+            if (kind == YutChallengeKind.FinishAllUncaptured)
+            {
+                if (match.PlayerPieces.Count < YutRewards.ChallengeFinishAllPieceCount)
+                    return false;
+
+                // 참에 올라와 있는 말은 다음 던지기로 바로 완주 — 넷을 업어 한 번에.
+                for (int i = 0; i < match.PlayerPieces.Count; i++)
+                {
+                    var p = match.PlayerPieces[i];
+                    p.NodeId = YutBoardLayout.Start;
+                    p.Finished = false;
+                    p.History.Clear();
+                    p.History.Add(YutBoardLayout.Bang);
+                    p.History.Add(YutBoardLayout.Start);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < match.PlayerPieces.Count; i++)
+                {
+                    var p = match.PlayerPieces[i];
+                    p.NodeId = -1;
+                    p.Finished = false;
+                    p.History.Clear();
+                }
+            }
+
+            GameSaveBridge.SaveFromWorld();
+            return true;
         }
 
         /// <summary>QA: 이무기를 잡아 참 아래 대기 배치까지 자동으로 간 뒤 멈춘다.</summary>
@@ -2419,10 +2585,12 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(true);
 
             autoPlayStopAtStack = 0;
-            autoPlayStopAtTreasureReward = false;
+            autoPlayStopAtSquareReward = false;
+            autoPlayStopAtChallengeReward = false;
             autoPlayStopAtImugiCapture = true;
             autoPlayImugiCaptureReached = false;
             debugForcedThrow = YutThrowResult.Do;
+            debugForcedThrowRepeat = null;
             autoPlayRunning = true;
             autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
             Debug.Log("[Yut QA] 이무기 잡기→참 아래 대기까지 자동 진행");
@@ -2471,17 +2639,18 @@ namespace Yoegoe.UI
             return true;
         }
 
-        /// <summary>말 1을 노드1에 두고, 노드2에 보물상자를 놓아 도(Do) 한 수로 밟게 한다.</summary>
-        bool SetupBoardForTreasureRewardQa()
+        /// <summary>말 1을 노드1에 두고, 노드2에 지정 특수칸을 놓아 도(Do) 한 수로 밟게 한다.</summary>
+        bool SetupBoardForSquareRewardQa(YutBoardLayout.SpecialSquareKind targetKind)
         {
             if (match == null || match.PlayerPieces.Count == 0) return false;
+            if (targetKind == YutBoardLayout.SpecialSquareKind.None) return false;
 
             const int approachNode = 1;
-            const int treasureNode = 2;
+            const int targetNode = 2;
 
             var kinds = new Dictionary<int, YutBoardLayout.SpecialSquareKind>
             {
-                { treasureNode, YutBoardLayout.SpecialSquareKind.Treasure },
+                { targetNode, targetKind },
             };
             // 나머지 특수 칸은 경로를 가리지 않게 멀리(이름 있는 칸·참 제외) 유지.
             int[] extras = { 8, 9, 11, 12, 13, 14, 16, 17 };
@@ -2492,13 +2661,19 @@ namespace Yoegoe.UI
                 YutBoardLayout.SpecialSquareKind.Coin,
                 YutBoardLayout.SpecialSquareKind.Offering,
                 YutBoardLayout.SpecialSquareKind.Offering,
-                YutBoardLayout.SpecialSquareKind.PurifiedWater,
+                YutBoardLayout.SpecialSquareKind.Treasure,
                 YutBoardLayout.SpecialSquareKind.PurifiedWater,
             };
             for (int i = 0; i < extraKinds.Length && i < extras.Length; i++)
             {
-                if (extras[i] == treasureNode || extras[i] == approachNode) continue;
-                kinds[extras[i]] = extraKinds[i];
+                if (extras[i] == targetNode || extras[i] == approachNode) continue;
+                // 목표 종류와 겹치면 멀리 둔 칸도 다른 종류로 바꿔 헷갈리지 않게.
+                var kind = extraKinds[i] == targetKind
+                    ? YutBoardLayout.SpecialSquareKind.Coin
+                    : extraKinds[i];
+                if (kind == targetKind)
+                    kind = YutBoardLayout.SpecialSquareKind.Offering;
+                kinds[extras[i]] = kind;
             }
 
             YutBoardLayout.RestoreSpecialSquares(kinds);
@@ -2523,10 +2698,12 @@ namespace Yoegoe.UI
         public void DebugStopAutoPlay()
         {
             autoPlayRunning = false;
-            autoPlayStopAtTreasureReward = false;
+            autoPlayStopAtSquareReward = false;
+            autoPlayStopAtChallengeReward = false;
             autoPlayStopAtImugiCapture = false;
             autoPlayImugiCaptureReached = false;
             debugForcedThrow = null;
+            debugForcedThrowRepeat = null;
             if (autoPlayRoutine != null)
             {
                 StopCoroutine(autoPlayRoutine);
@@ -2550,10 +2727,20 @@ namespace Yoegoe.UI
                     break;
                 }
 
-                // 보물상자 QA: 받기/광고 선택 UI가 뜨면 여기서 멈춘다(유저가 확인).
-                if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+                // 특수칸 Presenter QA: 받기/광고 선택 UI가 뜨면 여기서 멈춘다(유저가 확인).
+                if (autoPlayStopAtSquareReward && rewardRoot != null && rewardRoot.activeSelf)
                 {
-                    Debug.Log("[Yut QA] 보물상자 보상 선택 UI 도착 — 자동 플레이 정지");
+                    Debug.Log("[Yut QA] 특수칸 보상 선택 UI 도착 — 자동 플레이 정지");
+                    break;
+                }
+
+                // 도전과제 Presenter QA: 보물상자×3 지급 흐름이 시작되면 멈춘다.
+                if (autoPlayStopAtChallengeReward && challenge.AwaitingReward)
+                {
+                    // notice가 뜰 때까지 한두 프레임 기다린다.
+                    for (int i = 0; i < 30 && autoPlayRunning && noticeRoot != null && !noticeRoot.activeSelf; i++)
+                        yield return null;
+                    Debug.Log("[Yut QA] 도전과제 보물상자×3 안내 도착 — 자동 플레이 정지");
                     break;
                 }
 
@@ -2612,13 +2799,17 @@ namespace Yoegoe.UI
                 {
                     if (pendingOutcome != null) break;
                     if (HasBlockingPopup()) break;
-                    if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+                    if (autoPlayStopAtSquareReward && rewardRoot != null && rewardRoot.activeSelf)
+                        break;
+                    if (autoPlayStopAtChallengeReward && challenge.AwaitingReward)
                         break;
                     wait += Time.unscaledDeltaTime;
                     yield return null;
                     if (pendingOutcome != null || HasBlockingPopup())
                         break;
-                    if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+                    if (autoPlayStopAtSquareReward && rewardRoot != null && rewardRoot.activeSelf)
+                        break;
+                    if (autoPlayStopAtChallengeReward && challenge.AwaitingReward)
                         break;
                     // 이무기 턴이 끝나고 다시 던질 수 있으면 바깥 루프로.
                     if (miniGame.IsThrowVisible && pendingOutcome == null && wait > 0.6f)
@@ -2626,21 +2817,25 @@ namespace Yoegoe.UI
                 }
             }
 
-            // 보물상자 선택 UI에서 멈춘 경우엔 팝업을 닫지 않는다.
-            if (!(autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf))
+            // 특수칸/도전 선택·안내 UI에서 멈춘 경우엔 팝업을 닫지 않는다.
+            bool stopOnSquare = autoPlayStopAtSquareReward && rewardRoot != null && rewardRoot.activeSelf;
+            bool stopOnChallenge = autoPlayStopAtChallengeReward && challenge.AwaitingReward;
+            if (!stopOnSquare && !stopOnChallenge)
             {
                 for (int i = 0; i < 10 && autoPlayRunning && TryAutoDismissPopups(); i++)
                     yield return new WaitForSecondsRealtime(0.15f);
             }
 
             string reason = !autoPlayRunning ? "stop"
-                : autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf ? "treasure reward UI"
+                : stopOnSquare ? "square reward UI"
+                : stopOnChallenge ? "challenge reward"
                 : autoPlayStopAtImugiCapture && autoPlayImugiCaptureReached ? "imugi captured waiting"
                 : match == null ? "match=null"
                 : match != null && match.IsEnded ? "match ended"
                 : "step limit";
             autoPlayRunning = false;
             autoPlayRoutine = null;
+            debugForcedThrowRepeat = null;
             Debug.Log($"[Yut QA] 자동 플레이 종료 ({reason})");
         }
 
@@ -2656,10 +2851,14 @@ namespace Yoegoe.UI
         }
 
         /// <summary>자동 플레이용 — 팝업은 전부 그냥 받기/계속/확인으로 넘긴다(광고는 스킵).
-        /// 보물상자 QA는 내용 확인(notice)만 넘기고, 받기/광고 선택(reward)은 남긴다.</summary>
+        /// 특수칸 Presenter QA는 내용 확인(notice)만 넘기고 받기/광고는 남긴다.
+        /// 도전과제 QA는 완주 안내는 넘기고, 보물상자×3 안내(AwaitingReward)는 남긴다.</summary>
         bool TryAutoDismissPopups()
         {
-            if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+            if (autoPlayStopAtSquareReward && rewardRoot != null && rewardRoot.activeSelf)
+                return false;
+
+            if (autoPlayStopAtChallengeReward && challenge.AwaitingReward)
                 return false;
 
             if (noticeRoot != null && noticeRoot.activeSelf)
@@ -2679,7 +2878,7 @@ namespace Yoegoe.UI
                 // 보상 선택 패널이 떠 있으면 그냥 받기.
                 if (rewardRoot != null && rewardRoot.activeSelf)
                     OnRewardPlainClicked();
-                else if (!autoPlayStopAtTreasureReward)
+                else if (!autoPlayStopAtSquareReward)
                     squareRewards.GrantPlain(this);
                 else
                     return false;
@@ -2762,9 +2961,8 @@ namespace Yoegoe.UI
                 score += autoPlayStopAtImugiCapture ? 5000 : 300;
 
             if (c.UseShortcut) score += 80;
-            if (YutBoardLayout.IsSpecialReward(c.DestinationNode)) score += 40;
-            if (YutBoardLayout.GetSpecialKind(c.DestinationNode) == YutBoardLayout.SpecialSquareKind.Treasure)
-                score += autoPlayStopAtTreasureReward ? 5000 : 120;
+            if (YutBoardLayout.IsSpecialReward(c.DestinationNode))
+                score += autoPlayStopAtSquareReward ? 5000 : 40;
             if (c.DestinationNode == YutBoardLayout.Start && !c.WillFinish) score += 60;
 
             return score;

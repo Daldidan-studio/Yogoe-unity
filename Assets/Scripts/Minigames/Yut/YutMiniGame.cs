@@ -24,12 +24,13 @@ namespace Yoegoe.Minigames.Yut
         [Header("말 크기 (Inspector에서 조절)")]
         [Tooltip("보드 칸 한 변 대비 말 크기 비율. 기본 0.64")]
         [SerializeField, Range(0.2f, 1.2f)] float boardPieceFill = 0.64f;
-        [Tooltip("South 대기말 — 슬롯 가로 여백 비율(슬롯 폭 대비). 키울수록 말 작아짐. 기본 0.1")]
-        [SerializeField, Range(0f, 0.45f)] float waitingPieceSidePad = 0.1f;
-        [Tooltip("South 대기말 — 위아래 inset(0~0.5). 키울수록 말 작아짐. 기본 0.05")]
-        [SerializeField, Range(0f, 0.45f)] float waitingPieceVerticalInset = 0.05f;
+        [Tooltip("로스터 슬롯 대기말 — 초상 영역 inset(0~0.45). 키울수록 말 작아짐. 기본 0.05")]
+        [SerializeField, Range(0f, 0.45f)] float waitingPieceInSlotInset = 0.05f;
         [Tooltip("한 칸에 업힌 말들의 가로 간격(말 폭 대비). 기본 0.62")]
         [SerializeField, Range(0.3f, 1f)] float stackedPieceSpread = 0.62f;
+
+        /// <summary>보드에 나간(또는 완주한) 요괴 슬롯 초상 — 스프라이트 형태를 남기는 실루엣.</summary>
+        static readonly Color RosterSilhouetteColor = new(0.16f, 0.14f, 0.12f, 0.92f);
 
         /// <summary>탭이 아니라 아래→위 슬라이드로 던지기가 완료됐을 때. power(0~1)는 슬라이드
         /// 속도 기반 — 던지는 연출(아치 높이·회전·착지 퍼짐)에만 쓰고 결과 확률엔 영향 없다.</summary>
@@ -84,14 +85,16 @@ namespace Yoegoe.Minigames.Yut
 
         readonly struct RosterChip
         {
+            public readonly string Id;
             public readonly RectTransform Root;
             public readonly Image Portrait;
             public readonly Text Name;
             public readonly Text Stats;
             public readonly Text Status;
 
-            public RosterChip(RectTransform root, Image portrait, Text name, Text stats, Text status)
+            public RosterChip(string id, RectTransform root, Image portrait, Text name, Text stats, Text status)
             {
+                Id = id;
                 Root = root;
                 Portrait = portrait;
                 Name = name;
@@ -108,14 +111,19 @@ namespace Yoegoe.Minigames.Yut
             public readonly int Stamina;
             public readonly int Intimacy;
             public readonly string StatusLabel;
+            /// <summary>true면 아직 출발 전(또는 잡혀 복귀) — 슬롯에 말이 대기하고 초상은 숨긴다.
+            /// false면 보드/완주 — 슬롯 초상은 실루엣.</summary>
+            public readonly bool WaitingInSlot;
 
-            public RosterEntry(string id, string displayName, int stamina, int intimacy, string statusLabel)
+            public RosterEntry(string id, string displayName, int stamina, int intimacy, string statusLabel,
+                bool waitingInSlot = false)
             {
                 Id = id;
                 DisplayName = displayName;
                 Stamina = stamina;
                 Intimacy = intimacy;
                 StatusLabel = statusLabel;
+                WaitingInSlot = waitingInSlot;
             }
         }
 
@@ -732,7 +740,7 @@ namespace Yoegoe.Minigames.Yut
                 _yokaiPieceLabels.Remove(id);
             }
 
-            var waiting = new List<RectTransform>();
+            var waiting = new List<(string Id, RectTransform Piece)>();
             var byNode = new Dictionary<int, List<RectTransform>>();
             foreach (var info in pieces)
             {
@@ -745,7 +753,7 @@ namespace Yoegoe.Minigames.Yut
 
                 if (info.NodeId < 0)
                 {
-                    waiting.Add(piece); // 남(South) 구역에 한꺼번에 나란히 배치
+                    waiting.Add((info.Id, piece)); // 로스터 슬롯에 대기
                 }
                 else
                 {
@@ -760,7 +768,8 @@ namespace Yoegoe.Minigames.Yut
             // 같은 칸에 업힌 말이 여럿이면 겹쳐 보이지 않게 그 칸 안에서 가로로 나란히 배치.
             foreach (var kv in byNode)
                 PlaceGroupOnNode(kv.Value, kv.Key);
-            LayoutWaitingPieces(waiting);
+            for (int i = 0; i < waiting.Count; i++)
+                LayoutWaitingPieceInRosterSlot(waiting[i].Id, waiting[i].Piece);
         }
 
         void OnValidate()
@@ -806,28 +815,58 @@ namespace Yoegoe.Minigames.Yut
             return go.GetComponent<RectTransform>();
         }
 
-        /// <summary>남(South) 구역 — 대기말을 보유한 수만큼 가로로 나란히 배치.</summary>
-        void LayoutWaitingPieces(List<RectTransform> pieces)
+        /// <summary>출발 전(또는 잡혀 복귀) 대기말 — 해당 요괴 로스터 슬롯 초상 자리에 말을 둔다.
+        /// 예전 South 대기칸은 쓰지 않는다.</summary>
+        void LayoutWaitingPieceInRosterSlot(string pieceId, RectTransform piece)
         {
-            var south = _quadrants != null ? _quadrants[(int)YutBoardQuadrant.South] : null;
-            if (south == null) return;
+            EnsureRosterPanel();
+            if (piece == null || string.IsNullOrEmpty(pieceId)) return;
 
-            int count = pieces.Count;
-            float sidePad = Mathf.Clamp01(waitingPieceSidePad);
-            float vInset = Mathf.Clamp(waitingPieceVerticalInset, 0f, 0.49f);
-            for (int i = 0; i < count; i++)
+            RosterChip chip = default;
+            bool found = false;
+            for (int i = 0; i < _rosterChips.Count; i++)
             {
-                var piece = pieces[i];
-                Vector3 fromPos = piece.position;
-                piece.SetParent(south, false);
-                SetPieceDragEnabled(piece, false); // 대기말은 드래그로 후보에 올리지 않는다
-                float slotW = 1f / count;
-                float pad = slotW * sidePad;
-                piece.anchorMin = new Vector2(i * slotW + pad, vInset);
-                piece.anchorMax = new Vector2((i + 1) * slotW - pad, 1f - vInset);
-                piece.offsetMin = Vector2.zero;
-                piece.offsetMax = Vector2.zero;
-                SlideIn(piece, fromPos);
+                if (_rosterChips[i].Id == pieceId)
+                {
+                    chip = _rosterChips[i];
+                    found = true;
+                    break;
+                }
+            }
+            if (!found || chip.Root == null || chip.Portrait == null) return;
+
+            Vector3 fromPos = piece.position;
+            var portraitRt = chip.Portrait.rectTransform;
+            // 초상 Image를 끄더라도 말이 보이도록 칩 루트에 붙이고, 초상과 같은 자리·크기를 맞춘다.
+            piece.SetParent(chip.Root, false);
+            SetPieceDragEnabled(piece, false); // 대기말은 드래그로 후보에 올리지 않는다
+
+            float inset = Mathf.Clamp(waitingPieceInSlotInset, 0f, 0.45f);
+            piece.anchorMin = portraitRt.anchorMin;
+            piece.anchorMax = portraitRt.anchorMax;
+            piece.pivot = portraitRt.pivot;
+            piece.sizeDelta = portraitRt.sizeDelta * (1f - inset * 2f);
+            piece.anchoredPosition = portraitRt.anchoredPosition + new Vector2(0f, -portraitRt.sizeDelta.y * inset);
+            piece.localScale = Vector3.one;
+            piece.SetAsLastSibling();
+
+            // 말이 초상 자리를 차지하므로 슬롯 초상은 끈다(보드 나가면 ShowRoster가 실루엣으로 켠다).
+            chip.Portrait.enabled = false;
+
+            SlideIn(piece, fromPos);
+        }
+
+        /// <summary>로스터 칩을 다시 만들기 전에, 슬롯에 붙어 있던 대기말이 같이 Destroy되지 않게 떼어 둔다.</summary>
+        void DetachYokaiPiecesFromRoster()
+        {
+            if (_rosterPanel == null || _pads == null || _pads.Length == 0) return;
+            var safeParent = _pads[0].rectTransform;
+            foreach (var kv in _yokaiPieces)
+            {
+                var piece = kv.Value;
+                if (piece == null) continue;
+                if (piece.IsChildOf(_rosterPanel))
+                    piece.SetParent(safeParent, true);
             }
         }
 
@@ -1586,31 +1625,48 @@ namespace Yoegoe.Minigames.Yut
 
             if (_rosterChips.Count != entries.Count)
             {
+                DetachYokaiPiecesFromRoster();
                 foreach (var chip in _rosterChips)
                     if (chip.Root != null) Destroy(chip.Root.gameObject);
                 _rosterChips.Clear();
 
                 for (int i = 0; i < entries.Count; i++)
-                    _rosterChips.Add(BuildRosterChip(_rosterRow, i, totalSlots));
+                    _rosterChips.Add(BuildRosterChip(_rosterRow, entries[i].Id, i, totalSlots));
             }
 
             for (int i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
                 var chip = _rosterChips[i];
+                // Id가 바뀌었을 수 있으니(인원 수는 같은데 구성만 바뀜) 칩을 갱신한다.
+                if (chip.Id != entry.Id)
+                    _rosterChips[i] = chip = new RosterChip(entry.Id, chip.Root, chip.Portrait, chip.Name, chip.Stats, chip.Status);
                 RepositionRosterSlot(chip.Root, i, totalSlots);
 
                 var sprite = PieceSpriteFor(entry.Id);
                 if (sprite != null)
                 {
                     chip.Portrait.sprite = sprite;
-                    chip.Portrait.color = Color.white;
                     chip.Portrait.preserveAspect = true;
                 }
                 else
                 {
                     chip.Portrait.sprite = null;
-                    chip.Portrait.color = ColorForYokai(entry.Id);
+                }
+
+                // 대기 중이면 말이 초상 자리를 차지하므로 초상은 끈다.
+                // 보드/완주면 실루엣으로 켠다.
+                if (entry.WaitingInSlot)
+                {
+                    chip.Portrait.enabled = false;
+                    chip.Portrait.color = Color.white;
+                }
+                else
+                {
+                    chip.Portrait.enabled = true;
+                    chip.Portrait.color = sprite != null
+                        ? RosterSilhouetteColor
+                        : new Color(RosterSilhouetteColor.r, RosterSilhouetteColor.g, RosterSilhouetteColor.b, 0.75f);
                 }
 
                 chip.Name.text = entry.DisplayName;
@@ -1718,7 +1774,7 @@ namespace Yoegoe.Minigames.Yut
             rt.offsetMax = Vector2.zero;
         }
 
-        RosterChip BuildRosterChip(RectTransform parent, int index, int count)
+        RosterChip BuildRosterChip(RectTransform parent, string id, int index, int count)
         {
             var go = new GameObject($"Chip{index}", typeof(RectTransform));
             var rt = go.GetComponent<RectTransform>();
@@ -1756,7 +1812,7 @@ namespace Yoegoe.Minigames.Yut
             statusText.color = new Color(0.7f, 0.65f, 0.55f);
             statusText.raycastTarget = false;
 
-            return new RosterChip(rt, portrait, nameText, statsText, statusText);
+            return new RosterChip(id, rt, portrait, nameText, statsText, statusText);
         }
 
         /// <summary>부모 위쪽 기준 y(px) 지점부터 height(px)만큼의 가로 전체 폭 띠를 앵커한다.</summary>
@@ -2191,7 +2247,8 @@ namespace Yoegoe.Minigames.Yut
             return rt;
         }
 
-        /// <summary>다른 기능(대기말/특수능력/완주말+보물 등)이 자기 UI를 붙일 구역 컨테이너.</summary>
+        /// <summary>다른 기능(특수능력/완주말+보물 등)이 자기 UI를 붙일 구역 컨테이너.
+        /// 대기말은 로스터 슬롯을 쓴다(South는 비움).</summary>
         public RectTransform GetQuadrant(YutBoardQuadrant quadrant)
         {
             EnsureBoard();

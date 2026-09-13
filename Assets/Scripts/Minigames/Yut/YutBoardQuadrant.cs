@@ -9,8 +9,8 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>북쪽(위) — 던진 윷가락이 정리되어 나열되는 자리.</summary>
         North,
 
-        /// <summary>남쪽(아래) — 대기말(아직 보드에 오르지 않은 말).</summary>
-        South,
+            /// <summary>남쪽(아래) — 예전 대기말 자리. 지금은 로스터 슬롯에 대기하므로 비워 둔다.</summary>
+            South,
 
         /// <summary>동쪽(오른) — 이 판에서 얻은 물건·완주 말 정리 자리.</summary>
         East,
