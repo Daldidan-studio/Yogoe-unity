@@ -40,8 +40,8 @@ namespace Yoegoe.Minigames.Yut
             /// <summary>모/뒷모/방 갈림길에서 지름길 쪽 후보인지. 갈림길이 아니면 의미 없음(둘 다 false).</summary>
             public readonly bool UseShortcut;
             /// <summary>이번 이동으로 실제 완주하는지 — DestinationNode만으로는 구분이 안 된다("참을
-            /// 지나서 완주"와 "참에 정확히 멈춰서 대기"가 둘 다 Start(0)로 표시되기 때문). 말풍선
-            /// 규칙("참을 지나 완주할 수 있을 때") 판정용.</summary>
+            /// 지나서 완주"와 "참에 정확히 멈춰서 대기"가 둘 다 Start(0)로 계산되기 때문).
+            /// UI는 WillFinish면 동(東)에 반짝임/후보를 띄운다.</summary>
             public readonly bool WillFinish;
 
             public YutMoveCandidate(string pieceId, int destinationNode, bool useShortcut, bool willFinish)

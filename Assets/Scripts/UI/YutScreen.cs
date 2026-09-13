@@ -686,7 +686,8 @@ namespace Yoegoe.UI
                     c.DestinationNode,
                     c.UseShortcut,
                     memberIds,
-                    memberNames));
+                    memberNames,
+                    c.WillFinish));
             }
             miniGame.FlashCandidates(uiCandidates);
         }
