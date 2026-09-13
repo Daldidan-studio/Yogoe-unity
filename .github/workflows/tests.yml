@@ -10,6 +10,11 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  checks: write
+  actions: read
+
 env:
   UNITY_VERSION: 6000.3.11f1
 
@@ -45,8 +50,7 @@ jobs:
           sudo swapon --show
           free -h
 
-      # @v4(latest=4.4)는 game-ci/cli 래퍼로 바뀌며 coverageEnabled:false 경로가
-      # 2초 만에 죽어 test-results도 안 남긴다. 당분간 검증된 4.3.2(기존 스크립트)로 고정.
+      # @v4(latest=4.4) CLI 래퍼는 이 프로젝트에서 즉시 실패함 → 4.3.2 고정
       - name: Run EditMode tests
         uses: game-ci/unity-test-runner@v4.3.2
         id: tests
@@ -58,8 +62,53 @@ jobs:
           unityVersion: ${{ env.UNITY_VERSION }}
           testMode: EditMode
           artifactsPath: test-results
+          # checks:write 권한 없으면 check-run 생성 실패로 step 전체가 빨간불 될 수 있음
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           checkName: EditMode Tests
+
+      - name: Show failed tests in log
+        if: always()
+        run: |
+          echo "## test-results tree"
+          find test-results -type f | sort || true
+          echo "## Failed cases"
+          python3 <<'PY'
+          import pathlib, re, sys
+          root = pathlib.Path("test-results")
+          if not root.exists():
+              print("no test-results dir")
+              sys.exit(0)
+          found = False
+          for p in root.rglob("*.xml"):
+              text = p.read_text(errors="replace")
+              print(f"--- {p} ---")
+              for label in ("Passed", "Failed", "Inconclusive", "Skipped"):
+                  n = len(re.findall(rf'result="{label}"', text))
+                  if n:
+                      print(f"  {label}: {n}")
+              for m in re.finditer(
+                  r'<test-case[^>]*name="([^"]+)"[^>]*result="Failed"[^>]*>.*?<message[^>]*><!\[CDATA\[(.*?)\]\]></message>',
+                  text,
+                  re.S,
+              ):
+                  found = True
+                  print("FAIL:", m.group(1))
+                  print(m.group(2).strip()[:500])
+                  print()
+              if not found:
+                  for m in re.finditer(r'<test-case[^>]*fullname="([^"]+)"[^>]*result="Failed"', text):
+                      found = True
+                      print("FAIL:", m.group(1))
+          if not found:
+              for p in root.rglob("*"):
+                  if p.suffix.lower() in {".log", ".txt"}:
+                      t = p.read_text(errors="replace")
+                      if "error CS" in t or "Scripts have compiler errors" in t:
+                          print(f"--- errors in {p} ---")
+                          for line in t.splitlines():
+                              if "error CS" in line or "error:" in line.lower():
+                                  print(line)
+          PY
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
