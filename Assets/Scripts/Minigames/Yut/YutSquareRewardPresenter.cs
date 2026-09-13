@@ -11,7 +11,7 @@ namespace Yoegoe.Minigames.Yut
     {
         YutMiniGame MiniGame { get; }
         void ShowNotice(string message, Action onOk);
-        void ShowRewardChoice(string message, Action onPlain, Action onAd);
+        void ShowRewardChoice(string message, Action onPlain, Action onAd, Sprite icon = null);
         Coroutine StartRoutine(IEnumerator routine);
         OfferingData TryGetOfferingForNode(int nodeId);
         IReadOnlyList<OfferingData> GetTreasureOfferingPool();
@@ -72,9 +72,7 @@ namespace Yoegoe.Minigames.Yut
                 case YutBoardLayout.SpecialSquareKind.Treasure:
                     pendingReward = RollTreasure(host);
                     BeginAwaiting(host);
-                    host.ShowNotice(
-                        $"보물상자 발견!\n{YutRewards.DescribeSquareReward(pendingReward.Value)}이(가) 들어있어요.",
-                        () => ShowTreasureChoiceAfterReveal(host));
+                    ShowTreasureChoice(host);
                     return;
 
                 case YutBoardLayout.SpecialSquareKind.PurifiedWater:
@@ -97,7 +95,11 @@ namespace Yoegoe.Minigames.Yut
             host.MiniGame?.SetThrowVisible(false);
         }
 
-        void ShowTreasureChoiceAfterReveal(IYutSquareRewardHost host)
+        /// <summary>보물상자는 안이 안 보이는 채로 고르는 게 아니라 바로 열어서 보여준다 — 뭐가
+        /// 나왔는지와 "그냥 받기/광고 보고 2배"를 한 팝업에 같이 띄운다(예전엔 확인 팝업으로
+        /// 먼저 보여주고 나서 똑같은 내용을 다시 선택 팝업에 띄웠는데, 어차피 ShowRewardChoice
+        /// 자체가 내용을 보여주므로 그 중간 확인 팝업은 그냥 중복이었다).</summary>
+        void ShowTreasureChoice(IYutSquareRewardHost host)
         {
             if (pendingReward == null)
             {
@@ -106,9 +108,10 @@ namespace Yoegoe.Minigames.Yut
             }
             string desc = YutRewards.DescribeSquareReward(pendingReward.Value);
             host.ShowRewardChoice(
-                $"보물상자!\n{desc}\n그냥 받을까요, 광고 보고 2배 받을까요?",
+                $"보물상자에서 {desc}가 나왔다!",
                 onPlain: () => GrantPlain(host),
-                onAd: () => GrantAd(host));
+                onAd: () => GrantAd(host),
+                icon: YutMiniGame.TreasureChestOpenIcon());
         }
 
         public void GrantPlain(IYutSquareRewardHost host) =>

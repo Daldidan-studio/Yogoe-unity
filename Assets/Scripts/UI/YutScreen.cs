@@ -29,8 +29,8 @@ namespace Yoegoe.UI
 
         YutMiniGame IYutSquareRewardHost.MiniGame => miniGame;
         void IYutSquareRewardHost.ShowNotice(string message, Action onOk) => ShowNotice(message, onOk);
-        void IYutSquareRewardHost.ShowRewardChoice(string message, Action onPlain, Action onAd)
-            => ShowRewardChoice(message, onPlain, onAd);
+        void IYutSquareRewardHost.ShowRewardChoice(string message, Action onPlain, Action onAd, Sprite icon)
+            => ShowRewardChoice(message, onPlain, onAd, icon);
         Coroutine IYutSquareRewardHost.StartRoutine(IEnumerator routine) => StartCoroutine(routine);
         OfferingData IYutSquareRewardHost.TryGetOfferingForNode(int nodeId)
         {
@@ -63,6 +63,7 @@ namespace Yoegoe.UI
         [SerializeField] Button choiceContinueButton;
         [SerializeField] Button choiceStopButton;
         [SerializeField] GameObject rewardRoot;
+        [SerializeField] Image rewardIcon;
         [SerializeField] Text rewardText;
         [SerializeField] Button rewardPlainButton;
         [SerializeField] Button rewardAdButton;
@@ -2303,12 +2304,23 @@ namespace Yoegoe.UI
             var boxImg = box.AddComponent<Image>();
             boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
 
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer));
+            var iconRt = (RectTransform)iconGO.transform;
+            iconRt.SetParent(boxRt, false);
+            iconRt.anchorMin = iconRt.anchorMax = iconRt.pivot = new Vector2(0.5f, 0.5f);
+            iconRt.anchoredPosition = new Vector2(0, 160);
+            iconRt.sizeDelta = new Vector2(96, 96);
+            rewardIcon = iconGO.AddComponent<Image>();
+            rewardIcon.preserveAspect = true;
+            rewardIcon.raycastTarget = false;
+            rewardIcon.gameObject.SetActive(false);
+
             var textGO = new GameObject("Text", typeof(RectTransform));
             var textRt = (RectTransform)textGO.transform;
             textRt.SetParent(boxRt, false);
             textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
-            textRt.anchoredPosition = new Vector2(0, 70);
-            textRt.sizeDelta = new Vector2(610, 220);
+            textRt.anchoredPosition = new Vector2(0, 35);
+            textRt.sizeDelta = new Vector2(610, 140);
             rewardText = textGO.AddComponent<Text>();
             rewardText.font = font;
             rewardText.fontSize = UiFonts.Size(38);
@@ -2322,9 +2334,15 @@ namespace Yoegoe.UI
             rewardRoot.SetActive(false);
         }
 
-        void ShowRewardChoice(string message, Action onPlain, Action onAd)
+        void ShowRewardChoice(string message, Action onPlain, Action onAd, Sprite icon = null)
         {
             rewardText.text = message;
+            // 구운 Prefab이 아이콘 슬롯 없이 만들어졌을 수 있어 방어적으로 null 체크.
+            if (rewardIcon != null)
+            {
+                rewardIcon.sprite = icon;
+                rewardIcon.gameObject.SetActive(icon != null);
+            }
             pendingRewardPlain = onPlain;
             pendingRewardAd = onAd;
             if (!root.activeSelf) root.SetActive(true);

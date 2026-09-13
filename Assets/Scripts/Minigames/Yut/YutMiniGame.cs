@@ -2269,6 +2269,7 @@ namespace Yoegoe.Minigames.Yut
         Transform _collectedItemsRoot;
         static Sprite _yeopjeonIcon;
         static Sprite _purifiedWaterIcon;
+        static Sprite _treasureChestOpenIcon;
 
         /// <summary>엽전 아이콘. Resources/UI/Currency/Yeopjeon.</summary>
         public static Sprite YeopjeonIcon()
@@ -2288,6 +2289,14 @@ namespace Yoegoe.Minigames.Yut
             if (_purifiedWaterIcon == null)
                 _purifiedWaterIcon = Resources.Load<Sprite>("UI/Currency/PurifiedWater");
             return _purifiedWaterIcon;
+        }
+
+        /// <summary>보물상자를 연 상태 아이콘. 보상 팝업에서 "상자에서 뭐가 나왔는지" 보여줄 때 쓴다.</summary>
+        public static Sprite TreasureChestOpenIcon()
+        {
+            if (_treasureChestOpenIcon == null)
+                _treasureChestOpenIcon = Resources.Load<Sprite>("UI/GiftChest_Open");
+            return _treasureChestOpenIcon;
         }
 
         /// <summary>특수 칸에서 얻은 아이콘이 동(東) 보상란으로 슝 날아간다.</summary>
