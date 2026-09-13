@@ -6,8 +6,8 @@ namespace Yoegoe.Minigames.Yut
 {
     /// <summary>
     /// 윷놀이 한 판의 규칙(잡기·업기·보너스턴·완주)만 담당하는 순수 로직.
-    /// 이무기는 결승점이 없어서 패배 조건이 아니라 그냥 계속 도는 상대다 — 플레이어가 말을 완주시켜
-    /// 승리하거나(전원 완주 시 자동 종료, 일부만 완주해도 EndAsPlayerWin으로 원하는 시점에 종료 가능)
+    /// 이무기는 결승점이 없어서 계속 도는 상대다 — 플레이어가 말을 완주하면
+    /// 매치가 끝난다(전원 완주 시 자동 종료, 일부만 완주해도 EndAsFinished로 원하는 시점에 종료 가능).
     /// 직접 나가기 전까진 매치가 안 끝난다.
     /// 화면(YutMiniGame)이나 재화(GameEconomy)는 모르고, 결과만 이벤트로 알린다.
     /// 소유는 UI 쪽(YutScreen)이 한다 — CharacterAgent가 CharacterRequestState를 들고 있는 것과 같은 패턴.
@@ -70,8 +70,8 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>말 이동·잡기·완주가 있을 때마다 (화면 갱신 신호 — 페이로드 없이 최신 상태를 다시 읽으면 됨).</summary>
         public event Action OnPiecesChanged;
-        /// <summary>매치 종료. true면 플레이어 승리.</summary>
-        public event Action<bool> OnMatchEnded;
+        /// <summary>매치 종료(완주). 인자는 이번 골인으로 같이 들어온 말 수(업기 스택).</summary>
+        public event Action<int> OnMatchEnded;
         /// <summary>
         /// 내 말(스택이면 전원)을 실제로 옮겼을 때 그 말들의 id. 기획 11장 "말을 움직일 때마다
         /// 그 요괴 친밀도 +0.25" — 캐릭터 스탯은 YutMatch가 몰라서 호출부(YutScreen)가 처리한다.
@@ -85,7 +85,7 @@ namespace Yoegoe.Minigames.Yut
         public event Action OnOpponentCaptured;
         /// <summary>
         /// 내 말(스택이면 전원)이 골인했는데 아직 안 끝난(안 들어온) 말이 남아있을 때 — 그 말들의 id.
-        /// 매치는 안 끝난다(전원 골인 전까지는 EndAsPlayerWin을 호출해야 끝남) — 호출부(YutScreen)가
+        /// 매치는 안 끝난다(전원 골인 전까지는 EndAsFinished를 호출해야 끝남) — 호출부(YutScreen)가
         /// "여기서 그만 받을지, 남은 말로 계속할지" 물어보는 용도.
         /// </summary>
         public event Action<IReadOnlyList<string>> OnPlayerPieceFinished;
@@ -197,7 +197,7 @@ namespace Yoegoe.Minigames.Yut
         /// pieceId가 속한 칸(스택이면 전원)을 결과만큼 이동시킨다. useShortcut은 모/뒷모/방 갈림길에
         /// 멈춰 있던 말일 때만 의미 있음(GetPlayerCandidates가 준 후보의 UseShortcut을 그대로 넘기면 됨).
         /// 완주해도 매치가 바로 끝나지는 않는다 — 안 끝난 말이 남아있으면 OnPlayerPieceFinished만 쏘고,
-        /// 호출부가 EndAsPlayerWin을 불러야 실제로 끝난다(전원 골인이면 자동으로 끝남).
+        /// 호출부가 EndAsFinished를 불러야 실제로 끝난다(전원 골인이면 자동으로 끝남).
         /// 반환값이 true면 보너스 턴(윷/모 또는 잡기).
         /// </summary>
         public bool ApplyPlayerMove(string pieceId, bool useShortcut, YutThrowOutcome outcome)
@@ -271,7 +271,7 @@ namespace Yoegoe.Minigames.Yut
                 if (playerPieces.All(p => p.Finished))
                 {
                     IsEnded = true;
-                    OnMatchEnded?.Invoke(true);
+                    OnMatchEnded?.Invoke(movedIds.Count);
                     return false;
                 }
 
@@ -380,14 +380,15 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>
-        /// 완주한 말이 남아있는(그런데 아직 안 들어온 말도 있는) 상태에서, 유저가 "여기서 그만"을
-        /// 선택했을 때 호출 — 즉시 플레이어 승리로 매치를 끝낸다.
+        /// 완주한 말이 있는데 아직 안 들어온 말도 있는 상태에서, 유저가 "여기서 그만"을
+        /// 선택했을 때 호출 — 즉시 완주로 매치를 끝낸다.
+        /// finishStackCount는 방금 골인한 업기 스택 수(보상 배율용).
         /// </summary>
-        public void EndAsPlayerWin()
+        public void EndAsFinished(int finishStackCount)
         {
             if (IsEnded) return;
             IsEnded = true;
-            OnMatchEnded?.Invoke(true);
+            OnMatchEnded?.Invoke(finishStackCount > 0 ? finishStackCount : 1);
         }
 
         /// <summary>

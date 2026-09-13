@@ -14,8 +14,8 @@ using Yoegoe.Save;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 윷놀이 진입점(11장). 윷 토큰 소모 → 옥토끼+현재 슬롯의 혼 전원 vs 이무기(말 1개) 대결 →
-    /// 승리 시 향·엽전 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
+    /// 윷놀이 진입점(11장). 윷 토큰 소모 → 옥토끼+현재 슬롯의 혼 전원 vs 이무기(말 1개) →
+    /// 완주 시 향·엽전 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
     /// </summary>
     public class YutScreen : MonoBehaviour
     {
@@ -23,9 +23,11 @@ namespace Yoegoe.UI
 
         public Font font;
 
-        /// <summary>승리(완주) 보상 — 기획서 11장 확정: 향 1개 + 엽전 1개.</summary>
-        const int WinHyangReward = 1;
-        const int WinYeopjeonReward = 1;
+        /// <summary>완주 보상 — 기획서 11장 확정: 향 1개 + 엽전 1개.</summary>
+        const int FinishHyangReward = 1;
+        const int FinishYeopjeonReward = 1;
+        /// <summary>이 수만큼 업고 한 번에 완주할 때만 광고 2배 선택(3마리는 해당 없음).</summary>
+        const int FinishAdBonusStackCount = 4;
 
         /// <summary>말 이동 시 친밀도 +0.25(11장) 적용을 위한 piece id → 캐릭터 매핑.</summary>
         readonly Dictionary<string, CharacterAgent> teamById = new Dictionary<string, CharacterAgent>();
@@ -76,6 +78,10 @@ namespace Yoegoe.UI
         /// 결과가 보너스였는지 기억해뒀다가 '계속하기'를 고르면 그대로 이어서 써야 한다.</summary>
         bool awaitingFinishChoice;
         bool pendingBonusAfterContinue;
+
+        /// <summary>4마리 동시 완주 광고 2배 팝업용 — 배율 적용 전(스택 반영된) 향/엽전.</summary>
+        int pendingFinishHyang;
+        int pendingFinishYeopjeon;
 
         enum SquareRewardKind { Offering, Yeopjeon, Hyang, AdTicket, YutToken }
 
@@ -250,7 +256,9 @@ namespace Yoegoe.UI
         {
             if (miniGame != null) miniGame.RefreshHearts(token);
         }
-
+        /// <summary>
+        /// 윷놀이 이벤트 구독
+        /// </summary>
         void SubscribeMatchEvents()
         {
             if (match == null) return;
@@ -707,7 +715,7 @@ namespace Yoegoe.UI
         /// <summary>
         /// 말이 특수 칸에 도착했을 때 — 칸 종류(엽전/공양물/보물상자)에 맞는 보상을 정해서
         /// "그냥 받기(1배)"/"광고 보고 2배" 팝업을 띄운다. 완주와 달리 매치를 막지 않고, 선택
-        /// 즉시 재화를 지급한다(칸에서 얻은 건 패배해도 유지).
+        /// 즉시 재화를 지급한다(칸에서 얻은 건 매치 중에도 유지).
         /// </summary>
         void HandleSpecialSquareReached(int nodeId, IReadOnlyList<string> pieceIds)
         {
@@ -951,7 +959,7 @@ namespace Yoegoe.UI
             string names = string.Join(", ", finishedIds.Select(NameFor));
             ShowChoice($"{names} 골인!\n여기서 그만 받을까요, 남은 말로 계속할까요?",
                 onContinue: HandleContinueAfterFinish,
-                onStop: HandleStopAfterFinish);
+                onStop: () => HandleStopAfterFinish(finishedIds));
         }
 
         /// <summary>말이 하나 골인해서 계속하기로 했으면 — 기존 말은 그대로 두고 게임 이어가기
@@ -977,10 +985,11 @@ namespace Yoegoe.UI
                 StartCoroutine(RunOpponentTurnRoutine());
         }
 
-        void HandleStopAfterFinish()
+        /// <summary>골인 후 "여기서 그만" — 완주로 매치 종료.</summary>
+        void HandleStopAfterFinish(IReadOnlyList<string> finishedIds)
         {
             awaitingFinishChoice = false;
-            match?.EndAsPlayerWin();
+            match?.EndAsFinished(finishedIds != null ? finishedIds.Count : 1);
         }
 
         /// <summary>
@@ -1279,20 +1288,48 @@ namespace Yoegoe.UI
             };
         }
 
-        void HandleMatchEnded(bool playerWon)
+        /// <summary>매치 종료(완주) — 보상은 이번 골인 스택 수 배율. 4마리 동시 완주만 광고 2배 선택.</summary>
+        void HandleMatchEnded(int finishStackCount)
         {
             miniGame.SetThrowVisible(false);
             miniGame.ClearCandidates();
 
-            string message = playerWon
-                ? $"승리! 향 {WinHyangReward}개 + 엽전 {WinYeopjeonReward}개 획득"
-                : "패배했습니다.";
-            if (playerWon)
+            int stack = Mathf.Max(1, finishStackCount);
+            pendingFinishHyang = FinishHyangReward * stack;
+            pendingFinishYeopjeon = FinishYeopjeonReward * stack;
+
+            // 가진 말을 FinishAdBonusStackCount마리 전부 업고 한 번에 완주할 때만 광고 2배 선택.
+            if (stack == FinishAdBonusStackCount)
             {
-                GameEconomy.Instance.AddHyang(WinHyangReward);
-                GameEconomy.Instance.AddYeopjeon(WinYeopjeonReward);
+                ShowRewardChoice(
+                    $"{FinishAdBonusStackCount}마리 동시 완주!\n향 {pendingFinishHyang}개 + 엽전 {pendingFinishYeopjeon}개",
+                    onPlain: HandleFinishRewardPlain,
+                    onAd: HandleFinishRewardAd);
+                return;
             }
 
+            GrantFinishRewardAndNotice(1);
+        }
+
+        void HandleFinishRewardPlain() => GrantFinishRewardAndNotice(1);
+
+        void HandleFinishRewardAd() => StartCoroutine(FinishRewardAdRoutine());
+
+        IEnumerator FinishRewardAdRoutine()
+        {
+            yield return new WaitForSecondsRealtime(SquareRewardAdWatchSeconds);
+            GrantFinishRewardAndNotice(2);
+        }
+
+        /// <summary>완주 향/엽전 지급 후 안내. multiplier는 광고 2배용.</summary>
+        void GrantFinishRewardAndNotice(int multiplier)
+        {
+            int hyang = pendingFinishHyang * multiplier;
+            int yeop = pendingFinishYeopjeon * multiplier;
+            GameEconomy.Instance.AddHyang(hyang);
+            GameEconomy.Instance.AddYeopjeon(yeop);
+
+            string message = $"완주! 향 {hyang}개 + 엽전 {yeop}개 획득";
             string collected = BuildCollectedItemsSummary();
             if (!string.IsNullOrEmpty(collected))
                 message += $"\n{collected}";
@@ -1513,7 +1550,7 @@ namespace Yoegoe.UI
         void OnNoticeOk()
         {
             noticeRoot.SetActive(false);
-            // 매치 종료 안내(승리)는 action(OnMatchEndedNoticeOk) 안에서 match를 null로 비운다 —
+            // 매치 종료 안내(완주)는 action(OnMatchEndedNoticeOk) 안에서 match를 null로 비운다 —
             // action 실행 "후"에 match == null을 검사하면 그 케이스까지 "매치 시작 전 안내"로
             // 오인해 화면을 닫아버린다(완주해도 윷판이 사라지던 버그). action 실행 전 상태로 판단한다.
             bool matchWasNullBeforeAction = match == null;

@@ -55,12 +55,17 @@ jobs:
         with:
           unityVersion: ${{ env.UNITY_VERSION }}
           testMode: EditMode
+          # Unity 6 + game-ci 기본 coverage 플래그가 에디터를 죽이는 경우가 많음
+          # (test-results도 안 남기고 exit 1). 커버리지 끄면 EditMode만 돌릴 수 있다.
+          coverageEnabled: false
           artifactsPath: test-results
           githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: EditMode Tests
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: EditMode-test-results
-          path: test-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
+          if-no-files-found: warn
