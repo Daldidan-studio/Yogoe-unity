@@ -17,6 +17,8 @@ namespace Yoegoe.UI
         private Text titleText;
         private Text costText;
         private PropSlot target;
+        /// <summary>자물쇠 위에 드롭해서 팝업을 열었을 때 — 건설 성공 후 앉힐 요괴.</summary>
+        CharacterAgent sitAfterBuild;
 
         private void Awake()
         {
@@ -38,7 +40,9 @@ namespace Yoegoe.UI
             if (Instance == this) Instance = null;
         }
 
-        public void Open(PropSlot prop)
+        public void Open(PropSlot prop) => Open(prop, null);
+
+        public void Open(PropSlot prop, CharacterAgent sitAfter)
         {
             Debug.Log("[DEBUG-LOCK] PropPurchasePopup.Open 호출됨: prop="
                 + (prop != null ? prop.name + " IsBuilt=" + prop.IsBuilt : "null"));
@@ -46,6 +50,7 @@ namespace Yoegoe.UI
             EnsureBuilt();
             Debug.Log("[DEBUG-LOCK] PropPurchasePopup.Open: root.SetActive(true) 직전, root=" + (root != null));
             target = prop;
+            sitAfterBuild = sitAfter;
             string name = prop.DisplayName;
             titleText.text = name + "을(를) 그릴까요?";
             costText.text = "비용 " + PropEconomy.GetNextPurchaseCost().ToDisplayString();
@@ -56,18 +61,22 @@ namespace Yoegoe.UI
         {
             if (root != null) root.SetActive(false);
             target = null;
+            sitAfterBuild = null;
         }
 
         private void OnBuildClicked()
         {
             if (target == null) return;
             var prop = target;
+            var sitAgent = sitAfterBuild;
             if (!PropEconomy.TryPurchase(prop))
             {
                 costText.text = "공덕이 부족합니다\n(" + PropEconomy.GetNextPurchaseCost().ToDisplayString() + ")";
                 return;
             }
             Close();
+            if (sitAgent != null)
+                sitAgent.TrySitOnProp(prop);
             GameSaveBridge.SaveFromWorld();
         }
 

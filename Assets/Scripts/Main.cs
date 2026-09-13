@@ -228,13 +228,19 @@ namespace Yoegoe
 
         private void CreateHud()
         {
-            var detailGO = new GameObject("DetailScreen");
-            detailGO.SetActive(false);
-            var detail = detailGO.AddComponent<DetailScreen>();
+            var detail = UnityEngine.Object.FindAnyObjectByType<DetailScreen>(FindObjectsInactive.Include);
+            if (detail == null)
+            {
+                var detailGO = new GameObject("DetailScreen");
+                detailGO.SetActive(false);
+                detail = detailGO.AddComponent<DetailScreen>();
+                detailGO.SetActive(true);
+            }
             detail.font = hudFont;
             detail.offerings = offerings;
             detail.purifiedWaterIcon = purifiedWaterIcon;
-            detailGO.SetActive(true);
+            if (!detail.gameObject.activeSelf)
+                detail.gameObject.SetActive(true);
 
             var purchaseGO = new GameObject("PropPurchasePopup");
             purchaseGO.SetActive(false);

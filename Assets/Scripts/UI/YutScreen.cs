@@ -871,17 +871,42 @@ namespace Yoegoe.UI
             YutBoardLayout.ReshuffleRemainingSpecialSquares();
 
             specialOfferingByNode.Clear();
-            int oi = 0;
-            var pool = GetOfferingPool();
+            var offeringNodes = new List<int>();
             for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
             {
-                if (YutBoardLayout.GetSpecialKind(nodeId) != YutBoardLayout.SpecialSquareKind.Offering)
-                    continue;
-                if (oi < offerings.Count)
-                    specialOfferingByNode[nodeId] = offerings[oi++];
-                else if (pool.Count > 0)
-                    specialOfferingByNode[nodeId] = pool[UnityEngine.Random.Range(0, pool.Count)];
+                if (YutBoardLayout.GetSpecialKind(nodeId) == YutBoardLayout.SpecialSquareKind.Offering)
+                    offeringNodes.Add(nodeId);
             }
+
+            // 기존 내용물을 우선 쓰고, 모자라면 이미 쓴 종류와 겹치지 않게 보충.
+            var assigned = new List<OfferingData>(offerings);
+            if (assigned.Count < offeringNodes.Count)
+            {
+                var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < assigned.Count; i++)
+                {
+                    if (assigned[i] != null && !string.IsNullOrEmpty(assigned[i].offeringId))
+                        usedIds.Add(assigned[i].offeringId);
+                }
+
+                var pool = GetOfferingPool();
+                var fresh = new List<OfferingData>();
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var o = pool[i];
+                    if (o == null || string.IsNullOrEmpty(o.offeringId) || usedIds.Contains(o.offeringId))
+                        continue;
+                    fresh.Add(o);
+                }
+
+                int need = offeringNodes.Count - assigned.Count;
+                var extras = PickDistinctOfferings(fresh.Count > 0 ? fresh : pool, need);
+                for (int i = 0; i < extras.Count; i++)
+                    assigned.Add(extras[i]);
+            }
+
+            for (int i = 0; i < offeringNodes.Count && i < assigned.Count; i++)
+                specialOfferingByNode[offeringNodes[i]] = assigned[i];
 
             if (applyVisuals)
                 ApplySpecialSquareVisuals();
@@ -1237,19 +1262,59 @@ namespace Yoegoe.UI
             return pool;
         }
 
-        /// <summary>매치 시작 때 한 번 — 공양물 칸(YutBoardLayout.SpecialSquareKind.Offering)마다
-        /// 어떤 공양물을 줄지 미리 뽑아 고정한다(맵에 그대로 노출되니 매번 랜덤이면 안 됨).</summary>
+        /// <summary>매치 시작 때 한 번 — 공양물 칸마다 공양물을 미리 뽑는다.
+        /// 칸이 여럿이면 서로 다른 종류로 맞춘다(풀이 부족하면 그때만 중복 허용).</summary>
         void AssignSpecialOfferings()
         {
             specialOfferingByNode.Clear();
             var pool = GetOfferingPool();
             if (pool.Count == 0) return;
 
+            var nodeIds = new List<int>();
             for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
             {
-                if (YutBoardLayout.GetSpecialKind(nodeId) != YutBoardLayout.SpecialSquareKind.Offering) continue;
-                specialOfferingByNode[nodeId] = pool[UnityEngine.Random.Range(0, pool.Count)];
+                if (YutBoardLayout.GetSpecialKind(nodeId) == YutBoardLayout.SpecialSquareKind.Offering)
+                    nodeIds.Add(nodeId);
             }
+            if (nodeIds.Count == 0) return;
+
+            var picks = PickDistinctOfferings(pool, nodeIds.Count);
+            for (int i = 0; i < nodeIds.Count; i++)
+                specialOfferingByNode[nodeIds[i]] = picks[i];
+        }
+
+        /// <summary>pool에서 count개를 뽑되, 가능하면 offeringId가 겹치지 않게 한다.</summary>
+        static List<OfferingData> PickDistinctOfferings(IReadOnlyList<OfferingData> pool, int count)
+        {
+            var result = new List<OfferingData>(count);
+            if (pool == null || pool.Count == 0 || count <= 0) return result;
+
+            var remaining = new List<OfferingData>(pool.Count);
+            for (int i = 0; i < pool.Count; i++)
+                if (pool[i] != null) remaining.Add(pool[i]);
+
+            for (int n = 0; n < count; n++)
+            {
+                if (remaining.Count == 0)
+                {
+                    // 종류가 칸 수보다 적으면 전체 풀에서 다시 채워 중복 허용.
+                    for (int i = 0; i < pool.Count; i++)
+                        if (pool[i] != null) remaining.Add(pool[i]);
+                    if (remaining.Count == 0) break;
+                }
+
+                int pick = UnityEngine.Random.Range(0, remaining.Count);
+                result.Add(remaining[pick]);
+                string takenId = remaining[pick].offeringId;
+                // 같은 id는 더 이상 후보에 두지 않는다.
+                for (int i = remaining.Count - 1; i >= 0; i--)
+                {
+                    if (string.Equals(remaining[i].offeringId, takenId, StringComparison.OrdinalIgnoreCase))
+                        remaining.RemoveAt(i);
+                }
+            }
+
+            return result;
         }
 
         /// <summary>

@@ -31,9 +31,10 @@ namespace Yoegoe.Characters
         public static event System.Action<CharacterAgent, string> CharacterDetailRequested;
 
         /// <summary>
-        /// 잠긴 기물 탭 → 구매 팝업 요청. UI(PropPurchasePopup)가 구독한다 — 이 클래스는 UI를 모른다.
+        /// 잠긴 기물 탭·자물쇠 위 앉히기 시도 → 구매 팝업 요청.
+        /// 두 번째 인자는 건설 후 앉힐 요괴(탭이면 null). UI(PropPurchasePopup)가 구독한다.
         /// </summary>
-        public static event System.Action<PropSlot> PropPurchaseRequested;
+        public static event System.Action<PropSlot, CharacterAgent> PropPurchaseRequested;
 
         public Camera targetCamera;
         public MapCameraDrag mapDrag;
@@ -350,7 +351,7 @@ namespace Yoegoe.Characters
                         CancelPendingMonologueTap();
                         Debug.Log("[DEBUG-LOCK] OnRelease: PropPurchaseRequested 발행, 구독자 있음="
                             + (PropPurchaseRequested != null));
-                        PropPurchaseRequested?.Invoke(pressProp);
+                        PropPurchaseRequested?.Invoke(pressProp, null);
                         break;
 
                     case PressTarget.CollectibleProp:
@@ -367,6 +368,14 @@ namespace Yoegoe.Characters
             {
                 CancelPendingMonologueTap();
                 var prop = FindDropProp(dragCharacter, screenPos);
+                // 건립된 기물에 못 앉히면 — 자물쇠 위에 놓았는지 보고 구매 팝업(탭과 동일 경로).
+                // 건설 확정 시 이 요괴를 자동 앉히도록 함께 넘긴다.
+                if (prop == null)
+                {
+                    var locked = FindUnbuiltDropProp(dragCharacter, screenPos);
+                    if (locked != null)
+                        PropPurchaseRequested?.Invoke(locked, dragCharacter);
+                }
                 dragCharacter.EndPlayerDrag(prop);
             }
 
@@ -544,6 +553,20 @@ namespace Yoegoe.Characters
                 agent, fingerWorld, propDropRadius, allowOccupied: true, allowEndingRefuse: true);
             if (atChar != null && atChar.IsForbiddenEndingFor(agent)) return atChar;
             return null;
+        }
+
+        /// <summary>앉히기 실패 시 — 캐릭터/손가락 근처에 자물쇠(미건립)가 있으면 반환.</summary>
+        PropSlot FindUnbuiltDropProp(CharacterAgent agent, Vector2 screenPos)
+        {
+            if (targetCamera == null || PropManager.Instance == null || agent == null) return null;
+            float depth = -targetCamera.transform.position.z;
+            Vector3 fingerWorld = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            fingerWorld.z = 0f;
+
+            float radius = Mathf.Max(propDropRadius, lockTapRadius);
+            var atChar = PropManager.Instance.FindNearestUnbuiltProp(agent.transform.position, radius);
+            if (atChar != null) return atChar;
+            return PropManager.Instance.FindNearestUnbuiltProp(fingerWorld, radius);
         }
 
         private PropSlot FindNearestProp(Vector2 screenPos)

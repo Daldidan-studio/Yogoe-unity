@@ -12,42 +12,53 @@ namespace Yoegoe.UI
 {
     /// <summary>
     /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
-    /// 정화수·공양물은 드래그해서 본문(초상·정보) 위에 놓아 먹인다.
+    /// Prefab/씬에 셸이 있으면 그대로 쓰고, 없으면 Play 때 코드로 조립한다.
+    /// 선호·인벤토리 칩은 항상 코드로 갱신. 정화수·공양물은 드래그해서 본문에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
     {
+        [Header("주입 (Main)")]
         public Font font;
         public OfferingData[] offerings;
         public Sprite purifiedWaterIcon;
 
-        private CharacterAgent currentAgent;
-        private GameObject root;
-        private Canvas rootCanvas;
-        private Image portraitImage;
-        private RectTransform portraitRt;
-        private RectTransform portraitDropRt;
+        [Header("셸 (Prefab/씬 — 비어 있으면 Play 시 코드 조립)")]
+        [SerializeField] GameObject root;
+        [SerializeField] Canvas rootCanvas;
+        [SerializeField] Image portraitImage;
+        [SerializeField] RectTransform portraitRt;
+        [SerializeField] RectTransform portraitDropRt;
         /// <summary>급여 드롭 판정용 — 초상만이 아니라 본문 전체(정보 패널 포함).</summary>
-        private RectTransform feedDropRt;
-        private Image portraitPanelHighlight;
+        [SerializeField] RectTransform feedDropRt;
+        [SerializeField] Image portraitPanelHighlight;
+        [SerializeField] Text nameValueText;
+        [SerializeField] Text statusText;
+        [SerializeField] Text intimacyLevelText;
+        [SerializeField] Image intimacyFill;
+        [SerializeField] RectTransform intimacyFillRt;
+        [SerializeField] Text staminaValueText;
+        [SerializeField] Image staminaFill;
+        [SerializeField] RectTransform staminaFillRt;
+        [SerializeField] Text descriptionText;
+        [SerializeField] RectTransform preferredRow;
+        [SerializeField] GameObject preferredHostGO;
+        [SerializeField] GameObject inventoryButtonGO;
+        [SerializeField] GameObject intimacyColGO;
+        [SerializeField] GameObject inventoryPanel;
+        [SerializeField] RectTransform inventoryRow;
+        [SerializeField] Text feedHintText;
+        [SerializeField] Text purifiedCountText;
+        [SerializeField] CanvasGroup purifiedDragGroup;
+        [SerializeField] Button dimCloseButton;
+        [SerializeField] Button closeButton;
+        [SerializeField] Button inventoryButton;
+
+        /// <summary>Prefab/씬에 상세 셸이 이미 연결돼 있는지.</summary>
+        public bool HasPrefabShell =>
+            root != null && rootCanvas != null && portraitImage != null && preferredRow != null;
+
+        private CharacterAgent currentAgent;
         private Vector3 portraitBaseScale = Vector3.one;
-        private Text nameValueText;
-        private Text statusText;
-        private Text intimacyLevelText;
-        private Image intimacyFill;
-        private RectTransform intimacyFillRt;
-        private Text staminaValueText;
-        private Image staminaFill;
-        private RectTransform staminaFillRt;
-        private Text descriptionText;
-        private RectTransform preferredRow;
-        private GameObject preferredHostGO;
-        private GameObject inventoryButtonGO;
-        private GameObject intimacyColGO;
-        private GameObject inventoryPanel;
-        private RectTransform inventoryRow;
-        private Text feedHintText;
-        private Text purifiedCountText;
-        private CanvasGroup purifiedDragGroup;
         private readonly List<CountBadge> offeringCountBadges = new List<CountBadge>();
         private Sprite neokPlaceholderSprite;
         private GrowthStage lastPortraitStage = GrowthStage.Hon;
@@ -71,7 +82,8 @@ namespace Yoegoe.UI
         private void Start()
         {
             EnsureBuilt();
-            root.SetActive(false);
+            WireRuntimeListeners();
+            if (root != null) root.SetActive(false);
         }
 
         private void Update()
@@ -172,12 +184,100 @@ namespace Yoegoe.UI
             currentAgent = null;
         }
 
-        private void EnsureBuilt()
+        /// <summary>Prefab 셸이 있으면 유지, 없으면 코드로 조립. 에디터 Bake도 이 경로를 쓴다.</summary>
+        public void EnsureBuilt()
         {
+            if (HasPrefabShell)
+            {
+                if (portraitRt != null) portraitBaseScale = portraitRt.localScale;
+                EnsurePurifiedCountBadgeRegistered();
+                return;
+            }
+
             if (root != null) return;
             if (font == null)
                 font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Build();
+        }
+
+        /// <summary>에디터 Bake용. Prefab에서 레이아웃을 볼 수 있게 루트를 켠다.</summary>
+        public void EnsureBuiltForBake()
+        {
+            EnsureBuilt();
+            if (root != null) root.SetActive(true);
+        }
+
+        /// <summary>
+        /// Button.onClick 리스너는 Prefab에 저장되지 않으므로 Play/Start마다 다시 연결한다.
+        /// </summary>
+        void WireRuntimeListeners()
+        {
+            if (dimCloseButton == null && root != null)
+                dimCloseButton = root.GetComponent<Button>();
+            if (closeButton == null && root != null)
+                closeButton = root.transform.Find("Dialog/CloseButton")?.GetComponent<Button>();
+            if (inventoryButton == null && inventoryButtonGO != null)
+                inventoryButton = inventoryButtonGO.transform.Find("IconBox")?.GetComponent<Button>();
+
+            if (dimCloseButton != null)
+            {
+                dimCloseButton.onClick.RemoveAllListeners();
+                dimCloseButton.onClick.AddListener(Close);
+            }
+
+            if (closeButton != null)
+            {
+                closeButton.onClick.RemoveAllListeners();
+                closeButton.onClick.AddListener(Close);
+            }
+
+            if (inventoryButton != null)
+            {
+                inventoryButton.onClick.RemoveAllListeners();
+                inventoryButton.onClick.AddListener(ToggleInventory);
+            }
+
+            RebindPurifiedDragItem();
+            EnsurePurifiedCountBadgeRegistered();
+        }
+
+        void RebindPurifiedDragItem()
+        {
+            if (root == null) return;
+            var chip = root.transform.Find("Dialog/BottomBar/Action_정화수");
+            if (chip == null) return;
+
+            var drag = chip.GetComponentInChildren<OfferingDragItem>(true);
+            if (drag == null) return;
+
+            var pw = FindPurifiedWater();
+            Sprite icon = purifiedWaterIcon;
+            if (icon == null && pw != null) icon = pw.icon;
+            drag.Configure(this, pw, purified: true, icon);
+        }
+
+        void EnsurePurifiedCountBadgeRegistered()
+        {
+            if (purifiedCountText == null && root != null)
+            {
+                var badge = root.transform.Find("Dialog/BottomBar/Action_정화수/IconBox/CountBadge");
+                if (badge != null)
+                    purifiedCountText = badge.GetComponentInChildren<Text>(true);
+            }
+
+            if (purifiedCountText == null) return;
+            for (int i = 0; i < offeringCountBadges.Count; i++)
+            {
+                if (offeringCountBadges[i].PurifiedWater && offeringCountBadges[i].Label == purifiedCountText)
+                    return;
+            }
+
+            offeringCountBadges.Add(new CountBadge
+            {
+                Label = purifiedCountText,
+                Offering = null,
+                PurifiedWater = true
+            });
         }
 
         // ---------------- refresh ----------------
@@ -732,7 +832,13 @@ namespace Yoegoe.UI
             var bg = badgeGO.AddComponent<Image>();
             bg.color = C.badgeBg;
             bg.raycastTarget = false;
-            int n = purified ? GameEconomy.Instance.PurifiedWater : GameEconomy.Instance.GetOfferingCount(offering);
+            int n = 0;
+            if (GameEconomy.Instance != null)
+            {
+                n = purified
+                    ? GameEconomy.Instance.PurifiedWater
+                    : GameEconomy.Instance.GetOfferingCount(offering);
+            }
             var text = CreateText(badgeGO.transform, "x" + n, F.caption, TextAnchor.MiddleCenter);
             text.color = Color.white;
             SetupRect(text.gameObject, badgeGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
@@ -809,9 +915,9 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
             var dim = root.AddComponent<Image>();
             dim.color = C.dim;
-            var dimBtn = root.AddComponent<Button>();
-            dimBtn.targetGraphic = dim;
-            dimBtn.onClick.AddListener(Close);
+            dimCloseButton = root.AddComponent<Button>();
+            dimCloseButton.targetGraphic = dim;
+            dimCloseButton.onClick.AddListener(Close);
 
             // 화면 중앙 다이얼로그
             var dialog = new GameObject("Dialog");
@@ -830,9 +936,9 @@ namespace Yoegoe.UI
                 new Vector2(-16f, -16f), new Vector2(56f, 56f));
             var closeImg = closeGO.AddComponent<Image>();
             closeImg.color = C.border;
-            var closeBtn = closeGO.AddComponent<Button>();
-            closeBtn.targetGraphic = closeImg;
-            closeBtn.onClick.AddListener(Close);
+            closeButton = closeGO.AddComponent<Button>();
+            closeButton.targetGraphic = closeImg;
+            closeButton.onClick.AddListener(Close);
             CreateCloseBar(closeGO.transform, 45f);
             CreateCloseBar(closeGO.transform, -45f);
 
@@ -978,6 +1084,9 @@ namespace Yoegoe.UI
             prefLayout.childForceExpandHeight = false;
 
             inventoryButtonGO = CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
+            inventoryButton = inventoryButtonGO != null
+                ? inventoryButtonGO.transform.Find("IconBox")?.GetComponent<Button>()
+                : null;
 
             feedHintText = CreateText(dialogRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", F.hint, TextAnchor.MiddleCenter);
             feedHintText.color = C.feedHint;
