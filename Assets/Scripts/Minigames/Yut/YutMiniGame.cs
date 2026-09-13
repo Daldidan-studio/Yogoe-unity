@@ -1784,7 +1784,7 @@ namespace Yoegoe.Minigames.Yut
         {
             if (pad == null) return;
             pad.color = YutBoardLayout.IsSpecialReward(nodeId)
-                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/공양물/보물상자(YutBoardLayout.SpecialSquareKind)
+                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/공양물/보물상자/정화수(YutBoardLayout.SpecialSquareKind)
                 : IsWaypoint(nodeId)
                     ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);
@@ -2010,6 +2010,7 @@ namespace Yoegoe.Minigames.Yut
 
         Transform _collectedItemsRoot;
         static Sprite _yeopjeonIcon;
+        static Sprite _purifiedWaterIcon;
 
         /// <summary>엽전 아이콘. Resources/UI/Currency/Yeopjeon.</summary>
         public static Sprite YeopjeonIcon()
@@ -2017,6 +2018,18 @@ namespace Yoegoe.Minigames.Yut
             if (_yeopjeonIcon == null)
                 _yeopjeonIcon = Resources.Load<Sprite>("UI/Currency/Yeopjeon");
             return _yeopjeonIcon;
+        }
+
+        /// <summary>정화수 아이콘. 카탈로그 OfferingData, 없으면 Resources 폴백.</summary>
+        public static Sprite PurifiedWaterIcon()
+        {
+            if (_purifiedWaterIcon != null) return _purifiedWaterIcon;
+            var offering = CharacterCatalog.FindOffering("purifiedwater");
+            if (offering != null && offering.icon != null)
+                _purifiedWaterIcon = offering.icon;
+            if (_purifiedWaterIcon == null)
+                _purifiedWaterIcon = Resources.Load<Sprite>("UI/Currency/PurifiedWater");
+            return _purifiedWaterIcon;
         }
 
         /// <summary>동(東) 구역 — 이번 매치에서 특수 칸으로 모은 것들(공양물·정화수·엽전)을

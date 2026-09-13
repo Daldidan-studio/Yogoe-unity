@@ -22,6 +22,7 @@ namespace Yoegoe.Data
             public const string CandidateTreasure = "candidate.treasure";
             public const string CandidateOffering = "candidate.offering";
             public const string CandidateCoin = "candidate.coin";
+            public const string CandidatePurifiedWater = "candidate.purified_water";
             public const string CandidateCapture = "candidate.capture";
             public const string CandidateStack = "candidate.stack";
             public const string CandidateFinish = "candidate.finish";
@@ -131,6 +132,7 @@ namespace Yoegoe.Data
             Ids.CandidateTreasure => "보물상자로 갈 수 있어.",
             Ids.CandidateOffering => "공양물을 얻을 수 있어.",
             Ids.CandidateCoin => "엽전을 얻을 수 있어.",
+            Ids.CandidatePurifiedWater => "정화수를 얻을 수 있어.",
             Ids.CandidateCapture => "이무기 님을 잡을 수 있어.",
             Ids.CandidateStack => "{ally}와 업을 수 있어.",
             Ids.CandidateFinish => "완주할 수 있어.",

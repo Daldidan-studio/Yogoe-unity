@@ -15,19 +15,13 @@ namespace Yoegoe.UI
 {
     /// <summary>
     /// 윷놀이 진입점(11장). 윷 토큰 소모 → 옥토끼+현재 슬롯의 혼 전원 vs 이무기(말 1개) →
-    /// 완주 시 향·엽전 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
+    /// 완주 시 정화수 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
     /// </summary>
     public class YutScreen : MonoBehaviour
     {
         public static YutScreen Instance { get; private set; }
 
         public Font font;
-
-        /// <summary>완주 보상 — 기획서 11장 확정: 향 1개 + 엽전 1개.</summary>
-        const int FinishHyangReward = 1;
-        const int FinishYeopjeonReward = 1;
-        /// <summary>이 수만큼 업고 한 번에 완주할 때만 광고 2배 선택(3마리는 해당 없음).</summary>
-        const int FinishAdBonusStackCount = 4;
 
         /// <summary>말 이동 시 친밀도 +0.25(11장) 적용을 위한 piece id → 캐릭터 매핑.</summary>
         readonly Dictionary<string, CharacterAgent> teamById = new Dictionary<string, CharacterAgent>();
@@ -56,15 +50,7 @@ namespace Yoegoe.UI
         [SerializeField] Button confirmNoButton;
 
         const int EvolveWithPurifiedWaterCost = 5;
-
-        /// <summary>특수 칸(엽전/공양물/보물상자) 보상 배율 — "그냥 받기"면 1배, "광고 보고"면 2배.</summary>
-        const int SquareRewardBase = 1;
-        const int SquareRewardAdMultiplier = 2;
-        const float SquareRewardAdWatchSeconds = 0.8f; // BatchCollectPopup과 동일한 "광고 시청" 연출용 지연
         const float ReviveAdWatchSeconds = 0.8f;
-
-        /// <summary>보물상자 윷 토큰 보상은 평소 상한(5)을 넘길 수 있되 이 값까지만.</summary>
-        const int YutTokenHardCap = 7;
 
         public bool HasPrefabShell => root != null && miniGame != null;
 
@@ -81,9 +67,8 @@ namespace Yoegoe.UI
         bool awaitingFinishChoice;
         bool pendingBonusAfterContinue;
 
-        /// <summary>4마리 동시 완주 광고 2배 팝업용 — 배율 적용 전(스택 반영된) 향/엽전.</summary>
-        int pendingFinishHyang;
-        int pendingFinishYeopjeon;
+        /// <summary>4마리 동시 완주 광고 2배 팝업용 — 배율 적용 전(스택 반영된) 정화수.</summary>
+        int pendingFinishPurifiedWater;
         int pendingFinishStack;
 
         /// <summary>직전 OnPlayerPieceFinished 스택(자동 플레이가 그만/계속 판단용).</summary>
@@ -97,26 +82,10 @@ namespace Yoegoe.UI
         int autoPlayStopAtStack;
 #endif
 
-        enum SquareRewardKind { Offering, Yeopjeon, Hyang, AdTicket, YutToken }
-
-        readonly struct PendingSquareReward
-        {
-            public readonly SquareRewardKind Kind;
-            public readonly OfferingData Offering; // Kind == Offering일 때만
-            public readonly int Amount; // 배율 적용 전 기본 개수
-
-            public PendingSquareReward(SquareRewardKind kind, OfferingData offering, int amount)
-            {
-                Kind = kind;
-                Offering = offering;
-                Amount = amount;
-            }
-        }
-
         /// <summary>특수 칸 보상 팝업("그냥 받기"/"광고 보고 2배")이 떠 있는 동안 다음 턴 진행을 멈춘다.</summary>
         bool awaitingSquareReward;
         bool pendingBonusAfterSquareReward;
-        PendingSquareReward? pendingSquareReward;
+        YutSquareReward? pendingSquareReward;
         /// <summary>보물상자 칸에서 굴린 보상인지 — Kind는 실제 지급 재화라서 출처는 따로 기억한다.</summary>
         bool pendingSquareRewardFromTreasure;
         /// <summary>지급이 끝나면 지울 특수 칸 노드. -1이면 없음.</summary>
@@ -134,6 +103,7 @@ namespace Yoegoe.UI
         /// 다이얼로그로도 보여준다. 새 매치 시작할 때 비운다(재시작 복원 시엔 다시 0부터).</summary>
         readonly Dictionary<OfferingData, int> matchOfferingCounts = new Dictionary<OfferingData, int>();
         int matchYeopjeonTotal;
+        int matchPurifiedWaterTotal;
         int matchHyangTotal;
         int matchAdTicketTotal;
         int matchYutTokenTotal;
@@ -228,6 +198,7 @@ namespace Yoegoe.UI
             awaitingReviveChoice = false;
             matchOfferingCounts.Clear();
             matchYeopjeonTotal = 0;
+            matchPurifiedWaterTotal = 0;
             matchHyangTotal = 0;
             matchAdTicketTotal = 0;
             matchYutTokenTotal = 0;
@@ -629,6 +600,8 @@ namespace Yoegoe.UI
                     return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateOffering);
                 case YutBoardLayout.SpecialSquareKind.Coin:
                     return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateCoin);
+                case YutBoardLayout.SpecialSquareKind.PurifiedWater:
+                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidatePurifiedWater);
             }
 
             if (match.OpponentPiece.OnBoard && match.OpponentPiece.NodeId == c.DestinationNode)
@@ -863,13 +836,16 @@ namespace Yoegoe.UI
                     case YutBoardLayout.SpecialSquareKind.Treasure:
                         icons[nodeId] = Resources.Load<Sprite>("UI/GiftChest_Closed");
                         break;
+                    case YutBoardLayout.SpecialSquareKind.PurifiedWater:
+                        icons[nodeId] = YutMiniGame.PurifiedWaterIcon();
+                        break;
                 }
             }
             miniGame.RefreshSpecialSquareVisuals(icons);
         }
 
         /// <summary>
-        /// 말이 특수 칸에 도착했을 때 — 칸 종류(엽전/공양물/보물상자)에 맞는 보상을 정해서
+        /// 말이 특수 칸에 도착했을 때 — 칸 종류(엽전/공양물/보물상자/정화수)에 맞는 보상을 정해서
         /// "그냥 받기(1배)"/"광고 보고 2배" 팝업을 띄운다. 완주와 달리 매치를 막지 않고, 선택
         /// 즉시 재화를 지급한다(칸에서 얻은 건 매치 중에도 유지).
         /// </summary>
@@ -881,14 +857,14 @@ namespace Yoegoe.UI
             switch (YutBoardLayout.GetSpecialKind(nodeId))
             {
                 case YutBoardLayout.SpecialSquareKind.Coin:
-                    pendingSquareReward = new PendingSquareReward(SquareRewardKind.Yeopjeon, null, 1);
+                    pendingSquareReward = new YutSquareReward(YutSquareRewardKind.Yeopjeon, null, 1);
                     message = "엽전 칸 발견!\n엽전을 얻을 수 있어요.";
                     break;
 
                 case YutBoardLayout.SpecialSquareKind.Offering:
                     {
                         specialOfferingByNode.TryGetValue(nodeId, out var offering);
-                        pendingSquareReward = new PendingSquareReward(SquareRewardKind.Offering, offering, 1);
+                        pendingSquareReward = new YutSquareReward(YutSquareRewardKind.Offering, offering, 1);
                         string offeringName = offering != null ? offering.displayName : "공양물";
                         message = $"공양물 칸 발견!\n{offeringName}을(를) 얻을 수 있어요.";
                         break;
@@ -898,6 +874,11 @@ namespace Yoegoe.UI
                     pendingSquareReward = RollTreasureReward();
                     pendingSquareRewardFromTreasure = true;
                     message = "보물상자 발견!\n무엇이 들어있을까요?";
+                    break;
+
+                case YutBoardLayout.SpecialSquareKind.PurifiedWater:
+                    pendingSquareReward = new YutSquareReward(YutSquareRewardKind.PurifiedWater, null, 1);
+                    message = "정화수 칸 발견!\n정화수를 얻을 수 있어요.";
                     break;
 
                 default:
@@ -911,40 +892,30 @@ namespace Yoegoe.UI
         }
 
         /// <summary>보물상자 — 향/공양물/광고보상권/엽전/윷토큰 중 하나를 균등 확률로 뽑는다.</summary>
-        PendingSquareReward RollTreasureReward()
+        YutSquareReward RollTreasureReward()
         {
             int pick = UnityEngine.Random.Range(0, 5);
             switch (pick)
             {
                 case 0:
-                    return new PendingSquareReward(SquareRewardKind.Hyang, null, 1);
+                    return new YutSquareReward(YutSquareRewardKind.Hyang, null, 1);
                 case 1:
                     var pool = GetOfferingPool();
                     var offering = pool.Count > 0 ? pool[UnityEngine.Random.Range(0, pool.Count)] : null;
-                    return new PendingSquareReward(SquareRewardKind.Offering, offering, 1);
+                    return new YutSquareReward(YutSquareRewardKind.Offering, offering, 1);
                 case 2:
-                    return new PendingSquareReward(SquareRewardKind.AdTicket, null, 1);
+                    return new YutSquareReward(YutSquareRewardKind.AdTicket, null, 1);
                 case 3:
-                    return new PendingSquareReward(SquareRewardKind.Yeopjeon, null, 1);
+                    return new YutSquareReward(YutSquareRewardKind.Yeopjeon, null, 1);
                 default:
-                    return new PendingSquareReward(SquareRewardKind.YutToken, null, RollTreasureYutTokenAmount());
+                    return new YutSquareReward(YutSquareRewardKind.YutToken, null, YutRewards.RollTreasureYutTokenAmount());
             }
-        }
-
-        /// <summary>보통 3개, 가끔 4개, 드물게 5개 — 평소 상한(5)을 넘기지 않는 선에서 기본값보다
-        /// 후하게. "그냥 받기/광고 2배"를 거치며 실제로는 최대 YutTokenHardCap(7)까지 쌓일 수 있다.</summary>
-        static int RollTreasureYutTokenAmount()
-        {
-            float roll = UnityEngine.Random.value;
-            if (roll < 0.6f) return 3;
-            if (roll < 0.85f) return 4;
-            return 5;
         }
 
         void HandleSquareRewardPlain()
         {
             bool wasTreasure = pendingSquareRewardFromTreasure;
-            string desc = GrantSquareReward(SquareRewardBase);
+            string desc = GrantSquareReward(YutRewards.SquareRewardBase);
             if (wasTreasure && desc != null)
                 ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
             else
@@ -956,9 +927,9 @@ namespace Yoegoe.UI
         IEnumerator SquareRewardAdRoutine()
         {
             // BatchCollectPopup과 같은 패턴 — 실제 광고 SDK가 붙기 전까지 짧은 지연으로 "시청 중"을 흉내낸다.
-            yield return new WaitForSecondsRealtime(SquareRewardAdWatchSeconds);
+            yield return new WaitForSecondsRealtime(YutRewards.SquareRewardAdWatchSeconds);
             bool wasTreasure = pendingSquareRewardFromTreasure;
-            string desc = GrantSquareReward(SquareRewardAdMultiplier);
+            string desc = GrantSquareReward(YutRewards.SquareRewardAdMultiplier);
             if (wasTreasure && desc != null)
                 ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
             else
@@ -977,28 +948,35 @@ namespace Yoegoe.UI
 
             switch (reward.Kind)
             {
-                case SquareRewardKind.Yeopjeon:
+                case YutSquareRewardKind.Yeopjeon:
                     GameEconomy.Instance.AddYeopjeon(amount);
                     matchYeopjeonTotal += amount;
                     miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
                     description = $"엽전 {amount}개";
                     break;
 
-                case SquareRewardKind.Hyang:
+                case YutSquareRewardKind.PurifiedWater:
+                    GameEconomy.Instance.AddPurifiedWater(amount);
+                    matchPurifiedWaterTotal += amount;
+                    miniGame.AddPlayLogEntry($"정화수 {amount}개 획득.");
+                    description = $"정화수 {amount}개";
+                    break;
+
+                case YutSquareRewardKind.Hyang:
                     GameEconomy.Instance.AddHyang(amount);
                     matchHyangTotal += amount;
                     miniGame.AddPlayLogEntry($"향 {amount}개 획득.");
                     description = $"향 {amount}개";
                     break;
 
-                case SquareRewardKind.AdTicket:
+                case YutSquareRewardKind.AdTicket:
                     GiftBundle.AddAdTickets(amount);
                     matchAdTicketTotal += amount;
                     miniGame.AddPlayLogEntry($"광고보상권 {amount}개 획득.");
                     description = $"광고보상권 {amount}개";
                     break;
 
-                case SquareRewardKind.Offering:
+                case YutSquareRewardKind.Offering:
                     if (reward.Offering != null)
                     {
                         GameEconomy.Instance.AddOffering(reward.Offering, amount);
@@ -1009,8 +987,8 @@ namespace Yoegoe.UI
                     }
                     break;
 
-                case SquareRewardKind.YutToken:
-                    GameEconomy.Instance.AddYutTokenOverflow(amount, YutTokenHardCap);
+                case YutSquareRewardKind.YutToken:
+                    GameEconomy.Instance.AddYutTokenOverflow(amount, YutRewards.YutTokenHardCap);
                     matchYutTokenTotal += amount;
                     miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
                     description = $"윷 토큰 {amount}개";
@@ -1060,6 +1038,15 @@ namespace Yoegoe.UI
                     Label = "엽전",
                 });
             }
+            if (matchPurifiedWaterTotal > 0)
+            {
+                items.Add(new YutMiniGame.CollectedItemView
+                {
+                    Icon = YutMiniGame.PurifiedWaterIcon(),
+                    Count = matchPurifiedWaterTotal,
+                    Label = "정화수",
+                });
+            }
             if (matchHyangTotal > 0)
             {
                 items.Add(new YutMiniGame.CollectedItemView { Count = matchHyangTotal, Label = "향" });
@@ -1092,6 +1079,7 @@ namespace Yoegoe.UI
                 parts.Add($"{kv.Key.displayName} {kv.Value}개");
             }
             if (matchYeopjeonTotal > 0) parts.Add($"엽전 {matchYeopjeonTotal}개");
+            if (matchPurifiedWaterTotal > 0) parts.Add($"정화수 {matchPurifiedWaterTotal}개");
             if (matchHyangTotal > 0) parts.Add($"향 {matchHyangTotal}개");
             if (matchAdTicketTotal > 0) parts.Add($"광고보상권 {matchAdTicketTotal}개");
             if (matchYutTokenTotal > 0) parts.Add($"윷 토큰 {matchYutTokenTotal}개");
@@ -1497,14 +1485,13 @@ namespace Yoegoe.UI
 
             int stack = Mathf.Max(1, finishStackCount);
             pendingFinishStack = stack;
-            pendingFinishHyang = FinishHyangReward * stack;
-            pendingFinishYeopjeon = FinishYeopjeonReward * stack;
+            pendingFinishPurifiedWater = YutRewards.FinishPurifiedWaterAmount(stack);
 
             // 가진 말을 FinishAdBonusStackCount마리 전부 업고 한 번에 완주할 때만 광고 2배 선택.
-            if (stack == FinishAdBonusStackCount)
+            if (YutRewards.OffersFinishAdBonus(stack))
             {
                 ShowRewardChoice(
-                    $"{stack}마리 업고 완주 (×{stack})!\n향 {pendingFinishHyang}개 + 엽전 {pendingFinishYeopjeon}개",
+                    $"{stack}마리 업고 완주 (×{stack})!\n정화수 {pendingFinishPurifiedWater}개",
                     onPlain: HandleFinishRewardPlain,
                     onAd: HandleFinishRewardAd);
                 return;
@@ -1519,22 +1506,20 @@ namespace Yoegoe.UI
 
         IEnumerator FinishRewardAdRoutine()
         {
-            yield return new WaitForSecondsRealtime(SquareRewardAdWatchSeconds);
+            yield return new WaitForSecondsRealtime(YutRewards.SquareRewardAdWatchSeconds);
             GrantFinishRewardAndNotice(2);
         }
 
-        /// <summary>완주 향/엽전 지급 후 안내. multiplier는 광고 2배용.
+        /// <summary>완주 정화수 지급 후 안내. multiplier는 광고 2배용.
         /// 안내를 닫으면 전원 완주이므로 판을 강제로 새 판으로 리셋한다.</summary>
         void GrantFinishRewardAndNotice(int multiplier)
         {
-            int hyang = pendingFinishHyang * multiplier;
-            int yeop = pendingFinishYeopjeon * multiplier;
-            GameEconomy.Instance.AddHyang(hyang);
-            GameEconomy.Instance.AddYeopjeon(yeop);
+            int water = pendingFinishPurifiedWater * multiplier;
+            GameEconomy.Instance.AddPurifiedWater(water);
 
             string message = pendingFinishStack > 1
-                ? $"완주! {pendingFinishStack}마리 업고 ×{pendingFinishStack}\n향 {hyang}개 + 엽전 {yeop}개 획득"
-                : $"완주! 향 {hyang}개 + 엽전 {yeop}개 획득";
+                ? $"완주! {pendingFinishStack}마리 업고 ×{pendingFinishStack}\n정화수 {water}개 획득"
+                : $"완주! 정화수 {water}개 획득";
             if (multiplier > 1)
                 message += $"\n(광고 ×{multiplier})";
 

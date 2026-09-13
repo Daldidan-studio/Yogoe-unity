@@ -9,6 +9,7 @@ rabbit.urge_finish,옥토끼 완주 후·남은 말 완주 가능,"저 친구, �
 candidate.treasure,후보 말 보물칸,보물상자로 갈 수 있어.,I can reach the treasure.,,
 candidate.offering,후보 말 공양물칸,공양물을 얻을 수 있어.,I can get an offering.,,
 candidate.coin,후보 말 엽전칸,엽전을 얻을 수 있어.,I can get coins.,,
+candidate.purified_water,후보 말 정화수칸,정화수를 얻을 수 있어.,I can get purified water.,,
 candidate.capture,후보 말 이무기 잡기,이무기 님을 잡을 수 있어.,I can catch Imugi.,,
 candidate.stack,후보 말 업기 — {ally},{ally}와 업을 수 있어.,I can stack with {ally}.,,
 candidate.finish,후보 말 완주,완주할 수 있어.,I can finish.,,

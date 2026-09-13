@@ -123,20 +123,15 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void FinishRewardAmounts_MatchScreenContract()
         {
-            // YutScreen: FinishHyang/Yeop = 1, 배율 = stack, 광고 시 ×2.
-            // UI를 EditMode에서 띄우지 않고 숫자 계약만 고정한다.
-            const int hyangPer = 1;
-            const int yeopPer = 1;
-            const int adBonusStack = 4;
-
-            int StackReward(int stack, int mul) => hyangPer * stack * mul;
-
-            Assert.AreEqual(1, StackReward(1, 1));
-            Assert.AreEqual(2, StackReward(2, 1));
-            Assert.AreEqual(4, StackReward(adBonusStack, 1));
-            Assert.AreEqual(8, StackReward(adBonusStack, 2));
-            Assert.AreEqual(3, StackReward(3, 1)); // 3마리는 광고 보너스 대상 아님
-            Assert.AreEqual(yeopPer * 4 * 2, yeopPer * adBonusStack * 2);
+            // YutRewards: 정화수 1/마리, 배율 = stack, 광고 시 ×2.
+            Assert.AreEqual(1, YutRewards.FinishPurifiedWaterAmount(1));
+            Assert.AreEqual(2, YutRewards.FinishPurifiedWaterAmount(2));
+            Assert.AreEqual(4, YutRewards.FinishPurifiedWaterAmount(YutRewards.FinishAdBonusStackCount));
+            Assert.AreEqual(8, YutRewards.FinishPurifiedWaterAmount(YutRewards.FinishAdBonusStackCount)
+                * YutRewards.SquareRewardAdMultiplier);
+            Assert.AreEqual(3, YutRewards.FinishPurifiedWaterAmount(3));
+            Assert.IsFalse(YutRewards.OffersFinishAdBonus(3));
+            Assert.IsTrue(YutRewards.OffersFinishAdBonus(4));
         }
     }
 }

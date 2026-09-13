@@ -54,6 +54,7 @@ KNOWN_IDS = [
     "candidate.treasure",
     "candidate.offering",
     "candidate.coin",
+    "candidate.purified_water",
     "candidate.capture",
     "candidate.stack",
     "candidate.finish",

@@ -17,12 +17,14 @@ namespace Yoegoe.Minigames.Yut
         public const int Bang = 22;   // 방 - 중앙 교차점
 
         /// <summary>특수 칸 종류. 엽전(밟으면 엽전 1개 확정) / 공양물(그 칸에 배정된 공양물 1개
-        /// 확정, 매치 시작 때 정해짐) / 보물상자(향·공양물·광고보상권·엽전·윷토큰 중 하나 랜덤).</summary>
-        public enum SpecialSquareKind { None, Coin, Offering, Treasure }
+        /// 확정, 매치 시작 때 정해짐) / 보물상자(향·공양물·광고보상권·엽전·윷토큰 중 하나 랜덤) /
+        /// 정화수(밟으면 정화수 1개 확정).</summary>
+        public enum SpecialSquareKind { None, Coin, Offering, Treasure, PurifiedWater }
 
         const int SpecialCoinCount = 3;
         const int SpecialOfferingCount = 2;
         const int SpecialTreasureCount = 1;
+        const int SpecialPurifiedWaterCount = 2;
 
         static readonly Dictionary<int, SpecialSquareKind> specialSquareKinds = new();
 
@@ -36,9 +38,9 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 매 윷판(매치)마다 새로 뽑는다 — 참(0)과 이름 있는 칸(모·뒷모·찌모·방)은 제외하고
-        /// 엽전 3칸 + 공양물 2칸 + 보물상자 1칸을 무작위로 배정한다. 어떤 노드가 어떤 공양물을
-        /// 받을지는 YutBoardLayout이 모른다(재화를 아는 YutScreen이 따로 정한다) — 여기선 칸의
-        /// 종류(kind)만 정한다.
+        /// 엽전 3칸 + 공양물 2칸 + 보물상자 1칸 + 정화수 2칸을 무작위로 배정한다. 어떤 노드가
+        /// 어떤 공양물을 받을지는 YutBoardLayout이 모른다(재화를 아는 YutScreen이 따로 정한다)
+        /// — 여기선 칸의 종류(kind)만 정한다.
         /// </summary>
         public static IReadOnlyDictionary<int, SpecialSquareKind> RegenerateSpecialSquares()
         {
@@ -54,6 +56,8 @@ namespace Yoegoe.Minigames.Yut
                 specialSquareKinds[candidates[idx]] = SpecialSquareKind.Offering;
             for (int i = 0; i < SpecialTreasureCount && idx < candidates.Count; i++, idx++)
                 specialSquareKinds[candidates[idx]] = SpecialSquareKind.Treasure;
+            for (int i = 0; i < SpecialPurifiedWaterCount && idx < candidates.Count; i++, idx++)
+                specialSquareKinds[candidates[idx]] = SpecialSquareKind.PurifiedWater;
 
             return specialSquareKinds;
         }

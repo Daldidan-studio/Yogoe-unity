@@ -43,6 +43,10 @@
       "text": "I can get coins."
     },
     {
+      "id": "candidate.purified_water",
+      "text": "I can get purified water."
+    },
+    {
       "id": "candidate.capture",
       "text": "I can catch Imugi."
     },
