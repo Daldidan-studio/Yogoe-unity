@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Yoegoe.Minigames.Yut
 {
@@ -9,6 +10,8 @@ namespace Yoegoe.Minigames.Yut
     /// 이무기는 결승점이 없어서 계속 도는 상대다 — 플레이어가 말을 완주하면
     /// 매치가 끝난다(전원 완주 시 자동 종료, 일부만 완주해도 EndAsFinished로 원하는 시점에 종료 가능).
     /// 직접 나가기 전까진 매치가 안 끝난다.
+    /// 이무기 갈림길(모/뒷모/방)은 일반 말 룰이 아니라, 보드 위 유저 말에 더 가까워지는
+    /// 쪽(지름길/바깥길)을 고른다.
     /// 화면(YutMiniGame)이나 재화(GameEconomy)는 모르고, 결과만 이벤트로 알린다.
     /// 소유는 UI 쪽(YutScreen)이 한다 — CharacterAgent가 CharacterRequestState를 들고 있는 것과 같은 패턴.
     ///
@@ -105,6 +108,9 @@ namespace Yoegoe.Minigames.Yut
         /// 때(도착한 노드 id, 그 말들의 id) — 어떤 보상을 줄지는 재화를 아는 호출부(YutScreen)가
         /// YutBoardLayout.GetSpecialKind(nodeId)로 종류를 보고 처리한다.</summary>
         public event Action<int, IReadOnlyList<string>> OnSpecialSquareReached;
+        /// <summary>이무기가 참을 지나(또는 참에 서서 다시 던져) 한 바퀴 돌았을 때 — 결승은 아니지만
+        /// 호출부가 남은 특수 칸을 재배치하는 트리거로 쓴다.</summary>
+        public event Action OnOpponentLapped;
 
         /// <summary>특수 칸 배치는 여기서 안 건드린다 — 진짜 새 매치면 호출부(YutScreen.BeginMatch)가
         /// YutBoardLayout.RegenerateSpecialSquares()를 부르고, 세이브 복원(ApplyFromSave)이면
@@ -243,8 +249,7 @@ namespace Yoegoe.Minigames.Yut
                 return new MoveHopPreview(true, ids, new[] { dest }, false);
             }
 
-            int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
-            var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
+            var path = ResolveOpponentForwardPath(outcome.Result);
             return new MoveHopPreview(true, ids, BuildHopNodes(path, willFinish: false), false);
         }
 
@@ -377,8 +382,9 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 이무기 던지기 결과 하나를 적용한다. 말이 하나뿐이라 "어느 말을 움직일지" 선택이 없어서
-        /// 이동·잡기 판정까지 바로 진행한다. 이무기는 결승점이 없어서(참을 지나도) 완주로 안 끝나고
-        /// 그냥 계속 판을 돈다 — 반환값이 true면 보너스 턴(윷/모 또는 잡기).
+        /// 이동·잡기 판정까지 바로 진행한다. 이무기는 결승점이 없어서(참을 지나도) 매치 완주로
+        /// 안 끝나고 그냥 계속 판을 돈다 — 참을 지나면 OnOpponentLapped를 쏜다.
+        /// 반환값이 true면 보너스 턴(윷/모 또는 잡기).
         /// </summary>
         public bool ApplyOpponentMove(YutThrowOutcome outcome)
         {
@@ -388,6 +394,7 @@ namespace Yoegoe.Minigames.Yut
             if (isBaekdo && !opponentPiece.OnBoard)
                 return false; // 대기 중에 빽도 — 움직일 게 없어 턴 소모
 
+            bool lapped = false;
             int dest;
             if (isBaekdo)
             {
@@ -399,8 +406,10 @@ namespace Yoegoe.Minigames.Yut
             }
             else
             {
-                int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
-                var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
+                bool alreadyAtStart = opponentPiece.OnBoard && opponentPiece.NodeId == YutBoardLayout.Start;
+                var path = ResolveOpponentForwardPath(outcome.Result);
+                // 플레이어 완주와 같은 판정 — 참을 지나거나 참에서 다시 던지면 "한 바퀴".
+                lapped = ResolvesToFinish(alreadyAtStart, path);
                 dest = path[path.Length - 1];
                 var visited = new List<int>(opponentPiece.History);
                 visited.AddRange(path.Take(path.Length - 1));
@@ -423,6 +432,7 @@ namespace Yoegoe.Minigames.Yut
             }
 
             OnPiecesChanged?.Invoke();
+            if (lapped) OnOpponentLapped?.Invoke();
             return outcome.GrantsBonusThrow || captured.Count > 0;
         }
 
@@ -445,6 +455,62 @@ namespace Yoegoe.Minigames.Yut
             }
             if (any) OnPiecesChanged?.Invoke();
             return any;
+        }
+
+        /// <summary>
+        /// 이무기 전진 경로. 모/뒷모/방에 멈춰 있으면 지름길·바깥길 중 보드 위 유저 말에
+        /// 더 가까워지는 쪽을 고른다(유저가 지름길 위에 있어도 그쪽이 가까우면 지름길로).
+        /// </summary>
+        int[] ResolveOpponentForwardPath(YutThrowResult result)
+        {
+            int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
+            if (!opponentPiece.OnBoard || !YutMoveResolver.IsForkNode(fromNode))
+                return YutMoveResolver.GetPath(fromNode, result);
+
+            int arrivedFrom = opponentPiece.History.Count > 0
+                ? opponentPiece.History[opponentPiece.History.Count - 1]
+                : -1;
+            var shortcutPath = YutMoveResolver.GetPath(fromNode, result, takeShortcut: true);
+            var outerPath = YutMoveResolver.GetPath(fromNode, result, takeShortcut: false, arrivedFrom);
+            return PreferCloserToPlayerPieces(shortcutPath, outerPath) ? shortcutPath : outerPath;
+        }
+
+        /// <summary>착지 칸이 유저 말에 더 가까운 경로가 지름길이면 true. 동점이면 지름길.</summary>
+        bool PreferCloserToPlayerPieces(int[] shortcutPath, int[] outerPath)
+        {
+            int destShortcut = shortcutPath[shortcutPath.Length - 1];
+            int destOuter = outerPath[outerPath.Length - 1];
+            if (destShortcut == destOuter) return true;
+
+            float scoreShortcut = ChaseScoreToNearestPlayer(destShortcut);
+            float scoreOuter = ChaseScoreToNearestPlayer(destOuter);
+            if (scoreShortcut < scoreOuter) return true;
+            if (scoreOuter < scoreShortcut) return false;
+            return true;
+        }
+
+        /// <summary>착지 칸에서 보드 위 가장 가까운 유저 말까지 거리(제곱). 잡으면 0. 타깃 없으면 ∞.</summary>
+        float ChaseScoreToNearestPlayer(int destNode)
+        {
+            float best = float.PositiveInfinity;
+            for (int i = 0; i < playerPieces.Count; i++)
+            {
+                var p = playerPieces[i];
+                if (p.Finished || !p.OnBoard) continue;
+                if (p.NodeId == destNode) return 0f;
+                float d = NodeDistanceSq(destNode, p.NodeId);
+                if (d < best) best = d;
+            }
+            return best;
+        }
+
+        static float NodeDistanceSq(int a, int b)
+        {
+            Vector2 pa = YutBoardLayout.Normalized(a);
+            Vector2 pb = YutBoardLayout.Normalized(b);
+            float dx = pa.x - pb.x;
+            float dy = pa.y - pb.y;
+            return dx * dx + dy * dy;
         }
 
         /// <summary>

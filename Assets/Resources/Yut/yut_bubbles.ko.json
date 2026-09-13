@@ -69,6 +69,10 @@
     {
       "id": "opponent.throw",
       "text": "{result}!"
+    },
+    {
+      "id": "opponent.lapped",
+      "text": "지루하군."
     }
   ]
 }

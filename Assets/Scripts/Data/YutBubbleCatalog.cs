@@ -29,6 +29,7 @@ namespace Yoegoe.Data
             public const string EventRevived = "event.revived";
             public const string EventOpponentCaught = "event.opponent_caught";
             public const string OpponentThrow = "opponent.throw";
+            public const string OpponentLapped = "opponent.lapped";
         }
 
         [Serializable]
@@ -137,6 +138,7 @@ namespace Yoegoe.Data
             Ids.EventRevived => "되살아났어요!",
             Ids.EventOpponentCaught => "크윽...! 방심했다, 한 번 더 던지거라!",
             Ids.OpponentThrow => "{result}!",
+            Ids.OpponentLapped => "지루하군.",
             _ => "",
         };
     }

@@ -44,17 +44,8 @@ namespace Yoegoe.Minigames.Yut
         {
             specialSquareKinds.Clear();
 
-            var candidates = new List<int>();
-            for (int i = 1; i < NodeCount; i++)
-            {
-                if (i == Mo || i == DwitMo || i == JjiMo || i == Bang) continue;
-                candidates.Add(i);
-            }
-            for (int i = candidates.Count - 1; i > 0; i--)
-            {
-                int j = UnityEngine.Random.Range(0, i + 1);
-                (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
-            }
+            var candidates = BuildSpecialSquareCandidates();
+            ShuffleInPlace(candidates);
 
             int idx = 0;
             for (int i = 0; i < SpecialCoinCount && idx < candidates.Count; i++, idx++)
@@ -65,6 +56,50 @@ namespace Yoegoe.Minigames.Yut
                 specialSquareKinds[candidates[idx]] = SpecialSquareKind.Treasure;
 
             return specialSquareKinds;
+        }
+
+        /// <summary>
+        /// 아직 안 밟힌 특수 칸만 종류를 유지한 채 위치를 다시 섞는다(이무기가 참을 지나
+        /// 한 바퀴 돌 때). 이미 소진된 칸은 다시 생기지 않는다.
+        /// </summary>
+        public static IReadOnlyDictionary<int, SpecialSquareKind> ReshuffleRemainingSpecialSquares()
+        {
+            if (specialSquareKinds.Count == 0) return specialSquareKinds;
+
+            var remaining = new List<SpecialSquareKind>(specialSquareKinds.Count);
+            foreach (var kv in specialSquareKinds)
+                remaining.Add(kv.Value);
+
+            specialSquareKinds.Clear();
+            var candidates = BuildSpecialSquareCandidates();
+            ShuffleInPlace(candidates);
+            ShuffleInPlace(remaining);
+
+            int n = Mathf.Min(remaining.Count, candidates.Count);
+            for (int i = 0; i < n; i++)
+                specialSquareKinds[candidates[i]] = remaining[i];
+
+            return specialSquareKinds;
+        }
+
+        static List<int> BuildSpecialSquareCandidates()
+        {
+            var candidates = new List<int>();
+            for (int i = 1; i < NodeCount; i++)
+            {
+                if (i == Mo || i == DwitMo || i == JjiMo || i == Bang) continue;
+                candidates.Add(i);
+            }
+            return candidates;
+        }
+
+        static void ShuffleInPlace<T>(List<T> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
         }
 
         /// <summary>세이브 복원 전용 — 새로 뽑지 않고 저장돼 있던 배치를 그대로 되살린다

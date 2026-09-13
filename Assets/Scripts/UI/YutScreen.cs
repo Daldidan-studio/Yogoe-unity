@@ -277,6 +277,7 @@ namespace Yoegoe.UI
             match.OnOpponentCaptured += HandleOpponentCaptured;
             match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
             match.OnSpecialSquareReached += HandleSpecialSquareReached;
+            match.OnOpponentLapped += HandleOpponentLapped;
         }
 
         void UnsubscribeMatchEvents()
@@ -290,6 +291,7 @@ namespace Yoegoe.UI
             match.OnOpponentCaptured -= HandleOpponentCaptured;
             match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
             match.OnSpecialSquareReached -= HandleSpecialSquareReached;
+            match.OnOpponentLapped -= HandleOpponentLapped;
         }
 
         /// <summary>
@@ -522,6 +524,44 @@ namespace Yoegoe.UI
         {
             miniGame.ShowOpponentBubble(YutBubbleCatalog.Get(YutBubbleCatalog.Ids.EventOpponentCaught));
             miniGame.AddPlayLogEntry("이무기 잡음.");
+        }
+
+        /// <summary>이무기가 참을 지나 한 바퀴 — "지루하군." + 남은 특수 칸 위치만 다시 섞는다.</summary>
+        void HandleOpponentLapped()
+        {
+            ReshuffleRemainingSpecialSquaresKeepingOfferings();
+            miniGame.ShowOpponentBubble(YutBubbleCatalog.Get(YutBubbleCatalog.Ids.OpponentLapped));
+            miniGame.AddPlayLogEntry("이무기 한 바퀴 — 남은 보상 칸이 바뀜.");
+        }
+
+        /// <summary>소진되지 않은 특수 칸 종류·공양물 내용물은 유지하고 노드 위치만 랜덤 재배치.</summary>
+        void ReshuffleRemainingSpecialSquaresKeepingOfferings()
+        {
+            var offerings = new List<OfferingData>();
+            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
+            {
+                if (YutBoardLayout.GetSpecialKind(nodeId) != YutBoardLayout.SpecialSquareKind.Offering)
+                    continue;
+                if (specialOfferingByNode.TryGetValue(nodeId, out var offering) && offering != null)
+                    offerings.Add(offering);
+            }
+
+            YutBoardLayout.ReshuffleRemainingSpecialSquares();
+
+            specialOfferingByNode.Clear();
+            int oi = 0;
+            var pool = GetOfferingPool();
+            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
+            {
+                if (YutBoardLayout.GetSpecialKind(nodeId) != YutBoardLayout.SpecialSquareKind.Offering)
+                    continue;
+                if (oi < offerings.Count)
+                    specialOfferingByNode[nodeId] = offerings[oi++];
+                else if (pool.Count > 0)
+                    specialOfferingByNode[nodeId] = pool[UnityEngine.Random.Range(0, pool.Count)];
+            }
+
+            ApplySpecialSquareVisuals();
         }
 
         /// <summary>power(0~1)는 슬라이드 속도 기반 — 던지는 연출에만 쓰고 결과 확률엔 영향 없다.</summary>
