@@ -1,11 +1,13 @@
 {
   "name": "yogoe-unity-tools",
   "private": true,
-  "description": "Local tooling for Yogoe Unity (dialogue sheet export, etc.)",
+  "description": "Local tooling for Yogoe Unity (yut bubble sheets, legacy dialogue export)",
   "scripts": {
     "dialogue": "python3 Tools/export_dialogue.py",
     "dialogue:csv": "python3 Tools/export_dialogue.py --csv Tools/sheets/okto.csv --character okto",
     "yut-bubbles": "python3 Tools/export_yut_bubbles.py",
-    "yut-bubbles:csv": "python3 Tools/export_yut_bubbles.py --csv Tools/sheets/yut_bubbles.csv"
+    "yut-bubbles:csv": "python3 Tools/export_yut_bubbles.py --csv Tools/sheets/yut_bubbles.csv",
+    "yut-bubbles:to-csv": "python3 Tools/import_yut_bubbles_csv.py",
+    "yut-bubbles:push": "python3 Tools/import_yut_bubbles_csv.py --push"
   }
 }

@@ -19,6 +19,18 @@
       "text": "{result}. Move {steps} spaces!"
     },
     {
+      "id": "rabbit.finished",
+      "text": "I'm in first!"
+    },
+    {
+      "id": "rabbit.cheer",
+      "text": "{result}. The others' turn!"
+    },
+    {
+      "id": "rabbit.urge_finish",
+      "text": "That friend can finish!"
+    },
+    {
       "id": "candidate.treasure",
       "text": "I can reach the treasure."
     },

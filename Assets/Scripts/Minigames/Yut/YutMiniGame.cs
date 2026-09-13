@@ -51,7 +51,7 @@ namespace Yoegoe.Minigames.Yut
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         readonly List<GameObject> _candidateMarkers = new();
-        readonly List<(RectTransform rect, string pieceId, bool useShortcut)> _candidateHits = new();
+        readonly List<(RectTransform rect, string pieceId, bool useShortcut, string[] stackMemberIds)> _candidateHits = new();
         GameObject _miniThrowContainer;
         Image[] _miniThrowSticks;
 
@@ -59,6 +59,8 @@ namespace Yoegoe.Minigames.Yut
         // 말풍선은 타이머 없이 다음 액션(던지기/말 선택/턴 전환/화면 닫기)까지 유지한다.
         const string OpponentBubbleKey = "__opponent__";
         readonly Dictionary<string, GameObject> _activeBubbles = new();
+        /// <summary>말풍선이 따라다닐 말 RectTransform — LateUpdate에서 위치를 맞춘다.</summary>
+        readonly Dictionary<string, RectTransform> _bubbleAnchors = new();
         Button _playLogButton;
         GameObject _playLogPanel;
         RectTransform _playLogContent;
@@ -196,9 +198,14 @@ namespace Yoegoe.Minigames.Yut
 
             // 보드(_boardRoot) 아래쪽 가장자리 근처에 붙인다. Prefab에 있으면 그 레이아웃을 유지하고,
             // 없을 때만 아래 기본 좌표/색으로 새로 만든다.
-            var rt = FindOrCreatePanel(transform, "ThrowSwipeZone", 0.1f, 0.13f, 0.9f, 0.2f,
+            // ※ Prefab에 이미 있으면 여기 앵커 숫자는 절대 적용 안 됨 — 크기 조절은 Prefab/씬의
+            //   ThrowSwipeZone RectTransform을 직접 고쳐야 한다.
+            var rt = FindOrCreatePanel(transform, "ThrowSwipeZone", 0.1f, 0.08f, 0.9f, 0.30f,
                 new Color(0.12f, 0.22f, 0.18f, 0.92f), out bool created);
             _throwZone = rt.gameObject;
+            // 보드·로스터보다 뒤에 그려지면(형제 순서가 앞이면) 영역을 키워도 클릭/슬라이드를
+            // 보드가 가로챈다 — 놀이기록 패널 바로 앞에 두어 입력 우선권을 확보한다.
+            BringThrowZoneAboveBoard(rt);
 
             if (!created)
             {
@@ -229,6 +236,17 @@ namespace Yoegoe.Minigames.Yut
 
             if (Application.isPlaying)
                 StartCoroutine(BounceHint(label.rectTransform));
+        }
+
+        /// <summary>ThrowSwipeZone을 YutBoard/Roster 위, PlayLog 아래에 둔다 — 영역을 키워도 입력이 먹히게.</summary>
+        void BringThrowZoneAboveBoard(RectTransform throwRt)
+        {
+            if (throwRt == null) return;
+            var playLog = transform.Find("PlayLogPanel");
+            if (playLog != null)
+                throwRt.SetSiblingIndex(playLog.GetSiblingIndex());
+            else
+                throwRt.SetAsLastSibling();
         }
 
         /// <summary>
@@ -323,12 +341,18 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>플레이어 쪽 요괴 하나(pieceId) 말 위 대화 말풍선. 같은 말이면 교체,
-        /// 다음 ClearBubbles(다음 액션)까지 유지. 놀이기록엔 안 남는다.</summary>
+        /// 다음 ClearBubbles(다음 액션)까지 유지. 놀이기록엔 안 남는다.
+        /// 보드에 없으면 동(東) 완주 초상 위를 앵커로 쓴다(옥토끼 완주 후 해설용).</summary>
         public void ShowPieceBubble(string pieceId, string text)
         {
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(pieceId)) return;
             if (_yokaiPieces.TryGetValue(pieceId, out var anchor) && anchor != null)
+            {
                 ShowBubbleAbove(pieceId, anchor, text);
+                return;
+            }
+            if (_finishedPieceAnchors.TryGetValue(pieceId, out var finished) && finished != null)
+                ShowBubbleAbove(pieceId, finished, text);
         }
 
         /// <summary>이무기 말 위 대화 말풍선. 다음 ClearBubbles까지 유지.</summary>
@@ -346,13 +370,37 @@ namespace Yoegoe.Minigames.Yut
                 if (kv.Value != null) Destroy(kv.Value);
             }
             _activeBubbles.Clear();
+            _bubbleAnchors.Clear();
         }
+
+        void LateUpdate()
+        {
+            // 홉/슬라이드 중에도 이무기·요괴 대사가 말 위를 따라가게
+            RepositionBubbles();
+        }
+
+        void RepositionBubbles()
+        {
+            if (_activeBubbles.Count == 0) return;
+            foreach (var kv in _activeBubbles)
+            {
+                if (kv.Value == null) continue;
+                if (!_bubbleAnchors.TryGetValue(kv.Key, out var anchor) || anchor == null || !anchor.gameObject.activeInHierarchy)
+                    continue;
+                var rt = (RectTransform)kv.Value.transform;
+                rt.position = BubbleWorldPosAbove(anchor);
+            }
+        }
+
+        static Vector3 BubbleWorldPosAbove(RectTransform anchor) =>
+            anchor.position + new Vector3(0f, anchor.rect.height * 0.6f + 12f, 0f);
 
         void ShowBubbleAbove(string key, RectTransform anchor, string text)
         {
             if (_activeBubbles.TryGetValue(key, out var prev) && prev != null)
                 Destroy(prev);
             _activeBubbles.Remove(key);
+            _bubbleAnchors.Remove(key);
 
             var go = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             var rt = (RectTransform)go.transform;
@@ -364,7 +412,7 @@ namespace Yoegoe.Minigames.Yut
             rt.pivot = new Vector2(0.5f, 0f);
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(220f, 56f);
-            rt.position = anchor.position + new Vector3(0f, anchor.rect.height * 0.6f + 12f, 0f);
+            rt.position = BubbleWorldPosAbove(anchor);
             rt.SetAsLastSibling();
             var bg = go.GetComponent<Image>();
             bg.color = new Color(0.99f, 0.97f, 0.9f, 0.97f);
@@ -377,6 +425,7 @@ namespace Yoegoe.Minigames.Yut
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             _activeBubbles[key] = go;
+            _bubbleAnchors[key] = anchor;
         }
 
         void EnsurePlayLogButton()
@@ -962,13 +1011,36 @@ namespace Yoegoe.Minigames.Yut
             public readonly string DisplayName;
             public readonly int DestinationNode;
             public readonly bool UseShortcut;
+            /// <summary>업힌 말 전원(대표 Id 포함). 한 마리면 길이 1. 후보 칸에 전원 초상을 그릴 때 쓴다.</summary>
+            public readonly string[] StackMemberIds;
+            /// <summary>StackMemberIds와 같은 길이의 표시 이름(이니셜 폴백용).</summary>
+            public readonly string[] StackDisplayNames;
 
-            public YokaiMoveCandidate(string id, string displayName, int destinationNode, bool useShortcut)
+            public YokaiMoveCandidate(
+                string id,
+                string displayName,
+                int destinationNode,
+                bool useShortcut,
+                string[] stackMemberIds = null,
+                string[] stackDisplayNames = null)
             {
                 Id = id;
                 DisplayName = displayName;
                 DestinationNode = destinationNode;
                 UseShortcut = useShortcut;
+                if (stackMemberIds != null && stackMemberIds.Length > 0)
+                    StackMemberIds = stackMemberIds;
+                else
+                    StackMemberIds = new[] { id };
+
+                if (stackDisplayNames != null && stackDisplayNames.Length == StackMemberIds.Length)
+                    StackDisplayNames = stackDisplayNames;
+                else
+                {
+                    StackDisplayNames = new string[StackMemberIds.Length];
+                    for (int i = 0; i < StackMemberIds.Length; i++)
+                        StackDisplayNames[i] = StackMemberIds[i] == id ? displayName : StackMemberIds[i];
+                }
             }
         }
 
@@ -978,7 +1050,8 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>던진 결과로 움직일 수 있는 말 후보를 보드 위에 직접 보여준다. 후보가 한 마리면
         /// 그 칸 위에 바로, 여럿이 같은 칸으로 겹치면 그 칸 둘레(상하좌우)에 하나씩 붙여서 —
-        /// 다이얼로그 없이 보드만 보고 원하는 말을 탭해서 고르게 한다.</summary>
+        /// 다이얼로그 없이 보드만 보고 원하는 말을 탭해서 고르게 한다.
+        /// 업힌 스택이면 대표 한 마리가 아니라 스택 전원 초상을 칸에 나란히 그린다.</summary>
         public void FlashCandidates(IReadOnlyList<YokaiMoveCandidate> candidates)
         {
             ClearCandidates();
@@ -1062,12 +1135,14 @@ namespace Yoegoe.Minigames.Yut
         /// 말 아이콘을 드래그해서 놓았을 때(YutPieceDragHandle) 호출된다. 지금 보드 위에 떠 있는
         /// 후보 마커 중 이 말 것이면서 놓은 지점과 겹치는 게 있으면 그 후보를 고른 것으로 처리한다
         /// (탭했을 때와 동일하게 OnCandidateTapped를 쏨). 겹치는 후보가 없으면 조용히 무시.
+        /// 업힌 스택이면 어느 멤버를 끌어도 그 스택 후보로 인정한다.
         /// </summary>
         public void ResolveDrop(string pieceId, Vector2 screenPos)
         {
             foreach (var hit in _candidateHits)
             {
-                if (hit.pieceId != pieceId || hit.rect == null) continue;
+                if (hit.rect == null) continue;
+                if (!CandidateHitMatches(hit, pieceId)) continue;
                 if (RectTransformUtility.RectangleContainsScreenPoint(hit.rect, screenPos, null))
                 {
                     OnCandidateTapped?.Invoke(hit.pieceId, hit.useShortcut);
@@ -1076,25 +1151,36 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
+        static bool CandidateHitMatches((RectTransform rect, string pieceId, bool useShortcut, string[] stackMemberIds) hit, string pieceId)
+        {
+            if (hit.pieceId == pieceId) return true;
+            if (hit.stackMemberIds == null) return false;
+            for (int i = 0; i < hit.stackMemberIds.Length; i++)
+                if (hit.stackMemberIds[i] == pieceId) return true;
+            return false;
+        }
+
         GameObject BuildCandidateOnNode(int nodeId, YokaiMoveCandidate candidate)
         {
             var go = new GameObject($"Candidate_{nodeId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(_pads[nodeId].transform, false);
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.1f, 0.1f);
-            rt.anchorMax = new Vector2(0.9f, 0.9f);
+            rt.anchorMin = new Vector2(0.05f, 0.05f);
+            rt.anchorMax = new Vector2(0.95f, 0.95f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-            var img = go.GetComponent<Image>();
-            ApplyCandidateVisual(img, candidate);
-            WireCandidateButton(go, img, candidate.Id, candidate.UseShortcut);
+            var hitImg = go.GetComponent<Image>();
+            hitImg.color = new Color(1f, 1f, 1f, 0.01f); // 투명에 가깝지만 Button 레이캐스트용
+            var padSize = _pads[nodeId].rectTransform.rect.size;
+            FillCandidateStackVisuals(rt, candidate, new Vector2(padSize.x * 0.9f, padSize.y * 0.9f));
+            WireCandidateButton(go, hitImg, candidate.Id, candidate.UseShortcut, candidate.StackMemberIds);
             StartCoroutine(PulseScale(rt));
             return go;
         }
 
         /// <summary>경합 밭(같은 칸으로 갈 수 있는 후보 2마리 이상)을 홀드 없이 처음부터 사방에
         /// 펼쳐서 보여준다 — 각 아이콘은 탭도 되고(WireCandidateButton) 말을 드래그해서 놓아도
-        /// 된다(ResolveDrop이 _candidateHits로 판정).</summary>
+        /// 된다(ResolveDrop이 _candidateHits로 판정). 업힌 스택이면 그 방향에 전원 초상.</summary>
         List<GameObject> BuildCandidateCross(int nodeId, List<YokaiMoveCandidate> group)
         {
             var result = new List<GameObject>();
@@ -1112,18 +1198,61 @@ namespace Yoegoe.Minigames.Yut
                 rt.anchorMax = pad.anchorMax + Vector2.Scale(dir, size);
                 rt.offsetMin = pad.offsetMin;
                 rt.offsetMax = pad.offsetMax;
-                var img = go.GetComponent<Image>();
-                ApplyCandidateVisual(img, candidate);
-                WireCandidateButton(go, img, candidate.Id, candidate.UseShortcut);
+                var hitImg = go.GetComponent<Image>();
+                hitImg.color = new Color(1f, 1f, 1f, 0.01f);
+                FillCandidateStackVisuals(rt, candidate, pad.rect.size);
+                WireCandidateButton(go, hitImg, candidate.Id, candidate.UseShortcut, candidate.StackMemberIds);
                 StartCoroutine(PulseScale(rt));
                 result.Add(go);
             }
             return result;
         }
 
-        void ApplyCandidateVisual(Image img, YokaiMoveCandidate candidate)
+        /// <summary>후보 마커 안에 스택 멤버 초상을 가로로 나란히 깐다(보드 말 PlaceGroupOnNode와 같은 간격 감각).</summary>
+        void FillCandidateStackVisuals(RectTransform parent, YokaiMoveCandidate candidate, Vector2 areaSize)
         {
-            var sprite = PieceSpriteFor(candidate.Id);
+            var members = candidate.StackMemberIds;
+            var names = candidate.StackDisplayNames;
+            int count = members != null ? members.Length : 1;
+            if (count <= 0) count = 1;
+
+            float fill = Mathf.Max(0.01f, boardPieceFill);
+            float areaW = areaSize.x > 1f ? areaSize.x : 64f;
+            float areaH = areaSize.y > 1f ? areaSize.y : 64f;
+            var pieceSize = new Vector2(areaW * fill, areaH * fill);
+
+            for (int i = 0; i < count; i++)
+            {
+                string memberId = members != null && i < members.Length ? members[i] : candidate.Id;
+                string name = names != null && i < names.Length ? names[i] : candidate.DisplayName;
+
+                var child = new GameObject($"Stack_{memberId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                child.transform.SetParent(parent, false);
+                var rt = child.GetComponent<RectTransform>();
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = pieceSize;
+
+                if (count <= 1)
+                {
+                    rt.anchoredPosition = Vector2.zero;
+                }
+                else
+                {
+                    float spreadStep = pieceSize.x * stackedPieceSpread;
+                    float centerOffset = (i - (count - 1) / 2f) * spreadStep;
+                    rt.anchoredPosition = new Vector2(centerOffset, 0f);
+                }
+
+                var img = child.GetComponent<Image>();
+                img.raycastTarget = false;
+                ApplyCandidateMemberVisual(img, memberId, name);
+            }
+        }
+
+        void ApplyCandidateMemberVisual(Image img, string pieceId, string displayName)
+        {
+            var sprite = PieceSpriteFor(pieceId);
             if (sprite != null)
             {
                 img.sprite = sprite;
@@ -1132,19 +1261,19 @@ namespace Yoegoe.Minigames.Yut
             }
             else
             {
-                img.color = ColorForYokai(candidate.Id);
-                var label = CreateText(img.transform, "Label", InitialOf(candidate.DisplayName), 28, TextAnchor.MiddleCenter);
+                img.color = ColorForYokai(pieceId);
+                var label = CreateText(img.transform, "Label", InitialOf(displayName), 28, TextAnchor.MiddleCenter);
                 Stretch(label.rectTransform);
                 label.raycastTarget = false;
             }
         }
 
-        void WireCandidateButton(GameObject go, Image img, string tappedId, bool useShortcut)
+        void WireCandidateButton(GameObject go, Image img, string tappedId, bool useShortcut, string[] stackMemberIds)
         {
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(() => OnCandidateTapped?.Invoke(tappedId, useShortcut));
-            _candidateHits.Add((go.GetComponent<RectTransform>(), tappedId, useShortcut));
+            _candidateHits.Add((go.GetComponent<RectTransform>(), tappedId, useShortcut, stackMemberIds));
         }
 
         IEnumerator PulseScale(RectTransform rt)
@@ -1205,7 +1334,8 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 화면 최하단(y 0~0.13) — 참가 요괴 전체를 초상화·이름·기력(♦)·친밀도(♡)·보드 위치와 함께
-        /// 한 줄로 보여준다. ThrowSwipeZone(0.13~0.2)과 겹치지 않게 그 아래 자리에 둔다.
+        /// 한 줄로 보여준다. ThrowSwipeZone(대략 0.08~0.30)과 겹칠 수 있어 입력은
+        /// ThrowSwipeZone이 보드/로스터보다 위 형제로 올라가게 한다.
         /// </summary>
         void EnsureRosterPanel()
         {
@@ -1781,6 +1911,8 @@ namespace Yoegoe.Minigames.Yut
         }
 
         Transform _finishedPiecesRoot;
+        /// <summary>동 구역 완주 초상 — 말풍선 앵커용 (pieceId → RectTransform).</summary>
+        readonly Dictionary<string, RectTransform> _finishedPieceAnchors = new();
 
         void EnsureFinishedPiecesRoot(Transform east)
         {
@@ -1817,18 +1949,20 @@ namespace Yoegoe.Minigames.Yut
             var east = GetQuadrant(YutBoardQuadrant.East);
             EnsureFinishedPiecesRoot(east);
 
+            _finishedPieceAnchors.Clear();
             for (int i = _finishedPiecesRoot.childCount - 1; i >= 0; i--)
                 Destroy(_finishedPiecesRoot.GetChild(i).gameObject);
             if (ids == null) return;
 
             for (int i = 0; i < ids.Count; i++)
             {
-                var go = new GameObject("Finished", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                string pieceId = ids[i];
+                var go = new GameObject($"Finished_{pieceId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 go.transform.SetParent(_finishedPiecesRoot, false);
                 var rt = go.GetComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(30f, 30f);
                 var img = go.GetComponent<Image>();
-                var sprite = PieceSpriteFor(ids[i]);
+                var sprite = PieceSpriteFor(pieceId);
                 if (sprite != null)
                 {
                     img.sprite = sprite;
@@ -1837,9 +1971,10 @@ namespace Yoegoe.Minigames.Yut
                 }
                 else
                 {
-                    img.color = ColorForYokai(ids[i]);
+                    img.color = ColorForYokai(pieceId);
                 }
                 img.raycastTarget = false;
+                _finishedPieceAnchors[pieceId] = rt;
             }
         }
 

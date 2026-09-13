@@ -19,6 +19,18 @@
       "text": "{result}. {steps}칸 이동할 수 있어요!"
     },
     {
+      "id": "rabbit.finished",
+      "text": "먼저 들어왔어요!"
+    },
+    {
+      "id": "rabbit.cheer",
+      "text": "{result}. 남은 요괴 차례예요!"
+    },
+    {
+      "id": "rabbit.urge_finish",
+      "text": "저 친구, 완주할 수 있어요!"
+    },
+    {
       "id": "candidate.treasure",
       "text": "보물상자로 갈 수 있어."
     },

@@ -71,25 +71,48 @@ Docs/
 
 ### 윷놀이 미니게임 (`Minigames/Yut/`)
 
-이전 프로젝트에서 검증 후 그대로 재사용 중인 모듈. 보드 좌표 계산, 이동 경로 판정,
-던지기 확률표, 화면 표시(던지기 연출·말 표시·후보칸 강조)까지는 이미 되어 있지만,
-**승패 판정·상대 AI·잡기·보상 지급 로직은 원래 프로젝트에도 없었고 지금도 없다.**
-새 설계 기준 승리조건이 아직 기획 단계에서도 미정이라(`Docs/05_기획_미확정사항.md` 참고),
-그 부분이 정해진 뒤 새로 구현해야 한다.
+보드 좌표·이동 경로·화면 연출(홉 이동·말풍선·던지기 영역)까지 동작 중.
+승패/보상 등 일부 규칙은 `Docs/05_기획_미확정사항.md`와 맞춰 계속 다듬는 중.
 
 | 파일 | 역할 |
 |------|------|
-| `YutMiniGame.cs` | 화면(전체화면 보드·윷가락 던지기 연출·말 표시)과 입력 이벤트만 담당. 결과 판정은 모른다 |
-| `YutBoardLayout.cs` | 전통 윷판 29발(바깥 둘레 20 + 대각선 지름길 8 + 중앙 방 1) 좌표 |
-| `YutMoveResolver.cs` | 던지기 결과(도/개/걸/윷/모/빽도) → 실제 지나가는 노드 경로 계산 (지름길·빽도 규칙 포함) |
-| `YutThrowRoller.cs` | 확률표(모1·빽도1·도3·개6·걸4·윷1, 16분의) 기반 RNG 판정 |
-| `YutBoardQuadrant.cs` | 두 대각선이 나누는 4구역 enum (UI 레이아웃용) |
+| `YutMiniGame.cs` | 보드 UI·윷 연출·말/후보 표시 |
+| `YutMatch.cs` | 한 판 상태·이동 미리보기 |
+| `YutBoardLayout.cs` | 전통 윷판 29발 좌표 |
+| `YutMoveResolver.cs` | 도/개/걸/윷/모/빽도 → 경로 |
+| `YutThrowRoller.cs` | 확률표 RNG |
+| `YutBoardQuadrant.cs` | 4구역 enum (UI용) |
 
-## 사용하지 않는 도구 (레거시)
+말풍선 문구: `Assets/Resources/Yut/yut_bubbles.{locale}.json`  
+카탈로그: `Assets/Scripts/Data/YutBubbleCatalog.cs`
 
-`Tools/` (대사 시트 export 스크립트)와 루트 `package.json`의 `npm run dialogue`는
-이전 비주얼노벨 설계의 대사 시스템 전용이었습니다. 현재 설계에는 대사 시트가
-없어 사용하지 않지만, 삭제하지 않고 그대로 남겨두었습니다.
+## 윷 말풍선 Google Sheets 동기화
+
+시트 탭 `yut_bubbles` ↔ 로컬 JSON. 설정: `Tools/yut_bubbles_sheets.config.json`
+
+| 명령 | 방향 |
+|------|------|
+| `npm run yut-bubbles` | 시트 → `Assets/Resources/Yut/yut_bubbles.*.json` |
+| `npm run yut-bubbles:csv` | 로컬 CSV → JSON (오프라인) |
+| `npm run yut-bubbles:to-csv` | JSON → `Tools/sheets/yut_bubbles.csv` |
+| `npm run yut-bubbles:push` | JSON → 시트 (Apps Script 웹 앱) |
+
+**가져오기**는 시트를 `링크 있는 모든 사용자: 뷰어`로 두면 됩니다 (공개 CSV).
+
+**쓰기(`:push`)** 최초 1회:
+
+1. 해당 스프레드시트 → 확장 프로그램 → Apps Script
+2. `Tools/YutBubblesSheetsWrite.gs` 전체 붙여넣기 → 저장
+3. 배포 → 웹 앱 / 실행: 나 / 액세스: **모든 사용자**
+4. `/exec` URL을 config `write_url`에 저장 (코드 수정 후에는 **새 버전**으로 재배포)
+5. `npm run yut-bubbles:push`
+
+`write_token`은 선택. 쓸 때만 Apps Script 스크립트 속성 `WRITE_TOKEN`과 같은 임의 비밀을 넣습니다 (배포 URL의 `AKfycb…`가 아님).
+
+## 레거시 도구
+
+`npm run dialogue` / `Tools/export_dialogue.py` / `Tools/DialogueSheetsExport.gs`는
+이전 비주얼노벨 대사 시트용이었고 현재 설계에서는 쓰지 않습니다.
 
 ## 라이선스
 

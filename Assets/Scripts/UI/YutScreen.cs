@@ -533,9 +533,17 @@ namespace Yoegoe.UI
         }
 
         /// <summary>말풍선 규칙 2번 — 옥토끼가 결과를 말한다. 문구는 YutBubbleCatalog(시트→JSON).
-        /// 윷/모는 "다시"만 알리고 칸수는 말하지 않는다(보너스라 이번 결과로는 안 움직일 수도 있어서).</summary>
-        static string RabbitThrowLine(YutThrowResult result)
+        /// 윷/모는 "다시"만 알리고 칸수는 말하지 않는다(보너스라 이번 결과로는 안 움직일 수도 있어서).
+        /// 옥토끼가 이미 완주해 동에 있으면 해설 톤(cheer)으로 바꾼다.</summary>
+        string RabbitThrowLine(YutThrowResult result)
         {
+            if (IsRabbitFinished())
+            {
+                return YutBubbleCatalog.Format(
+                    YutBubbleCatalog.Ids.RabbitCheer,
+                    ("result", result.DisplayName()));
+            }
+
             switch (result)
             {
                 case YutThrowResult.Yut: return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitYut);
@@ -554,6 +562,18 @@ namespace Yoegoe.UI
                         ("result", result.DisplayName()),
                         ("steps", steps.ToString()));
             }
+        }
+
+        bool IsRabbitFinished()
+        {
+            if (match == null) return false;
+            string rabbitId = nameof(CharacterId.Rabbit);
+            for (int i = 0; i < match.PlayerPieces.Count; i++)
+            {
+                var p = match.PlayerPieces[i];
+                if (p.Id == rabbitId && p.Finished) return true;
+            }
+            return false;
         }
 
         /// <summary>말풍선 규칙 2번 — 각 요괴는 아래 조건 중 하나에 해당할 때만(우선순위 순으로
@@ -592,6 +612,17 @@ namespace Yoegoe.UI
             {
                 string line = BubbleLineFor(c);
                 if (line != null) miniGame.ShowPieceBubble(c.PieceId, line);
+            }
+
+            // 옥토끼가 동에 있으면, 남은 말이 완주 가능할 때 옆에서 한 마디.
+            if (!IsRabbitFinished() || candidates == null) return;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (!candidates[i].WillFinish) continue;
+                miniGame.ShowPieceBubble(
+                    nameof(CharacterId.Rabbit),
+                    YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitUrgeFinish));
+                break;
             }
         }
 
@@ -641,10 +672,44 @@ namespace Yoegoe.UI
             ShowMoveCandidateBubbles(candidates);
 
             pendingOutcome = outcome;
-            var uiCandidates = candidates
-                .Select(c => new YutMiniGame.YokaiMoveCandidate(c.PieceId, NameFor(c.PieceId), c.DestinationNode, c.UseShortcut))
-                .ToList();
+            var uiCandidates = new List<YutMiniGame.YokaiMoveCandidate>(candidates.Count);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var c = candidates[i];
+                var memberIds = StackMemberIdsFor(c.PieceId);
+                var memberNames = new string[memberIds.Length];
+                for (int m = 0; m < memberIds.Length; m++)
+                    memberNames[m] = NameFor(memberIds[m]);
+                uiCandidates.Add(new YutMiniGame.YokaiMoveCandidate(
+                    c.PieceId,
+                    NameFor(c.PieceId),
+                    c.DestinationNode,
+                    c.UseShortcut,
+                    memberIds,
+                    memberNames));
+            }
             miniGame.FlashCandidates(uiCandidates);
+        }
+
+        /// <summary>보드에 업혀 있으면 같은 칸 전원, 대기 말이면 본인만 — 후보 칸에 초상을 전부 그리기 위함.</summary>
+        string[] StackMemberIdsFor(string pieceId)
+        {
+            if (match == null) return new[] { pieceId };
+            YutPiece piece = null;
+            for (int i = 0; i < match.PlayerPieces.Count; i++)
+            {
+                var p = match.PlayerPieces[i];
+                if (p.Id == pieceId && !p.Finished) { piece = p; break; }
+            }
+            if (piece == null || !piece.OnBoard) return new[] { pieceId };
+
+            var ids = new List<string>();
+            for (int i = 0; i < match.PlayerPieces.Count; i++)
+            {
+                var p = match.PlayerPieces[i];
+                if (!p.Finished && p.NodeId == piece.NodeId) ids.Add(p.Id);
+            }
+            return ids.Count > 0 ? ids.ToArray() : new[] { pieceId };
         }
 
         void HandleCandidateTapped(string pieceId, bool useShortcut)
@@ -1015,6 +1080,21 @@ namespace Yoegoe.UI
             awaitingFinishChoice = true;
             miniGame.SetThrowVisible(false);
             string names = string.Join(", ", finishedIds.Select(NameFor));
+
+            // 옥토끼가 이번 골인에 포함되면 동 초상 위에서 한 마디(이미 ShowFinishedPieces로 앵커 있음).
+            if (finishedIds != null)
+            {
+                string rabbitId = nameof(CharacterId.Rabbit);
+                for (int i = 0; i < finishedIds.Count; i++)
+                {
+                    if (finishedIds[i] != rabbitId) continue;
+                    miniGame.ShowPieceBubble(
+                        rabbitId,
+                        YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitFinished));
+                    break;
+                }
+            }
+
             ShowChoice($"{names} 골인!\n여기서 그만 받을까요, 남은 말로 계속할까요?",
                 onContinue: HandleContinueAfterFinish,
                 onStop: () => HandleStopAfterFinish(finishedIds));
@@ -1402,7 +1482,8 @@ namespace Yoegoe.UI
             GrantFinishRewardAndNotice(2);
         }
 
-        /// <summary>완주 향/엽전 지급 후 안내. multiplier는 광고 2배용.</summary>
+        /// <summary>완주 향/엽전 지급 후 안내. multiplier는 광고 2배용.
+        /// 안내를 닫으면 전원 완주이므로 판을 강제로 새 판으로 리셋한다.</summary>
         void GrantFinishRewardAndNotice(int multiplier)
         {
             int hyang = pendingFinishHyang * multiplier;
@@ -1420,17 +1501,49 @@ namespace Yoegoe.UI
             if (!string.IsNullOrEmpty(collected))
                 message += $"\n{collected}";
 
-            // 끝나도 메인으로 바로 안 나간다 — 유저가 직접 나가기를 누를 때까지 윷판을 그대로 보여준다.
             ShowNotice(message, OnMatchEndedNoticeOk);
             GameSaveBridge.SaveFromWorld();
         }
 
         void OnMatchEndedNoticeOk()
         {
-            if (match != null && match.IsEnded)
+            // 전원 완주 → 보상 확인 후 판을 강제로 리셋(토큰 추가 소모 없음).
+            RestartBoardAfterAllFinished();
+        }
+
+        /// <summary>같은 팀으로 새 매치를 연다. 특수칸·말 위치·획득 내역을 처음부터.</summary>
+        void RestartBoardAfterAllFinished()
+        {
+            var team = new List<(string id, string name)>();
+            if (match != null)
             {
+                for (int i = 0; i < match.PlayerPieces.Count; i++)
+                {
+                    var p = match.PlayerPieces[i];
+                    team.Add((p.Id, p.DisplayName));
+                }
                 UnsubscribeMatchEvents();
                 match = null;
+            }
+            else
+            {
+                foreach (var kv in teamById)
+                {
+                    string name = kv.Value != null && kv.Value.Data != null && !string.IsNullOrEmpty(kv.Value.Data.displayName)
+                        ? kv.Value.Data.displayName
+                        : kv.Key;
+                    team.Add((kv.Key, name));
+                }
+            }
+
+            if (team.Count == 0) return;
+
+            BeginMatch(team);
+            if (miniGame != null)
+            {
+                miniGame.ClearPlayLog();
+                miniGame.ClearBubbles();
+                miniGame.AddPlayLogEntry("새 판이 열렸습니다.");
             }
         }
 

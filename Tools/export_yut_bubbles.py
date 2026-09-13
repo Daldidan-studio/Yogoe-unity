@@ -6,6 +6,10 @@
   python3 Tools/export_yut_bubbles.py --csv Tools/sheets/yut_bubbles.csv
   python3 Tools/export_yut_bubbles.py --sheet-id ID --tab yut_bubbles
 
+역방향(JSON → CSV):
+  python3 Tools/import_yut_bubbles_csv.py
+  npm run yut-bubbles:to-csv
+
 config: Tools/yut_bubbles_sheets.config.json
   {
     "sheet_id": "...",
@@ -44,6 +48,9 @@ KNOWN_IDS = [
     "rabbit.mo",
     "rabbit.baekdo",
     "rabbit.steps",
+    "rabbit.finished",
+    "rabbit.cheer",
+    "rabbit.urge_finish",
     "candidate.treasure",
     "candidate.offering",
     "candidate.coin",
@@ -63,11 +70,23 @@ def load_config() -> dict:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def _ssl_context():
+    import ssl
+
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
 def fetch_sheet_csv(sheet_id: str, tab: str) -> str:
     query = urllib.parse.urlencode({"tqx": "out:csv", "sheet": tab})
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?{query}"
     req = urllib.request.Request(url, headers={"User-Agent": "YogoeYutBubblesExport/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as res:
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=_ssl_context()))
+    with opener.open(req, timeout=30) as res:
         raw = res.read()
     text = raw.decode("utf-8-sig")
     if "<html" in text.lower():

@@ -16,6 +16,9 @@ namespace Yoegoe.Data
             public const string RabbitMo = "rabbit.mo";
             public const string RabbitBaekdo = "rabbit.baekdo";
             public const string RabbitSteps = "rabbit.steps";
+            public const string RabbitFinished = "rabbit.finished";
+            public const string RabbitCheer = "rabbit.cheer";
+            public const string RabbitUrgeFinish = "rabbit.urge_finish";
             public const string CandidateTreasure = "candidate.treasure";
             public const string CandidateOffering = "candidate.offering";
             public const string CandidateCoin = "candidate.coin";
@@ -121,6 +124,9 @@ namespace Yoegoe.Data
             Ids.RabbitMo => "모군. 다시.",
             Ids.RabbitBaekdo => "빽도. 뒤로 돌아가요!",
             Ids.RabbitSteps => "{result}. {steps}칸 이동할 수 있어요!",
+            Ids.RabbitFinished => "먼저 들어왔어요!",
+            Ids.RabbitCheer => "{result}. 남은 요괴 차례예요!",
+            Ids.RabbitUrgeFinish => "저 친구, 완주할 수 있어요!",
             Ids.CandidateTreasure => "보물상자로 갈 수 있어.",
             Ids.CandidateOffering => "공양물을 얻을 수 있어.",
             Ids.CandidateCoin => "엽전을 얻을 수 있어.",
