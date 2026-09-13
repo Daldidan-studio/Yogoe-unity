@@ -56,8 +56,9 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        /// <summary>화면 연출용 — Apply 전에 칸을 하나씩 밟을 경로. HopNodes는 출발 칸을 빼고
-        /// 착지할 칸만(웹 d.path와 동일). 이미 참에 서서 바로 완주면 HopNodes는 비고 WillFinish만 true.</summary>
+        /// <summary>화면 연출용 — Apply 전에 칸을 하나씩 밟을 경로. HopNodes는 보통 출발 칸을 빼고
+        /// 착지할 칸만(웹 d.path와 동일). 대기 말 첫 입장은 예외로 참(0)을 첫 홉에 넣어 참먹이를
+        /// 밟고 나가게 한다. 이미 참에 서서 바로 완주면 HopNodes는 비고 WillFinish만 true.</summary>
         public readonly struct MoveHopPreview
         {
             public readonly bool Ok;
@@ -219,7 +220,11 @@ namespace Yoegoe.Minigames.Yut
                 int dest = !wasOnBoard
                     ? BaekdoEntryNode
                     : YutMoveResolver.PeekBackwardDestination(fromNode, piece.History);
-                return new MoveHopPreview(true, movedIds, new[] { dest }, false);
+                // 대기→빽도 입장도 참먹이를 밟고 19로 간다.
+                int[] baekdoHops = !wasOnBoard
+                    ? new[] { YutBoardLayout.Start, dest }
+                    : new[] { dest };
+                return new MoveHopPreview(true, movedIds, baekdoHops, false);
             }
 
             bool alreadyAtStart = wasOnBoard && fromNode == YutBoardLayout.Start;
@@ -232,7 +237,11 @@ namespace Yoegoe.Minigames.Yut
             var path = YutMoveResolver.GetPath(
                 wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut, arrivedFromForOuter);
             bool willFinish = ResolvesToFinish(false, path);
-            return new MoveHopPreview(true, movedIds, BuildHopNodes(path, willFinish), willFinish);
+            // GetPath는 참에서 시작하지만 BuildHopNodes가 출발(참)을 빼므로, 대기 말은 참을 다시 넣는다.
+            int[] hops = BuildHopNodes(path, willFinish);
+            if (!wasOnBoard)
+                hops = PrependHopNode(hops, YutBoardLayout.Start);
+            return new MoveHopPreview(true, movedIds, hops, willFinish);
         }
 
         /// <summary>이무기 한 수 연출용 경로. 대기 중 빽도면 Ok=false(Apply도 무이동).</summary>
@@ -374,6 +383,19 @@ namespace Yoegoe.Minigames.Yut
                 if (willFinish && path[i] == YutBoardLayout.Start) break;
             }
             return hops.ToArray();
+        }
+
+        /// <summary>대기 말 입장용 — 홉 앞에 참먹이를 끼워 넣는다(이미 선두면 그대로).</summary>
+        static int[] PrependHopNode(int[] hops, int nodeId)
+        {
+            if (hops != null && hops.Length > 0 && hops[0] == nodeId)
+                return hops;
+            if (hops == null || hops.Length == 0)
+                return new[] { nodeId };
+            var result = new int[hops.Length + 1];
+            result[0] = nodeId;
+            System.Array.Copy(hops, 0, result, 1, hops.Length);
+            return result;
         }
 
         /// <summary>이무기 턴의 던지기 한 번. 플레이어 쪽 ThrowForPlayer와 대칭 — 호출부가 던지기

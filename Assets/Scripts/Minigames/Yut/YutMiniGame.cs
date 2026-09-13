@@ -764,6 +764,7 @@ namespace Yoegoe.Minigames.Yut
                 var piece = pieces[i];
                 Vector3 fromPos = piece.position;
                 piece.SetParent(south, false);
+                SetPieceDragEnabled(piece, false); // 대기말은 드래그로 후보에 올리지 않는다
                 float slotW = 1f / count;
                 float pad = slotW * sidePad;
                 piece.anchorMin = new Vector2(i * slotW + pad, vInset);
@@ -790,6 +791,7 @@ namespace Yoegoe.Minigames.Yut
                 var piece = pieces[i];
                 Vector3 fromPos = piece.position;
                 piece.SetParent(padRt, false);
+                SetPieceDragEnabled(piece, true);
 
                 piece.anchorMin = piece.anchorMax = new Vector2(0.5f, 0.5f);
                 piece.pivot = new Vector2(0.5f, 0.5f);
@@ -808,6 +810,13 @@ namespace Yoegoe.Minigames.Yut
 
                 SlideIn(piece, fromPos);
             }
+        }
+
+        static void SetPieceDragEnabled(RectTransform piece, bool on)
+        {
+            if (piece == null) return;
+            var drag = piece.GetComponent<YutPieceDragHandle>();
+            if (drag != null) drag.enabled = on;
         }
 
         /// <summary>
