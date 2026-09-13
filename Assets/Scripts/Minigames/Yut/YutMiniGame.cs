@@ -10,10 +10,8 @@ using Yoegoe.UI;
 namespace Yoegoe.Minigames.Yut
 {
     /// <summary>
-    /// 윷놀이 화면(전체화면 TrainingPanel)을 소유하는 독립 모듈.
-    /// TrainingPanel GameObject에 런타임에 자동 부착된다 (ScrollScreenUI.EnsureWired 참고).
-    /// 결과 판정·재화 소모 같은 게임 로직은 호출부(TutorialController, 추후 본게임 컨트롤러)의
-    /// 책임이고, 이 컴포넌트는 화면 표시와 입력 이벤트만 담당한다.
+    /// 윷놀이 전체화면 UI. 보드·말·던지기 입력 표시와 이벤트를 담당하고,
+    /// 규칙·재화는 호출부(YutScreen)가 처리한다.
     /// </summary>
     public class YutMiniGame : MonoBehaviour
     {
@@ -39,10 +37,6 @@ namespace Yoegoe.Minigames.Yut
         public event Action OnLeavePressed;
         /// <summary>윷 토큰(하트) 옆 [+] 버튼 — YutScreen이 YutTokenShopPopup을 연다.</summary>
         public event Action OnBuyTokensPressed;
-        /// <summary>족보 안내 오버레이가 열리고/닫힐 때. ScrollScreenUI가 이걸로 대사 타이핑을 같이 멈춘다.</summary>
-        public event Action<bool> OnRulesPanelToggled;
-        /// <summary>족보 안내를 유저가 닫기 버튼으로 직접 닫았을 때.</summary>
-        public event Action OnRulesClosed;
         /// <summary>FlashCandidates로 보드 위에 띄운 후보 중 하나를 유저가 탭했을 때 — 그 요괴 id와
         /// (갈림길 후보였다면) 지름길을 골랐는지 여부.</summary>
         public event Action<string, bool> OnCandidateTapped;
@@ -52,12 +46,10 @@ namespace Yoegoe.Minigames.Yut
         YutThrowSwipeZone _throwSwipe;
         Button _leaveButton;
         RectTransform _boardRoot;
-        RectTransform _piece;
         RectTransform _opponentPiece;
         Image[] _pads;
         RectTransform[] _parkedSticks;
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
-        GameObject _rulesOverlay;
         readonly List<GameObject> _candidateMarkers = new();
         readonly List<(RectTransform rect, string pieceId, bool useShortcut)> _candidateHits = new();
         GameObject _miniThrowContainer;
@@ -75,8 +67,7 @@ namespace Yoegoe.Minigames.Yut
         readonly List<string> _playLogEntries = new();
         const int MaxPlayLogEntries = 200;
 
-        // 본게임 수련장 전용 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
-        // 튜토리얼의 _piece/_opponentPiece(각본 대결용)와는 완전히 별개.
+        // 본게임 — 보유 요괴 전체를 동시에 말로 표시(id → 말 오브젝트/이니셜 라벨).
         readonly Dictionary<string, RectTransform> _yokaiPieces = new();
         readonly Dictionary<string, Text> _yokaiPieceLabels = new();
         /// <summary>Inspector에서 말 크기를 바꿀 때 Play 중에도 다시 깔 수 있게, 마지막 Show 입력을 기억한다.</summary>
@@ -88,10 +79,6 @@ namespace Yoegoe.Minigames.Yut
         Text _rosterCaption;
         readonly List<RosterChip> _rosterChips = new();
         GameObject _summonSlotChip;
-
-        RectTransform _turnTrackerPanel;
-        Text _turnTrackerNumberText;
-        Text _turnTrackerOrderText;
 
         readonly struct RosterChip
         {
@@ -207,10 +194,8 @@ namespace Yoegoe.Minigames.Yut
         {
             if (_throwZone != null) return;
 
-            // 보드(_boardRoot) 아래쪽 가장자리(y=0.2)에 바로 이어 붙여서 보드의 연장처럼 보이게 —
-            // 폭도 보드와 동일(0.1~0.9), 배경색도 보드 배경색과 맞춘다. 화면 맨 아래(y<0.13)는
-            // RosterPanel(요괴 명단) 자리로 비워둔다. 예전 Bake본은 이 자리/색이 어긋나 있을 수
-            // 있어 found든 created든 항상 재적용한다(코드가 항상 최종 소스).
+            // 보드(_boardRoot) 아래쪽 가장자리 근처에 붙인다. Prefab에 있으면 그 레이아웃을 유지하고,
+            // 없을 때만 아래 기본 좌표/색으로 새로 만든다.
             var rt = FindOrCreatePanel(transform, "ThrowSwipeZone", 0.1f, 0.13f, 0.9f, 0.2f,
                 new Color(0.12f, 0.22f, 0.18f, 0.92f), out bool created);
             _throwZone = rt.gameObject;
@@ -319,6 +304,9 @@ namespace Yoegoe.Minigames.Yut
             _throwZone.SetActive(on);
         }
 
+        public bool IsThrowVisible =>
+            _throwZone != null && _throwZone.activeSelf && _throwZone.activeInHierarchy;
+
         public void SetLeaveVisible(bool on)
         {
             if (_leaveButton == null) return;
@@ -386,6 +374,14 @@ namespace Yoegoe.Minigames.Yut
         {
             if (_playLogButton != null) return;
 
+            var existing = transform.Find("PlayLogButton")?.GetComponent<Button>();
+            if (existing != null)
+            {
+                _playLogButton = existing;
+                WireButton(_playLogButton, TogglePlayLog);
+                return;
+            }
+
             var go = new GameObject("PlayLogButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(transform, false);
             SetAnchor((RectTransform)go.transform, PlayLogLeft, 0.9f, PlayLogRight, 0.97f, 0, 0, 0, 0);
@@ -408,6 +404,14 @@ namespace Yoegoe.Minigames.Yut
         {
             if (_tokenPlusButton != null) return;
 
+            var existing = transform.Find("TokenPlusButton")?.GetComponent<Button>();
+            if (existing != null)
+            {
+                _tokenPlusButton = existing;
+                WireButton(_tokenPlusButton, () => OnBuyTokensPressed?.Invoke());
+                return;
+            }
+
             var go = new GameObject("TokenPlusButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(transform, false);
             SetAnchor((RectTransform)go.transform, TokenPlusLeft, 0.9f, TokenPlusRight, 0.97f, 0, 0, 0, 0);
@@ -426,6 +430,28 @@ namespace Yoegoe.Minigames.Yut
         void EnsurePlayLogPanel()
         {
             if (_playLogPanel != null) return;
+
+            var existing = transform.Find("PlayLogPanel") as RectTransform;
+            if (existing != null)
+            {
+                _playLogPanel = existing.gameObject;
+                _playLogViewport = existing.Find("Viewport") as RectTransform;
+                _playLogContent = _playLogViewport != null ? _playLogViewport.Find("Content") as RectTransform : null;
+                _playLogScroll = existing.GetComponent<ScrollRect>();
+                if (_playLogScroll == null && _playLogViewport != null && _playLogContent != null)
+                {
+                    _playLogScroll = existing.gameObject.AddComponent<ScrollRect>();
+                    _playLogScroll.viewport = _playLogViewport;
+                    _playLogScroll.content = _playLogContent;
+                    _playLogScroll.horizontal = false;
+                    _playLogScroll.vertical = true;
+                    _playLogScroll.movementType = ScrollRect.MovementType.Clamped;
+                }
+                var closeBtn = existing.Find("Close")?.GetComponent<Button>();
+                WireButton(closeBtn, () => ShowPlayLog(false));
+                _playLogPanel.SetActive(false);
+                return;
+            }
 
             var go = new GameObject("PlayLogPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(transform, false);
@@ -465,8 +491,8 @@ namespace Yoegoe.Minigames.Yut
             _playLogScroll.vertical = true;
             _playLogScroll.movementType = ScrollRect.MovementType.Clamped;
 
-            var closeBtn = CreateButton(rt, "Close", "닫기", () => ShowPlayLog(false));
-            SetAnchor(closeBtn.GetComponent<RectTransform>(), 0.32f, 0.02f, 0.68f, 0.14f, 0, 0, 0, 0);
+            var closeBtnNew = CreateButton(rt, "Close", "닫기", () => ShowPlayLog(false));
+            SetAnchor(closeBtnNew.GetComponent<RectTransform>(), 0.32f, 0.02f, 0.68f, 0.14f, 0, 0, 0, 0);
 
             go.SetActive(false);
         }
@@ -550,14 +576,6 @@ namespace Yoegoe.Minigames.Yut
             _opponentPiece.offsetMin = Vector2.zero;
             _opponentPiece.offsetMax = Vector2.zero;
             SlideIn(_opponentPiece, fromPos);
-        }
-
-        /// <summary>특정 칸을 잠깐 밝게 강조(다음 이동 위치 예고 등). 다음 SetPieceIndex 호출 때 정상 복구된다.</summary>
-        public void FlashNode(int nodeId)
-        {
-            EnsureBoard();
-            if (_pads == null || nodeId < 0 || nodeId >= _pads.Length) return;
-            _pads[nodeId].color = new Color(1f, 0.95f, 0.4f, 1f);
         }
 
         public readonly struct YokaiPieceInfo
@@ -1023,79 +1041,29 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        /// <summary>
-        /// 족보(빽도~모 6종) 안내 오버레이. 딱 한 번 보여주고, 유저가 닫기 버튼을 눌러야 닫힌다
-        /// (자동으로 안 없어짐). 열려있는 동안엔 OnRulesPanelToggled(true)로 대사 타이핑도
-        /// 같이 멈춰서, 안내 보는 동안 다른 진행이 몰래 같이 흐르지 않게 한다.
-        /// 닫히는 순간 OnRulesClosed를 쏴서, 호출부가 "닫을 때까지 대기"를 걸 수 있다.
-        /// </summary>
-        public void ShowRulesOverlay(bool on)
-        {
-            EnsureBoard();
-            if (_rulesOverlay == null) return;
-
-            bool wasOpen = _rulesOverlay.activeSelf;
-            _rulesOverlay.SetActive(on);
-            OnRulesPanelToggled?.Invoke(on);
-
-            if (wasOpen && !on)
-                OnRulesClosed?.Invoke();
-        }
-
         static bool IsWaypoint(int nodeId) =>
             nodeId == YutBoardLayout.Start || nodeId == YutBoardLayout.Mo ||
             nodeId == YutBoardLayout.DwitMo || nodeId == YutBoardLayout.JjiMo ||
             nodeId == YutBoardLayout.Bang;
 
-        public void SetPieceIndex(int nodeId)
-        {
-            EnsureBoard();
-            if (_pads == null || _pads.Length == 0 || _piece == null) return;
-
-            nodeId = Mathf.Clamp(nodeId, 0, _pads.Length - 1);
-            _piece.gameObject.SetActive(true);
-            for (int i = 0; i < _pads.Length; i++)
-            {
-                bool here = i == nodeId;
-                _pads[i].color = here
-                    ? new Color(1f, 0.85f, 0.35f, 1f)
-                    : IsWaypoint(i)
-                        ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
-                        : new Color(0.35f, 0.32f, 0.28f, 0.9f);
-            }
-
-            var pad = _pads[nodeId].rectTransform;
-            _piece.SetParent(pad, false);
-            _piece.anchorMin = new Vector2(0.15f, 0.15f);
-            _piece.anchorMax = new Vector2(0.85f, 0.85f);
-            _piece.offsetMin = Vector2.zero;
-            _piece.offsetMax = Vector2.zero;
-        }
-
-        /// <summary>Bake된 자식(씬에 이미 있는 UI)이 있으면 그대로 쓰고, 없으면 새로 만든다 —
-        /// 이 프로젝트의 UI들은 이 두 갈래를 매번 손으로 복붙해오다 "새 비주얼은 생성 분기에만
-        /// 추가하고 바인딩 분기는 빼먹는" 버그가 반복됐다. 앵커/색은 코드가 항상 최종 소스라는
-        /// 기존 관례(EnsureThrowSwipeZone 등 참고)에 따라 found/created 상관없이 매번 재적용한다.
-        /// 자식 UI 생성처럼 "새로 만들 때만" 필요한 작업은 호출자가 created로 분기한다.</summary>
+        /// <summary>Bake/Prefab에 이미 있는 자식이면 레이아웃(앵커·색)은 건드리지 않고 그대로 쓴다.
+        /// 없을 때만 코드 기본값으로 새로 만든다 — Prefab이 레이아웃 최종 소스.</summary>
         RectTransform FindOrCreatePanel(Transform parent, string name, float xmin, float ymin, float xmax, float ymax,
             Color color, out bool created)
         {
             var existing = parent.Find(name) as RectTransform;
-            RectTransform rt;
             if (existing != null)
             {
-                rt = existing;
                 created = false;
+                return existing;
             }
-            else
-            {
-                var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                go.transform.SetParent(parent, false);
-                rt = go.GetComponent<RectTransform>();
-                created = true;
-            }
+
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
             SetAnchor(rt, xmin, ymin, xmax, ymax, 0, 0, 0, 0);
             rt.GetComponent<Image>().color = color;
+            created = true;
             return rt;
         }
 
@@ -1110,94 +1078,13 @@ namespace Yoegoe.Minigames.Yut
             EnsureTokenPlusButton();
             if (!TryBindPads())
                 CreatePads();
-            BindOrCreatePieces();
+            BindOrCreateOpponentPiece();
 
             EnsureQuadrants();
-            EnsureRulesOverlay();
             EnsureOpponentMiniThrowPanel();
             EnsureRosterPanel();
-            EnsureTurnTracker();
             EnsurePlayLogButton();
             EnsurePlayLogPanel();
-        }
-
-        /// <summary>
-        /// 月下修練(달빛 수련) 헤더 — LogBar 바로 위(y 0.68~0.75)에 내 차례 번호와, 이번 턴에
-        /// 보너스(윷/모)로 이어 던진 결과 순서를 보여준다. 턴이 끝나면(이무기 턴으로 넘어가면)
-        /// 다음 내 차례 시작할 때 YutMatch가 순서를 비우고 번호를 올린다.
-        /// </summary>
-        void EnsureTurnTracker()
-        {
-            if (_turnTrackerPanel != null) return;
-
-            _turnTrackerPanel = FindOrCreatePanel(transform, "TurnTracker", 0.06f, 0.68f, 0.94f, 0.75f,
-                new Color(0.1f, 0.09f, 0.06f, 0.9f), out _);
-
-            var titleT = _turnTrackerPanel.Find("Title") as RectTransform;
-            if (titleT == null)
-            {
-                var title = CreateText(_turnTrackerPanel, "Title", "月下修練 · 달빛 수련", 22, TextAnchor.MiddleLeft);
-                title.rectTransform.anchorMin = new Vector2(0f, 0.55f);
-                title.rectTransform.anchorMax = new Vector2(0.62f, 1f);
-                title.rectTransform.offsetMin = new Vector2(14f, 0f);
-                title.rectTransform.offsetMax = Vector2.zero;
-                title.raycastTarget = false;
-            }
-
-            var turnT = _turnTrackerPanel.Find("TurnNumber") as RectTransform;
-            _turnTrackerNumberText = turnT != null ? turnT.GetComponent<Text>() : null;
-            if (_turnTrackerNumberText == null)
-            {
-                _turnTrackerNumberText = CreateText(_turnTrackerPanel, "TurnNumber", "", 21, TextAnchor.MiddleRight);
-                _turnTrackerNumberText.rectTransform.anchorMin = new Vector2(0.62f, 0.55f);
-                _turnTrackerNumberText.rectTransform.anchorMax = new Vector2(1f, 1f);
-                _turnTrackerNumberText.rectTransform.offsetMin = Vector2.zero;
-                _turnTrackerNumberText.rectTransform.offsetMax = new Vector2(-14f, 0f);
-                _turnTrackerNumberText.color = new Color(1f, 0.9f, 0.7f);
-                _turnTrackerNumberText.raycastTarget = false;
-            }
-
-            var orderT = _turnTrackerPanel.Find("Order") as RectTransform;
-            _turnTrackerOrderText = orderT != null ? orderT.GetComponent<Text>() : null;
-            if (_turnTrackerOrderText == null)
-            {
-                _turnTrackerOrderText = CreateText(_turnTrackerPanel, "Order", "", 20, TextAnchor.MiddleLeft);
-                _turnTrackerOrderText.rectTransform.anchorMin = new Vector2(0f, 0f);
-                _turnTrackerOrderText.rectTransform.anchorMax = new Vector2(1f, 0.55f);
-                _turnTrackerOrderText.rectTransform.offsetMin = new Vector2(14f, 0f);
-                _turnTrackerOrderText.rectTransform.offsetMax = new Vector2(-14f, 0f);
-                _turnTrackerOrderText.color = new Color(0.85f, 0.9f, 0.95f);
-                _turnTrackerOrderText.raycastTarget = false;
-            }
-        }
-
-        /// <summary>내 차례 번호와 이번 턴에 나온 결과 순서를 갱신한다. results는 YutMatch가 들고
-        /// 있는 리스트를 그대로 받아 인덱서로만 순회한다(새 struct에 LINQ 쓰면 IL2CPP WebGL에서
-        /// "null function"이 나던 문제 때문에 — 여기선 enum이라 더 안전하지만 관례상 통일).</summary>
-        public void ShowTurnTracker(int turnNumber, IReadOnlyList<YutThrowResult> results)
-        {
-            EnsureBoard();
-            if (_turnTrackerNumberText != null)
-                _turnTrackerNumberText.text = $"나의 {turnNumber}번째 차례";
-
-            if (_turnTrackerOrderText != null)
-            {
-                if (results == null || results.Count == 0)
-                {
-                    _turnTrackerOrderText.text = "나온 순서 — · 윷·모는 한 번 더";
-                }
-                else
-                {
-                    var sb = new System.Text.StringBuilder("나온 순서 — ");
-                    for (int i = 0; i < results.Count; i++)
-                    {
-                        if (i > 0) sb.Append(" → ");
-                        sb.Append(results[i].DisplayName());
-                    }
-                    sb.Append(" · 윷·모는 한 번 더");
-                    _turnTrackerOrderText.text = sb.ToString();
-                }
-            }
         }
 
         /// <summary>
@@ -1369,10 +1256,6 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>소환 연출용 — 넋(도깨비불) 아이콘.</summary>
         public Sprite GetNeokSprite() => CharacterSpawner.NeokFlameSprite();
 
-        /// <summary>소환 연출용 — 고라니(넋) 아이콘. 아직 스폰 전이어도 CharacterData 기준으로 찾는다.
-        /// 넋 단계는 혼 초상이 아니라 불꽃 에셋을 쓴다.</summary>
-        public Sprite GetGoraniSprite() => GetNeokSprite() ?? PieceSpriteFor("Gorani");
-
         /// <summary>로스터 줄에서 index/count번째 칸 위치로 앵커한다 — 요괴 칩과 소환 슬롯 칩이
         /// 같은 규칙으로 나란히 놓이게 공용으로 쓴다.</summary>
         static void RepositionRosterSlot(RectTransform rt, int index, int count)
@@ -1436,9 +1319,7 @@ namespace Yoegoe.Minigames.Yut
             rt.sizeDelta = new Vector2(0f, height);
         }
 
-        /// <summary>하트(윷 토큰) 자리는 "기록"·"+"(토큰 구매) 버튼과 한 줄에 나란히 있어야 해서,
-        /// found든 created든 매번 좌표를 다시 맞춘다 — 하나만 고치고 다른 쪽을 빼먹으면 baked
-        /// 씬에서만 옛 위치로 어긋나는 버그가 난다(다른 Ensure류와 같은 이유).</summary>
+        /// <summary>하트(윷 토큰) — Prefab에 있으면 그 자리를 유지하고, 없을 때만 코드 기본 좌표로 만든다.</summary>
         void BindOrCreateHearts()
         {
             if (_heartIcons != null) return;
@@ -1453,23 +1334,19 @@ namespace Yoegoe.Minigames.Yut
                 _heartIcons[i] = t.GetComponent<Image>();
             }
 
-            if (!foundAll)
-            {
-                _heartIcons = new Image[heartCount];
-                for (int i = 0; i < heartCount; i++)
-                {
-                    var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                    heartGo.transform.SetParent(transform, false);
-                    _heartIcons[i] = heartGo.GetComponent<Image>();
-                }
-            }
+            if (foundAll)
+                return;
 
+            _heartIcons = new Image[heartCount];
             const float iconW = 0.035f;
             const float gap = 0.008f;
             float totalW = heartCount * iconW + (heartCount - 1) * gap;
             float startX = HeartsRightEdge - totalW;
             for (int i = 0; i < heartCount; i++)
             {
+                var heartGo = new GameObject($"Heart{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                heartGo.transform.SetParent(transform, false);
+                _heartIcons[i] = heartGo.GetComponent<Image>();
                 float x = startX + i * (iconW + gap);
                 SetAnchor(_heartIcons[i].rectTransform, x, 0.9f, x + iconW, 0.97f, 0, 0, 0, 0);
             }
@@ -1491,8 +1368,7 @@ namespace Yoegoe.Minigames.Yut
                 _pads[i] = t.GetComponent<Image>();
             }
 
-            // 예전에 구운(Bake) 보드는 특수 칸이 생기기 전 색으로 저장돼 있을 수 있어 — 매번
-            // CreatePads()와 같은 규칙으로 다시 칠해서(코드가 항상 최종 소스) 반영되게 한다.
+            // Prefab에 구운 보드 칸 위치는 유지하고, 특수 칸 색만 매치 규칙에 맞게 다시 칠한다.
             for (int i = 0; i < _pads.Length; i++)
                 RecolorPad(_pads[i], i);
             return true;
@@ -1571,52 +1447,38 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        void BindOrCreatePieces()
+        void BindOrCreateOpponentPiece()
         {
             if (_pads == null || _pads.Length == 0) return;
-
-            var pieceT = _pads[0].transform.Find("YutPiece");
-            if (pieceT != null)
-                _piece = pieceT as RectTransform;
-            else
-            {
-                var pieceGo = new GameObject("YutPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                pieceGo.transform.SetParent(_pads[0].transform, false);
-                _piece = pieceGo.GetComponent<RectTransform>();
-                _piece.anchorMin = new Vector2(0.15f, 0.15f);
-                _piece.anchorMax = new Vector2(0.85f, 0.85f);
-                _piece.offsetMin = Vector2.zero;
-                _piece.offsetMax = Vector2.zero;
-                pieceGo.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.85f, 1f);
-                pieceGo.SetActive(false); // 튜토리얼 각본 대결 전용(SetPieceIndex) — 본게임은 안 씀
-            }
+            if (_opponentPiece != null) return;
 
             var opponentT = _pads[0].transform.Find("ImugiPiece");
             if (opponentT != null)
+            {
                 _opponentPiece = opponentT as RectTransform;
+                return;
+            }
+
+            var opponentGo = new GameObject("ImugiPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            opponentGo.transform.SetParent(_pads[0].transform, false);
+            _opponentPiece = opponentGo.GetComponent<RectTransform>();
+            _opponentPiece.anchorMin = new Vector2(0.15f, 0.15f);
+            _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
+            _opponentPiece.offsetMin = Vector2.zero;
+            _opponentPiece.offsetMax = Vector2.zero;
+            var opponentImg = opponentGo.GetComponent<Image>();
+            var imugiSprite = PieceSpriteFor("Imugi");
+            if (imugiSprite != null)
+            {
+                opponentImg.sprite = imugiSprite;
+                opponentImg.color = Color.white;
+                opponentImg.preserveAspect = true;
+            }
             else
             {
-                var opponentGo = new GameObject("ImugiPiece", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                opponentGo.transform.SetParent(_pads[0].transform, false);
-                _opponentPiece = opponentGo.GetComponent<RectTransform>();
-                _opponentPiece.anchorMin = new Vector2(0.15f, 0.15f);
-                _opponentPiece.anchorMax = new Vector2(0.85f, 0.85f);
-                _opponentPiece.offsetMin = Vector2.zero;
-                _opponentPiece.offsetMax = Vector2.zero;
-                var opponentImg = opponentGo.GetComponent<Image>();
-                var imugiSprite = PieceSpriteFor("Imugi");
-                if (imugiSprite != null)
-                {
-                    opponentImg.sprite = imugiSprite;
-                    opponentImg.color = Color.white;
-                    opponentImg.preserveAspect = true;
-                }
-                else
-                {
-                    opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f);
-                }
-                opponentGo.SetActive(false);
+                opponentImg.color = new Color(0.25f, 0.55f, 0.85f, 1f);
             }
+            opponentGo.SetActive(false);
         }
 
         /// <summary>
@@ -1696,32 +1558,6 @@ namespace Yoegoe.Minigames.Yut
             _miniThrowContainer.SetActive(false);
         }
 
-        void EnsureRulesOverlay()
-        {
-            if (_rulesOverlay != null) return;
-
-            var rt = FindOrCreatePanel(transform, "RulesOverlay", 0.14f, 0.32f, 0.86f, 0.64f,
-                new Color(0.05f, 0.05f, 0.05f, 0.95f), out bool created);
-            _rulesOverlay = rt.gameObject;
-
-            if (!created)
-            {
-                var closeBtn = rt.Find("Close")?.GetComponent<Button>();
-                WireButton(closeBtn, () => ShowRulesOverlay(false));
-                return;
-            }
-
-            var rulesText = CreateText(_rulesOverlay.transform, "RulesText",
-                "윷놀이 족보 (16분의)\n\n빽도 -1\n도 1\n개 2\n걸 3\n윷 4 (한 번 더)\n모 5 (한 번 더)",
-                32, TextAnchor.MiddleCenter);
-            SetAnchor(rulesText.rectTransform, 0.05f, 0.2f, 0.95f, 0.95f, 0, 0, 0, 0);
-
-            var closeBtnNew = CreateButton(_rulesOverlay.transform, "Close", "닫기", () => ShowRulesOverlay(false));
-            SetAnchor(closeBtnNew.GetComponent<RectTransform>(), 0.32f, 0.04f, 0.68f, 0.16f, 0, 0, 0, 0);
-
-            _rulesOverlay.SetActive(false);
-        }
-
         /// <summary>
         /// 두 대각선이 나누는 4개 삼각형 구역의 컨테이너를 만든다. 아직 내용은 비어 있고,
         /// 각 구역을 담당할 기능이 GetQuadrant()로 받아서 자기 UI를 채워 넣는 자리(베이스)다.
@@ -1730,11 +1566,9 @@ namespace Yoegoe.Minigames.Yut
         {
             if (_quadrants != null) return;
 
-            _quadrants = new RectTransform[4];
+            _quadrants = new RectTransform[3];
             _quadrants[(int)YutBoardQuadrant.North] =
                 FindOrCreateQuadrant("Quadrant_North", 0.42f, 0.49f, 0.63f, 0.575f);
-            _quadrants[(int)YutBoardQuadrant.West] =
-                FindOrCreateQuadrant("Quadrant_West", 0.13f, 0.32f, 0.33f, 0.53f);
             _quadrants[(int)YutBoardQuadrant.East] =
                 FindOrCreateQuadrant("Quadrant_East", 0.67f, 0.32f, 0.87f, 0.53f);
             _quadrants[(int)YutBoardQuadrant.South] =
@@ -2046,7 +1880,7 @@ namespace Yoegoe.Minigames.Yut
             _parkedSticks = null;
         }
 
-        // 뒤집힌(등 보임) 가락 개수 = 0(모)/1(도·빽도)/2(개)/3(걸)/4(윷) — 확률표(1/4/6/4/1)와 일치.
+        // 뒤집힌(등 보임) 가락 개수 = 0(모)/1(도·빽도)/2(개)/3(걸)/4(윷).
         // 1개만 뒤집혔을 때, 그게 0번 "빽도 가락"이면 빽도, 다른 가락이면 도로 갈린다.
         static bool[] DetermineFrontStates(YutThrowResult result)
         {

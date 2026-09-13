@@ -82,6 +82,18 @@ namespace Yoegoe.UI
         /// <summary>4마리 동시 완주 광고 2배 팝업용 — 배율 적용 전(스택 반영된) 향/엽전.</summary>
         int pendingFinishHyang;
         int pendingFinishYeopjeon;
+        int pendingFinishStack;
+
+        /// <summary>직전 OnPlayerPieceFinished 스택(자동 플레이가 그만/계속 판단용).</summary>
+        int lastFinishEventStack;
+        readonly List<string> lastFinishedIds = new List<string>();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        Coroutine autoPlayRoutine;
+        bool autoPlayRunning;
+        /// <summary>0이면 매치 종료까지. N이면 골인 스택이 N 이상일 때 그만하기.</summary>
+        int autoPlayStopAtStack;
+#endif
 
         enum SquareRewardKind { Offering, Yeopjeon, Hyang, AdTicket, YutToken }
 
@@ -225,7 +237,6 @@ namespace Yoegoe.UI
             // 말풍선 규칙 1번: 던지기 전에는 어떤 요괴도(이무기 포함) 말하지 않는다.
             miniGame.RefreshHearts(GameEconomy.Instance.YutToken);
             HandlePiecesChanged();
-            HandleTurnTrackerChanged();
             RefreshCollectedItemsDisplay();
             ApplySpecialSquareVisuals();
             GameSaveBridge.SaveFromWorld();
@@ -241,15 +252,8 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(true);
             miniGame.RefreshHearts(GameEconomy.Instance != null ? GameEconomy.Instance.YutToken : 0);
             HandlePiecesChanged();
-            HandleTurnTrackerChanged();
             RefreshCollectedItemsDisplay(); // 나갔다 왔거나 재시작 복원 — 이번 매치에서 모은 건 추적 안 해서 빈 채로 시작
             ApplySpecialSquareVisuals(); // 셸이 다시 만들어졌을 수도 있어 매번 다시 입힌다
-        }
-
-        void HandleTurnTrackerChanged()
-        {
-            if (match == null) return;
-            miniGame.ShowTurnTracker(match.PlayerTurnNumber, match.CurrentTurnResults);
         }
 
         void HandleYutTokenChanged(int token)
@@ -271,7 +275,6 @@ namespace Yoegoe.UI
             match.OnOpponentCaptured += HandleOpponentCaptured;
             match.OnPlayerPieceFinished += HandlePlayerPieceFinished;
             match.OnSpecialSquareReached += HandleSpecialSquareReached;
-            match.OnTurnTrackerChanged += HandleTurnTrackerChanged;
         }
 
         void UnsubscribeMatchEvents()
@@ -285,7 +288,6 @@ namespace Yoegoe.UI
             match.OnOpponentCaptured -= HandleOpponentCaptured;
             match.OnPlayerPieceFinished -= HandlePlayerPieceFinished;
             match.OnSpecialSquareReached -= HandleSpecialSquareReached;
-            match.OnTurnTrackerChanged -= HandleTurnTrackerChanged;
         }
 
         /// <summary>
@@ -294,6 +296,9 @@ namespace Yoegoe.UI
         /// </summary>
         public void Close()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            DebugStopAutoPlay();
+#endif
             if (match != null && match.IsEnded)
             {
                 UnsubscribeMatchEvents();
@@ -954,6 +959,14 @@ namespace Yoegoe.UI
         /// <summary>말이 골인했는데 아직 안 들어온 말이 남아있을 때 — 여기서 그만 받을지, 계속할지 묻는다.</summary>
         void HandlePlayerPieceFinished(IReadOnlyList<string> finishedIds)
         {
+            lastFinishEventStack = finishedIds != null ? finishedIds.Count : 0;
+            lastFinishedIds.Clear();
+            if (finishedIds != null)
+            {
+                for (int i = 0; i < finishedIds.Count; i++)
+                    lastFinishedIds.Add(finishedIds[i]);
+            }
+
             awaitingFinishChoice = true;
             miniGame.SetThrowVisible(false);
             string names = string.Join(", ", finishedIds.Select(NameFor));
@@ -1031,7 +1044,6 @@ namespace Yoegoe.UI
 
             if (match != null && !match.IsEnded)
             {
-                match.StartNewPlayerTurn();
                 miniGame.SetThrowVisible(true);
             }
         }
@@ -1295,6 +1307,7 @@ namespace Yoegoe.UI
             miniGame.ClearCandidates();
 
             int stack = Mathf.Max(1, finishStackCount);
+            pendingFinishStack = stack;
             pendingFinishHyang = FinishHyangReward * stack;
             pendingFinishYeopjeon = FinishYeopjeonReward * stack;
 
@@ -1302,7 +1315,7 @@ namespace Yoegoe.UI
             if (stack == FinishAdBonusStackCount)
             {
                 ShowRewardChoice(
-                    $"{FinishAdBonusStackCount}마리 동시 완주!\n향 {pendingFinishHyang}개 + 엽전 {pendingFinishYeopjeon}개",
+                    $"{stack}마리 업고 완주 (×{stack})!\n향 {pendingFinishHyang}개 + 엽전 {pendingFinishYeopjeon}개",
                     onPlain: HandleFinishRewardPlain,
                     onAd: HandleFinishRewardAd);
                 return;
@@ -1329,7 +1342,12 @@ namespace Yoegoe.UI
             GameEconomy.Instance.AddHyang(hyang);
             GameEconomy.Instance.AddYeopjeon(yeop);
 
-            string message = $"완주! 향 {hyang}개 + 엽전 {yeop}개 획득";
+            string message = pendingFinishStack > 1
+                ? $"완주! {pendingFinishStack}마리 업고 ×{pendingFinishStack}\n향 {hyang}개 + 엽전 {yeop}개 획득"
+                : $"완주! 향 {hyang}개 + 엽전 {yeop}개 획득";
+            if (multiplier > 1)
+                message += $"\n(광고 ×{multiplier})";
+
             string collected = BuildCollectedItemsSummary();
             if (!string.IsNullOrEmpty(collected))
                 message += $"\n{collected}";
@@ -1862,5 +1880,337 @@ namespace Yoegoe.UI
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>
+        /// QA: 실제로 윷을 던지고(연출 포함) 말을 고르며 진행한다.
+        /// stopAtStack &gt; 0 이면 그 수 이상 업고 골인했을 때 "그만"으로 보상 확인.
+        /// 0 이면 매치가 끝날 때까지(전원 완주 등) 계속.
+        /// </summary>
+        public void DebugStartAutoPlay(int stopAtStack = 0)
+        {
+            EnsureBuilt();
+            if (root == null || miniGame == null)
+            {
+                Debug.LogWarning("[Yut QA] YutScreen 셸이 없습니다.");
+                return;
+            }
+
+            DebugStopAutoPlay();
+
+            // QA는 항상 새 매치에서 던지기를 본다(끝난 매치·애매한 턴 상태 방지).
+            if (match != null)
+            {
+                UnsubscribeMatchEvents();
+                match = null;
+            }
+
+            int need = Mathf.Max(1, stopAtStack);
+            if (!EnsureMatchReadyForFinishSim(need))
+                return;
+
+            ClearBlockingUiForFinishSim();
+            miniGame.BindFromHierarchy();
+            HandlePiecesChanged();
+            root.SetActive(true);
+            miniGame.Show();
+            miniGame.SetLeaveVisible(true);
+            miniGame.SetThrowVisible(true);
+
+            autoPlayStopAtStack = Mathf.Max(0, stopAtStack);
+            autoPlayRunning = true;
+            autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
+            Debug.Log(autoPlayStopAtStack > 0
+                ? $"[Yut QA] 자동 플레이 시작 — 업고 골인 ×{autoPlayStopAtStack}이면 그만 (말 {match.PlayerPieces.Count}개)"
+                : $"[Yut QA] 자동 플레이 시작 — 매치 종료까지 (말 {match.PlayerPieces.Count}개, throwVisible={miniGame.IsThrowVisible})");
+        }
+
+        public void DebugStopAutoPlay()
+        {
+            autoPlayRunning = false;
+            if (autoPlayRoutine != null)
+            {
+                StopCoroutine(autoPlayRoutine);
+                autoPlayRoutine = null;
+            }
+        }
+
+        IEnumerator AutoPlayRoutine()
+        {
+            // 한 프레임 기다려 보드/던지기 UI가 켜진 뒤 시작한다.
+            yield return null;
+
+            float startedAt = Time.unscaledTime;
+            int steps = 0;
+
+            while (autoPlayRunning && match != null && steps++ < 2000)
+            {
+                if (Time.unscaledTime - startedAt > 600f)
+                {
+                    Debug.LogWarning("[Yut QA] 자동 플레이 시간 초과");
+                    break;
+                }
+
+                // 안내/보상/골인선택/특수칸/되살리기/확인 — 전부 자동으로 넘긴다.
+                if (TryAutoDismissPopups())
+                {
+                    yield return new WaitForSecondsRealtime(0.2f);
+                    continue;
+                }
+
+                if (match.IsEnded)
+                    break;
+
+                if (pendingOutcome != null)
+                {
+                    var candidates = match.GetPlayerCandidates(pendingOutcome.Value.Result);
+                    if (candidates.Count == 0)
+                    {
+                        pendingOutcome = null;
+                        yield return null;
+                        continue;
+                    }
+
+                    var best = PickAutoPlayCandidate(candidates);
+                    HandleCandidateTapped(best.PieceId, best.UseShortcut);
+                    yield return new WaitForSecondsRealtime(0.75f);
+                    continue;
+                }
+
+                // 던지기 존이 아직 없으면 바인딩 재시도.
+                if (!miniGame.IsThrowVisible)
+                {
+                    miniGame.BindFromHierarchy();
+                    miniGame.SetThrowVisible(true);
+                    if (!miniGame.IsThrowVisible)
+                    {
+                        yield return null;
+                        continue;
+                    }
+                }
+
+                HandleThrowPressed(1f);
+
+                float wait = 0f;
+                while (autoPlayRunning && match != null && !match.IsEnded && wait < 25f)
+                {
+                    if (pendingOutcome != null) break;
+                    if (HasBlockingPopup()) break;
+                    wait += Time.unscaledDeltaTime;
+                    yield return null;
+                    if (pendingOutcome != null || HasBlockingPopup())
+                        break;
+                    // 이무기 턴이 끝나고 다시 던질 수 있으면 바깥 루프로.
+                    if (miniGame.IsThrowVisible && pendingOutcome == null && wait > 0.6f)
+                        break;
+                }
+            }
+
+            // 종료 직후 남은 완주 안내/광고 선택도 넘긴다.
+            for (int i = 0; i < 10 && autoPlayRunning && TryAutoDismissPopups(); i++)
+                yield return new WaitForSecondsRealtime(0.15f);
+
+            string reason = !autoPlayRunning ? "stop"
+                : match == null ? "match=null"
+                : match != null && match.IsEnded ? "match ended"
+                : "step limit";
+            autoPlayRunning = false;
+            autoPlayRoutine = null;
+            Debug.Log($"[Yut QA] 자동 플레이 종료 ({reason})");
+        }
+
+        bool HasBlockingPopup()
+        {
+            if (awaitingSquareReward || awaitingFinishChoice || awaitingReviveChoice) return true;
+            if (noticeRoot != null && noticeRoot.activeSelf) return true;
+            if (rewardRoot != null && rewardRoot.activeSelf) return true;
+            if (choiceRoot != null && choiceRoot.activeSelf) return true;
+            if (reviveRoot != null && reviveRoot.activeSelf) return true;
+            if (confirmRoot != null && confirmRoot.activeSelf) return true;
+            return false;
+        }
+
+        /// <summary>자동 플레이용 — 팝업은 전부 그냥 받기/계속/확인으로 넘긴다(광고는 스킵).</summary>
+        bool TryAutoDismissPopups()
+        {
+            if (noticeRoot != null && noticeRoot.activeSelf)
+            {
+                OnNoticeOk();
+                return true;
+            }
+
+            if (rewardRoot != null && rewardRoot.activeSelf)
+            {
+                OnRewardPlainClicked();
+                return true;
+            }
+
+            if (awaitingSquareReward)
+            {
+                // 보상 선택 패널이 떠 있으면 그냥 받기.
+                if (rewardRoot != null && rewardRoot.activeSelf)
+                    OnRewardPlainClicked();
+                else
+                    HandleSquareRewardPlain();
+                return true;
+            }
+
+            if (awaitingReviveChoice || (reviveRoot != null && reviveRoot.activeSelf))
+            {
+                if (reviveRoot != null) reviveRoot.SetActive(false);
+                pendingReviveYes = null;
+                pendingReviveNo = null;
+                HandleReviveNo();
+                return true;
+            }
+
+            if (awaitingFinishChoice || (choiceRoot != null && choiceRoot.activeSelf))
+            {
+                if (choiceRoot != null) choiceRoot.SetActive(false);
+                pendingChoiceContinue = null;
+                pendingChoiceStop = null;
+                if (autoPlayStopAtStack > 0 && lastFinishEventStack >= autoPlayStopAtStack)
+                    HandleStopAfterFinish(lastFinishedIds);
+                else
+                    HandleContinueAfterFinish();
+                return true;
+            }
+
+            if (confirmRoot != null && confirmRoot.activeSelf)
+            {
+                OnConfirmNoClicked();
+                return true;
+            }
+
+            return false;
+        }
+
+        YutMatch.YutMoveCandidate PickAutoPlayCandidate(IReadOnlyList<YutMatch.YutMoveCandidate> candidates)
+        {
+            YutMatch.YutMoveCandidate best = candidates[0];
+            int bestScore = int.MinValue;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                int score = ScoreAutoPlayCandidate(candidates[i]);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = candidates[i];
+                }
+            }
+            return best;
+        }
+
+        int ScoreAutoPlayCandidate(YutMatch.YutMoveCandidate c)
+        {
+            int score = 0;
+            var piece = match.PlayerPieces.FirstOrDefault(p => p.Id == c.PieceId);
+            int stackHere = 0;
+            if (piece != null && piece.OnBoard)
+            {
+                for (int i = 0; i < match.PlayerPieces.Count; i++)
+                {
+                    var p = match.PlayerPieces[i];
+                    if (!p.Finished && p.NodeId == piece.NodeId) stackHere++;
+                }
+            }
+
+            if (c.WillFinish)
+            {
+                score += 1000;
+                score += stackHere * 50;
+                if (autoPlayStopAtStack > 0 && stackHere >= autoPlayStopAtStack)
+                    score += 500;
+            }
+
+            var ally = match.PlayerPieces.FirstOrDefault(
+                p => !p.Finished && p.Id != c.PieceId && p.OnBoard && p.NodeId == c.DestinationNode);
+            if (ally != null) score += 400;
+
+            if (match.OpponentPiece.OnBoard && match.OpponentPiece.NodeId == c.DestinationNode)
+                score += 300;
+
+            if (c.UseShortcut) score += 80;
+            if (YutBoardLayout.IsSpecialReward(c.DestinationNode)) score += 40;
+            if (c.DestinationNode == YutBoardLayout.Start && !c.WillFinish) score += 60;
+
+            return score;
+        }
+
+        bool EnsureMatchReadyForFinishSim(int stackCount)
+        {
+            if (match != null && match.IsEnded)
+            {
+                UnsubscribeMatchEvents();
+                match = null;
+            }
+
+            if (match == null)
+            {
+                var team = new List<(string id, string name)>();
+                if (teamById.Count > 0)
+                {
+                    foreach (var kv in teamById)
+                    {
+                        string name = kv.Value != null && kv.Value.Data != null && !string.IsNullOrEmpty(kv.Value.Data.displayName)
+                            ? kv.Value.Data.displayName
+                            : kv.Key;
+                        team.Add((kv.Key, name));
+                    }
+                }
+                else
+                {
+                    foreach (var a in CharacterAgent.All)
+                    {
+                        if (a == null || a.Stats == null || a.Stats.Stage != GrowthStage.Hon) continue;
+                        string id = a.Data != null ? a.Data.id.ToString() : a.name;
+                        string name = a.Data != null && !string.IsNullOrEmpty(a.Data.displayName) ? a.Data.displayName : a.name;
+                        teamById[id] = a;
+                        team.Add((id, name));
+                    }
+                }
+
+                while (team.Count < stackCount)
+                {
+                    string id = $"qa_sim_{team.Count}";
+                    team.Add((id, $"QA{team.Count + 1}"));
+                }
+
+                if (team.Count == 0)
+                {
+                    Debug.LogWarning("[Yut QA] 시뮬할 말이 없습니다.");
+                    return false;
+                }
+
+                BeginMatch(team);
+            }
+            else
+            {
+                while (match.PlayerPieces.Count < stackCount)
+                {
+                    int i = match.PlayerPieces.Count;
+                    match.TryAddPlayerPiece($"qa_sim_{i}", $"QA{i + 1}");
+                }
+            }
+
+            return match != null && !match.IsEnded;
+        }
+
+        void ClearBlockingUiForFinishSim()
+        {
+            awaitingFinishChoice = false;
+            awaitingSquareReward = false;
+            awaitingReviveChoice = false;
+            pendingBonusAfterContinue = false;
+            pendingBonusAfterSquareReward = false;
+            pendingOutcome = null;
+            if (noticeRoot != null) noticeRoot.SetActive(false);
+            if (choiceRoot != null) choiceRoot.SetActive(false);
+            if (rewardRoot != null) rewardRoot.SetActive(false);
+            if (reviveRoot != null) reviveRoot.SetActive(false);
+            if (confirmRoot != null) confirmRoot.SetActive(false);
+            if (miniGame != null) miniGame.ClearCandidates();
+        }
+#endif
     }
 }

@@ -16,9 +16,10 @@ namespace Yoegoe.Minigames.Yut
     }
 
     /// <summary>
-    /// 도/개/걸/윷/모/빽도 확률 판정. 기획서 7-4 윷가락 판정 표 기준(균등 가정, 16분의):
-    /// 모 1, 빽도 1, 도 3, 개 6, 걸 4, 윷 1. 모/윷은 보너스 던지기(하트 소모 없이 한 번 더)를
-    /// 부여한다 — 하트 소모 여부는 호출부(하트를 들고 있는 쪽) 책임이고, 여기선 값만 알려준다.
+    /// 도/개/걸/윷/모/빽도 확률 판정.
+    /// 도 11% · 개 34% · 걸 35% · 윷 14% · 모 2% · 빽도(뒷도) 4%.
+    /// 모/윷은 보너스 던지기(하트 소모 없이 한 번 더)를 부여한다 —
+    /// 하트 소모 여부는 호출부(하트를 들고 있는 쪽) 책임이고, 여기선 값만 알려준다.
     /// </summary>
     public static class YutThrowRoller
     {
@@ -38,15 +39,15 @@ namespace Yoegoe.Minigames.Yut
 
         static readonly Entry[] Table =
         {
-            new(YutThrowResult.Mo, 1, true),
-            new(YutThrowResult.Baekdo, 1, false),
-            new(YutThrowResult.Do, 3, false),
-            new(YutThrowResult.Gae, 6, false),
-            new(YutThrowResult.Geol, 4, false),
-            new(YutThrowResult.Yut, 1, true),
+            new(YutThrowResult.Do, 11, false),
+            new(YutThrowResult.Gae, 34, false),
+            new(YutThrowResult.Geol, 35, false),
+            new(YutThrowResult.Yut, 14, true),
+            new(YutThrowResult.Mo, 2, true),
+            new(YutThrowResult.Baekdo, 4, false),
         };
 
-        const int TotalWeight = 16; // Table 가중치 합과 일치해야 함
+        const int TotalWeight = 100; // Table 가중치 합(%)과 일치해야 함
 
         public static YutThrowOutcome Roll()
         {
