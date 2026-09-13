@@ -27,8 +27,9 @@ namespace Yoegoe.UI
     }
 
     /// <summary>
-    /// 윷 화면 Close 후: 팀 캐릭터가 획득 아이콘을 들고 있고(머물기 일시정지),
+    /// 완주 후 윷 화면 Close: 팀 캐릭터가 획득 아이콘을 들고 있고(머물기 일시정지),
     /// 탭하면 HUD 수량창으로 비행 → 재개 → 3초 후 최저 기력 1명 공양물 요구.
+    /// (중도 나가기에는 YutScreen이 Begin을 호출하지 않는다.)
     /// </summary>
     public class PostYutLootPresenter : MonoBehaviour
     {

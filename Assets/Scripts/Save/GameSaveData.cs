@@ -46,6 +46,16 @@ namespace Yoegoe.Save
         public bool challengeCompleted;
         public bool challengeFailed;
         public int challengeStreak;
+
+        /// <summary>이번 매치에서 모았지만 아직 완주 전이라 경제에 안 넣은 재화.
+        /// 중도 나가기·앱 재시작 후에도 이어가려면 저장해야 한다.</summary>
+        public int pendingYeopjeon;
+        public int pendingPurifiedWater;
+        public int pendingHyang;
+        public int pendingAdTicket;
+        public int pendingYutToken;
+        public string[] pendingOfferingIds = Array.Empty<string>();
+        public int[] pendingOfferingCounts = Array.Empty<int>();
     }
 
     [Serializable]
