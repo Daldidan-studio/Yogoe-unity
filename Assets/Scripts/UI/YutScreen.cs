@@ -73,6 +73,8 @@ namespace Yoegoe.UI
 
         YutMatch match;
         YutThrowOutcome? pendingOutcome;
+        /// <summary>칸 홉 연출 중 — 연타로 Apply가 두 번 돌지 않게.</summary>
+        bool moveInProgress;
 
         /// <summary>말 한 마리가 골인해서 "계속할지/그만할지" 다이얼로그가 떠 있는 동안, 방금 던진
         /// 결과가 보너스였는지 기억해뒀다가 '계속하기'를 고르면 그대로 이어서 써야 한다.</summary>
@@ -306,6 +308,7 @@ namespace Yoegoe.UI
             }
             // 팝업이 떠 있던 채로 나가면 그 선택은 그냥 흘려보낸다(다음에 열면 던지기 대기 상태로).
             pendingOutcome = null;
+            moveInProgress = false;
             awaitingFinishChoice = false;
             pendingBonusAfterContinue = false;
             awaitingSquareReward = false;
@@ -457,7 +460,7 @@ namespace Yoegoe.UI
         {
             foreach (var p in captured)
             {
-                miniGame.ShowPieceBubble(p.Id, "으악!! 잡혀버렸어요!");
+                miniGame.ShowPieceBubble(p.Id, YutBubbleCatalog.Get(YutBubbleCatalog.Ids.EventCaptured));
                 miniGame.AddPlayLogEntry($"{p.DisplayName} 잡힘.");
             }
         }
@@ -498,7 +501,9 @@ namespace Yoegoe.UI
             if (match != null && pendingReviveSnapshots != null && match.ReviveCapturedPieces(pendingReviveSnapshots))
             {
                 string names = JoinPieceNames(pendingReviveSnapshots);
-                miniGame.ShowPieceBubble(pendingReviveSnapshots[0].PieceId, "되살아났어요!");
+                miniGame.ShowPieceBubble(
+                    pendingReviveSnapshots[0].PieceId,
+                    YutBubbleCatalog.Get(YutBubbleCatalog.Ids.EventRevived));
                 miniGame.AddPlayLogEntry($"{names} 되살아남.");
                 GameSaveBridge.SaveFromWorld();
             }
@@ -515,7 +520,7 @@ namespace Yoegoe.UI
         /// <summary>내가 이무기를 잡았을 때.</summary>
         void HandleOpponentCaptured()
         {
-            miniGame.ShowOpponentBubble("크윽...! 방심했다, 한 번 더 던지거라!");
+            miniGame.ShowOpponentBubble(YutBubbleCatalog.Get(YutBubbleCatalog.Ids.EventOpponentCaught));
             miniGame.AddPlayLogEntry("이무기 잡음.");
         }
 
@@ -527,15 +532,15 @@ namespace Yoegoe.UI
             StartCoroutine(PlayerThrowRoutine(outcome, power));
         }
 
-        /// <summary>말풍선 규칙 2번 — 옥토끼가 결과를 말한다. 윷/모는 "다시"만 알리고 칸수는
-        /// 말하지 않는다(어차피 보너스라 이번 결과로는 안 움직일 수도 있어서).</summary>
+        /// <summary>말풍선 규칙 2번 — 옥토끼가 결과를 말한다. 문구는 YutBubbleCatalog(시트→JSON).
+        /// 윷/모는 "다시"만 알리고 칸수는 말하지 않는다(보너스라 이번 결과로는 안 움직일 수도 있어서).</summary>
         static string RabbitThrowLine(YutThrowResult result)
         {
             switch (result)
             {
-                case YutThrowResult.Yut: return "윷이군. 다시.";
-                case YutThrowResult.Mo: return "모군. 다시.";
-                case YutThrowResult.Baekdo: return "빽도. 뒤로 돌아가요!";
+                case YutThrowResult.Yut: return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitYut);
+                case YutThrowResult.Mo: return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitMo);
+                case YutThrowResult.Baekdo: return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitBaekdo);
                 default:
                     int steps = result switch
                     {
@@ -544,29 +549,39 @@ namespace Yoegoe.UI
                         YutThrowResult.Geol => 3,
                         _ => 0,
                     };
-                    return $"{result.DisplayName()}. {steps}칸 이동할 수 있어요!";
+                    return YutBubbleCatalog.Format(
+                        YutBubbleCatalog.Ids.RabbitSteps,
+                        ("result", result.DisplayName()),
+                        ("steps", steps.ToString()));
             }
         }
 
         /// <summary>말풍선 규칙 2번 — 각 요괴는 아래 조건 중 하나에 해당할 때만(우선순위 순으로
-        /// 하나만) 말한다. 일반 칸으로만 이동 가능하거나 아예 이동할 수 없으면 말하지 않는다.</summary>
+        /// 하나만) 말한다. 일반 칸으로만 이동 가능하거나 아예 이동할 수 없으면 말하지 않는다.
+        /// 문구는 YutBubbleCatalog, 우선순위/조건은 여기 코드.</summary>
         string BubbleLineFor(YutMatch.YutMoveCandidate c)
         {
             switch (YutBoardLayout.GetSpecialKind(c.DestinationNode))
             {
-                case YutBoardLayout.SpecialSquareKind.Treasure: return "보물상자로 갈 수 있어.";
-                case YutBoardLayout.SpecialSquareKind.Offering: return "공양물을 얻을 수 있어.";
-                case YutBoardLayout.SpecialSquareKind.Coin: return "엽전을 얻을 수 있어.";
+                case YutBoardLayout.SpecialSquareKind.Treasure:
+                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateTreasure);
+                case YutBoardLayout.SpecialSquareKind.Offering:
+                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateOffering);
+                case YutBoardLayout.SpecialSquareKind.Coin:
+                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateCoin);
             }
 
             if (match.OpponentPiece.OnBoard && match.OpponentPiece.NodeId == c.DestinationNode)
-                return "이무기 님을 잡을 수 있어.";
+                return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateCapture);
 
             var ally = match.PlayerPieces.FirstOrDefault(
                 p => !p.Finished && p.Id != c.PieceId && p.OnBoard && p.NodeId == c.DestinationNode);
-            if (ally != null) return $"{ally.DisplayName}와 업을 수 있어.";
+            if (ally != null)
+                return YutBubbleCatalog.Format(
+                    YutBubbleCatalog.Ids.CandidateStack,
+                    ("ally", ally.DisplayName));
 
-            if (c.WillFinish) return "완주할 수 있어.";
+            if (c.WillFinish) return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateFinish);
 
             return null;
         }
@@ -610,6 +625,7 @@ namespace Yoegoe.UI
         IEnumerator PlayerThrowRoutine(YutThrowOutcome outcome, float power)
         {
             miniGame.SetThrowVisible(false);
+            miniGame.ClearBubbles();
             yield return miniGame.PlayThrowAnim(outcome.Result, power);
             if (match == null || match.IsEnded) yield break;
             miniGame.ShowPieceBubble("Rabbit", RabbitThrowLine(outcome.Result));
@@ -633,34 +649,63 @@ namespace Yoegoe.UI
 
         void HandleCandidateTapped(string pieceId, bool useShortcut)
         {
-            if (match == null || match.IsEnded || pendingOutcome == null) return;
+            if (match == null || match.IsEnded || pendingOutcome == null || moveInProgress) return;
+            StartCoroutine(PlayerMoveRoutine(pieceId, useShortcut, pendingOutcome.Value));
+        }
+
+        IEnumerator PlayerMoveRoutine(string pieceId, bool useShortcut, YutThrowOutcome outcome)
+        {
+            moveInProgress = true;
             miniGame.ClearCandidates();
-            var outcome = pendingOutcome.Value;
+            miniGame.ClearBubbles();
             pendingOutcome = null;
             string moverName = NameFor(pieceId);
 
+            var preview = match.PreviewPlayerHop(pieceId, useShortcut, outcome);
+            if (preview.Ok)
+                yield return miniGame.PlayHopAlongPath(preview.PieceIds, preview.HopNodes, preview.WillFinish);
+
+            if (match == null || match.IsEnded)
+            {
+                moveInProgress = false;
+                yield break;
+            }
+
+            // 홉으로 이미 도착해 있으니 ShowYokaiPieces의 미끄러짐은 생략
+            miniGame.SetSuppressPieceSlide(true);
             bool bonusTurn = match.ApplyPlayerMove(pieceId, useShortcut, outcome);
+            miniGame.SetSuppressPieceSlide(false);
+
             LogPlayerMoveOutcome(pieceId, moverName, outcome, bonusTurn);
-            if (match.IsEnded) return; // HandleMatchEnded가 이미 결과 처리
+
+            if (match == null || match.IsEnded)
+            {
+                moveInProgress = false;
+                yield break; // HandleMatchEnded가 이미 결과 처리
+            }
 
             if (awaitingSquareReward)
             {
                 // 특수 칸 보상 팝업("그냥 받기"/"광고 보고 2배")이 이미 떴다 — 그 선택이 끝나야 다음이 진행된다.
                 pendingBonusAfterSquareReward = bonusTurn;
-                return;
+                moveInProgress = false;
+                yield break;
             }
 
             if (awaitingFinishChoice)
             {
                 // 골인 다이얼로그("계속하기"/"그만하기")가 이미 떴다 — 그 선택이 끝나야 다음이 진행된다.
                 pendingBonusAfterContinue = bonusTurn;
-                return;
+                moveInProgress = false;
+                yield break;
             }
 
             if (bonusTurn)
                 miniGame.SetThrowVisible(true);
             else
-                StartCoroutine(RunOpponentTurnRoutine());
+                yield return RunOpponentTurnRoutine();
+
+            moveInProgress = false;
         }
 
         /// <summary>공양물 칸에 배정할 후보 — 정화수 제외 전체 공양물 목록. 수동 루프로 필터링한다
@@ -1014,6 +1059,7 @@ namespace Yoegoe.UI
         IEnumerator RunOpponentTurnRoutine()
         {
             miniGame.SetThrowVisible(false);
+            miniGame.ClearBubbles();
             yield return new WaitForSecondsRealtime(0.4f);
 
             bool bonus;
@@ -1024,9 +1070,31 @@ namespace Yoegoe.UI
                 var outcome = match.ThrowForOpponent();
                 yield return miniGame.PlayOpponentMiniThrowAnim(outcome.Result);
                 if (match == null || match.IsEnded) yield break;
-                miniGame.ShowOpponentBubble($"{outcome.Result.DisplayName()}!");
+                miniGame.ClearBubbles();
+                miniGame.ShowOpponentBubble(YutBubbleCatalog.Format(
+                    YutBubbleCatalog.Ids.OpponentThrow,
+                    ("result", outcome.Result.DisplayName())));
 
+                bonus = false;
+                var oppPreview = match.PreviewOpponentHop(outcome);
+                if (oppPreview.Ok)
+                {
+                    // 대기에서 첫 입장: 참에 띄운 뒤 경로를 밟는다(웹도 출발→각 칸).
+                    if (!match.OpponentPiece.OnBoard)
+                    {
+                        miniGame.SetSuppressPieceSlide(true);
+                        miniGame.ShowOpponentPiece(true);
+                        miniGame.SetOpponentPieceIndex(YutBoardLayout.Start);
+                        miniGame.SetSuppressPieceSlide(false);
+                    }
+                    yield return miniGame.PlayOpponentHopAlongPath(oppPreview.HopNodes);
+                }
+
+                if (match == null || match.IsEnded) yield break;
+
+                miniGame.SetSuppressPieceSlide(true);
                 bonus = match.ApplyOpponentMove(outcome);
+                miniGame.SetSuppressPieceSlide(false);
                 if (match.IsEnded) yield break;
                 if (match.OpponentPiece.OnBoard)
                     miniGame.AddPlayLogEntry($"이무기, {PositionLabelFor(match.OpponentPiece)}(으)로 이동.");
@@ -1972,8 +2040,9 @@ namespace Yoegoe.UI
                     }
 
                     var best = PickAutoPlayCandidate(candidates);
-                    HandleCandidateTapped(best.PieceId, best.UseShortcut);
-                    yield return new WaitForSecondsRealtime(0.75f);
+                    // 홉 연출이 끝날 때까지 기다린다(연타/다음 던지기가 겹치지 않게).
+                    yield return PlayerMoveRoutine(best.PieceId, best.UseShortcut, pendingOutcome.Value);
+                    yield return new WaitForSecondsRealtime(0.25f);
                     continue;
                 }
 

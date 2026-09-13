@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "locale": "en",
+  "lines": [
+    {
+      "id": "rabbit.yut",
+      "text": "Yut. Throw again."
+    },
+    {
+      "id": "rabbit.mo",
+      "text": "Mo. Throw again."
+    },
+    {
+      "id": "rabbit.baekdo",
+      "text": "Baekdo. Go back!"
+    },
+    {
+      "id": "rabbit.steps",
+      "text": "{result}. Move {steps} spaces!"
+    },
+    {
+      "id": "candidate.treasure",
+      "text": "I can reach the treasure."
+    },
+    {
+      "id": "candidate.offering",
+      "text": "I can get an offering."
+    },
+    {
+      "id": "candidate.coin",
+      "text": "I can get coins."
+    },
+    {
+      "id": "candidate.capture",
+      "text": "I can catch Imugi."
+    },
+    {
+      "id": "candidate.stack",
+      "text": "I can stack with {ally}."
+    },
+    {
+      "id": "candidate.finish",
+      "text": "I can finish."
+    },
+    {
+      "id": "event.captured",
+      "text": "Ack!! I got caught!"
+    },
+    {
+      "id": "event.revived",
+      "text": "I'm back!"
+    },
+    {
+      "id": "event.opponent_caught",
+      "text": "Guh...! Careless. Throw once more!"
+    },
+    {
+      "id": "opponent.throw",
+      "text": "{result}!"
+    }
+  ]
+}

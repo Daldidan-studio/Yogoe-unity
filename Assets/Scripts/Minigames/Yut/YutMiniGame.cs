@@ -55,10 +55,10 @@ namespace Yoegoe.Minigames.Yut
         GameObject _miniThrowContainer;
         Image[] _miniThrowSticks;
 
-        // 대화 말풍선(각 요괴 말 근처에 잠깐 떴다 사라짐)과 놀이기록(윷 토큰 옆 버튼으로 여는
-        // 팝업, 짧은 사건형 문장만 쌓임)은 서로 분리된 별개의 두 체계다 — 말풍선 대사는
-        // 놀이기록에 안 남는다.
-        const float BubbleDuration = 2.2f;
+        // 대화 말풍선(각 요괴 말 근처)과 놀이기록(윷 토큰 옆 버튼으로 여는 팝업)은 분리 —
+        // 말풍선은 타이머 없이 다음 액션(던지기/말 선택/턴 전환/화면 닫기)까지 유지한다.
+        const string OpponentBubbleKey = "__opponent__";
+        readonly Dictionary<string, GameObject> _activeBubbles = new();
         Button _playLogButton;
         GameObject _playLogPanel;
         RectTransform _playLogContent;
@@ -295,6 +295,7 @@ namespace Yoegoe.Minigames.Yut
             gameObject.SetActive(false);
             ClearParkedSticks();
             ClearCandidates();
+            ClearBubbles();
             ClearPlayLog();
         }
 
@@ -321,24 +322,38 @@ namespace Yoegoe.Minigames.Yut
                 _heartIcons[i].color = i < hearts ? HeartOn : HeartOff;
         }
 
-        /// <summary>플레이어 쪽 요괴 하나(pieceId) 말 위에 잠깐 뜨는 대화 말풍선. 대기 말이면
-        /// 남(南) 구역 자리 위에, 보드 위 말이면 그 칸 위에 뜬다 — 놀이기록엔 안 남는다.</summary>
+        /// <summary>플레이어 쪽 요괴 하나(pieceId) 말 위 대화 말풍선. 같은 말이면 교체,
+        /// 다음 ClearBubbles(다음 액션)까지 유지. 놀이기록엔 안 남는다.</summary>
         public void ShowPieceBubble(string pieceId, string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(pieceId)) return;
             if (_yokaiPieces.TryGetValue(pieceId, out var anchor) && anchor != null)
-                ShowBubbleAbove(anchor, text);
+                ShowBubbleAbove(pieceId, anchor, text);
         }
 
-        /// <summary>이무기 말 위에 잠깐 뜨는 대화 말풍선.</summary>
+        /// <summary>이무기 말 위 대화 말풍선. 다음 ClearBubbles까지 유지.</summary>
         public void ShowOpponentBubble(string text)
         {
             if (!string.IsNullOrEmpty(text) && _opponentPiece != null && _opponentPiece.gameObject.activeInHierarchy)
-                ShowBubbleAbove(_opponentPiece, text);
+                ShowBubbleAbove(OpponentBubbleKey, _opponentPiece, text);
         }
 
-        void ShowBubbleAbove(RectTransform anchor, string text)
+        /// <summary>떠 있는 말풍선을 전부 지운다 — 던지기/말 선택/턴 전환 등 다음 액션 시점.</summary>
+        public void ClearBubbles()
         {
+            foreach (var kv in _activeBubbles)
+            {
+                if (kv.Value != null) Destroy(kv.Value);
+            }
+            _activeBubbles.Clear();
+        }
+
+        void ShowBubbleAbove(string key, RectTransform anchor, string text)
+        {
+            if (_activeBubbles.TryGetValue(key, out var prev) && prev != null)
+                Destroy(prev);
+            _activeBubbles.Remove(key);
+
             var go = new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             var rt = (RectTransform)go.transform;
             // anchor.parent(칸 하나)에 붙이면 그 칸 안에서만 맨 위로 와서, 옆 칸(형제 순서상 뒤에
@@ -361,13 +376,7 @@ namespace Yoegoe.Minigames.Yut
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
 
-            StartCoroutine(DestroyAfter(go, BubbleDuration));
-        }
-
-        IEnumerator DestroyAfter(GameObject go, float seconds)
-        {
-            yield return new WaitForSecondsRealtime(seconds);
-            if (go != null) Destroy(go);
+            _activeBubbles[key] = go;
         }
 
         void EnsurePlayLogButton()
@@ -756,6 +765,7 @@ namespace Yoegoe.Minigames.Yut
         /// 말이 순간이동하지 않고 눈에 보이게 미끄러지도록 한다 — 이미 새 위치로 배치된 rt.position을
         /// 목표로 잡고 fromPos에서 슬라이드한다. 던질 때마다("모→이동→윷→이동→도→이동") 실제로
         /// 움직이는 게 보여야 보너스 턴이 이어지는 게 자연스럽게 읽힌다.
+        /// 칸 단위 홉(PlayHopAlongPath) 직후 재배치할 때는 SetSuppressPieceSlide로 끈다.
         /// </summary>
         void SlideIn(RectTransform rt, Vector3 fromPos)
         {
@@ -764,6 +774,112 @@ namespace Yoegoe.Minigames.Yut
             if ((toPos - fromPos).sqrMagnitude < 1f) return; // 실질적으로 제자리면 생략
             rt.position = fromPos;
             StartCoroutine(SlideRoutine(rt, fromPos, toPos));
+        }
+
+        /// <summary>홉 연출 직후 ShowYokaiPieces가 다시 미끄러지지 않게 끈다.</summary>
+        public void SetSuppressPieceSlide(bool on) => _suppressPieceSlide = on;
+
+        // 웹(yokai-yut-garden) animateMove와 동일: 칸당 170ms ease-out + 완주 페이드 150ms.
+        // (웹 step-land는 border만 살짝 바뀌는데, 우리 칸은 Image 채움이라 색을 건드리면 티가 너무 나서 생략)
+        const float HopDuration = 0.17f;
+        const float HopFinishFade = 0.15f;
+
+        /// <summary>선택/이무기 이동 전 — hopNodes 칸을 순서대로 밟는다. finishing이면 마지막에 페이드아웃.</summary>
+        public IEnumerator PlayHopAlongPath(IReadOnlyList<string> pieceIds, IReadOnlyList<int> hopNodes, bool finishing)
+        {
+            EnsureBoard();
+            if (pieceIds == null || pieceIds.Count == 0) yield break;
+
+            var pieces = new List<RectTransform>(pieceIds.Count);
+            for (int i = 0; i < pieceIds.Count; i++)
+            {
+                if (_yokaiPieces.TryGetValue(pieceIds[i], out var rt) && rt != null)
+                    pieces.Add(rt);
+            }
+            if (pieces.Count == 0) yield break;
+
+            yield return HopPiecesAlongPath(pieces, hopNodes, finishing);
+        }
+
+        /// <summary>이무기 말 한 개용 홉. 대기에서 첫 입장 전이면 호출부가 참에 미리 띄워 둔다.</summary>
+        public IEnumerator PlayOpponentHopAlongPath(IReadOnlyList<int> hopNodes)
+        {
+            EnsureBoard();
+            if (_opponentPiece == null || !_opponentPiece.gameObject.activeInHierarchy) yield break;
+            var pieces = new List<RectTransform>(1) { _opponentPiece };
+            yield return HopPiecesAlongPath(pieces, hopNodes, finishing: false);
+        }
+
+        IEnumerator HopPiecesAlongPath(List<RectTransform> pieces, IReadOnlyList<int> hopNodes, bool finishing)
+        {
+            if (hopNodes != null)
+            {
+                for (int n = 0; n < hopNodes.Count; n++)
+                {
+                    int nodeId = hopNodes[n];
+                    if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null)
+                        continue;
+
+                    Vector3 target = _pads[nodeId].rectTransform.position;
+                    var from = new Vector3[pieces.Count];
+                    for (int i = 0; i < pieces.Count; i++)
+                        from[i] = pieces[i] != null ? pieces[i].position : target;
+
+                    float t = 0f;
+                    while (t < HopDuration)
+                    {
+                        t += Time.unscaledDeltaTime;
+                        float u = Mathf.Clamp01(t / HopDuration);
+                        // CSS ease-out에 가깝게 — 끝에서 감속
+                        float eased = 1f - (1f - u) * (1f - u);
+                        for (int i = 0; i < pieces.Count; i++)
+                        {
+                            if (pieces[i] == null) continue;
+                            pieces[i].position = Vector3.Lerp(from[i], target, eased);
+                        }
+                        yield return null;
+                    }
+                    for (int i = 0; i < pieces.Count; i++)
+                        if (pieces[i] != null) pieces[i].position = target;
+
+                    // 칸 사이 리듬만 웹과 맞추고, 착지 대기(웹 land 35ms)는 색 변경 없이 짧게 둔다.
+                    yield return new WaitForSecondsRealtime(0.035f);
+                }
+            }
+
+            if (!finishing) yield break;
+
+            var images = new List<Image>(pieces.Count);
+            var labels = new List<Text>(pieces.Count);
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                if (pieces[i] == null) continue;
+                images.Add(pieces[i].GetComponent<Image>());
+                labels.Add(pieces[i].GetComponentInChildren<Text>());
+            }
+
+            float fade = 0f;
+            while (fade < HopFinishFade)
+            {
+                fade += Time.unscaledDeltaTime;
+                float a = 1f - Mathf.Clamp01(fade / HopFinishFade);
+                for (int i = 0; i < images.Count; i++)
+                {
+                    if (images[i] != null)
+                    {
+                        var c = images[i].color;
+                        c.a = a;
+                        images[i].color = c;
+                    }
+                    if (i < labels.Count && labels[i] != null)
+                    {
+                        var c = labels[i].color;
+                        c.a = a;
+                        labels[i].color = c;
+                    }
+                }
+                yield return null;
+            }
         }
 
         IEnumerator SlideRoutine(RectTransform rt, Vector3 fromPos, Vector3 toPos)
@@ -1770,21 +1886,27 @@ namespace Yoegoe.Minigames.Yut
         /// 갈린다(기획서 7-4 "빽도 가락만 엎어진 경우" 기준). 어느 가락이 뒤집힐지는 개/걸에서만
         /// 랜덤이고 개수는 항상 결과와 일치한다.
         /// power(0~1)는 슬라이드 던지기 속도 — 아치 높이·회전·착지 퍼짐만 키우고 줄인다.
-        /// 결과(result)와는 무관(호출부가 이미 확률표로 정해서 넘겨준다).
+        /// 시작=ThrowSwipeZone, 착지=YutBoard, 대기=North — Prefab/Scene 레이아웃을 따른다.
         /// </summary>
         public IEnumerator PlayThrowAnim(YutThrowResult result, float power = 1f)
         {
             EnsureBoard();
+            EnsureThrowSwipeZone();
             ClearParkedSticks();
             EnsureStickSprites();
 
-            var panelRect = ((RectTransform)transform).rect;
-            Vector2 ToLocal(Vector2 norm) =>
-                new((norm.x - 0.5f) * panelRect.width, (norm.y - 0.5f) * panelRect.height);
+            var panel = (RectTransform)transform;
+            Vector2 WorldToPanelLocal(Vector3 world) => panel.InverseTransformPoint(world);
+
+            var throwRt = _throwZone != null ? (RectTransform)_throwZone.transform : null;
+            var landZone = _boardRoot != null ? _boardRoot : panel;
+            // 대기 윷(IdleStick)이 있는 Throw 존 위쪽 중앙에서 출발 — Scene 레이아웃 따름
+            Vector2 originLocal = throwRt != null
+                ? WorldToPanelLocal(ZoneNormToWorld(throwRt, new Vector2(0.5f, 0.72f)))
+                : WorldToPanelLocal(ZoneNormToWorld(landZone, new Vector2(0.5f, 0.05f)));
 
             var frontStates = DetermineFrontStates(result);
 
-            var origin = new Vector2(0.5f, 0.19f);
             var sticks = new RectTransform[4];
             for (int i = 0; i < 4; i++)
             {
@@ -1794,7 +1916,7 @@ namespace Yoegoe.Minigames.Yut
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0.5f);
                 rt.sizeDelta = new Vector2(22f, 110f);
-                rt.anchoredPosition = ToLocal(origin);
+                rt.anchoredPosition = originLocal;
                 var img = go.GetComponent<Image>();
                 img.raycastTarget = false;
                 ApplyStickFace(img, front: true, isBaekdoStick: i == 0);
@@ -1817,37 +1939,41 @@ namespace Yoegoe.Minigames.Yut
 
             var routines = new Coroutine[4];
             for (int i = 0; i < 4; i++)
-                routines[i] = StartCoroutine(ThrowOneStick(sticks[i], origin, ToLocal, i * 0.05f, frontStates[i], isBaekdoStick: i == 0, power));
+                routines[i] = StartCoroutine(ThrowOneStick(
+                    sticks[i], originLocal, landZone, WorldToPanelLocal,
+                    i * 0.05f, frontStates[i], isBaekdoStick: i == 0, power));
             for (int i = 0; i < 4; i++)
                 yield return routines[i];
 
             yield return new WaitForSecondsRealtime(0.35f);
 
-            // 다음 던지기 전까지 방금 던진 윷을 보드 북쪽(North 구역)에 계속 보이게 둔다
-            yield return ParkSticks(sticks, ToLocal);
+            // Prefab/Scene의 Quadrant_North 레이아웃을 따른다 — 고정 보드 좌표로 보내지 않음.
             var thrownZone = GetQuadrant(YutBoardQuadrant.North);
-            foreach (var rt in sticks)
-                rt.SetParent(thrownZone, true);
+            yield return ParkSticksInto(sticks, thrownZone);
             _parkedSticks = sticks;
         }
 
-        // North 구역(0.42~0.63, 0.49~0.575) 안쪽에만 딱 맞게, 보드 노드와 겹치지 않게 촘촘히 배치
-        static readonly Vector2[] ParkSpots =
+        // North 구역 로컬(0~1) 기준 — 구역을 Scene에서 옮겨도 결과가 같이 따라간다.
+        static readonly Vector2[] ParkSpotsInZone =
         {
-            new(0.455f, 0.5325f), new(0.505f, 0.5325f), new(0.545f, 0.5325f), new(0.595f, 0.5325f),
+            new(0.14f, 0.5f), new(0.38f, 0.5f), new(0.62f, 0.5f), new(0.86f, 0.5f),
         };
         static readonly Vector2 ParkedStickSize = new(10f, 42f);
 
-        IEnumerator ParkSticks(RectTransform[] sticks, Func<Vector2, Vector2> toLocal)
+        IEnumerator ParkSticksInto(RectTransform[] sticks, RectTransform zone)
         {
-            var starts = new Vector2[sticks.Length];
+            if (zone == null) yield break;
+
+            var starts = new Vector3[sticks.Length];
             var startRotations = new Quaternion[sticks.Length];
             var startSizes = new Vector2[sticks.Length];
+            var targets = new Vector3[sticks.Length];
             for (int i = 0; i < sticks.Length; i++)
             {
-                starts[i] = sticks[i].anchoredPosition;
+                starts[i] = sticks[i].position;
                 startRotations[i] = sticks[i].localRotation;
                 startSizes[i] = sticks[i].sizeDelta;
+                targets[i] = ZoneNormToWorld(zone, ParkSpotsInZone[i]);
             }
 
             const float duration = 0.3f;
@@ -1858,19 +1984,32 @@ namespace Yoegoe.Minigames.Yut
                 float u = Mathf.Clamp01(t / duration);
                 for (int i = 0; i < sticks.Length; i++)
                 {
-                    sticks[i].anchoredPosition = Vector2.Lerp(starts[i], toLocal(ParkSpots[i]), u);
+                    sticks[i].position = Vector3.Lerp(starts[i], targets[i], u);
                     sticks[i].localRotation = Quaternion.Slerp(startRotations[i], Quaternion.identity, u);
                     sticks[i].sizeDelta = Vector2.Lerp(startSizes[i], ParkedStickSize, u);
                 }
                 yield return null;
             }
+
             for (int i = 0; i < sticks.Length; i++)
             {
+                sticks[i].SetParent(zone, worldPositionStays: true);
                 sticks[i].sizeDelta = ParkedStickSize;
-                sticks[i].anchoredPosition = toLocal(ParkSpots[i]);
                 sticks[i].localRotation = Quaternion.identity;
+                sticks[i].anchorMin = sticks[i].anchorMax = new Vector2(0.5f, 0.5f);
+                sticks[i].pivot = new Vector2(0.5f, 0.5f);
+                sticks[i].anchoredPosition = ZoneNormToLocal(zone, ParkSpotsInZone[i]);
             }
         }
+
+        static Vector2 ZoneNormToLocal(RectTransform zone, Vector2 norm)
+        {
+            var r = zone.rect;
+            return new Vector2((norm.x - 0.5f) * r.width, (norm.y - 0.5f) * r.height);
+        }
+
+        static Vector3 ZoneNormToWorld(RectTransform zone, Vector2 norm)
+            => zone.TransformPoint(ZoneNormToLocal(zone, norm));
 
         void ClearParkedSticks()
         {
@@ -1919,26 +2058,40 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        IEnumerator ThrowOneStick(RectTransform rt, Vector2 originNorm, Func<Vector2, Vector2> toLocal, float delay,
-            bool targetFront, bool isBaekdoStick, float power)
+        IEnumerator ThrowOneStick(
+            RectTransform rt,
+            Vector2 startLocal,
+            RectTransform landZone,
+            System.Func<Vector3, Vector2> worldToPanelLocal,
+            float delay,
+            bool targetFront,
+            bool isBaekdoStick,
+            float power)
         {
             if (delay > 0f)
                 yield return new WaitForSecondsRealtime(delay);
 
-            // power(슬라이드 속도, 0~1)가 클수록 더 멀리·높이·세게 날아간다 — 확률과는 무관, 연출 전용.
-            float spreadX = Mathf.Lerp(0.08f, 0.24f, power);
-            float yMin = Mathf.Lerp(0.3f, 0.34f, power);
-            float yMax = Mathf.Lerp(0.36f, 0.58f, power);
+            // power(슬라이드 속도, 0~1)가 클수록 보드 안에서 더 멀리·높이·세게 — 확률과 무관, 연출 전용.
+            // 착지 좌표는 YutBoard(landZone) 로컬 0~1 기준이라 Scene에서 보드를 옮겨도 따라간다.
+            float spreadX = Mathf.Lerp(0.12f, 0.38f, power);
+            float yMin = Mathf.Lerp(0.22f, 0.28f, power);
+            float yMax = Mathf.Lerp(0.48f, 0.78f, power);
             var landNorm = new Vector2(
-                0.5f + UnityEngine.Random.Range(-spreadX, spreadX),
+                Mathf.Clamp01(0.5f + UnityEngine.Random.Range(-spreadX, spreadX)),
                 UnityEngine.Random.Range(yMin, yMax));
-            float arcHeight = Mathf.Lerp(90f, 280f, power) + UnityEngine.Random.Range(-15f, 15f);
+            Vector2 endLocal = landZone != null
+                ? worldToPanelLocal(ZoneNormToWorld(landZone, landNorm))
+                : startLocal + new Vector2(0f, 220f);
+
+            float zoneH = landZone != null ? Mathf.Abs(landZone.rect.height) : 400f;
+            float arcHeight = Mathf.Lerp(zoneH * 0.22f, zoneH * 0.55f, power)
+                + UnityEngine.Random.Range(-15f, 15f);
             float spin = (Mathf.Lerp(480f, 1300f, power) + UnityEngine.Random.Range(-60f, 60f))
                 * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
             float duration = Mathf.Lerp(0.65f, 0.42f, power);
 
-            Vector2 start = toLocal(originNorm);
-            Vector2 end = toLocal(landNorm);
+            Vector2 start = startLocal;
+            Vector2 end = endLocal;
             float t = 0f;
             while (t < duration)
             {

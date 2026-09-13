@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "locale": "ko",
+  "lines": [
+    {
+      "id": "rabbit.yut",
+      "text": "윷이군. 다시."
+    },
+    {
+      "id": "rabbit.mo",
+      "text": "모군. 다시."
+    },
+    {
+      "id": "rabbit.baekdo",
+      "text": "빽도. 뒤로 돌아가요!"
+    },
+    {
+      "id": "rabbit.steps",
+      "text": "{result}. {steps}칸 이동할 수 있어요!"
+    },
+    {
+      "id": "candidate.treasure",
+      "text": "보물상자로 갈 수 있어."
+    },
+    {
+      "id": "candidate.offering",
+      "text": "공양물을 얻을 수 있어."
+    },
+    {
+      "id": "candidate.coin",
+      "text": "엽전을 얻을 수 있어."
+    },
+    {
+      "id": "candidate.capture",
+      "text": "이무기 님을 잡을 수 있어."
+    },
+    {
+      "id": "candidate.stack",
+      "text": "{ally}와 업을 수 있어."
+    },
+    {
+      "id": "candidate.finish",
+      "text": "완주할 수 있어."
+    },
+    {
+      "id": "event.captured",
+      "text": "으악!! 잡혀버렸어요!"
+    },
+    {
+      "id": "event.revived",
+      "text": "되살아났어요!"
+    },
+    {
+      "id": "event.opponent_caught",
+      "text": "크윽...! 방심했다, 한 번 더 던지거라!"
+    },
+    {
+      "id": "opponent.throw",
+      "text": "{result}!"
+    }
+  ]
+}

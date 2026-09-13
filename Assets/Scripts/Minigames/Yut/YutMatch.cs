@@ -53,6 +53,26 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
+        /// <summary>화면 연출용 — Apply 전에 칸을 하나씩 밟을 경로. HopNodes는 출발 칸을 빼고
+        /// 착지할 칸만(웹 d.path와 동일). 이미 참에 서서 바로 완주면 HopNodes는 비고 WillFinish만 true.</summary>
+        public readonly struct MoveHopPreview
+        {
+            public readonly bool Ok;
+            public readonly IReadOnlyList<string> PieceIds;
+            public readonly int[] HopNodes;
+            public readonly bool WillFinish;
+
+            public MoveHopPreview(bool ok, IReadOnlyList<string> pieceIds, int[] hopNodes, bool willFinish)
+            {
+                Ok = ok;
+                PieceIds = pieceIds ?? System.Array.Empty<string>();
+                HopNodes = hopNodes ?? System.Array.Empty<int>();
+                WillFinish = willFinish;
+            }
+
+            public static MoveHopPreview None => new MoveHopPreview(false, null, null, false);
+        }
+
         readonly List<YutPiece> playerPieces;
         readonly YutPiece opponentPiece;
 
@@ -173,6 +193,61 @@ namespace Yoegoe.Minigames.Yut
             return list;
         }
 
+        /// <summary>ApplyPlayerMove와 같은 규칙으로, 화면에서 칸을 밟을 경로만 미리 본다.</summary>
+        public MoveHopPreview PreviewPlayerHop(string pieceId, bool useShortcut, YutThrowOutcome outcome)
+        {
+            if (IsEnded) return MoveHopPreview.None;
+            var piece = playerPieces.FirstOrDefault(p => p.Id == pieceId && !p.Finished);
+            if (piece == null) return MoveHopPreview.None;
+
+            bool wasOnBoard = piece.OnBoard;
+            int fromNode = piece.NodeId;
+            var group = wasOnBoard
+                ? playerPieces.Where(p => !p.Finished && p.NodeId == fromNode).ToList()
+                : new List<YutPiece> { piece };
+            var movedIds = new List<string>(group.Count);
+            for (int i = 0; i < group.Count; i++) movedIds.Add(group[i].Id);
+
+            if (outcome.Result == YutThrowResult.Baekdo)
+            {
+                int dest = !wasOnBoard
+                    ? BaekdoEntryNode
+                    : YutMoveResolver.PeekBackwardDestination(fromNode, piece.History);
+                return new MoveHopPreview(true, movedIds, new[] { dest }, false);
+            }
+
+            bool alreadyAtStart = wasOnBoard && fromNode == YutBoardLayout.Start;
+            if (alreadyAtStart)
+                return new MoveHopPreview(true, movedIds, System.Array.Empty<int>(), true);
+
+            int arrivedFromForOuter = (wasOnBoard && !useShortcut && piece.History.Count > 0)
+                ? piece.History[piece.History.Count - 1]
+                : -1;
+            var path = YutMoveResolver.GetPath(
+                wasOnBoard ? fromNode : YutBoardLayout.Start, outcome.Result, useShortcut, arrivedFromForOuter);
+            bool willFinish = ResolvesToFinish(false, path);
+            return new MoveHopPreview(true, movedIds, BuildHopNodes(path, willFinish), willFinish);
+        }
+
+        /// <summary>이무기 한 수 연출용 경로. 대기 중 빽도면 Ok=false(Apply도 무이동).</summary>
+        public MoveHopPreview PreviewOpponentHop(YutThrowOutcome outcome)
+        {
+            if (IsEnded) return MoveHopPreview.None;
+            bool isBaekdo = outcome.Result == YutThrowResult.Baekdo;
+            if (isBaekdo && !opponentPiece.OnBoard) return MoveHopPreview.None;
+
+            var ids = new[] { opponentPiece.Id };
+            if (isBaekdo)
+            {
+                int dest = YutMoveResolver.PeekBackwardDestination(opponentPiece.NodeId, opponentPiece.History);
+                return new MoveHopPreview(true, ids, new[] { dest }, false);
+            }
+
+            int fromNode = opponentPiece.OnBoard ? opponentPiece.NodeId : YutBoardLayout.Start;
+            var path = YutMoveResolver.GetPath(fromNode, outcome.Result);
+            return new MoveHopPreview(true, ids, BuildHopNodes(path, willFinish: false), false);
+        }
+
         /// <summary>
         /// pieceId가 속한 칸(스택이면 전원)을 결과만큼 이동시킨다. useShortcut은 모/뒷모/방 갈림길에
         /// 멈춰 있던 말일 때만 의미 있음(GetPlayerCandidates가 준 후보의 UseShortcut을 그대로 넘기면 됨).
@@ -281,6 +356,19 @@ namespace Yoegoe.Minigames.Yut
             if (YutBoardLayout.IsSpecialReward(dest2)) OnSpecialSquareReached?.Invoke(dest2, movedIds);
             OnPiecesChanged?.Invoke();
             return outcome.GrantsBonusThrow || captured;
+        }
+
+        /// <summary>GetPath 결과(출발 포함)에서 연출용 착지 칸만 남긴다. 완주면 참(0)까지만.</summary>
+        static int[] BuildHopNodes(int[] path, bool willFinish)
+        {
+            if (path == null || path.Length <= 1) return System.Array.Empty<int>();
+            var hops = new List<int>(path.Length - 1);
+            for (int i = 1; i < path.Length; i++)
+            {
+                hops.Add(path[i]);
+                if (willFinish && path[i] == YutBoardLayout.Start) break;
+            }
+            return hops.ToArray();
         }
 
         /// <summary>이무기 턴의 던지기 한 번. 플레이어 쪽 ThrowForPlayer와 대칭 — 호출부가 던지기
