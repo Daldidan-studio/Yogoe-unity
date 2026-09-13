@@ -45,8 +45,10 @@ jobs:
           sudo swapon --show
           free -h
 
+      # @v4(latest=4.4)는 game-ci/cli 래퍼로 바뀌며 coverageEnabled:false 경로가
+      # 2초 만에 죽어 test-results도 안 남긴다. 당분간 검증된 4.3.2(기존 스크립트)로 고정.
       - name: Run EditMode tests
-        uses: game-ci/unity-test-runner@v4
+        uses: game-ci/unity-test-runner@v4.3.2
         id: tests
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -55,9 +57,6 @@ jobs:
         with:
           unityVersion: ${{ env.UNITY_VERSION }}
           testMode: EditMode
-          # Unity 6 + game-ci 기본 coverage 플래그가 에디터를 죽이는 경우가 많음
-          # (test-results도 안 남기고 exit 1). 커버리지 끄면 EditMode만 돌릴 수 있다.
-          coverageEnabled: false
           artifactsPath: test-results
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           checkName: EditMode Tests
@@ -67,5 +66,5 @@ jobs:
         if: always()
         with:
           name: EditMode-test-results
-          path: ${{ steps.tests.outputs.artifactsPath }}
+          path: test-results
           if-no-files-found: warn
