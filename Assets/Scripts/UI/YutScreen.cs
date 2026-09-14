@@ -17,8 +17,34 @@ namespace Yoegoe.UI
     /// 윷놀이 진입점(11장). 윷 토큰 소모 → 옥토끼+현재 슬롯의 혼 전원 vs 이무기(말 1개) →
     /// 완주 시 정화수 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
     /// </summary>
-    public class YutScreen : MonoBehaviour
+    public class YutScreen : MonoBehaviour, IYutChallengeHost, IYutSquareRewardHost
     {
+        YutMiniGame IYutChallengeHost.MiniGame => miniGame;
+        void IYutChallengeHost.ShowNotice(string message, Action onOk) => ShowNotice(message, onOk);
+        YutSquareReward IYutChallengeHost.RollTreasureReward() => squareRewards.RollTreasure(this);
+        string IYutChallengeHost.ApplySquareRewardToEconomy(YutSquareReward reward, int multiplier)
+            => ApplySquareRewardToEconomy(reward, multiplier);
+        void IYutChallengeHost.RefreshCollectedItemsDisplay() => RefreshCollectedItemsDisplay();
+        void IYutChallengeHost.SaveFromWorld() => GameSaveBridge.SaveFromWorld();
+
+        YutMiniGame IYutSquareRewardHost.MiniGame => miniGame;
+        void IYutSquareRewardHost.ShowNotice(string message, Action onOk) => ShowNotice(message, onOk);
+        void IYutSquareRewardHost.ShowRewardChoice(string message, Action onPlain, Action onAd)
+            => ShowRewardChoice(message, onPlain, onAd);
+        Coroutine IYutSquareRewardHost.StartRoutine(IEnumerator routine) => StartCoroutine(routine);
+        OfferingData IYutSquareRewardHost.TryGetOfferingForNode(int nodeId)
+        {
+            specialOfferingByNode.TryGetValue(nodeId, out var offering);
+            return offering;
+        }
+        IReadOnlyList<OfferingData> IYutSquareRewardHost.GetTreasureOfferingPool() => GetOfferingPool();
+        string IYutSquareRewardHost.ApplySquareRewardToEconomy(YutSquareReward reward, int multiplier)
+            => ApplySquareRewardToEconomy(reward, multiplier);
+        void IYutSquareRewardHost.ClearConsumedSpecialSquareAt(int nodeId) => ClearConsumedSpecialSquareAt(nodeId);
+        void IYutSquareRewardHost.RefreshCollectedItemsDisplay() => RefreshCollectedItemsDisplay();
+        void IYutSquareRewardHost.SaveFromWorld() => GameSaveBridge.SaveFromWorld();
+        void IYutSquareRewardHost.OnSquareRewardFlowEnded(bool pendingBonusThrow) => OnSquareRewardFlowEnded(pendingBonusThrow);
+
         public static YutScreen Instance { get; private set; }
 
         public Font font;
@@ -80,16 +106,19 @@ namespace Yoegoe.UI
         bool autoPlayRunning;
         /// <summary>0이면 매치 종료까지. N이면 골인 스택이 N 이상일 때 그만하기.</summary>
         int autoPlayStopAtStack;
+        /// <summary>true면 보물상자 내용 확인→받기/광고 2배 UI까지 간 뒤 멈춘다.</summary>
+        bool autoPlayStopAtTreasureReward;
+        /// <summary>true면 이무기를 잡아 참 아래 대기까지 간 뒤 멈춘다.</summary>
+        bool autoPlayStopAtImugiCapture;
+        bool autoPlayImugiCaptureReached;
+        YutThrowResult? debugForcedThrow;
 #endif
 
-        /// <summary>특수 칸 보상 팝업("그냥 받기"/"광고 보고 2배")이 떠 있는 동안 다음 턴 진행을 멈춘다.</summary>
-        bool awaitingSquareReward;
-        bool pendingBonusAfterSquareReward;
-        YutSquareReward? pendingSquareReward;
-        /// <summary>보물상자 칸에서 굴린 보상인지 — Kind는 실제 지급 재화라서 출처는 따로 기억한다.</summary>
-        bool pendingSquareRewardFromTreasure;
-        /// <summary>지급이 끝나면 지울 특수 칸 노드. -1이면 없음.</summary>
-        int pendingSquareRewardNodeId = -1;
+        /// <summary>특수 칸 보상 — 팝업·비행·지급 흐름은 Presenter.</summary>
+        readonly YutSquareRewardPresenter squareRewards = new YutSquareRewardPresenter();
+
+        /// <summary>매 판 도전과제 — 배너·완료 보상(보물상자 ×3)은 Presenter가 담당.</summary>
+        readonly YutChallengePresenter challenge = new YutChallengePresenter();
 
         /// <summary>매치 시작 때 한 번 뽑는다 — 공양물 칸(YutBoardLayout.SpecialSquareKind.Offering)
         /// 노드마다 어떤 공양물을 줄지. 매치 내내 고정(같은 칸을 다시 밟아도 같은 공양물).</summary>
@@ -194,8 +223,9 @@ namespace Yoegoe.UI
             SubscribeMatchEvents();
 
             awaitingFinishChoice = false;
-            awaitingSquareReward = false;
+            squareRewards.Clear();
             awaitingReviveChoice = false;
+            pendingOpponentLappedFx = false;
             matchOfferingCounts.Clear();
             matchYeopjeonTotal = 0;
             matchPurifiedWaterTotal = 0;
@@ -203,6 +233,7 @@ namespace Yoegoe.UI
             matchAdTicketTotal = 0;
             matchYutTokenTotal = 0;
             AssignSpecialOfferings();
+            challenge.StartNew(match.PlayerPieces.Count, this);
             root.SetActive(true);
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
@@ -224,6 +255,7 @@ namespace Yoegoe.UI
             miniGame.SetLeaveVisible(true);
             miniGame.SetThrowVisible(true);
             miniGame.RefreshHearts(GameEconomy.Instance != null ? GameEconomy.Instance.YutToken : 0);
+            challenge.RefreshBanner(this);
             HandlePiecesChanged();
             RefreshCollectedItemsDisplay(); // 나갔다 왔거나 재시작 복원 — 이번 매치에서 모은 건 추적 안 해서 빈 채로 시작
             ApplySpecialSquareVisuals(); // 셸이 다시 만들어졌을 수도 있어 매번 다시 입힌다
@@ -284,11 +316,8 @@ namespace Yoegoe.UI
             moveInProgress = false;
             awaitingFinishChoice = false;
             pendingBonusAfterContinue = false;
-            awaitingSquareReward = false;
-            pendingBonusAfterSquareReward = false;
-            pendingSquareReward = null;
-            pendingSquareRewardFromTreasure = false;
-            pendingSquareRewardNodeId = -1;
+            squareRewards.Clear();
+            challenge.ClearBlockingFlags();
             awaitingReviveChoice = false;
             pendingReviveSnapshots = null;
             // root만 꺼두면 팝업 자신의 activeSelf는 그대로 남아있어서, 다음에 다시 열 때
@@ -327,6 +356,7 @@ namespace Yoegoe.UI
                 offeringIds.Add(kv.Value.offeringId);
             }
 
+            challenge.WriteSave(out int challengeKind, out bool challengeCompleted, out bool challengeFailed, out int challengeStreak);
             return new YutMatchSave
             {
                 playerPieces = match.PlayerPieces.Select(ToPieceSave).ToArray(),
@@ -335,6 +365,10 @@ namespace Yoegoe.UI
                 specialSquareKinds = squareKinds.ToArray(),
                 specialOfferingNodeIds = offeringNodeIds.ToArray(),
                 specialOfferingIds = offeringIds.ToArray(),
+                challengeKind = challengeKind,
+                challengeCompleted = challengeCompleted,
+                challengeFailed = challengeFailed,
+                challengeStreak = challengeStreak,
             };
         }
 
@@ -375,10 +409,25 @@ namespace Yoegoe.UI
 
             RestoreSpecialSquares(saved);
 
+            if (saved.challengeKind >= 0)
+            {
+                challenge.Restore(
+                    (YutChallengeKind)saved.challengeKind,
+                    saved.challengeCompleted,
+                    saved.challengeFailed,
+                    saved.challengeStreak,
+                    this);
+            }
+            else
+            {
+                challenge.StartNew(match.PlayerPieces.Count, this);
+            }
+
             SubscribeMatchEvents();
             awaitingFinishChoice = false;
-            awaitingSquareReward = false;
+            squareRewards.Clear();
             awaitingReviveChoice = false;
+            pendingOpponentLappedFx = false;
         }
 
         /// <summary>말 위치는 그대로 복원되는데 특수 칸만 새로 섞이면 안 되니, 저장된 배치가
@@ -435,6 +484,11 @@ namespace Yoegoe.UI
             {
                 miniGame.ShowPieceBubble(p.Id, YutBubbleCatalog.Get(YutBubbleCatalog.Ids.EventCaptured));
                 miniGame.AddPlayLogEntry($"{p.DisplayName} 잡힘.");
+            }
+            if (challenge.State != null)
+            {
+                challenge.NotifyPlayerCaptured(this);
+                GameSaveBridge.SaveFromWorld();
             }
         }
 
@@ -495,18 +549,98 @@ namespace Yoegoe.UI
         {
             miniGame.ShowOpponentBubble(YutBubbleCatalog.Get(YutBubbleCatalog.Ids.EventOpponentCaught));
             miniGame.AddPlayLogEntry("이무기 잡음.");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (autoPlayStopAtImugiCapture)
+                autoPlayImugiCaptureReached = true;
+#endif
         }
 
-        /// <summary>이무기가 참을 지나 한 바퀴 — "지루하군." + 남은 특수 칸 위치만 다시 섞는다.</summary>
+        /// <summary>이무기가 참을 지나 한 바퀴 — 턴 루틴이 연출(흔들림·칸 비행)을 yield한다.</summary>
+        bool pendingOpponentLappedFx;
+
+        /// <summary>이무기가 참을 지나 한 바퀴 — 플래그만 세운다(연출은 RunOpponentTurnRoutine).</summary>
         void HandleOpponentLapped()
         {
-            ReshuffleRemainingSpecialSquaresKeepingOfferings();
+            pendingOpponentLappedFx = true;
+        }
+
+        /// <summary>"지루하군." + 보드 흔들림 + 남은 보상 칸이 새 자리로 슝 이동.</summary>
+        IEnumerator OpponentLappedFxRoutine()
+        {
             miniGame.ShowOpponentBubble(YutBubbleCatalog.Get(YutBubbleCatalog.Ids.OpponentLapped));
             miniGame.AddPlayLogEntry("이무기 한 바퀴 — 남은 보상 칸이 바뀜.");
+
+            var before = SnapshotSpecialSquareVisuals();
+            if (before.Count == 0)
+            {
+                yield return miniGame.PlaySpecialSquaresReshuffleAnim(Array.Empty<YutMiniGame.SpecialSquareFlight>());
+                yield break;
+            }
+
+            ReshuffleRemainingSpecialSquaresKeepingOfferings(applyVisuals: false);
+            var after = SnapshotSpecialSquareVisuals();
+            var flights = BuildSpecialSquareFlights(before, after);
+            yield return miniGame.PlaySpecialSquaresReshuffleAnim(flights);
+            ApplySpecialSquareVisuals();
+            GameSaveBridge.SaveFromWorld();
+        }
+
+        struct SpecialSquareSnap
+        {
+            public int NodeId;
+            public YutBoardLayout.SpecialSquareKind Kind;
+            public Sprite Icon;
+        }
+
+        List<SpecialSquareSnap> SnapshotSpecialSquareVisuals()
+        {
+            var list = new List<SpecialSquareSnap>();
+            var icons = BuildSpecialSquareIcons();
+            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
+            {
+                var kind = YutBoardLayout.GetSpecialKind(nodeId);
+                if (kind == YutBoardLayout.SpecialSquareKind.None) continue;
+                icons.TryGetValue(nodeId, out var icon);
+                list.Add(new SpecialSquareSnap { NodeId = nodeId, Kind = kind, Icon = icon });
+            }
+            return list;
+        }
+
+        /// <summary>같은 종류끼리 노드 번호 순으로 짝지어 from→to 비행 경로를 만든다.</summary>
+        static List<YutMiniGame.SpecialSquareFlight> BuildSpecialSquareFlights(
+            List<SpecialSquareSnap> before, List<SpecialSquareSnap> after)
+        {
+            var flights = new List<YutMiniGame.SpecialSquareFlight>();
+            var kinds = new[]
+            {
+                YutBoardLayout.SpecialSquareKind.Coin,
+                YutBoardLayout.SpecialSquareKind.Offering,
+                YutBoardLayout.SpecialSquareKind.Treasure,
+                YutBoardLayout.SpecialSquareKind.PurifiedWater,
+            };
+            for (int k = 0; k < kinds.Length; k++)
+            {
+                var kind = kinds[k];
+                var olds = new List<SpecialSquareSnap>();
+                var news = new List<SpecialSquareSnap>();
+                for (int i = 0; i < before.Count; i++)
+                    if (before[i].Kind == kind) olds.Add(before[i]);
+                for (int i = 0; i < after.Count; i++)
+                    if (after[i].Kind == kind) news.Add(after[i]);
+                olds.Sort((a, b) => a.NodeId.CompareTo(b.NodeId));
+                news.Sort((a, b) => a.NodeId.CompareTo(b.NodeId));
+                int n = Mathf.Min(olds.Count, news.Count);
+                for (int i = 0; i < n; i++)
+                {
+                    Sprite icon = olds[i].Icon != null ? olds[i].Icon : news[i].Icon;
+                    flights.Add(new YutMiniGame.SpecialSquareFlight(olds[i].NodeId, news[i].NodeId, icon));
+                }
+            }
+            return flights;
         }
 
         /// <summary>소진되지 않은 특수 칸 종류·공양물 내용물은 유지하고 노드 위치만 랜덤 재배치.</summary>
-        void ReshuffleRemainingSpecialSquaresKeepingOfferings()
+        void ReshuffleRemainingSpecialSquaresKeepingOfferings(bool applyVisuals = true)
         {
             var offerings = new List<OfferingData>();
             for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
@@ -532,14 +666,62 @@ namespace Yoegoe.UI
                     specialOfferingByNode[nodeId] = pool[UnityEngine.Random.Range(0, pool.Count)];
             }
 
-            ApplySpecialSquareVisuals();
+            if (applyVisuals)
+                ApplySpecialSquareVisuals();
+        }
+
+        /// <summary>보드 위 특수 칸마다 무슨 보상인지 아이콘을 입힌다 — 엽전 칸/공양물 칸은 실제
+        /// 내용물을, 보물상자 칸은 안이 뭔지 숨기고 상자 아이콘만 보여준다.</summary>
+        void ApplySpecialSquareVisuals()
+        {
+            if (miniGame == null) return;
+            miniGame.RefreshSpecialSquareVisuals(BuildSpecialSquareIcons());
+        }
+
+        Dictionary<int, Sprite> BuildSpecialSquareIcons()
+        {
+            var icons = new Dictionary<int, Sprite>();
+            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
+            {
+                var kind = YutBoardLayout.GetSpecialKind(nodeId);
+                switch (kind)
+                {
+                    case YutBoardLayout.SpecialSquareKind.Coin:
+                        icons[nodeId] = YutMiniGame.YeopjeonIcon();
+                        break;
+                    case YutBoardLayout.SpecialSquareKind.Offering:
+                        if (specialOfferingByNode.TryGetValue(nodeId, out var offering) && offering != null)
+                            icons[nodeId] = offering.icon;
+                        break;
+                    case YutBoardLayout.SpecialSquareKind.Treasure:
+                        icons[nodeId] = Resources.Load<Sprite>("UI/GiftChest_Closed");
+                        break;
+                    case YutBoardLayout.SpecialSquareKind.PurifiedWater:
+                        icons[nodeId] = YutMiniGame.PurifiedWaterIcon();
+                        break;
+                }
+            }
+            return icons;
         }
 
         /// <summary>power(0~1)는 슬라이드 속도 기반 — 던지는 연출에만 쓰고 결과 확률엔 영향 없다.</summary>
         void HandleThrowPressed(float power)
         {
             if (match == null || match.IsEnded) return;
-            var outcome = match.ThrowForPlayer();
+            YutThrowOutcome outcome;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (debugForcedThrow.HasValue)
+            {
+                var forced = debugForcedThrow.Value;
+                debugForcedThrow = null;
+                bool bonus = forced == YutThrowResult.Yut || forced == YutThrowResult.Mo;
+                outcome = new YutThrowOutcome(forced, bonus);
+            }
+            else
+#endif
+            {
+                outcome = match.ThrowForPlayer();
+            }
             StartCoroutine(PlayerThrowRoutine(outcome, power));
         }
 
@@ -621,11 +803,25 @@ namespace Yoegoe.UI
 
         void ShowMoveCandidateBubbles(IReadOnlyList<YutMatch.YutMoveCandidate> candidates)
         {
-            foreach (var c in candidates)
+            // 같은 문구면 한 명만 말한다 — 로스터/대기 슬롯 앞쪽(PlayerPieces 앞) 우선.
+            // (시작 전 대기말 여럿이 같은 특수칸·같은 대사를 동시에 띄우던 중복 방지)
+            var speakerByLine = new Dictionary<string, string>();
+            for (int i = 0; i < candidates.Count; i++)
             {
+                var c = candidates[i];
                 string line = BubbleLineFor(c);
-                if (line != null) miniGame.ShowPieceBubble(c.PieceId, line);
+                if (line == null) continue;
+                if (!speakerByLine.TryGetValue(line, out var currentId))
+                {
+                    speakerByLine[line] = c.PieceId;
+                    continue;
+                }
+                if (PieceSlotIndex(c.PieceId) < PieceSlotIndex(currentId))
+                    speakerByLine[line] = c.PieceId;
             }
+
+            foreach (var kv in speakerByLine)
+                miniGame.ShowPieceBubble(kv.Value, kv.Key);
 
             // 옥토끼가 동에 있으면, 남은 말이 완주 가능할 때 옆에서 한 마디.
             if (!IsRabbitFinished() || candidates == null) return;
@@ -637,6 +833,18 @@ namespace Yoegoe.UI
                     YutBubbleCatalog.Get(YutBubbleCatalog.Ids.RabbitUrgeFinish));
                 break;
             }
+        }
+
+        /// <summary>대기/로스터 슬롯 순서 — 앞(0)일수록 대표 말풍선 우선.</summary>
+        int PieceSlotIndex(string pieceId)
+        {
+            if (match == null || string.IsNullOrEmpty(pieceId)) return int.MaxValue;
+            for (int i = 0; i < match.PlayerPieces.Count; i++)
+            {
+                if (match.PlayerPieces[i].Id == pieceId)
+                    return i;
+            }
+            return int.MaxValue;
         }
 
         /// <summary>말이 실제로 움직인 뒤 — 놀이기록(짧은 사건형 문장)에 한 줄 남긴다. 말풍선
@@ -673,6 +881,12 @@ namespace Yoegoe.UI
             yield return miniGame.PlayThrowAnim(outcome.Result, power);
             if (match == null || match.IsEnded) yield break;
             miniGame.ShowPieceBubble("Rabbit", RabbitThrowLine(outcome.Result));
+
+            if (challenge.NotifyPlayerThrow(outcome.Result, this))
+            {
+                yield return challenge.PlayRewardRoutine(this);
+                if (match == null || match.IsEnded) yield break;
+            }
 
             var candidates = match.GetPlayerCandidates(outcome.Result);
             if (candidates.Count == 0)
@@ -763,10 +977,10 @@ namespace Yoegoe.UI
                 yield break; // HandleMatchEnded가 이미 결과 처리
             }
 
-            if (awaitingSquareReward)
+            if (squareRewards.Awaiting)
             {
                 // 특수 칸 보상 팝업("그냥 받기"/"광고 보고 2배")이 이미 떴다 — 그 선택이 끝나야 다음이 진행된다.
-                pendingBonusAfterSquareReward = bonusTurn;
+                squareRewards.PendingBonusThrow = bonusTurn;
                 moveInProgress = false;
                 yield break;
             }
@@ -815,200 +1029,16 @@ namespace Yoegoe.UI
             }
         }
 
-        /// <summary>보드 위 특수 칸마다 무슨 보상인지 아이콘을 입힌다 — 엽전 칸/공양물 칸은 실제
-        /// 내용물을, 보물상자 칸은 안이 뭔지 숨기고 상자 아이콘만 보여준다.</summary>
-        void ApplySpecialSquareVisuals()
-        {
-            if (miniGame == null) return;
-            var icons = new Dictionary<int, Sprite>();
-            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
-            {
-                var kind = YutBoardLayout.GetSpecialKind(nodeId);
-                switch (kind)
-                {
-                    case YutBoardLayout.SpecialSquareKind.Coin:
-                        icons[nodeId] = YutMiniGame.YeopjeonIcon();
-                        break;
-                    case YutBoardLayout.SpecialSquareKind.Offering:
-                        if (specialOfferingByNode.TryGetValue(nodeId, out var offering) && offering != null)
-                            icons[nodeId] = offering.icon;
-                        break;
-                    case YutBoardLayout.SpecialSquareKind.Treasure:
-                        icons[nodeId] = Resources.Load<Sprite>("UI/GiftChest_Closed");
-                        break;
-                    case YutBoardLayout.SpecialSquareKind.PurifiedWater:
-                        icons[nodeId] = YutMiniGame.PurifiedWaterIcon();
-                        break;
-                }
-            }
-            miniGame.RefreshSpecialSquareVisuals(icons);
-        }
-
         /// <summary>
-        /// 말이 특수 칸에 도착했을 때 — 칸 종류(엽전/공양물/보물상자/정화수)에 맞는 보상을 정해서
-        /// "그냥 받기(1배)"/"광고 보고 2배" 팝업을 띄운다. 완주와 달리 매치를 막지 않고, 선택
-        /// 즉시 재화를 지급한다(칸에서 얻은 건 매치 중에도 유지).
+        /// 말이 특수 칸에 도착했을 때 — 칸 종류에 맞는 보상 팝업은 Presenter가 띄운다.
         /// </summary>
-        void HandleSpecialSquareReached(int nodeId, IReadOnlyList<string> pieceIds)
-        {
-            string message;
-            pendingSquareRewardFromTreasure = false;
-            pendingSquareRewardNodeId = nodeId;
-            switch (YutBoardLayout.GetSpecialKind(nodeId))
-            {
-                case YutBoardLayout.SpecialSquareKind.Coin:
-                    pendingSquareReward = new YutSquareReward(YutSquareRewardKind.Yeopjeon, null, 1);
-                    message = "엽전 칸 발견!\n엽전을 얻을 수 있어요.";
-                    break;
-
-                case YutBoardLayout.SpecialSquareKind.Offering:
-                    {
-                        specialOfferingByNode.TryGetValue(nodeId, out var offering);
-                        pendingSquareReward = new YutSquareReward(YutSquareRewardKind.Offering, offering, 1);
-                        string offeringName = offering != null ? offering.displayName : "공양물";
-                        message = $"공양물 칸 발견!\n{offeringName}을(를) 얻을 수 있어요.";
-                        break;
-                    }
-
-                case YutBoardLayout.SpecialSquareKind.Treasure:
-                    pendingSquareReward = RollTreasureReward();
-                    pendingSquareRewardFromTreasure = true;
-                    message = "보물상자 발견!\n무엇이 들어있을까요?";
-                    break;
-
-                case YutBoardLayout.SpecialSquareKind.PurifiedWater:
-                    pendingSquareReward = new YutSquareReward(YutSquareRewardKind.PurifiedWater, null, 1);
-                    message = "정화수 칸 발견!\n정화수를 얻을 수 있어요.";
-                    break;
-
-                default:
-                    pendingSquareRewardNodeId = -1;
-                    return;
-            }
-
-            awaitingSquareReward = true;
-            miniGame.SetThrowVisible(false);
-            ShowRewardChoice(message, onPlain: HandleSquareRewardPlain, onAd: HandleSquareRewardAd);
-        }
-
-        /// <summary>보물상자 — 향/공양물/광고보상권/엽전/윷토큰 중 하나를 균등 확률로 뽑는다.</summary>
-        YutSquareReward RollTreasureReward()
-        {
-            int pick = UnityEngine.Random.Range(0, 5);
-            switch (pick)
-            {
-                case 0:
-                    return new YutSquareReward(YutSquareRewardKind.Hyang, null, 1);
-                case 1:
-                    var pool = GetOfferingPool();
-                    var offering = pool.Count > 0 ? pool[UnityEngine.Random.Range(0, pool.Count)] : null;
-                    return new YutSquareReward(YutSquareRewardKind.Offering, offering, 1);
-                case 2:
-                    return new YutSquareReward(YutSquareRewardKind.AdTicket, null, 1);
-                case 3:
-                    return new YutSquareReward(YutSquareRewardKind.Yeopjeon, null, 1);
-                default:
-                    return new YutSquareReward(YutSquareRewardKind.YutToken, null, YutRewards.RollTreasureYutTokenAmount());
-            }
-        }
-
-        void HandleSquareRewardPlain()
-        {
-            bool wasTreasure = pendingSquareRewardFromTreasure;
-            string desc = GrantSquareReward(YutRewards.SquareRewardBase);
-            if (wasTreasure && desc != null)
-                ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
-            else
-                ResumeAfterSquareReward();
-        }
-
-        void HandleSquareRewardAd() => StartCoroutine(SquareRewardAdRoutine());
-
-        IEnumerator SquareRewardAdRoutine()
-        {
-            // BatchCollectPopup과 같은 패턴 — 실제 광고 SDK가 붙기 전까지 짧은 지연으로 "시청 중"을 흉내낸다.
-            yield return new WaitForSecondsRealtime(YutRewards.SquareRewardAdWatchSeconds);
-            bool wasTreasure = pendingSquareRewardFromTreasure;
-            string desc = GrantSquareReward(YutRewards.SquareRewardAdMultiplier);
-            if (wasTreasure && desc != null)
-                ShowNotice($"보물상자에서 {desc} 나왔다!", ResumeAfterSquareReward);
-            else
-                ResumeAfterSquareReward();
-        }
-
-        /// <summary>실제로 재화를 지급하고 놀이기록에 남긴다. 엽전/공양물 칸은 밟기 전에 이미
-        /// 뭐가 나올지 안내했지만, 보물상자는 안이 안 보이는 채로 골랐으니 반환값(뭘 받았는지
-        /// 설명)을 호출부가 팝업으로 따로 알려준다.</summary>
-        string GrantSquareReward(int multiplier)
-        {
-            if (pendingSquareReward == null) return null;
-            var reward = pendingSquareReward.Value;
-            int amount = reward.Amount * multiplier;
-            string description = null;
-
-            switch (reward.Kind)
-            {
-                case YutSquareRewardKind.Yeopjeon:
-                    GameEconomy.Instance.AddYeopjeon(amount);
-                    matchYeopjeonTotal += amount;
-                    miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
-                    description = $"엽전 {amount}개";
-                    break;
-
-                case YutSquareRewardKind.PurifiedWater:
-                    GameEconomy.Instance.AddPurifiedWater(amount);
-                    matchPurifiedWaterTotal += amount;
-                    miniGame.AddPlayLogEntry($"정화수 {amount}개 획득.");
-                    description = $"정화수 {amount}개";
-                    break;
-
-                case YutSquareRewardKind.Hyang:
-                    GameEconomy.Instance.AddHyang(amount);
-                    matchHyangTotal += amount;
-                    miniGame.AddPlayLogEntry($"향 {amount}개 획득.");
-                    description = $"향 {amount}개";
-                    break;
-
-                case YutSquareRewardKind.AdTicket:
-                    GiftBundle.AddAdTickets(amount);
-                    matchAdTicketTotal += amount;
-                    miniGame.AddPlayLogEntry($"광고보상권 {amount}개 획득.");
-                    description = $"광고보상권 {amount}개";
-                    break;
-
-                case YutSquareRewardKind.Offering:
-                    if (reward.Offering != null)
-                    {
-                        GameEconomy.Instance.AddOffering(reward.Offering, amount);
-                        matchOfferingCounts.TryGetValue(reward.Offering, out int cur);
-                        matchOfferingCounts[reward.Offering] = cur + amount;
-                        miniGame.AddPlayLogEntry($"{reward.Offering.displayName} {amount}개 획득.");
-                        description = $"{reward.Offering.displayName} {amount}개";
-                    }
-                    break;
-
-                case YutSquareRewardKind.YutToken:
-                    GameEconomy.Instance.AddYutTokenOverflow(amount, YutRewards.YutTokenHardCap);
-                    matchYutTokenTotal += amount;
-                    miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
-                    description = $"윷 토큰 {amount}개";
-                    break;
-            }
-
-            pendingSquareReward = null;
-            pendingSquareRewardFromTreasure = false;
-            ClearConsumedSpecialSquare();
-            RefreshCollectedItemsDisplay();
-            GameSaveBridge.SaveFromWorld();
-            return description;
-        }
+        void HandleSpecialSquareReached(int nodeId, IReadOnlyList<string> pieceIds) =>
+            squareRewards.OnReached(nodeId, this);
 
         /// <summary>보상을 받은 특수 칸은 보드·세이브에서 제거한다(아이콘/색도 일반 칸으로 되돌림).</summary>
-        void ClearConsumedSpecialSquare()
+        void ClearConsumedSpecialSquareAt(int nodeId)
         {
-            if (pendingSquareRewardNodeId < 0) return;
-            int nodeId = pendingSquareRewardNodeId;
-            pendingSquareRewardNodeId = -1;
+            if (nodeId < 0) return;
             YutBoardLayout.ClearSpecialSquare(nodeId);
             specialOfferingByNode.Remove(nodeId);
             ApplySpecialSquareVisuals();
@@ -1086,10 +1116,9 @@ namespace Yoegoe.UI
             return parts.Count > 0 ? string.Join(", ", parts) + "를 얻었다" : null;
         }
 
-        void ResumeAfterSquareReward()
+        void OnSquareRewardFlowEnded(bool pendingBonusThrow)
         {
-            awaitingSquareReward = false;
-            if (pendingBonusAfterSquareReward)
+            if (pendingBonusThrow)
                 miniGame.SetThrowVisible(true);
             else
                 StartCoroutine(RunOpponentTurnRoutine());
@@ -1205,6 +1234,12 @@ namespace Yoegoe.UI
                 bonus = match.ApplyOpponentMove(outcome);
                 miniGame.SetSuppressPieceSlide(false);
                 if (match.IsEnded) yield break;
+                if (pendingOpponentLappedFx)
+                {
+                    pendingOpponentLappedFx = false;
+                    yield return OpponentLappedFxRoutine();
+                    if (match == null || match.IsEnded) yield break;
+                }
                 if (match.OpponentPiece.OnBoard)
                     miniGame.AddPlayLogEntry($"이무기, {PositionLabelFor(match.OpponentPiece)}(으)로 이동.");
                 if (bonus)
@@ -1252,8 +1287,17 @@ namespace Yoegoe.UI
             miniGame.ShowFinishedPieces(finishedIds);
 
             var opp = match.OpponentPiece;
-            miniGame.ShowOpponentPiece(opp.OnBoard);
-            if (opp.OnBoard) miniGame.SetOpponentPieceIndex(opp.NodeId);
+            if (opp.OnBoard)
+            {
+                miniGame.ShowOpponentPiece(true);
+                miniGame.SetOpponentPieceIndex(opp.NodeId);
+            }
+            else
+            {
+                // 잡힌 뒤(또는 입장 전) 대기 — 참먹이 칸이 아니라 바로 아래.
+                miniGame.ShowOpponentPiece(true);
+                miniGame.PlaceOpponentWaitingBelowStart();
+            }
 
             // LINQ(.Select/.ToList)를 새 struct(RosterEntry)에 처음 쓰면 IL2CPP WebGL 빌드에서
             // "RuntimeError: null function"이 나는 경우가 있어(제네릭 인스턴스 누락) — 수동 루프로 우회.
@@ -1461,7 +1505,7 @@ namespace Yoegoe.UI
         static string PositionLabelFor(YutPiece p)
         {
             if (p.Finished) return "완주";
-            if (p.NodeId < 0) return "출발 대기";
+            if (p.NodeId < 0) return p.IsPlayer ? "출발 대기" : "참 아래 대기";
             return p.NodeId switch
             {
                 YutBoardLayout.Start => "참",
@@ -1482,6 +1526,14 @@ namespace Yoegoe.UI
         {
             miniGame.SetThrowVisible(false);
             miniGame.ClearCandidates();
+
+            if (challenge.State != null && match != null)
+            {
+                int finished = 0;
+                for (int i = 0; i < match.PlayerPieces.Count; i++)
+                    if (match.PlayerPieces[i].Finished) finished++;
+                challenge.TryMarkAllFinishedComplete(match.PlayerPieces.Count, finished, this);
+            }
 
             int stack = Mathf.Max(1, finishStackCount);
             pendingFinishStack = stack;
@@ -1511,7 +1563,7 @@ namespace Yoegoe.UI
         }
 
         /// <summary>완주 정화수 지급 후 안내. multiplier는 광고 2배용.
-        /// 안내를 닫으면 전원 완주이므로 판을 강제로 새 판으로 리셋한다.</summary>
+        /// 안내를 닫으면(도전 보상 있으면 이어서) 전원 완주이므로 판을 강제로 새 판으로 리셋한다.</summary>
         void GrantFinishRewardAndNotice(int multiplier)
         {
             int water = pendingFinishPurifiedWater * multiplier;
@@ -1533,8 +1585,62 @@ namespace Yoegoe.UI
 
         void OnMatchEndedNoticeOk()
         {
-            // 전원 완주 → 보상 확인 후 판을 강제로 리셋(토큰 추가 소모 없음).
+            if (challenge.PendingRewardAfterFinish)
+            {
+                challenge.PendingRewardAfterFinish = false;
+                StartCoroutine(ChallengeRewardThenRestartRoutine());
+                return;
+            }
             RestartBoardAfterAllFinished();
+        }
+
+        IEnumerator ChallengeRewardThenRestartRoutine()
+        {
+            yield return challenge.PlayRewardRoutine(this);
+            RestartBoardAfterAllFinished();
+        }
+
+        /// <summary>특수 칸/도전 공용 — 재화만 지급(보드 칸 소모 없음).</summary>
+        string ApplySquareRewardToEconomy(YutSquareReward reward, int multiplier)
+        {
+            int amount = reward.Amount * multiplier;
+            switch (reward.Kind)
+            {
+                case YutSquareRewardKind.Yeopjeon:
+                    GameEconomy.Instance.AddYeopjeon(amount);
+                    matchYeopjeonTotal += amount;
+                    miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
+                    return $"엽전 {amount}개";
+                case YutSquareRewardKind.PurifiedWater:
+                    GameEconomy.Instance.AddPurifiedWater(amount);
+                    matchPurifiedWaterTotal += amount;
+                    miniGame.AddPlayLogEntry($"정화수 {amount}개 획득.");
+                    return $"정화수 {amount}개";
+                case YutSquareRewardKind.Hyang:
+                    GameEconomy.Instance.AddHyang(amount);
+                    matchHyangTotal += amount;
+                    miniGame.AddPlayLogEntry($"향 {amount}개 획득.");
+                    return $"향 {amount}개";
+                case YutSquareRewardKind.AdTicket:
+                    GiftBundle.AddAdTickets(amount);
+                    matchAdTicketTotal += amount;
+                    miniGame.AddPlayLogEntry($"광고보상권 {amount}개 획득.");
+                    return $"광고보상권 {amount}개";
+                case YutSquareRewardKind.Offering:
+                    if (reward.Offering == null) return null;
+                    GameEconomy.Instance.AddOffering(reward.Offering, amount);
+                    matchOfferingCounts.TryGetValue(reward.Offering, out int cur);
+                    matchOfferingCounts[reward.Offering] = cur + amount;
+                    miniGame.AddPlayLogEntry($"{reward.Offering.displayName} {amount}개 획득.");
+                    return $"{reward.Offering.displayName} {amount}개";
+                case YutSquareRewardKind.YutToken:
+                    GameEconomy.Instance.AddYutTokenOverflow(amount, YutRewards.YutTokenHardCap);
+                    matchYutTokenTotal += amount;
+                    miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
+                    return $"윷 토큰 {amount}개";
+                default:
+                    return null;
+            }
         }
 
         /// <summary>같은 팀으로 새 매치를 연다. 특수칸·말 위치·획득 내역을 처음부터.</summary>
@@ -2125,6 +2231,9 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(true);
 
             autoPlayStopAtStack = Mathf.Max(0, stopAtStack);
+            autoPlayStopAtTreasureReward = false;
+            autoPlayStopAtImugiCapture = false;
+            autoPlayImugiCaptureReached = false;
             autoPlayRunning = true;
             autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
             Debug.Log(autoPlayStopAtStack > 0
@@ -2132,9 +2241,197 @@ namespace Yoegoe.UI
                 : $"[Yut QA] 자동 플레이 시작 — 매치 종료까지 (말 {match.PlayerPieces.Count}개, throwVisible={miniGame.IsThrowVisible})");
         }
 
+        /// <summary>QA: 보물상자를 밟아 내용물 확인 → 그냥 받기/광고 2배 UI까지 자동으로 간 뒤 멈춘다.</summary>
+        public void DebugStartTreasureRewardQa()
+        {
+            EnsureBuilt();
+            if (root == null || miniGame == null)
+            {
+                Debug.LogWarning("[Yut QA] YutScreen 셸이 없습니다.");
+                return;
+            }
+
+            DebugStopAutoPlay();
+
+            if (match != null)
+            {
+                UnsubscribeMatchEvents();
+                match = null;
+            }
+
+            if (!EnsureMatchReadyForFinishSim(1))
+                return;
+
+            if (!SetupBoardForTreasureRewardQa())
+            {
+                Debug.LogWarning("[Yut QA] 보물상자 QA 보드 준비 실패.");
+                return;
+            }
+
+            ClearBlockingUiForFinishSim();
+            miniGame.BindFromHierarchy();
+            HandlePiecesChanged();
+            ApplySpecialSquareVisuals();
+            root.SetActive(true);
+            miniGame.Show();
+            miniGame.SetLeaveVisible(true);
+            miniGame.SetThrowVisible(true);
+
+            autoPlayStopAtStack = 0;
+            autoPlayStopAtTreasureReward = true;
+            autoPlayStopAtImugiCapture = false;
+            autoPlayImugiCaptureReached = false;
+            debugForcedThrow = YutThrowResult.Do;
+            autoPlayRunning = true;
+            autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
+            Debug.Log("[Yut QA] 보물상자 보상 UI까지 자동 진행 — 내용 확인 후 받기/광고 선택에서 멈춤");
+        }
+
+        /// <summary>QA: 이무기를 잡아 참 아래 대기 배치까지 자동으로 간 뒤 멈춘다.</summary>
+        public void DebugStartCaptureImugiQa()
+        {
+            EnsureBuilt();
+            if (root == null || miniGame == null)
+            {
+                Debug.LogWarning("[Yut QA] YutScreen 셸이 없습니다.");
+                return;
+            }
+
+            DebugStopAutoPlay();
+
+            if (match != null)
+            {
+                UnsubscribeMatchEvents();
+                match = null;
+            }
+
+            if (!EnsureMatchReadyForFinishSim(1))
+                return;
+
+            if (!SetupBoardForCaptureImugiQa())
+            {
+                Debug.LogWarning("[Yut QA] 이무기 잡기 QA 보드 준비 실패.");
+                return;
+            }
+
+            ClearBlockingUiForFinishSim();
+            miniGame.BindFromHierarchy();
+            HandlePiecesChanged();
+            ApplySpecialSquareVisuals();
+            root.SetActive(true);
+            miniGame.Show();
+            miniGame.SetLeaveVisible(true);
+            miniGame.SetThrowVisible(true);
+
+            autoPlayStopAtStack = 0;
+            autoPlayStopAtTreasureReward = false;
+            autoPlayStopAtImugiCapture = true;
+            autoPlayImugiCaptureReached = false;
+            debugForcedThrow = YutThrowResult.Do;
+            autoPlayRunning = true;
+            autoPlayRoutine = StartCoroutine(AutoPlayRoutine());
+            Debug.Log("[Yut QA] 이무기 잡기→참 아래 대기까지 자동 진행");
+        }
+
+        /// <summary>말 1을 노드2, 이무기를 노드3에 두고 도(Do)로 잡아 참 아래 대기로 보낸다.</summary>
+        bool SetupBoardForCaptureImugiQa()
+        {
+            if (match == null || match.PlayerPieces.Count == 0) return false;
+
+            const int playerNode = 2;
+            const int imugiNode = 3;
+
+            // 특수 칸이 잡기 칸을 가리지 않게 멀리.
+            var kinds = new Dictionary<int, YutBoardLayout.SpecialSquareKind>
+            {
+                { 8, YutBoardLayout.SpecialSquareKind.Coin },
+                { 9, YutBoardLayout.SpecialSquareKind.Coin },
+                { 11, YutBoardLayout.SpecialSquareKind.Coin },
+                { 12, YutBoardLayout.SpecialSquareKind.Offering },
+                { 13, YutBoardLayout.SpecialSquareKind.Offering },
+                { 14, YutBoardLayout.SpecialSquareKind.Treasure },
+                { 16, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+                { 17, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+            };
+            YutBoardLayout.RestoreSpecialSquares(kinds);
+            AssignSpecialOfferings();
+
+            var piece = match.PlayerPieces[0];
+            piece.NodeId = playerNode;
+            piece.Finished = false;
+            piece.History.Clear();
+            piece.History.Add(YutBoardLayout.Start);
+            piece.History.Add(1);
+            piece.History.Add(playerNode);
+
+            match.OpponentPiece.NodeId = imugiNode;
+            match.OpponentPiece.Finished = false;
+            match.OpponentPiece.History.Clear();
+            match.OpponentPiece.History.Add(YutBoardLayout.Start);
+            match.OpponentPiece.History.Add(1);
+            match.OpponentPiece.History.Add(2);
+            match.OpponentPiece.History.Add(imugiNode);
+
+            GameSaveBridge.SaveFromWorld();
+            return true;
+        }
+
+        /// <summary>말 1을 노드1에 두고, 노드2에 보물상자를 놓아 도(Do) 한 수로 밟게 한다.</summary>
+        bool SetupBoardForTreasureRewardQa()
+        {
+            if (match == null || match.PlayerPieces.Count == 0) return false;
+
+            const int approachNode = 1;
+            const int treasureNode = 2;
+
+            var kinds = new Dictionary<int, YutBoardLayout.SpecialSquareKind>
+            {
+                { treasureNode, YutBoardLayout.SpecialSquareKind.Treasure },
+            };
+            // 나머지 특수 칸은 경로를 가리지 않게 멀리(이름 있는 칸·참 제외) 유지.
+            int[] extras = { 8, 9, 11, 12, 13, 14, 16, 17 };
+            var extraKinds = new[]
+            {
+                YutBoardLayout.SpecialSquareKind.Coin,
+                YutBoardLayout.SpecialSquareKind.Coin,
+                YutBoardLayout.SpecialSquareKind.Coin,
+                YutBoardLayout.SpecialSquareKind.Offering,
+                YutBoardLayout.SpecialSquareKind.Offering,
+                YutBoardLayout.SpecialSquareKind.PurifiedWater,
+                YutBoardLayout.SpecialSquareKind.PurifiedWater,
+            };
+            for (int i = 0; i < extraKinds.Length && i < extras.Length; i++)
+            {
+                if (extras[i] == treasureNode || extras[i] == approachNode) continue;
+                kinds[extras[i]] = extraKinds[i];
+            }
+
+            YutBoardLayout.RestoreSpecialSquares(kinds);
+            AssignSpecialOfferings();
+
+            var piece = match.PlayerPieces[0];
+            piece.NodeId = approachNode;
+            piece.Finished = false;
+            piece.History.Clear();
+            piece.History.Add(YutBoardLayout.Start);
+            piece.History.Add(approachNode);
+
+            // 이무기는 방해하지 않게 멀리.
+            match.OpponentPiece.NodeId = YutBoardLayout.JjiMo;
+            match.OpponentPiece.History.Clear();
+            match.OpponentPiece.History.Add(YutBoardLayout.JjiMo);
+
+            GameSaveBridge.SaveFromWorld();
+            return true;
+        }
+
         public void DebugStopAutoPlay()
         {
             autoPlayRunning = false;
+            autoPlayStopAtTreasureReward = false;
+            autoPlayStopAtImugiCapture = false;
+            autoPlayImugiCaptureReached = false;
+            debugForcedThrow = null;
             if (autoPlayRoutine != null)
             {
                 StopCoroutine(autoPlayRoutine);
@@ -2155,6 +2452,22 @@ namespace Yoegoe.UI
                 if (Time.unscaledTime - startedAt > 600f)
                 {
                     Debug.LogWarning("[Yut QA] 자동 플레이 시간 초과");
+                    break;
+                }
+
+                // 보물상자 QA: 받기/광고 선택 UI가 뜨면 여기서 멈춘다(유저가 확인).
+                if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+                {
+                    Debug.Log("[Yut QA] 보물상자 보상 선택 UI 도착 — 자동 플레이 정지");
+                    break;
+                }
+
+                // 이무기 잡기 QA: 참 아래 대기 배치까지 끝나면 멈춘다.
+                if (autoPlayStopAtImugiCapture && autoPlayImugiCaptureReached)
+                {
+                    yield return null;
+                    yield return new WaitForSecondsRealtime(0.35f);
+                    Debug.Log("[Yut QA] 이무기 잡힘→참 아래 대기 도착 — 자동 플레이 정지");
                     break;
                 }
 
@@ -2204,9 +2517,13 @@ namespace Yoegoe.UI
                 {
                     if (pendingOutcome != null) break;
                     if (HasBlockingPopup()) break;
+                    if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+                        break;
                     wait += Time.unscaledDeltaTime;
                     yield return null;
                     if (pendingOutcome != null || HasBlockingPopup())
+                        break;
+                    if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
                         break;
                     // 이무기 턴이 끝나고 다시 던질 수 있으면 바깥 루프로.
                     if (miniGame.IsThrowVisible && pendingOutcome == null && wait > 0.6f)
@@ -2214,11 +2531,16 @@ namespace Yoegoe.UI
                 }
             }
 
-            // 종료 직후 남은 완주 안내/광고 선택도 넘긴다.
-            for (int i = 0; i < 10 && autoPlayRunning && TryAutoDismissPopups(); i++)
-                yield return new WaitForSecondsRealtime(0.15f);
+            // 보물상자 선택 UI에서 멈춘 경우엔 팝업을 닫지 않는다.
+            if (!(autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf))
+            {
+                for (int i = 0; i < 10 && autoPlayRunning && TryAutoDismissPopups(); i++)
+                    yield return new WaitForSecondsRealtime(0.15f);
+            }
 
             string reason = !autoPlayRunning ? "stop"
+                : autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf ? "treasure reward UI"
+                : autoPlayStopAtImugiCapture && autoPlayImugiCaptureReached ? "imugi captured waiting"
                 : match == null ? "match=null"
                 : match != null && match.IsEnded ? "match ended"
                 : "step limit";
@@ -2229,7 +2551,7 @@ namespace Yoegoe.UI
 
         bool HasBlockingPopup()
         {
-            if (awaitingSquareReward || awaitingFinishChoice || awaitingReviveChoice) return true;
+            if (squareRewards.Awaiting || awaitingFinishChoice || awaitingReviveChoice || challenge.AwaitingReward) return true;
             if (noticeRoot != null && noticeRoot.activeSelf) return true;
             if (rewardRoot != null && rewardRoot.activeSelf) return true;
             if (choiceRoot != null && choiceRoot.activeSelf) return true;
@@ -2238,9 +2560,13 @@ namespace Yoegoe.UI
             return false;
         }
 
-        /// <summary>자동 플레이용 — 팝업은 전부 그냥 받기/계속/확인으로 넘긴다(광고는 스킵).</summary>
+        /// <summary>자동 플레이용 — 팝업은 전부 그냥 받기/계속/확인으로 넘긴다(광고는 스킵).
+        /// 보물상자 QA는 내용 확인(notice)만 넘기고, 받기/광고 선택(reward)은 남긴다.</summary>
         bool TryAutoDismissPopups()
         {
+            if (autoPlayStopAtTreasureReward && rewardRoot != null && rewardRoot.activeSelf)
+                return false;
+
             if (noticeRoot != null && noticeRoot.activeSelf)
             {
                 OnNoticeOk();
@@ -2253,13 +2579,15 @@ namespace Yoegoe.UI
                 return true;
             }
 
-            if (awaitingSquareReward)
+            if (squareRewards.Awaiting)
             {
                 // 보상 선택 패널이 떠 있으면 그냥 받기.
                 if (rewardRoot != null && rewardRoot.activeSelf)
                     OnRewardPlainClicked();
+                else if (!autoPlayStopAtTreasureReward)
+                    squareRewards.GrantPlain(this);
                 else
-                    HandleSquareRewardPlain();
+                    return false;
                 return true;
             }
 
@@ -2336,10 +2664,12 @@ namespace Yoegoe.UI
             if (ally != null) score += 400;
 
             if (match.OpponentPiece.OnBoard && match.OpponentPiece.NodeId == c.DestinationNode)
-                score += 300;
+                score += autoPlayStopAtImugiCapture ? 5000 : 300;
 
             if (c.UseShortcut) score += 80;
             if (YutBoardLayout.IsSpecialReward(c.DestinationNode)) score += 40;
+            if (YutBoardLayout.GetSpecialKind(c.DestinationNode) == YutBoardLayout.SpecialSquareKind.Treasure)
+                score += autoPlayStopAtTreasureReward ? 5000 : 120;
             if (c.DestinationNode == YutBoardLayout.Start && !c.WillFinish) score += 60;
 
             return score;
@@ -2407,10 +2737,11 @@ namespace Yoegoe.UI
         void ClearBlockingUiForFinishSim()
         {
             awaitingFinishChoice = false;
-            awaitingSquareReward = false;
+            squareRewards.Clear();
             awaitingReviveChoice = false;
+            challenge.ClearBlockingFlags();
+            pendingOpponentLappedFx = false;
             pendingBonusAfterContinue = false;
-            pendingBonusAfterSquareReward = false;
             pendingOutcome = null;
             if (noticeRoot != null) noticeRoot.SetActive(false);
             if (choiceRoot != null) choiceRoot.SetActive(false);

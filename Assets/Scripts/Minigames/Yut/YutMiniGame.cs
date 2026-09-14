@@ -173,6 +173,7 @@ namespace Yoegoe.Minigames.Yut
         const float PlayLogLeft = 0.533f;
         const float PlayLogRight = 0.663f;
         Button _tokenPlusButton;
+        Text _challengeBannerText;
 
         public void BindFromHierarchy()
         {
@@ -186,6 +187,43 @@ namespace Yoegoe.Minigames.Yut
             }
 
             WireButton(_leaveButton, () => OnLeavePressed?.Invoke());
+            EnsureChallengeBanner();
+        }
+
+        /// <summary>상단(하트·기록 줄) 바로 아래 — 매 판 도전과제 문구.</summary>
+        public void SetChallengeBanner(string text)
+        {
+            EnsureChallengeBanner();
+            if (_challengeBannerText == null) return;
+            bool show = !string.IsNullOrEmpty(text);
+            _challengeBannerText.gameObject.SetActive(show);
+            if (show) _challengeBannerText.text = text;
+        }
+
+        void EnsureChallengeBanner()
+        {
+            if (_challengeBannerText != null) return;
+            var existing = transform.Find("ChallengeBanner");
+            if (existing != null)
+            {
+                _challengeBannerText = existing.GetComponent<Text>();
+                if (_challengeBannerText != null) return;
+            }
+
+            var go = new GameObject("ChallengeBanner", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            go.transform.SetParent(transform, false);
+            var rt = (RectTransform)go.transform;
+            // 하트 줄(0.9~0.97) 바로 아래.
+            SetAnchor(rt, 0.2f, 0.825f, 0.8f, 0.895f, 0, 0, 0, 0);
+            _challengeBannerText = go.GetComponent<Text>();
+            _challengeBannerText.font = font;
+            _challengeBannerText.fontSize = 22;
+            _challengeBannerText.alignment = TextAnchor.MiddleCenter;
+            _challengeBannerText.color = new Color(1f, 0.92f, 0.7f, 1f);
+            _challengeBannerText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _challengeBannerText.verticalOverflow = VerticalWrapMode.Truncate;
+            _challengeBannerText.raycastTarget = false;
+            go.SetActive(false);
         }
 
         void ForwardSwipeThrow(float power) => OnThrowPressed?.Invoke(power);
@@ -636,6 +674,24 @@ namespace Yoegoe.Minigames.Yut
             SlideIn(_opponentPiece, fromPos);
         }
 
+        /// <summary>대기(잡히거나 아직 입장 전) 이무기 — 참먹이 칸이 아니라 그 바로 아래에 둔다.</summary>
+        public void PlaceOpponentWaitingBelowStart()
+        {
+            EnsureBoard();
+            if (_pads == null || _pads.Length == 0 || _opponentPiece == null) return;
+
+            Vector3 fromPos = _opponentPiece.position;
+            var startPad = _pads[YutBoardLayout.Start].rectTransform;
+            _opponentPiece.SetParent(startPad, false);
+            // 참 패드 기준 아래쪽(음수 y 앵커) — 칸과 겹치지 않게.
+            _opponentPiece.anchorMin = new Vector2(0.15f, -1.05f);
+            _opponentPiece.anchorMax = new Vector2(0.85f, -0.35f);
+            _opponentPiece.offsetMin = Vector2.zero;
+            _opponentPiece.offsetMax = Vector2.zero;
+            _opponentPiece.localScale = Vector3.one;
+            SlideIn(_opponentPiece, fromPos);
+        }
+
         public readonly struct YokaiPieceInfo
         {
             public readonly string Id;
@@ -874,35 +930,22 @@ namespace Yoegoe.Minigames.Yut
             // 홉 연출 동안만 화면 루트로 올려 항상 위에 보이게 한다.
             RaisePiecesForHop(pieces);
 
-            bool landedOnEast = false;
             if (hopNodes != null)
             {
                 for (int n = 0; n < hopNodes.Count; n++)
                 {
                     int nodeId = hopNodes[n];
-                    Vector3 target;
-                    // 날 경우: 참먹이에 멈추지 않고 동(東) 완주 자리로 직행.
-                    if (finishing && nodeId == YutBoardLayout.Start)
-                    {
-                        target = GetFinishWorldPosition();
-                        landedOnEast = true;
-                    }
-                    else
-                    {
-                        if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null)
-                            continue;
-                        target = _pads[nodeId].rectTransform.position;
-                    }
-
-                    yield return HopPiecesTo(pieces, target);
+                    if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null)
+                        continue;
+                    // 완주여도 참먹이는 실제로 밟고, 그다음 동으로 간다(직행하지 않음).
+                    yield return HopPiecesTo(pieces, _pads[nodeId].rectTransform.position);
                 }
             }
 
             if (!finishing) yield break;
 
-            // 이미 참에 서서 바로 날아가는 경우 등 — 홉에 참이 없으면 동으로 한 번 더.
-            if (!landedOnEast)
-                yield return HopPiecesTo(pieces, GetFinishWorldPosition());
+            // 참을 들른 뒤(또는 이미 참에 서서 홉이 비어 있을 때) 동(東) 완주 자리로.
+            yield return HopPiecesTo(pieces, GetFinishWorldPosition());
 
             var images = new List<Image>(pieces.Count);
             var labels = new List<Text>(pieces.Count);
@@ -1481,6 +1524,7 @@ namespace Yoegoe.Minigames.Yut
 
             BindOrCreateHearts();
             EnsureTokenPlusButton();
+            EnsureChallengeBanner();
             if (!TryBindPads())
                 CreatePads();
             BindOrCreateOpponentPiece();
@@ -1806,6 +1850,163 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
+        /// <summary>이무기 한 바퀴 시 특수 칸 재배치 연출 — from→to 한 쌍.</summary>
+        public readonly struct SpecialSquareFlight
+        {
+            public readonly int FromNode;
+            public readonly int ToNode;
+            public readonly Sprite Icon;
+
+            public SpecialSquareFlight(int fromNode, int toNode, Sprite icon)
+            {
+                FromNode = fromNode;
+                ToNode = toNode;
+                Icon = icon;
+            }
+        }
+
+        /// <summary>보드를 미세하게 흔든 뒤, 기존 보상 아이콘이 새 칸으로 슝 날아간다.
+        /// 연출 중에는 from 칸 아이콘을 숨기고, 끝나면 호출부가 RefreshSpecialSquareVisuals로
+        /// 최종 배치를 입힌다.</summary>
+        public IEnumerator PlaySpecialSquaresReshuffleAnim(IReadOnlyList<SpecialSquareFlight> flights)
+        {
+            EnsureBoard();
+            if (_boardRoot == null) yield break;
+
+            yield return ShakeBoardRoutine(0.32f);
+
+            if (flights == null || flights.Count == 0) yield break;
+
+            var flyRoot = new GameObject("SpecialSquareFlights", typeof(RectTransform));
+            flyRoot.transform.SetParent(transform, false);
+            var flyRootRt = (RectTransform)flyRoot.transform;
+            flyRootRt.anchorMin = Vector2.zero;
+            flyRootRt.anchorMax = Vector2.one;
+            flyRootRt.offsetMin = Vector2.zero;
+            flyRootRt.offsetMax = Vector2.zero;
+            flyRoot.transform.SetAsLastSibling();
+
+            var flyers = new List<(RectTransform rt, Vector3 from, Vector3 to, Image img)>(flights.Count);
+            for (int i = 0; i < flights.Count; i++)
+            {
+                var f = flights[i];
+                SetSpecialSquareIcon(f.FromNode, null);
+                if (_pads != null && f.FromNode >= 0 && f.FromNode < _pads.Length)
+                    RecolorPadAsNormal(_pads[f.FromNode], f.FromNode);
+
+                if (f.Icon == null) continue;
+                Vector3 fromPos = PadWorldCenter(f.FromNode);
+                Vector3 toPos = PadWorldCenter(f.ToNode);
+                float size = PadPixelSize(f.FromNode);
+
+                var go = new GameObject($"Fly_{f.FromNode}_{f.ToNode}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(flyRoot.transform, false);
+                var rt = (RectTransform)go.transform;
+                rt.sizeDelta = new Vector2(size, size);
+                rt.position = fromPos;
+                var img = go.GetComponent<Image>();
+                img.sprite = f.Icon;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+                img.color = Color.white;
+                flyers.Add((rt, fromPos, toPos, img));
+            }
+
+            const float flyDuration = 0.48f;
+            float t = 0f;
+            while (t < flyDuration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / flyDuration);
+                // 초반에 튕기듯 가속했다가 착지 — 슝 느낌.
+                float eased = u * u * (3f - 2f * u);
+                float lift = Mathf.Sin(u * Mathf.PI) * 36f;
+                for (int i = 0; i < flyers.Count; i++)
+                {
+                    var f = flyers[i];
+                    if (f.rt == null) continue;
+                    Vector3 p = Vector3.Lerp(f.from, f.to, eased);
+                    p.y += lift;
+                    f.rt.position = p;
+                    // 살짝 축소했다가 착지 때 복귀.
+                    float scale = 1f + 0.18f * Mathf.Sin(u * Mathf.PI);
+                    f.rt.localScale = new Vector3(scale, scale, 1f);
+                    if (f.img != null)
+                    {
+                        var c = f.img.color;
+                        c.a = u < 0.85f ? 1f : Mathf.Lerp(1f, 0.35f, (u - 0.85f) / 0.15f);
+                        f.img.color = c;
+                    }
+                }
+                yield return null;
+            }
+
+            Destroy(flyRoot);
+        }
+
+        /// <summary>윷판 스트레치 앵커에서는 px 고정 흔들림이 거의 안 보이므로,
+        /// 보드 크기 비율 + 미세 회전으로 짧은 진동감을 낸다.</summary>
+        IEnumerator ShakeBoardRoutine(float duration)
+        {
+            if (_boardRoot == null) yield break;
+
+            Vector2 restPos = _boardRoot.anchoredPosition;
+            Quaternion restRot = _boardRoot.localRotation;
+            float size = Mathf.Min(_boardRoot.rect.width, _boardRoot.rect.height);
+            if (size < 1f) size = 400f;
+            float amp = size * 0.012f; // 약 1.2% — 진동 느낌
+            const float rotAmp = 0.9f; // 도
+            const float freq = 28f; // Hz에 가까운 빠른 떨림
+
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                float damp = 1f - u;
+                damp = Mathf.Sqrt(damp);
+                // 랜덤 점프 대신 sin 기반 진동 + 아주 약한 노이즈.
+                float wave = Mathf.Sin(t * freq * Mathf.PI * 2f);
+                float noiseX = (UnityEngine.Random.value * 2f - 1f) * 0.25f;
+                float noiseY = (UnityEngine.Random.value * 2f - 1f) * 0.25f;
+                float ax = (wave + noiseX) * amp * damp;
+                float ay = (Mathf.Cos(t * freq * Mathf.PI * 2f) + noiseY) * amp * damp * 0.85f;
+                float rz = wave * rotAmp * damp;
+                _boardRoot.anchoredPosition = restPos + new Vector2(ax, ay);
+                _boardRoot.localRotation = Quaternion.Euler(0f, 0f, rz);
+                yield return null;
+            }
+
+            _boardRoot.anchoredPosition = restPos;
+            _boardRoot.localRotation = restRot;
+        }
+
+        Vector3 PadWorldCenter(int nodeId)
+        {
+            if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null)
+                return Vector3.zero;
+            return _pads[nodeId].rectTransform.position;
+        }
+
+        float PadPixelSize(int nodeId)
+        {
+            if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null)
+                return 36f;
+            var rt = _pads[nodeId].rectTransform;
+            float w = rt.rect.width * Mathf.Abs(rt.lossyScale.x);
+            float h = rt.rect.height * Mathf.Abs(rt.lossyScale.y);
+            float m = Mathf.Min(w, h);
+            return m > 1f ? m * 0.78f : 36f;
+        }
+
+        static void RecolorPadAsNormal(Image pad, int nodeId)
+        {
+            if (pad == null) return;
+            pad.color = IsWaypoint(nodeId)
+                ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
+                : new Color(0.35f, 0.32f, 0.28f, 0.9f);
+        }
+
         void SetSpecialSquareIcon(int nodeId, Sprite icon)
         {
             if (_pads == null || nodeId < 0 || nodeId >= _pads.Length || _pads[nodeId] == null) return;
@@ -2030,6 +2231,68 @@ namespace Yoegoe.Minigames.Yut
             if (_purifiedWaterIcon == null)
                 _purifiedWaterIcon = Resources.Load<Sprite>("UI/Currency/PurifiedWater");
             return _purifiedWaterIcon;
+        }
+
+        /// <summary>특수 칸에서 얻은 아이콘이 동(東) 보상란으로 슝 날아간다.</summary>
+        public IEnumerator PlayCollectRewardFly(int fromNodeId, Sprite icon)
+        {
+            EnsureBoard();
+            var east = GetQuadrant(YutBoardQuadrant.East);
+            EnsureCollectedItemsRoot(east);
+            if (_collectedItemsRoot == null) yield break;
+
+            Vector3 fromPos = PadWorldCenter(fromNodeId);
+            Vector3 toPos = ((RectTransform)_collectedItemsRoot).position;
+            float size = PadPixelSize(fromNodeId);
+
+            var flyRoot = new GameObject("CollectRewardFly", typeof(RectTransform));
+            flyRoot.transform.SetParent(transform, false);
+            var flyRootRt = (RectTransform)flyRoot.transform;
+            flyRootRt.anchorMin = Vector2.zero;
+            flyRootRt.anchorMax = Vector2.one;
+            flyRootRt.offsetMin = Vector2.zero;
+            flyRootRt.offsetMax = Vector2.zero;
+            flyRoot.transform.SetAsLastSibling();
+
+            var go = new GameObject("FlyIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(flyRoot.transform, false);
+            var rt = (RectTransform)go.transform;
+            rt.sizeDelta = new Vector2(size, size);
+            rt.position = fromPos;
+            var img = go.GetComponent<Image>();
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+            if (icon != null)
+            {
+                img.sprite = icon;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.sprite = null;
+                img.color = new Color(0.85f, 0.75f, 0.45f, 0.95f);
+            }
+
+            const float duration = 0.42f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                float eased = u * u * (3f - 2f * u);
+                float lift = Mathf.Sin(u * Mathf.PI) * 48f;
+                Vector3 p = Vector3.Lerp(fromPos, toPos, eased);
+                p.y += lift;
+                rt.position = p;
+                float scale = Mathf.Lerp(1.05f, 0.72f, eased);
+                rt.localScale = new Vector3(scale, scale, 1f);
+                var c = img.color;
+                c.a = u < 0.8f ? 1f : Mathf.Lerp(1f, 0.2f, (u - 0.8f) / 0.2f);
+                img.color = c;
+                yield return null;
+            }
+
+            Destroy(flyRoot);
         }
 
         /// <summary>동(東) 구역 — 이번 매치에서 특수 칸으로 모은 것들(공양물·정화수·엽전)을

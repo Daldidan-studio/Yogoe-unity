@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Yoegoe.Data;
 
@@ -22,7 +23,7 @@ namespace Yoegoe.Minigames.Yut
     }
 
     /// <summary>
-    /// 윷놀이 보상 수치·판정. 지급(GameEconomy)·팝업은 YutScreen 책임.
+    /// 윷놀이 보상 수치·판정·뽑기. 지급(GameEconomy)·팝업은 Presenter/Screen 책임.
     /// </summary>
     public static class YutRewards
     {
@@ -40,6 +41,13 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>보물상자 윷 토큰 보상은 평소 상한(5)을 넘길 수 있되 이 값까지만.</summary>
         public const int YutTokenHardCap = 7;
 
+        /// <summary>매 판 도전과제 — 완료 시 보물상자 개수(한 번에 개봉, 광고 2배 없음).</summary>
+        public const int ChallengeChestCount = 3;
+        /// <summary>연속 모/빽도 과제에 필요한 연속 횟수.</summary>
+        public const int ChallengeConsecutiveNeeded = 2;
+        /// <summary>미잡힘 전원 완주 과제에 필요한 최소 말 수(“넷 다”).</summary>
+        public const int ChallengeFinishAllPieceCount = 4;
+
         public static int FinishPurifiedWaterAmount(int finishStackCount) =>
             FinishPurifiedWaterPerPiece * Mathf.Max(1, finishStackCount);
 
@@ -54,6 +62,46 @@ namespace Yoegoe.Minigames.Yut
             if (roll < 0.6f) return 3;
             if (roll < 0.85f) return 4;
             return 5;
+        }
+
+        /// <summary>보물상자 — 향/공양물/광고보상권/엽전/윷토큰 중 하나를 균등 확률로 뽑는다.</summary>
+        public static YutSquareReward RollTreasure(IReadOnlyList<OfferingData> offeringPool)
+        {
+            int pick = UnityEngine.Random.Range(0, 5);
+            switch (pick)
+            {
+                case 0:
+                    return new YutSquareReward(YutSquareRewardKind.Hyang, null, 1);
+                case 1:
+                    var offering = offeringPool != null && offeringPool.Count > 0
+                        ? offeringPool[UnityEngine.Random.Range(0, offeringPool.Count)]
+                        : null;
+                    return new YutSquareReward(YutSquareRewardKind.Offering, offering, 1);
+                case 2:
+                    return new YutSquareReward(YutSquareRewardKind.AdTicket, null, 1);
+                case 3:
+                    return new YutSquareReward(YutSquareRewardKind.Yeopjeon, null, 1);
+                default:
+                    return new YutSquareReward(YutSquareRewardKind.YutToken, null, RollTreasureYutTokenAmount());
+            }
+        }
+
+        /// <summary>지급 전 미리보기용 문구(배율 1 기준).</summary>
+        public static string DescribeSquareReward(YutSquareReward reward)
+        {
+            int amount = reward.Amount;
+            switch (reward.Kind)
+            {
+                case YutSquareRewardKind.Yeopjeon: return $"엽전 {amount}개";
+                case YutSquareRewardKind.PurifiedWater: return $"정화수 {amount}개";
+                case YutSquareRewardKind.Hyang: return $"향 {amount}개";
+                case YutSquareRewardKind.AdTicket: return $"광고보상권 {amount}개";
+                case YutSquareRewardKind.YutToken: return $"윷 토큰 {amount}개";
+                case YutSquareRewardKind.Offering:
+                    string name = reward.Offering != null ? reward.Offering.displayName : "공양물";
+                    return $"{name} {amount}개";
+                default: return "보상";
+            }
         }
     }
 }

@@ -40,6 +40,12 @@ namespace Yoegoe.Save
         /// <summary>공양물 칸마다 무슨 공양물이 배정됐는지(offeringId) — 위와 같은 이유로 병렬 배열.</summary>
         public int[] specialOfferingNodeIds = Array.Empty<int>();
         public string[] specialOfferingIds = Array.Empty<string>();
+
+        /// <summary>매 판 도전과제. kind &lt; 0 이면 구세이브(과제 없음).</summary>
+        public int challengeKind = -1;
+        public bool challengeCompleted;
+        public bool challengeFailed;
+        public int challengeStreak;
     }
 
     [Serializable]

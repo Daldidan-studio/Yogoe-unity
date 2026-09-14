@@ -310,7 +310,8 @@ namespace Yoegoe.Minigames.Yut
                 bool capturedByEntry = opponentPiece.OnBoard && opponentPiece.NodeId == dest;
                 if (capturedByEntry)
                 {
-                    opponentPiece.NodeId = YutBoardLayout.Start; // 잡히면 시작지점(참)으로
+                    // 잡히면 참먹이 칸이 아니라 대기(UI는 참 바로 아래). 참에 두면 다음 수가 한 바퀴로 오인된다.
+                    opponentPiece.NodeId = -1;
                     opponentPiece.History.Clear();
                     OnOpponentCaptured?.Invoke();
                 }
@@ -361,7 +362,8 @@ namespace Yoegoe.Minigames.Yut
             bool captured = opponentPiece.OnBoard && opponentPiece.NodeId == dest2;
             if (captured)
             {
-                opponentPiece.NodeId = YutBoardLayout.Start; // 잡히면 시작지점(참)으로
+                // 잡히면 참먹이 칸이 아니라 대기(UI는 참 바로 아래). 참에 두면 다음 수가 한 바퀴로 오인된다.
+                opponentPiece.NodeId = -1;
                 opponentPiece.History.Clear();
                 OnOpponentCaptured?.Invoke();
             }
