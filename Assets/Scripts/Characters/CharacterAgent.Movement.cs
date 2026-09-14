@@ -7,7 +7,7 @@ namespace Yoegoe.Characters
     // 이동 상태머신 본체: Walking → Staying(생산) → [기력 0] Slumped → [12시간] Fainted, Playing(놀기).
     public partial class CharacterAgent
     {
-        private const float PlayDurationSeconds = 5f * 60f; // 6-2 놀기
+        private const float PlayDurationSeconds = 1f * 60f; // 6-2 놀기
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
         private const float WanderRetrySeconds = 30f;
         private const float SeparationRadius = 0.55f;

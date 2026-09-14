@@ -16,7 +16,7 @@ namespace Yoegoe.Save
 
         private const float StaminaDrainPerSecond = 1f / 20f; // 기획: 20초당 1
         private const float FaintThresholdSeconds = 12f * 60f * 60f;
-        private const float PlayDurationSeconds = 5f * 60f;
+        private const float PlayDurationSeconds = 1f * 60f;
 
         public struct Result
         {

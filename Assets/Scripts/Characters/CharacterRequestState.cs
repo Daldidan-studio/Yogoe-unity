@@ -9,7 +9,7 @@ namespace Yoegoe.Characters
     public class CharacterRequestState
     {
         public const float OfferingDurationSeconds = 60f;
-        public const float OfferingCooldownSeconds = 5f * 60f;
+        public const float OfferingCooldownSeconds = 1f * 60f;
         public const float PropDurationSeconds = 30f;
         /// <summary>요구 기물에 올려둔 뒤, 이 시간 이상 머물러야 완료(즉시 빼기 악용 방지).</summary>
         public const float PropFulfillSitSeconds = 3f;
