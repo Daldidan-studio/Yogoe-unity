@@ -39,9 +39,20 @@ namespace Yoegoe.Characters
         /// <summary>플레이어가 드래그 중이면 AI 틱을 멈춘다.</summary>
         public bool IsBeingDragged { get; private set; }
 
-        /// <summary>넋·기절은 드래그 불가 (6-2).</summary>
+        /// <summary>
+        /// 윷 복귀 만세 연출 등 — true면 걷기/머물기/놀기 틱(생산·기력)을 멈춘다.
+        /// 상태는 유지한 채 타이머만 정지.
+        /// </summary>
+        public bool BehaviorPaused { get; private set; }
+
+        /// <summary>넋·기절·행동 일시정지는 드래그 불가.</summary>
         public bool CanBeDraggedByPlayer =>
-            Stats.Stage != GrowthStage.Neok && Stats.State != ActionState.Fainted;
+            !BehaviorPaused
+            && Stats.Stage != GrowthStage.Neok
+            && Stats.State != ActionState.Fainted;
+
+        /// <summary>머물기/걷기 등 AI 틱 일시정지·재개.</summary>
+        public void SetBehaviorPaused(bool paused) => BehaviorPaused = paused;
 
         /// <summary>소환·세이브 복원이 Start 기본 스탯을 덮어쓰지 않게 막는다.</summary>
         private bool statsAppliedExternally;
@@ -153,6 +164,12 @@ namespace Yoegoe.Characters
                 return;
             }
 
+            if (BehaviorPaused)
+            {
+                UpdateSortingOrder();
+                return;
+            }
+
             if (isRefusing)
             {
                 TickRefuse(dt);
@@ -195,6 +212,7 @@ namespace Yoegoe.Characters
         private void CatchUpWallClock(float remaining)
         {
             if (Stats.Stage == GrowthStage.Neok) return;
+            if (BehaviorPaused) return;
 
             int guard = 0;
             while (remaining > 0.0001f && guard++ < 256)

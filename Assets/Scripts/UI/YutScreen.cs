@@ -137,6 +137,9 @@ namespace Yoegoe.UI
         int matchAdTicketTotal;
         int matchYutTokenTotal;
 
+        /// <summary>맵 만세 연출에 아직 안 쓴 획득분(재화는 이미 지급됨). Close 때 Presenter로 넘기고 비운다.</summary>
+        readonly List<PostYutLootEntry> unpresentedLoot = new List<PostYutLootEntry>();
+
         Action pendingNoticeAction;
         Action pendingChoiceContinue;
         Action pendingChoiceStop;
@@ -177,6 +180,10 @@ namespace Yoegoe.UI
         public void Open()
         {
             EnsureBuilt();
+
+            // 맵 만세 연출·수거 후 공양 요구 타이머가 남아 있으면 취소.
+            if (PostYutLootPresenter.Instance != null)
+                PostYutLootPresenter.Instance.ForceComplete(skipOfferingRequest: true);
 
             // 나갔다 왔거나(Close) 앱을 껐다 켜서(ApplyFromSave) 이어할 매치가 이미 있으면
             // 토큰을 새로 안 쓰고 그대로 이어서 보여준다.
@@ -329,6 +336,86 @@ namespace Yoegoe.UI
             if (miniGame != null) miniGame.Hide();
             if (root != null) root.SetActive(false);
             GameSaveBridge.SaveFromWorld();
+            TryPresentPostYutLoot();
+        }
+
+        /// <summary>Close 직후 — 미연출 획득이 있으면 팀 캐릭터 만세·수거 연출.</summary>
+        void TryPresentPostYutLoot()
+        {
+            if (unpresentedLoot.Count == 0) return;
+
+            var loot = new List<PostYutLootEntry>(unpresentedLoot);
+            unpresentedLoot.Clear();
+
+            var team = new List<CharacterAgent>();
+            foreach (var kv in teamById)
+            {
+                if (kv.Value != null) team.Add(kv.Value);
+            }
+            if (team.Count == 0)
+            {
+                // 세이브 복원만 된 경우 teamById가 비어 있을 수 있음 — 맵의 혼으로 대체
+                for (int i = 0; i < CharacterAgent.All.Count; i++)
+                {
+                    var a = CharacterAgent.All[i];
+                    if (a != null && a.Stats != null && a.Stats.Stage == GrowthStage.Hon)
+                        team.Add(a);
+                }
+            }
+            if (team.Count == 0) return;
+
+            PostYutLootPresenter.Ensure().Begin(team, loot);
+        }
+
+        void TrackUnpresentedLoot(YutSquareRewardKind kind, OfferingData offering, int amount)
+        {
+            if (amount <= 0) return;
+
+            Sprite icon = null;
+            string label;
+            switch (kind)
+            {
+                case YutSquareRewardKind.Yeopjeon:
+                    icon = YutMiniGame.YeopjeonIcon();
+                    label = "엽전";
+                    break;
+                case YutSquareRewardKind.PurifiedWater:
+                    icon = YutMiniGame.PurifiedWaterIcon();
+                    label = "정화수";
+                    break;
+                case YutSquareRewardKind.Hyang:
+                    label = "향";
+                    break;
+                case YutSquareRewardKind.AdTicket:
+                    label = "광고보상권";
+                    break;
+                case YutSquareRewardKind.YutToken:
+                    label = "윷 토큰";
+                    break;
+                case YutSquareRewardKind.Offering:
+                    if (offering == null) return;
+                    icon = offering.icon;
+                    label = !string.IsNullOrEmpty(offering.displayName) ? offering.displayName : "공양물";
+                    break;
+                default:
+                    return;
+            }
+
+            for (int i = 0; i < unpresentedLoot.Count; i++)
+            {
+                var e = unpresentedLoot[i];
+                bool sameOffering = kind != YutSquareRewardKind.Offering
+                    || ReferenceEquals(e.Offering, offering)
+                    || (e.Offering != null && offering != null
+                        && string.Equals(e.Offering.offeringId, offering.offeringId, StringComparison.OrdinalIgnoreCase));
+                if (e.Kind == kind && sameOffering)
+                {
+                    unpresentedLoot[i] = new PostYutLootEntry(kind, e.Offering ?? offering, e.Amount + amount, e.Icon ?? icon, e.Label);
+                    return;
+                }
+            }
+
+            unpresentedLoot.Add(new PostYutLootEntry(kind, offering, amount, icon, label));
         }
 
         /// <summary>세이브용 스냅샷 — 진행 중(승패 안 난) 매치가 없으면 null. 특수 칸 배치도 같이
@@ -1568,6 +1655,8 @@ namespace Yoegoe.UI
         {
             int water = pendingFinishPurifiedWater * multiplier;
             GameEconomy.Instance.AddPurifiedWater(water);
+            matchPurifiedWaterTotal += water;
+            TrackUnpresentedLoot(YutSquareRewardKind.PurifiedWater, null, water);
 
             string message = pendingFinishStack > 1
                 ? $"완주! {pendingFinishStack}마리 업고 ×{pendingFinishStack}\n정화수 {water}개 획득"
@@ -1609,21 +1698,25 @@ namespace Yoegoe.UI
                 case YutSquareRewardKind.Yeopjeon:
                     GameEconomy.Instance.AddYeopjeon(amount);
                     matchYeopjeonTotal += amount;
+                    TrackUnpresentedLoot(YutSquareRewardKind.Yeopjeon, null, amount);
                     miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
                     return $"엽전 {amount}개";
                 case YutSquareRewardKind.PurifiedWater:
                     GameEconomy.Instance.AddPurifiedWater(amount);
                     matchPurifiedWaterTotal += amount;
+                    TrackUnpresentedLoot(YutSquareRewardKind.PurifiedWater, null, amount);
                     miniGame.AddPlayLogEntry($"정화수 {amount}개 획득.");
                     return $"정화수 {amount}개";
                 case YutSquareRewardKind.Hyang:
                     GameEconomy.Instance.AddHyang(amount);
                     matchHyangTotal += amount;
+                    TrackUnpresentedLoot(YutSquareRewardKind.Hyang, null, amount);
                     miniGame.AddPlayLogEntry($"향 {amount}개 획득.");
                     return $"향 {amount}개";
                 case YutSquareRewardKind.AdTicket:
                     GiftBundle.AddAdTickets(amount);
                     matchAdTicketTotal += amount;
+                    TrackUnpresentedLoot(YutSquareRewardKind.AdTicket, null, amount);
                     miniGame.AddPlayLogEntry($"광고보상권 {amount}개 획득.");
                     return $"광고보상권 {amount}개";
                 case YutSquareRewardKind.Offering:
@@ -1631,11 +1724,13 @@ namespace Yoegoe.UI
                     GameEconomy.Instance.AddOffering(reward.Offering, amount);
                     matchOfferingCounts.TryGetValue(reward.Offering, out int cur);
                     matchOfferingCounts[reward.Offering] = cur + amount;
+                    TrackUnpresentedLoot(YutSquareRewardKind.Offering, reward.Offering, amount);
                     miniGame.AddPlayLogEntry($"{reward.Offering.displayName} {amount}개 획득.");
                     return $"{reward.Offering.displayName} {amount}개";
                 case YutSquareRewardKind.YutToken:
                     GameEconomy.Instance.AddYutTokenOverflow(amount, YutRewards.YutTokenHardCap);
                     matchYutTokenTotal += amount;
+                    TrackUnpresentedLoot(YutSquareRewardKind.YutToken, null, amount);
                     miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
                     return $"윷 토큰 {amount}개";
                 default:

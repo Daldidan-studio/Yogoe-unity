@@ -125,7 +125,7 @@ namespace Yoegoe.Characters
             HideMonologueIfAny();
         }
 
-        /// <summary>머물기에서 놀기로 일어남 → 기물 요구(엔딩 제외 빈 기물). 머물기 중엔 띄우지 않음.</summary>
+        /// <summary>머물기에서 놀기로 일어남 → 기물 요구(엔딩 제외, 미건립 자물쇠 포함). 머물기 중엔 띄우지 않음.</summary>
         public void TryStartPropRequest()
         {
             if (owner == null || owner.Stats.Stage != GrowthStage.Hon) return;
@@ -141,9 +141,14 @@ namespace Yoegoe.Characters
             for (int i = 0; i < all.Count; i++)
             {
                 var p = all[i];
-                if (p == null || !p.IsBuilt || p.IsOccupied || p.IsReserved) continue;
+                if (p == null) continue;
                 if (p.data != null && p.data.isEndingProp) continue;
-                if (!p.CanBeUsedBy(owner)) continue;
+                // 미건립(자물쇠)도 요구 후보. 건립된 기물만 점유·이용 가능 여부를 본다.
+                if (p.IsBuilt)
+                {
+                    if (p.IsOccupied || p.IsReserved) continue;
+                    if (!p.CanBeUsedBy(owner)) continue;
+                }
                 candidates.Add(p);
             }
             if (candidates.Count == 0) return;

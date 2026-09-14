@@ -386,6 +386,14 @@ namespace Yoegoe.Characters
         {
             if (agent == null) return;
 
+            // 윷 복귀 만세·들고 있는 아이템: 탭하면 수거 연출(상세/혼잣말 없음)
+            if (PostYutLootPresenter.Instance != null
+                && PostYutLootPresenter.Instance.TryHandleCharacterTap(agent))
+            {
+                CancelPendingMonologueTap();
+                return;
+            }
+
             // 더블탭은 기물 요구 중에도 상세
             if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
             {

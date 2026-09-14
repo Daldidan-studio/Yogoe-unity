@@ -7,6 +7,7 @@ using Yoegoe.Characters;
 using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
+using Yoegoe.Minigames.Yut;
 using Yoegoe.Save;
 
 namespace Yoegoe.UI
@@ -193,6 +194,40 @@ namespace Yoegoe.UI
         {
             if (hudCanvas == null || meritTextRt == null) return;
             MeritCollectFx.PlayFromWorld(hudCanvas, worldPos, meritTextRt);
+        }
+
+        /// <summary>윷 복귀 아이템 비행 목표(월드). 공양물·광고권은 공덕 칩, 없으면 상단 중앙.</summary>
+        public Vector3 GetLootFlyTargetWorld(YutSquareRewardKind kind, Camera worldCam = null)
+        {
+            RectTransform rt = kind switch
+            {
+                YutSquareRewardKind.Yeopjeon => ChipRt(yeopjeonText),
+                YutSquareRewardKind.Hyang => ChipRt(hyangText),
+                YutSquareRewardKind.PurifiedWater => ChipRt(purifiedWaterText),
+                YutSquareRewardKind.YutToken => ChipRt(yutTokenText),
+                _ => meritTextRt != null ? meritTextRt : ChipRt(yeopjeonText),
+            };
+            return UiChipToWorld(rt, worldCam);
+        }
+
+        static RectTransform ChipRt(Text text) =>
+            text != null ? text.rectTransform : null;
+
+        static Vector3 UiChipToWorld(RectTransform ui, Camera worldCam)
+        {
+            if (worldCam == null) worldCam = Camera.main;
+            if (ui == null || worldCam == null) return Vector3.zero;
+
+            Canvas canvas = ui.GetComponentInParent<Canvas>();
+            Camera uiCam = null;
+            if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                uiCam = canvas.worldCamera;
+
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(uiCam, ui.TransformPoint(ui.rect.center));
+            float z = Mathf.Abs(worldCam.transform.position.z);
+            Vector3 w = worldCam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, z));
+            w.z = 0f;
+            return w;
         }
 
         private void Update()
