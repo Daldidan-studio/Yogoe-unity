@@ -1817,7 +1817,8 @@ namespace Yoegoe.UI
             };
         }
 
-        /// <summary>매치 종료(완주) — 보상은 이번 골인 스택 수 배율. 4마리 동시 완주만 광고 2배 선택.</summary>
+        /// <summary>매치 종료(완주) — 보상은 이번 판에서 완주한 말 전체 수 기준. 4마리를 한 번에
+        /// 업고 동시 완주했을 때만 광고 2배 선택.</summary>
         void HandleMatchEnded(int finishStackCount)
         {
             // 이후 나가기(Close)에서 머리 위 만세 연출을 허용하고, 쌓아 둔 재화를 경제에 넣는다.
@@ -1828,17 +1829,21 @@ namespace Yoegoe.UI
             miniGame.SetThrowVisible(false);
             miniGame.ClearCandidates();
 
-            if (challenge.State != null && match != null)
+            int totalFinished = 0;
+            if (match != null)
             {
-                int finished = 0;
                 for (int i = 0; i < match.PlayerPieces.Count; i++)
-                    if (match.PlayerPieces[i].Finished) finished++;
-                challenge.TryMarkAllFinishedComplete(match.PlayerPieces.Count, finished, this);
+                    if (match.PlayerPieces[i].Finished) totalFinished++;
             }
+
+            if (challenge.State != null && match != null)
+                challenge.TryMarkAllFinishedComplete(match.PlayerPieces.Count, totalFinished, this);
 
             int stack = Mathf.Max(1, finishStackCount);
             pendingFinishStack = stack;
-            pendingFinishPurifiedWater = YutRewards.FinishPurifiedWaterAmount(stack);
+            // 보상은 이번 골인 스택이 아니라 이번 판에서 완주한 말 전체 수 기준 — 말들이 따로
+            // 골인해서 "계속하기"를 거쳤어도 먼저 들어온 말의 몫이 누락되지 않도록 한다.
+            pendingFinishPurifiedWater = YutRewards.FinishPurifiedWaterAmount(totalFinished);
 
             // 가진 말을 FinishAdBonusStackCount마리 전부 업고 한 번에 완주할 때만 광고 2배 선택.
             if (YutRewards.OffersFinishAdBonus(stack))
