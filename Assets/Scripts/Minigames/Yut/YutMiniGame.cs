@@ -53,6 +53,8 @@ namespace Yoegoe.Minigames.Yut
         RectTransform[] _quadrants; // YutBoardQuadrant 순서대로
         readonly List<GameObject> _candidateMarkers = new();
         readonly List<(RectTransform rect, string pieceId, bool useShortcut, string[] stackMemberIds)> _candidateHits = new();
+        /// <summary>후보 표시 중 "이미 그 칸에 있는 실제 말"을 옆으로 비켜 놓은 칸 — ClearCandidates에서 원위치.</summary>
+        readonly List<int> _shiftedOccupantNodes = new();
         GameObject _miniThrowContainer;
         Image[] _miniThrowSticks;
 
@@ -892,19 +894,35 @@ namespace Yoegoe.Minigames.Yut
                 piece.pivot = new Vector2(0.5f, 0.5f);
                 piece.sizeDelta = pieceSize;
 
-                if (count <= 1)
-                {
-                    piece.anchoredPosition = Vector2.zero;
-                }
-                else
-                {
-                    float spreadStep = pieceSize.x * stackedPieceSpread; // 서로 살짝 겹치도록 한 칸보다 좁게
-                    float centerOffset = (i - (count - 1) / 2f) * spreadStep;
-                    piece.anchoredPosition = new Vector2(centerOffset, 0f);
-                }
+                piece.anchoredPosition = SpreadOffset(i, count, pieceSize.x, stackedPieceSpread);
 
                 SlideIn(piece, fromPos);
             }
+        }
+
+        /// <summary>한 칸 안에서 나란히 늘어놓을 때 index번째 말의 중심 기준 오프셋(가로).</summary>
+        static Vector2 SpreadOffset(int index, int total, float pieceWidth, float spread)
+        {
+            if (total <= 1) return Vector2.zero;
+            float step = pieceWidth * spread; // 서로 살짝 겹치도록 한 칸보다 좁게
+            return new Vector2((index - (total - 1) / 2f) * step, 0f);
+        }
+
+        /// <summary>지금 실제로 그 칸(nodeId)에 있는 말들의 RectTransform — 후보 미리보기가 겹쳐서
+        /// 가리지 않게 옆으로 비켜 놓을 때 쓴다. excludeIds에 든 id(그 후보 자신)는 제외.</summary>
+        List<RectTransform> RealOccupantsAtNode(int nodeId, string[] excludeIds)
+        {
+            var result = new List<RectTransform>();
+            if (_lastYokaiPieces == null) return result;
+            for (int i = 0; i < _lastYokaiPieces.Count; i++)
+            {
+                var info = _lastYokaiPieces[i];
+                if (info.NodeId != nodeId) continue;
+                if (excludeIds != null && System.Array.IndexOf(excludeIds, info.Id) >= 0) continue;
+                if (_yokaiPieces.TryGetValue(info.Id, out var rt) && rt != null)
+                    result.Add(rt);
+            }
+            return result;
         }
 
         static void SetPieceDragEnabled(RectTransform piece, bool on)
@@ -1240,6 +1258,29 @@ namespace Yoegoe.Minigames.Yut
             _candidateMarkers.Clear();
             _candidateHits.Clear();
             ClearPadHighlights();
+            RestoreShiftedOccupants();
+        }
+
+        /// <summary>후보 미리보기 때문에 옆으로 비켜 놓았던 실제 말들을 원래 자리(칸 중앙/정상 스택)로 되돌린다.</summary>
+        void RestoreShiftedOccupants()
+        {
+            if (_shiftedOccupantNodes.Count == 0) return;
+            bool prevSuppress = _suppressPieceSlide;
+            _suppressPieceSlide = true;
+            try
+            {
+                foreach (var nodeId in _shiftedOccupantNodes)
+                {
+                    var occupants = RealOccupantsAtNode(nodeId, null);
+                    if (occupants.Count > 0)
+                        PlaceGroupOnNode(occupants, nodeId);
+                }
+            }
+            finally
+            {
+                _suppressPieceSlide = prevSuppress;
+            }
+            _shiftedOccupantNodes.Clear();
         }
 
         readonly Dictionary<int, Color> _highlightedPadOriginals = new();
@@ -1353,7 +1394,28 @@ namespace Yoegoe.Minigames.Yut
             var hitImg = go.GetComponent<Image>();
             hitImg.color = new Color(1f, 1f, 1f, 0.01f); // 투명에 가깝지만 Button 레이캐스트용
             var padSize = _pads[nodeId].rectTransform.rect.size;
-            FillCandidateStackVisuals(rt, candidate, new Vector2(padSize.x * 0.9f, padSize.y * 0.9f));
+            var stackArea = new Vector2(padSize.x * 0.9f, padSize.y * 0.9f);
+
+            // 그 칸에 이미 실제로 있는 말이 있으면 후보 미리보기가 겹쳐서 가리지 않도록,
+            // 업은 것처럼 옆으로 나란히 배치한다 — 실제 말은 안 깜빡이고(PulseScale 대상 아님),
+            // 후보(이 rt)만 깜빡여서 "여기로 갈 수 있다"를 구분한다.
+            var occupants = RealOccupantsAtNode(nodeId, candidate.StackMemberIds);
+            int candidateCount = candidate.StackMemberIds != null && candidate.StackMemberIds.Length > 0
+                ? candidate.StackMemberIds.Length : 1;
+            if (occupants.Count > 0)
+            {
+                int total = occupants.Count + candidateCount;
+                float fill = Mathf.Max(0.01f, boardPieceFill);
+                float pieceWidth = stackArea.x * fill;
+                for (int i = 0; i < occupants.Count; i++)
+                    occupants[i].anchoredPosition = SpreadOffset(i, total, pieceWidth, stackedPieceSpread);
+                if (!_shiftedOccupantNodes.Contains(nodeId)) _shiftedOccupantNodes.Add(nodeId);
+                FillCandidateStackVisuals(rt, candidate, stackArea, occupants.Count, total);
+            }
+            else
+            {
+                FillCandidateStackVisuals(rt, candidate, stackArea);
+            }
             WireCandidateButton(go, hitImg, candidate.Id, candidate.UseShortcut, candidate.StackMemberIds);
             StartCoroutine(PulseScale(rt));
             return go;
@@ -1451,12 +1513,16 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>후보 마커 안에 스택 멤버 초상을 가로로 나란히 깐다(보드 말 PlaceGroupOnNode와 같은 간격 감각).</summary>
-        void FillCandidateStackVisuals(RectTransform parent, YokaiMoveCandidate candidate, Vector2 areaSize)
+        /// <summary>indexOffset/totalOverride는 그 칸에 이미 있는 실제 말과 나란히 배치할 때
+        /// (BuildCandidateOnNode) 전체 자리 수·시작 인덱스를 맞추기 위해 쓴다. 기본값이면 후보끼리만 채운다.</summary>
+        void FillCandidateStackVisuals(RectTransform parent, YokaiMoveCandidate candidate, Vector2 areaSize,
+            int indexOffset = 0, int totalOverride = -1)
         {
             var members = candidate.StackMemberIds;
             var names = candidate.StackDisplayNames;
             int count = members != null ? members.Length : 1;
             if (count <= 0) count = 1;
+            int total = totalOverride > 0 ? totalOverride : count;
 
             float fill = Mathf.Max(0.01f, boardPieceFill);
             float areaW = areaSize.x > 1f ? areaSize.x : 64f;
@@ -1474,17 +1540,7 @@ namespace Yoegoe.Minigames.Yut
                 rt.pivot = new Vector2(0.5f, 0.5f);
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.sizeDelta = pieceSize;
-
-                if (count <= 1)
-                {
-                    rt.anchoredPosition = Vector2.zero;
-                }
-                else
-                {
-                    float spreadStep = pieceSize.x * stackedPieceSpread;
-                    float centerOffset = (i - (count - 1) / 2f) * spreadStep;
-                    rt.anchoredPosition = new Vector2(centerOffset, 0f);
-                }
+                rt.anchoredPosition = SpreadOffset(indexOffset + i, total, pieceSize.x, stackedPieceSpread);
 
                 var img = child.GetComponent<Image>();
                 img.raycastTarget = false;
