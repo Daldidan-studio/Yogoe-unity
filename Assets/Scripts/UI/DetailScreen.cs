@@ -581,6 +581,8 @@ namespace Yoegoe.UI
 
             var pw = FindPurifiedWater();
             int gain = pw != null ? pw.staminaGain : 20;
+            // 기절 상태는 정화수 1개당 기력 1만 회복 (완전 회복 방지, 여러 번 먹여야 깨어남)
+            if (currentAgent.Stats.State == ActionState.Fainted) gain = 1;
             currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
             PlayGainPopup(gain, 0f);
             RefreshStats();
