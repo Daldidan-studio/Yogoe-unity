@@ -8,7 +8,7 @@ namespace Yoegoe.Data
     public enum GrowthStage { Neok, Hon } // 넋, 혼
 
     /// <summary>행동 상태 5종 (기획서 6-2). 룰: Docs/06_행동룰.md</summary>
-    public enum ActionState { Walking, Staying, Slumped, Fainted, Playing } // 걷기, 머물기, 주저앉기, 기절, 놀기
+    public enum ActionState { Walking, Staying, Slumped, Fainted, Playing } // Slumped=구세이브 호환(런타임은 Playing으로 이관)
 
     public enum CharacterId { Rabbit, SamjokO, Gumiho, Gorani } // 옥토끼, 삼족오, 구미호, 고라니
 

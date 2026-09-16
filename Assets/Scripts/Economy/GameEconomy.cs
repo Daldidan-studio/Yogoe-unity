@@ -92,7 +92,7 @@ namespace Yoegoe.Economy
             OnBatchMeritChanged?.Invoke();
         }
 
-        /// <summary>일괄 수거 확정 → HUD 공덕으로 이동. multiplier=3 이면 광고/보상권 3배.</summary>
+        /// <summary>일괄 수거 확정 → HUD 공덕으로 이동. multiplier=2 이면 광고/보상권 2배.</summary>
         public bool TryClaimBatchMerit(int multiplier = 1)
         {
             if (!HasPendingBatchMerit) return false;

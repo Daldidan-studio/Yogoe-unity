@@ -260,14 +260,21 @@ namespace Yoegoe
             ceremony.font = hudFont;
             ceremony.goraniData = goraniData;
 
-            var shopGO = new GameObject("ShopScreen");
-            shopGO.SetActive(false);
-            var shop = shopGO.AddComponent<ShopScreen>();
-            shop.font = hudFont;
-            shop.offerings = offerings;
-            shop.shopBackground = Resources.Load<Sprite>("UI/ShopInterior");
-            shop.imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
-            shopGO.SetActive(true);
+            var shop = UnityEngine.Object.FindAnyObjectByType<ShopScreen>(FindObjectsInactive.Include);
+            if (shop == null)
+            {
+                Debug.LogError(
+                    "[Main] ShopScreen 프리팹 인스턴스가 씬에 없습니다. Yoegoe → Bake ShopScreen Prefab (Into Main Scene)");
+            }
+            else
+            {
+                shop.font = hudFont;
+                shop.offerings = offerings;
+                shop.shopBackground = Resources.Load<Sprite>("UI/ShopInterior");
+                shop.imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
+                if (!shop.gameObject.activeSelf)
+                    shop.gameObject.SetActive(true);
+            }
 
             var yut = UnityEngine.Object.FindAnyObjectByType<YutScreen>(FindObjectsInactive.Include);
             if (yut == null)
@@ -558,7 +565,7 @@ namespace Yoegoe
             data.displayName = name;
             data.startingStage = GrowthStage.Hon;
             data.startingIntimacy = 50f;
-            data.startingStamina = 100f;
+            data.startingStamina = 70f;
             CharacterCatalog.ApplyTo(data);
             CharacterSpawner.Spawn(data, pos, color, hudFont);
         }

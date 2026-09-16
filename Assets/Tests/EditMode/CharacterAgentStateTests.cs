@@ -110,11 +110,12 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void TrySitOnProp_WhenSlumped_Fails()
+        public void TrySitOnProp_WhenPlayingAtZeroStamina_Succeeds()
         {
-            // 6-2: 주저앉기 드래그는 별도 경로(SettleSlumpedAfterDrag) — TrySitOnProp으론 못 앉힌다.
-            agent.Stats.State = ActionState.Slumped;
-            Assert.IsFalse(agent.TrySitOnProp(prop));
+            agent.Stats.State = ActionState.Playing;
+            agent.Stats.Stamina = 0f;
+            Assert.IsTrue(agent.TrySitOnProp(prop));
+            Assert.AreEqual(ActionState.Staying, agent.Stats.State);
         }
 
         [Test]
@@ -166,20 +167,21 @@ namespace Yoegoe.Tests.EditMode
             Assert.AreEqual(ActionState.Fainted, agent.Stats.State);
         }
 
-        // ---------------- Slumped/Fainted -> Walking (ReceiveOffering) ----------------
+        // ---------------- Fainted / Playing@0 (ReceiveOffering) ----------------
 
         [Test]
-        public void ReceiveOffering_WakesSlumpedAgent_AndVacatesProp()
+        public void ReceiveOffering_MigratesSlumpedToPlaying()
         {
             agent.TrySitOnProp(prop);
-            agent.Stats.State = ActionState.Slumped; // 6-2: 주저앉기 중에도 점유는 유지된다
+            agent.Stats.State = ActionState.Slumped;
             agent.Stats.Stamina = 0f;
 
             agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0.25f);
 
-            Assert.AreEqual(ActionState.Walking, agent.Stats.State);
+            // 구 Slumped → Playing 이관 후 기력만 회복 (기절 기상과 달리 Walking 강제 아님)
+            Assert.AreEqual(ActionState.Playing, agent.Stats.State);
             Assert.AreEqual(30f, agent.Stats.Stamina, 0.01f);
-            Assert.IsFalse(prop.IsOccupied); // 상세 공양으로 기상 → 기물에서 일어남
+            Assert.IsFalse(prop.IsOccupied);
         }
 
         [Test]
@@ -194,15 +196,26 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void ReceiveOffering_ClampsStaminaAndIntimacyAt100()
+        public void ReceiveOffering_ClampsHonStaminaToMaxFromIntimacy()
         {
-            agent.Stats.Stamina = 90f;
+            agent.Stats.Intimacy = 50f; // max = 70
+            agent.Stats.Stamina = 60f;
+
+            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0f);
+
+            Assert.AreEqual(70f, agent.Stats.Stamina, 0.0001f);
+        }
+
+        [Test]
+        public void ReceiveOffering_ClampsIntimacyAt100()
+        {
             agent.Stats.Intimacy = 99.9f;
+            agent.Stats.Stamina = 50f;
 
-            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 5f);
+            agent.ReceiveOffering(staminaGain: 0, intimacyGain: 5f);
 
-            Assert.AreEqual(100f, agent.Stats.Stamina, 0.0001f);
             Assert.AreEqual(100f, agent.Stats.Intimacy, 0.0001f);
+            Assert.AreEqual(50f, agent.Stats.Stamina, 0.0001f); // max now 120, no clamp on stamina
         }
 
         [Test]

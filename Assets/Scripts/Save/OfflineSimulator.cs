@@ -8,14 +8,13 @@ namespace Yoegoe.Save
     /// <summary>
     /// 저장 시각~현재까지 경과 시간을 GameSaveData 위에서 따라잡는다.
     /// 씬을 직접 건드리지 않고 DTO만 수정 → Apply 단계에서 월드에 반영.
-    /// 공식은 CharacterAgent / 기획 6·7장과 동일(오프라인=동일 속도).
     /// </summary>
     public static class OfflineSimulator
     {
-        public static float MaxOfflineSeconds = 12f * 60f * 60f;
+        public static float MaxOfflineSeconds = 18f * 60f * 60f;
 
-        private const float StaminaDrainPerSecond = 1f / 20f; // 기획: 20초당 1
-        private const float FaintThresholdSeconds = 12f * 60f * 60f;
+        private const float StaminaDrainPerSecond = 1f / 120f; // 2분당 1
+        private const float FaintThresholdSeconds = 18f * 60f * 60f;
         private const float PlayDurationSeconds = 1f * 60f;
 
         public struct Result
@@ -47,7 +46,9 @@ namespace Yoegoe.Save
                 foreach (var agent in data.agents)
                 {
                     if (agent == null) continue;
-                    if (agent.stage == GrowthStage.Neok) continue; // 넋: 자연 기력 감소·생산 없음
+                    if (agent.stage == GrowthStage.Neok) continue;
+                    if (agent.state == ActionState.Slumped)
+                        MigrateSlumped(agent);
                     SimulateAgent(agent, data, elapsed);
                 }
             }
@@ -59,7 +60,6 @@ namespace Yoegoe.Save
 
         private static void SimulateAgent(AgentSave agent, GameSaveData data, float remaining)
         {
-            // 상태 전환이 있을 수 있어 구간을 나눠 소진한다.
             int guard = 0;
             while (remaining > 0.0001f && guard++ < 64)
             {
@@ -70,16 +70,16 @@ namespace Yoegoe.Save
                         used = SimulateStaying(agent, data, remaining);
                         break;
                     case ActionState.Slumped:
-                        used = SimulateSlumped(agent, remaining);
+                        MigrateSlumped(agent);
+                        used = SimulatePlaying(agent, remaining);
                         break;
                     case ActionState.Fainted:
-                        return; // 더 이상 진행 없음
+                        return;
                     case ActionState.Playing:
                         used = SimulatePlaying(agent, remaining);
                         break;
                     case ActionState.Walking:
                     default:
-                        // 오프라인 걷기는 생산 0. 타이머만 진행(방황 재추첨 등은 생략).
                         agent.stateTimer += remaining;
                         return;
                 }
@@ -87,20 +87,17 @@ namespace Yoegoe.Save
             }
         }
 
-        /// <summary>머물기: 기력 0이 될 때까지 기물 더미에 생산(상한 없음).</summary>
         private static float SimulateStaying(AgentSave agent, GameSaveData data, float dt)
         {
             float drain = StaminaDrainPerSecond;
-            if (drain <= 0f) drain = 1f / 20f;
-
             float timeToZero = agent.stamina > 0f ? agent.stamina / drain : 0f;
             float slice = Math.Min(dt, timeToZero);
 
             if (slice <= 0f)
             {
                 agent.stamina = 0f;
-                EnterSlumped(agent);
-                return 0.0001f; // 진행 보장
+                EnterPlayingExhausted(agent);
+                return 0.0001f;
             }
 
             agent.stateTimer += slice;
@@ -112,34 +109,33 @@ namespace Yoegoe.Save
             if (agent.stamina <= 0f)
             {
                 agent.stamina = 0f;
-                EnterSlumped(agent); // 기물 점유 유지
+                EnterPlayingExhausted(agent);
             }
 
             return slice;
         }
 
-        private static float SimulateSlumped(AgentSave agent, float dt)
-        {
-            float timeToFaint = Math.Max(0f, FaintThresholdSeconds - agent.stateTimer);
-            float slice = Math.Min(dt, timeToFaint > 0f ? timeToFaint : dt);
-
-            agent.stateTimer += slice;
-            if (agent.stateTimer >= FaintThresholdSeconds)
-            {
-                agent.state = ActionState.Fainted;
-                agent.stateTimer = 0f;
-            }
-            return slice <= 0f ? dt : slice;
-        }
-
         private static float SimulatePlaying(AgentSave agent, float dt)
         {
+            if (agent.stamina <= 0f)
+            {
+                float timeToFaint = Math.Max(0f, FaintThresholdSeconds - agent.stateTimer);
+                float slice = Math.Min(dt, timeToFaint > 0f ? timeToFaint : dt);
+                agent.stateTimer += slice;
+                if (agent.stateTimer >= FaintThresholdSeconds)
+                {
+                    agent.state = ActionState.Fainted;
+                    agent.stateTimer = 0f;
+                }
+                return slice <= 0f ? dt : slice;
+            }
+
             float timeToEnd = Math.Max(0f, PlayDurationSeconds - agent.stateTimer);
-            float slice = Math.Min(dt, timeToEnd > 0f ? timeToEnd : dt);
-            agent.stateTimer += slice;
+            float slicePlay = Math.Min(dt, timeToEnd > 0f ? timeToEnd : dt);
+            agent.stateTimer += slicePlay;
             if (agent.stateTimer >= PlayDurationSeconds)
                 EnterWalking(agent);
-            return slice <= 0f ? dt : slice;
+            return slicePlay <= 0f ? dt : slicePlay;
         }
 
         private static void AddProduction(AgentSave agent, GameSaveData data, float dt)
@@ -170,30 +166,26 @@ namespace Yoegoe.Save
             return null;
         }
 
-        private static void EnterSlumped(AgentSave agent)
+        private static void MigrateSlumped(AgentSave agent)
         {
-            agent.state = ActionState.Slumped;
+            agent.state = ActionState.Playing;
+            agent.stamina = 0f;
+            agent.occupiedPropId = "";
+            // stateTimer 유지 → 기절까지 이어짐
+        }
+
+        private static void EnterPlayingExhausted(AgentSave agent)
+        {
+            agent.occupiedPropId = "";
+            agent.state = ActionState.Playing;
             agent.stateTimer = 0f;
-            // occupiedPropId 유지 (6-2)
+            agent.stamina = 0f;
         }
 
         private static void EnterWalking(AgentSave agent)
         {
             agent.state = ActionState.Walking;
             agent.stateTimer = 0f;
-        }
-
-        /// <summary>드롭 등과 동일: 기물 비우고 놀기 5분.</summary>
-        private static void EnterPlaying(AgentSave agent)
-        {
-            LeavePropKeepPile(agent);
-            agent.state = ActionState.Playing;
-            agent.stateTimer = 0f;
-        }
-
-        private static void LeavePropKeepPile(AgentSave agent)
-        {
-            agent.occupiedPropId = "";
         }
     }
 }

@@ -33,8 +33,7 @@ namespace Yoegoe.Characters
             || Stats.State == ActionState.Playing
             || Stats.State == ActionState.Staying;
 
-        private bool CanTapMonologue =>
-            CanShowMonologue || Stats.State == ActionState.Slumped;
+        private bool CanTapMonologue => CanShowMonologue;
 
         private void UpdateMonologue(float dt)
         {
@@ -51,7 +50,7 @@ namespace Yoegoe.Characters
                 HideMonologue();
             }
 
-            if (HasOfferingRequest || Requests.HasVisiblePropRequest) return;
+            if (HasOfferingRequest) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
 
             FollowBubblePosition();

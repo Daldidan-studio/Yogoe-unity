@@ -9,8 +9,8 @@ using Yoegoe.Save;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 12장 고가구점.
-    /// 배경 일러스트 기준: 책상 위=상품, 통로 중앙=이무기, 앞 상자=패키지, 최하단=대화.
+    /// 12장 고가구점. 레이아웃은 Prefab(<c>Assets/Prefabs/UI/ShopScreen.prefab</c>)만 사용.
+    /// UI 생성 코드는 에디터 Bake 전용.
     /// </summary>
     public class ShopScreen : MonoBehaviour
     {
@@ -61,43 +61,28 @@ namespace Yoegoe.UI
             }
         };
 
-        // 배경(576×1024) 기준 정규화 좌표 — 책상·통로·앞상자에 맞춤
-        static readonly Vector2 DeskLeft = new Vector2(0.28f, 0.60f);
-        static readonly Vector2 DeskHyang = new Vector2(0.50f, 0.61f);
-        static readonly Vector2 DeskRight = new Vector2(0.72f, 0.60f);
-        static readonly Vector2 ImugiPos = new Vector2(0.50f, 0.34f);
-        static readonly Vector2 ResetPos = new Vector2(0.88f, 0.56f);
-        static readonly Vector2[] PackagePos =
-        {
-            new Vector2(0.22f, 0.20f),
-            new Vector2(0.50f, 0.18f),
-            new Vector2(0.78f, 0.20f)
-        };
+        [SerializeField] GameObject root;
+        [SerializeField] Text dialogueText;
+        [SerializeField] Image leftIcon;
+        [SerializeField] Text leftName;
+        [SerializeField] Text leftPriceLabel;
+        [SerializeField] Image rightIcon;
+        [SerializeField] Text rightName;
+        [SerializeField] Text rightPriceLabel;
+        [SerializeField] GameObject packagePopup;
+        [SerializeField] Text packageTitle;
+        [SerializeField] Text packageBody;
+        [SerializeField] Text packagePriceBtnLabel;
+        [SerializeField] Text currencyText;
 
-        GameObject root;
-        Text dialogueText;
         int dialogueIndex;
-
-        Image leftIcon;
-        Text leftName;
-        Text leftPriceLabel;
-        Image rightIcon;
-        Text rightName;
-        Text rightPriceLabel;
-        Text resetCostLabel;
-
-        GameObject packagePopup;
-        Text packageTitle;
-        Text packageBody;
-        Text packagePriceBtnLabel;
-
-        Text currencyText;
 
         void Awake() => Instance = this;
 
         void Start()
         {
-            EnsureBuilt();
+            if (!EnsureShell()) return;
+            WireRuntimeListeners();
             root.SetActive(false);
         }
 
@@ -108,7 +93,8 @@ namespace Yoegoe.UI
 
         public void Open()
         {
-            EnsureBuilt();
+            if (!EnsureShell()) return;
+            WireRuntimeListeners();
             ShopStock.SetCatalog(offerings);
             ShopStock.EnsureFresh(DateTime.UtcNow);
             dialogueIndex = 0;
@@ -141,7 +127,6 @@ namespace Yoegoe.UI
         void OnYeopjeonChanged(int _) => RefreshCurrencyBar();
         void OnMeritChanged(BigNumber _) => RefreshCurrencyBar();
 
-        /// <summary>상단 보유 엽전·공덕 표시 — 구매/리셋 등으로 재화가 바뀔 때마다 갱신.</summary>
         void RefreshCurrencyBar()
         {
             if (currencyText == null || GameEconomy.Instance == null) return;
@@ -163,8 +148,6 @@ namespace Yoegoe.UI
         {
             BindOfferingSlot(ShopStock.Side.Left, leftIcon, leftName, leftPriceLabel);
             BindOfferingSlot(ShopStock.Side.Right, rightIcon, rightName, rightPriceLabel);
-            if (resetCostLabel != null)
-                resetCostLabel.text = "리셋\n" + ShopStock.GetResetCostMerit().ToDisplayString();
         }
 
         void BindOfferingSlot(ShopStock.Side side, Image icon, Text nameLabel, Text priceLabel)
@@ -211,26 +194,13 @@ namespace Yoegoe.UI
                 SetDialogue("돈을 더 모아와라.");
         }
 
-        void OnResetStock()
-        {
-            if (ShopStock.TryResetWithMerit(out _, out bool notEnough))
-            {
-                SetDialogue("새로 꺼내 두었다.");
-                RefreshSlots();
-                GameSaveBridge.SaveFromWorld();
-                return;
-            }
-            if (notEnough)
-                SetDialogue("공덕이 부족하구나.");
-        }
-
         void OpenPackage(int index)
         {
             if (index < 0 || index >= Packages.Length || packagePopup == null) return;
             var p = Packages[index];
-            packageTitle.text = p.Name;
-            packageBody.text = p.Contents;
-            packagePriceBtnLabel.text = p.PriceLabel;
+            if (packageTitle != null) packageTitle.text = p.Name;
+            if (packageBody != null) packageBody.text = p.Contents;
+            if (packagePriceBtnLabel != null) packagePriceBtnLabel.text = p.PriceLabel;
             packagePopup.SetActive(true);
         }
 
@@ -239,16 +209,123 @@ namespace Yoegoe.UI
             if (packagePopup != null) packagePopup.SetActive(false);
         }
 
-        void EnsureBuilt()
+        /// <summary>Prefab 셸만 사용. 없으면 에러 (런타임 생성 없음).</summary>
+        bool EnsureShell()
         {
-            if (root != null) return;
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (shopBackground == null)
-                shopBackground = Resources.Load<Sprite>("UI/ShopInterior");
-            if (imugiSprite == null)
-                imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
+            BindMissingRefsFromHierarchy();
+            if (root != null) return true;
+            Debug.LogError(
+                "[ShopScreen] Prefab 셸이 없습니다. 메뉴 Yoegoe → Bake ShopScreen Prefab (Into Main Scene) 을 실행하세요.");
+            return false;
+        }
 
+        /// <summary>에디터 Bake용. Prefab 레이아웃 생성.</summary>
+        public void EnsureBuiltForBake()
+        {
+#if UNITY_EDITOR
+            if (root == null)
+            {
+                if (font == null)
+                    font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                if (shopBackground == null)
+                    shopBackground = Resources.Load<Sprite>("UI/ShopInterior");
+                if (imugiSprite == null)
+                    imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
+                Build();
+            }
+            WireRuntimeListeners();
+            if (root != null) root.SetActive(true);
+#else
+            EnsureShell();
+#endif
+        }
+
+        void WireRuntimeListeners()
+        {
+            if (root == null) return;
+            BindMissingRefsFromHierarchy();
+
+            BindButton(root.transform.Find("Imugi"), OnImugiTapped);
+            BindButton(root.transform.Find("LeftFood/PriceBuy"), OnBuyLeft);
+            BindButton(root.transform.Find("RightFood/PriceBuy"), OnBuyRight);
+            BindButton(root.transform.Find("Hyang/PriceBuy"), OnBuyHyang);
+            BindButton(root.transform.Find("Close"), Close);
+
+            for (int i = 0; i < Packages.Length; i++)
+            {
+                int captured = i;
+                BindButton(root.transform.Find("Pkg_" + Packages[i].Id), () => OpenPackage(captured));
+            }
+
+            if (packagePopup != null)
+            {
+                BindButton(packagePopup.transform, ClosePackage);
+                BindButton(packagePopup.transform.Find("Box/ClosePkg"), ClosePackage);
+            }
+        }
+
+        void BindMissingRefsFromHierarchy()
+        {
+            if (root == null)
+            {
+                var canvas = transform.Find("Canvas_Shop");
+                if (canvas != null) root = canvas.Find("Root")?.gameObject;
+            }
+            if (root == null) return;
+
+            var rt = root.transform;
+            if (dialogueText == null)
+                dialogueText = rt.Find("Dialogue/Text")?.GetComponent<Text>();
+            if (currencyText == null)
+                currencyText = rt.Find("CurrencyBar/Text")?.GetComponent<Text>();
+            if (leftIcon == null)
+                leftIcon = rt.Find("LeftFood/Icon")?.GetComponent<Image>();
+            if (leftName == null)
+                leftName = rt.Find("LeftFood/Name/Text")?.GetComponent<Text>();
+            if (leftPriceLabel == null)
+                leftPriceLabel = rt.Find("LeftFood/PriceBuy/Text")?.GetComponent<Text>();
+            if (rightIcon == null)
+                rightIcon = rt.Find("RightFood/Icon")?.GetComponent<Image>();
+            if (rightName == null)
+                rightName = rt.Find("RightFood/Name/Text")?.GetComponent<Text>();
+            if (rightPriceLabel == null)
+                rightPriceLabel = rt.Find("RightFood/PriceBuy/Text")?.GetComponent<Text>();
+            if (packagePopup == null)
+                packagePopup = rt.Find("PackagePopup")?.gameObject;
+            if (packagePopup != null)
+            {
+                if (packageTitle == null)
+                    packageTitle = packagePopup.transform.Find("Box/Title/Text")?.GetComponent<Text>();
+                if (packageBody == null)
+                    packageBody = packagePopup.transform.Find("Box/Body/Text")?.GetComponent<Text>();
+                if (packagePriceBtnLabel == null)
+                    packagePriceBtnLabel = packagePopup.transform.Find("Box/PriceBtn/Text")?.GetComponent<Text>();
+            }
+        }
+
+        static void BindButton(Transform t, UnityEngine.Events.UnityAction action)
+        {
+            if (t == null || action == null) return;
+            var btn = t.GetComponent<Button>();
+            if (btn == null) return;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(action);
+        }
+
+#if UNITY_EDITOR
+        static readonly Vector2 DeskLeft = new Vector2(0.28f, 0.60f);
+        static readonly Vector2 DeskHyang = new Vector2(0.50f, 0.61f);
+        static readonly Vector2 DeskRight = new Vector2(0.72f, 0.60f);
+        static readonly Vector2 ImugiPos = new Vector2(0.50f, 0.34f);
+        static readonly Vector2[] PackagePos =
+        {
+            new Vector2(0.22f, 0.20f),
+            new Vector2(0.50f, 0.18f),
+            new Vector2(0.78f, 0.20f)
+        };
+
+        void Build()
+        {
             var canvasGO = new GameObject("Canvas_Shop");
             canvasGO.transform.SetParent(transform, false);
             var canvas = canvasGO.AddComponent<Canvas>();
@@ -257,13 +334,12 @@ namespace Yoegoe.UI
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 1f; // 세로 기준 — 배경 비율 유지에 유리
+            scaler.matchWidthOrHeight = 1f;
             canvasGO.AddComponent<GraphicRaycaster>();
 
             root = new GameObject("Root");
             var rootRt = Stretch(root, canvasGO.transform);
 
-            // 1) 배경 풀블리드
             var bgGO = new GameObject("Background");
             Stretch(bgGO, rootRt);
             var bgImg = bgGO.AddComponent<Image>();
@@ -272,17 +348,15 @@ namespace Yoegoe.UI
             if (shopBackground != null)
             {
                 bgImg.sprite = shopBackground;
-                bgImg.preserveAspect = false; // 캔버스와 동일 세로비
+                bgImg.preserveAspect = false;
             }
             else
                 bgImg.color = new Color(0.22f, 0.16f, 0.12f, 1f);
 
-            // 1.5) 상단 좌측 — 보유 엽전·공덕 (구매 여력을 바로 보게)
             BuildCurrencyBar(rootRt);
 
-            // 2) 이무기 — 책상 앞 통로 중앙 (발 기준)
             var imugiGO = new GameObject("Imugi");
-            var imugiRt = Place(imugiGO, rootRt, ImugiPos, new Vector2(0.5f, 0f), new Vector2(300, 380));
+            Place(imugiGO, rootRt, ImugiPos, new Vector2(0.5f, 0f), new Vector2(300, 380));
             var imugiImg = imugiGO.AddComponent<Image>();
             imugiImg.preserveAspect = true;
             imugiImg.raycastTarget = true;
@@ -295,33 +369,16 @@ namespace Yoegoe.UI
                 imugiImg.color = new Color(0.5f, 0.55f, 0.7f, 1f);
             var imugiBtn = imugiGO.AddComponent<Button>();
             imugiBtn.targetGraphic = imugiImg;
-            imugiBtn.onClick.AddListener(OnImugiTapped);
 
-            // 3) 책상 위 — 음식 / 향 / 음식
             BuildDeskItem(rootRt, "LeftFood", DeskLeft, out leftIcon, out leftName, out leftPriceLabel,
-                ShopStock.OfferingPriceYeopjeon + " 엽전", OnBuyLeft);
+                ShopStock.OfferingPriceYeopjeon + " 엽전");
             BuildDeskHyang(rootRt, DeskHyang);
             BuildDeskItem(rootRt, "RightFood", DeskRight, out rightIcon, out rightName, out rightPriceLabel,
-                ShopStock.OfferingPriceYeopjeon + " 엽전", OnBuyRight);
+                ShopStock.OfferingPriceYeopjeon + " 엽전");
 
-            // 4) 리셋 — 책상 오른쪽
-            var resetGO = new GameObject("Reset");
-            var resetRt = Place(resetGO, rootRt, ResetPos, new Vector2(0.5f, 0.5f), new Vector2(120, 72));
-            var resetImg = resetGO.AddComponent<Image>();
-            resetImg.color = new Color(0.12f, 0.09f, 0.07f, 0.82f);
-            var resetBtn = resetGO.AddComponent<Button>();
-            resetBtn.targetGraphic = resetImg;
-            resetBtn.onClick.AddListener(OnResetStock);
-            resetCostLabel = MakeLabel(resetRt, "리셋", 20, new Color(1f, 0.9f, 0.7f));
-
-            // 5) 패키지 — 앞쪽 상자 위
             for (int i = 0; i < Packages.Length; i++)
-            {
-                int captured = i;
-                BuildPackageOnChest(rootRt, Packages[i], PackagePos[i], () => OpenPackage(captured));
-            }
+                BuildPackageOnChest(rootRt, Packages[i], PackagePos[i]);
 
-            // 6) 대화창 — 최하단
             var dialGO = new GameObject("Dialogue");
             var dialRt = dialGO.AddComponent<RectTransform>();
             dialRt.SetParent(rootRt, false);
@@ -336,7 +393,6 @@ namespace Yoegoe.UI
             dRt.offsetMin = new Vector2(28, 6);
             dRt.offsetMax = new Vector2(-28, -6);
 
-            // 닫기
             var closeGO = new GameObject("Close");
             var closeRt = Place(closeGO, rootRt, new Vector2(0.94f, 0.96f), new Vector2(0.5f, 0.5f),
                 new Vector2(68, 68));
@@ -344,16 +400,14 @@ namespace Yoegoe.UI
             closeImg.color = new Color(0.12f, 0.09f, 0.07f, 0.85f);
             var closeBtn = closeGO.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
-            closeBtn.onClick.AddListener(Close);
             MakeLabel(closeRt, "×", 40, Color.white);
 
             BuildPackagePopup(rootRt);
         }
 
-        /// <summary>책상 위 공양 슬롯: 아이콘 + 이름 + [N 엽전] 버튼.</summary>
         void BuildDeskItem(Transform parent, string name, Vector2 normPos,
             out Image icon, out Text nameLabel, out Text priceLabel,
-            string priceText, UnityEngine.Events.UnityAction onBuy)
+            string priceText)
         {
             var slot = new GameObject(name);
             var slotRt = Place(slot, parent, normPos, new Vector2(0.5f, 0.5f), new Vector2(168, 200));
@@ -378,7 +432,6 @@ namespace Yoegoe.UI
             buyImg.color = new Color(0.55f, 0.38f, 0.18f, 0.95f);
             var buyBtn = buyGO.AddComponent<Button>();
             buyBtn.targetGraphic = buyImg;
-            buyBtn.onClick.AddListener(onBuy);
             priceLabel = MakeLabel(buyRt, priceText, 22, Color.white);
         }
 
@@ -406,11 +459,10 @@ namespace Yoegoe.UI
             buyImg.color = new Color(0.35f, 0.4f, 0.55f, 0.95f);
             var buyBtn = buyGO.AddComponent<Button>();
             buyBtn.targetGraphic = buyImg;
-            buyBtn.onClick.AddListener(OnBuyHyang);
             MakeLabel(buyRt, ShopStock.HyangPriceYeopjeon + " 엽전", 22, Color.white);
         }
 
-        void BuildPackageOnChest(Transform parent, PackageDef def, Vector2 normPos, Action onTap)
+        void BuildPackageOnChest(Transform parent, PackageDef def, Vector2 normPos)
         {
             var card = new GameObject("Pkg_" + def.Id);
             var cardRt = Place(card, parent, normPos, new Vector2(0.5f, 0.5f), new Vector2(220, 100));
@@ -418,7 +470,6 @@ namespace Yoegoe.UI
             bg.color = new Color(0.1f, 0.07f, 0.05f, 0.78f);
             var btn = card.AddComponent<Button>();
             btn.targetGraphic = bg;
-            btn.onClick.AddListener(() => onTap());
             MakeLabel(cardRt, def.Name + "\n" + def.PriceLabel, 22, new Color(1f, 0.93f, 0.82f));
         }
 
@@ -430,7 +481,6 @@ namespace Yoegoe.UI
             dim.color = new Color(0f, 0f, 0f, 0.55f);
             var dimBtn = packagePopup.AddComponent<Button>();
             dimBtn.targetGraphic = dim;
-            dimBtn.onClick.AddListener(ClosePackage);
 
             var box = new GameObject("Box");
             var boxRt = Place(box, rt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -463,7 +513,6 @@ namespace Yoegoe.UI
             cImg.color = new Color(0.35f, 0.28f, 0.24f, 1f);
             var cBtn = closeGO.AddComponent<Button>();
             cBtn.targetGraphic = cImg;
-            cBtn.onClick.AddListener(ClosePackage);
             MakeLabel(closeRt, "닫기", 28, Color.white);
 
             packagePopup.SetActive(false);
@@ -526,5 +575,6 @@ namespace Yoegoe.UI
             rt.offsetMin = rt.offsetMax = Vector2.zero;
             return rt;
         }
+#endif
     }
 }

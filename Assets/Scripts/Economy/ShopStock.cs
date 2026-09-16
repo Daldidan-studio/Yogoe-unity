@@ -2,12 +2,11 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Yoegoe.Characters;
-using Yoegoe.Core;
 using Yoegoe.Data;
 
 namespace Yoegoe.Economy
 {
-    /// <summary>12장 고가구점 재고: 2시간 랜덤 공양 2칸 + 향 + 5분치 공덕 리셋.</summary>
+    /// <summary>12장 고가구점 재고: 2시간 랜덤 공양 2칸 + 향.</summary>
     public static class ShopStock
     {
         public const int OfferingPriceYeopjeon = 10;
@@ -141,29 +140,6 @@ namespace Yoegoe.Economy
             return true;
         }
 
-        /// <summary>현재 생산속도(분당) × 5. 생산 0이면 건립 기물 기본합 × 5, 최소 1.</summary>
-        public static BigNumber GetResetCostMerit()
-        {
-            double perMin = GetCurrentProductionPerMinute();
-            if (perMin <= 0.0001)
-                perMin = GetBuiltPropsBaseProductionSum();
-            double cost = Math.Max(1.0, perMin * 5.0);
-            return BigNumber.FromDouble(cost);
-        }
-
-        public static bool TryResetWithMerit(out BigNumber cost, out bool notEnoughMerit)
-        {
-            cost = GetResetCostMerit();
-            notEnoughMerit = false;
-            if (!GameEconomy.Instance.TrySpendMerit(cost))
-            {
-                notEnoughMerit = true;
-                return false;
-            }
-            ForceReroll(DateTime.UtcNow);
-            return true;
-        }
-
         public static double GetCurrentProductionPerMinute()
         {
             double sum = 0;
@@ -171,20 +147,6 @@ namespace Yoegoe.Economy
             {
                 if (agent == null) continue;
                 sum += agent.GetProductionPerMinuteIfStaying();
-            }
-            return sum;
-        }
-
-        static double GetBuiltPropsBaseProductionSum()
-        {
-            double sum = 0;
-            if (PropManager.Instance == null) return sum;
-            var all = PropManager.Instance.All;
-            for (int i = 0; i < all.Count; i++)
-            {
-                var p = all[i];
-                if (p == null || !p.IsBuilt) continue;
-                sum += p.GetBaseProductionThisLevel();
             }
             return sum;
         }

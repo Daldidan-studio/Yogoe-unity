@@ -202,11 +202,11 @@ namespace Yoegoe.Tests.EditMode
             economy.AddPendingBatchMerit(100);
             Assert.IsTrue(economy.HasPendingBatchMerit);
 
-            bool claimed = economy.TryClaimBatchMerit(multiplier: 3);
+            bool claimed = economy.TryClaimBatchMerit(multiplier: 2);
 
             Assert.IsTrue(claimed);
             Assert.IsFalse(economy.HasPendingBatchMerit);
-            Assert.AreEqual(1300, economy.MeritPile.ToDouble(), 0.01); // 시작 1000 + 100*3
+            Assert.AreEqual(1200, economy.MeritPile.ToDouble(), 0.01); // 시작 1000 + 100*2
         }
 
         [Test]

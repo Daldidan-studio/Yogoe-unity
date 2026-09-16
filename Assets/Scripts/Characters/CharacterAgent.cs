@@ -6,18 +6,16 @@ using Yoegoe.Save;
 namespace Yoegoe.Characters
 {
     /// <summary>
-    /// 캐릭터 행동 상태머신 (기획서 6장): 걷기 → 머물기(생산) → [기력 0] → 주저앉기 → [12시간] → 기절.
+    /// 캐릭터 행동 상태머신: 걷기 → 머물기(생산) → [기력 0] 놀기/쉬기 → [18시간] 기절.
     ///
     /// 에셋(스프라이트) 없이도 완전히 동작한다 — 이동은 Transform.position만 사용하고,
     /// SpriteRenderer는 있으면 참조만 해두는 정도. 씬에는 빈 GameObject에 이 스크립트 붙이고
-    /// 위치만 잡아두면 테스트 가능 (Scene 뷰에서 Gizmo 색으로 상태 확인: 초록=걷기/파랑=머물기/
-    /// 노랑=주저앉기/빨강=기절).
+    /// 위치만 잡아두면 테스트 가능 (Scene 뷰 Gizmo: 초록=걷기/파랑=머물기/분홍=놀기/빨강=기절).
     ///
-    /// 넋 단계는 이 상태머신을 타지 않음 (9장: 소환된 넋은 화면에 뜨는 고정 도깨비불로 취급하고
-    /// 정화수로만 기력을 채운다 — 기력 100 도달 시 혼으로 진화, Docs/05 4항 확정).
+    /// 넋 단계는 이 상태머신을 타지 않음 (고정 도깨비불, 정화수로 기력 100 → 혼).
     ///
     /// 구현은 관심사별로 여러 파일에 나뉜 partial class다 (이 파일은 라이프사이클/공개 API만):
-    /// <see cref="CharacterAgent"/>.Movement.cs(걷기/머물기/놀기/주저앉기 상태머신),
+    /// <see cref="CharacterAgent"/>.Movement.cs(걷기/머물기/놀기 상태머신),
     /// .Drag.cs(플레이어 드래그), .Animation.cs(스프라이트/방향), .Dialogue.cs(혼잣말·임시 대사),
     /// .Evolution.cs(넋 부유·넋→혼 진화).
     /// </summary>
@@ -110,7 +108,7 @@ namespace Yoegoe.Characters
             Stats.Stage = Data.startingStage;
             if (Stats.Stage == GrowthStage.Neok)
             {
-                // 넋: 정화수로만 기력 충전 → 100이면 혼. 시작은 기력 0·친밀도 미사용.
+                // 넋: 정화수로만 기력 충전 → 100이면 혼. 시작은 기력 0·친밀도 0 고정.
                 Stats.Intimacy = 0f;
                 Stats.Stamina = 0f;
             }
@@ -118,9 +116,16 @@ namespace Yoegoe.Characters
             {
                 var start = StartingStateSettings.Get();
                 Stats.Intimacy = start.startingIntimacy;
-                Stats.Stamina = start.startingStamina;
+                // 최대·시작 기력 = 20 + 친밀도
+                Stats.Stamina = MaxStaminaFromIntimacy(Stats.Intimacy);
             }
         }
+
+        /// <summary>혼 최대 기력. 넋은 진화용 상한 100.</summary>
+        public float MaxStamina =>
+            Stats.Stage == GrowthStage.Neok ? 100f : MaxStaminaFromIntimacy(Stats.Intimacy);
+
+        public static float MaxStaminaFromIntimacy(float intimacy) => 20f + Mathf.Clamp(intimacy, 0f, 100f);
 
         /// <summary>세이브 복원·소환 직후 Start가 스탯을 리셋하지 않도록 표시.</summary>
         public void MarkStatsAppliedExternally() => statsAppliedExternally = true;
@@ -184,7 +189,11 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Walking: TickWalking(dt); break;
                 case ActionState.Staying: TickStaying(dt); break;
-                case ActionState.Slumped: TickSlumped(dt); break;
+                case ActionState.Slumped:
+                    // 구세이브 호환: 주저앉기 → 기력0 놀기로 즉시 이관
+                    MigrateSlumpedToPlaying();
+                    TickPlaying(dt);
+                    break;
                 case ActionState.Fainted: /* 외부(공양)에서만 깨어남 */ break;
                 case ActionState.Playing: TickPlaying(dt); break;
             }
@@ -223,7 +232,8 @@ namespace Yoegoe.Characters
                         remaining -= TickStayingSlice(remaining);
                         break;
                     case ActionState.Slumped:
-                        remaining -= TickSlumpedSlice(remaining);
+                        MigrateSlumpedToPlaying();
+                        remaining -= TickPlayingSlice(remaining);
                         break;
                     case ActionState.Playing:
                         remaining -= TickPlayingSlice(remaining);
@@ -272,8 +282,16 @@ namespace Yoegoe.Characters
             Stats.Stage = stage;
             Stats.Intimacy = intimacy;
             Stats.Stamina = stamina;
+            // 구세이브 Slumped → Playing(기력0 쉬기). 점유는 놀기 규칙상 해제.
+            if (state == ActionState.Slumped)
+            {
+                state = ActionState.Playing;
+                occupyProp = null;
+            }
             Stats.State = state;
             Stats.StateTimer = stateTimer;
+            if (Stats.Stage == GrowthStage.Hon)
+                Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
             transform.position = MapBounds.Clamp(worldPos);
             lastPosition = transform.position;
             neokLogicalPos = transform.position;
@@ -285,9 +303,7 @@ namespace Yoegoe.Characters
                 EvolveToHon(playFx: false);
 
             if (occupyProp != null
-                && (state == ActionState.Staying
-                    || state == ActionState.Slumped
-                    || state == ActionState.Fainted))
+                && (state == ActionState.Staying || state == ActionState.Fainted))
             {
                 occupyProp.ForceOccupyForSaveRestore(this);
                 currentProp = occupyProp;
@@ -317,10 +333,17 @@ namespace Yoegoe.Characters
             if (Stats.Stage == GrowthStage.Neok && kind != OfferingKind.PurifiedWater)
                 return;
 
-            Stats.Stamina = Mathf.Min(100f, Stats.Stamina + Mathf.Max(0, staminaGain));
+            if (Stats.State == ActionState.Slumped)
+                MigrateSlumpedToPlaying(preserveExhaustTimer: Stats.Stamina <= 0f);
+
+            float max = MaxStamina;
+            Stats.Stamina = Mathf.Min(max, Stats.Stamina + Mathf.Max(0, staminaGain));
 
             if (Stats.Stage != GrowthStage.Neok)
+            {
                 Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + intimacyGain);
+                Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
+            }
 
             if (Stats.Stage == GrowthStage.Neok && Stats.Stamina >= 100f - 0.001f)
             {
@@ -328,11 +351,29 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            if (Stats.State == ActionState.Slumped || Stats.State == ActionState.Fainted)
+            if (Stats.State == ActionState.Fainted)
             {
                 LeaveCurrentProp();
                 EnterWalking();
             }
+            else if (Stats.State == ActionState.Playing && Stats.Stamina > 0f)
+            {
+                // 기력0 놀기에서 회복되면 기절 타이머 리셋
+                Stats.StateTimer = 0f;
+            }
+        }
+
+        /// <summary>구 주저앉기 → 놀기. 점유 해제. preserveExhaustTimer면 기절까지 경과 유지.</summary>
+        void MigrateSlumpedToPlaying(bool preserveExhaustTimer = true)
+        {
+            if (Stats.State != ActionState.Slumped) return;
+            float timer = Stats.StateTimer;
+            LeaveCurrentProp();
+            Stats.State = ActionState.Playing;
+            if (preserveExhaustTimer && Stats.Stamina <= 0f)
+                Stats.StateTimer = timer;
+            else
+                Stats.StateTimer = 0f;
         }
 
         public void BindSpriteRenderer(SpriteRenderer sr)
@@ -345,6 +386,7 @@ namespace Yoegoe.Characters
         {
             if (Stats.Stage == GrowthStage.Neok) return;
             Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + amount);
+            Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
         }
 
 #if UNITY_EDITOR
@@ -355,9 +397,9 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Walking: c = Color.green; break;
                 case ActionState.Staying: c = Color.blue; break;
-                case ActionState.Slumped: c = Color.yellow; break;
-                case ActionState.Fainted: c = Color.red; break;
+                case ActionState.Slumped:
                 case ActionState.Playing: c = new Color(1f, 0.45f, 0.85f); break;
+                case ActionState.Fainted: c = Color.red; break;
                 default: c = Color.white; break;
             }
             Gizmos.color = c;

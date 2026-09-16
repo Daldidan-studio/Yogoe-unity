@@ -66,38 +66,56 @@ namespace Yoegoe.Tests.EditMode
         public void Simulate_StayingAgent_DrainsStaminaAndProducesMerit()
         {
             var now = DateTime.UtcNow;
-            var data = MakeSave(now.AddSeconds(-100)); // 100초 경과, 기력 100 -> 20초당 1 소모
+            // 2분당 1 → 120초당 1. 120초면 기력 1 감소.
+            var data = MakeSave(now.AddSeconds(-120));
+            data.agents[0].stamina = 70f;
 
             var result = OfflineSimulator.Simulate(data, now);
 
             Assert.IsTrue(result.Applied);
-            Assert.AreEqual(95f, data.agents[0].stamina, 0.01f);
+            Assert.AreEqual(69f, data.agents[0].stamina, 0.01f);
             Assert.Greater(data.props[0].pendingMerit.ToBigNumber().ToDouble(), 0);
         }
 
         [Test]
-        public void Simulate_StaminaReachesZero_EntersSlumpedButKeepsProp()
+        public void Simulate_StaminaReachesZero_EntersPlayingAndVacatesProp()
         {
             var now = DateTime.UtcNow;
-            var data = MakeSave(now.AddHours(-1)); // 기력 100 -> 2000초만에 0, 남는 시간은 Slumped
+            // 기력 1 → 120초면 0, 나머지 시간은 기력0 놀기
+            var data = MakeSave(now.AddHours(-1));
+            data.agents[0].stamina = 1f;
 
             OfflineSimulator.Simulate(data, now);
 
             var agent = data.agents[0];
-            Assert.AreEqual(ActionState.Slumped, agent.state);
+            Assert.AreEqual(ActionState.Playing, agent.state);
             Assert.AreEqual(0f, agent.stamina, 0.01f);
-            // 6-2 규칙: 주저앉기 중에도 점유 기물은 유지한다.
-            Assert.AreEqual("prop1", agent.occupiedPropId);
+            Assert.AreEqual("", agent.occupiedPropId);
         }
 
         [Test]
-        public void Simulate_SlumpedPastThreshold_Faints()
+        public void Simulate_PlayingAtZeroPastThreshold_Faints()
+        {
+            var now = DateTime.UtcNow;
+            var data = MakeSave(now.AddSeconds(-100));
+            data.agents[0].state = ActionState.Playing;
+            data.agents[0].stamina = 0f;
+            data.agents[0].occupiedPropId = "";
+            data.agents[0].stateTimer = 18f * 60f * 60f - 10f; // 기절까지 10초 남음
+
+            OfflineSimulator.Simulate(data, now);
+
+            Assert.AreEqual(ActionState.Fainted, data.agents[0].state);
+        }
+
+        [Test]
+        public void Simulate_LegacySlumped_MigratesThenFaintsWhenPastThreshold()
         {
             var now = DateTime.UtcNow;
             var data = MakeSave(now.AddSeconds(-100));
             data.agents[0].state = ActionState.Slumped;
             data.agents[0].stamina = 0f;
-            data.agents[0].stateTimer = 12f * 60f * 60f - 10f; // 기절까지 10초 남음
+            data.agents[0].stateTimer = 18f * 60f * 60f - 10f;
 
             OfflineSimulator.Simulate(data, now);
 

@@ -4,11 +4,12 @@ using Yoegoe.Economy;
 
 namespace Yoegoe.Characters
 {
-    // 이동 상태머신 본체: Walking → Staying(생산) → [기력 0] Slumped → [12시간] Fainted, Playing(놀기).
+    // 이동 상태머신: Walking → Staying(생산) → [기력 0] Playing → [18시간] Fainted / Playing(드롭).
     public partial class CharacterAgent
     {
-        private const float PlayDurationSeconds = 1f * 60f; // 6-2 놀기
-        private const float FaintThresholdSeconds = 12f * 60f * 60f;
+        private const float PlayDurationSeconds = 1f * 60f; // 기력 있는 놀기
+        private const float FaintThresholdSeconds = 18f * 60f * 60f; // 기력0 놀기 18시간 → 기절
+        private const float StaminaDrainPerSecond = 1f / 120f; // 2분당 1
         private const float WanderRetrySeconds = 30f;
         private const float SeparationRadius = 0.55f;
         /// <summary>전진을 죽이지 않도록 이동 속도보다 낮게 유지.</summary>
@@ -140,8 +141,6 @@ namespace Yoegoe.Characters
         {
             Stats.State = ActionState.Staying;
             Stats.StateTimer = 0f;
-            // 머물기 중엔 기물 요구 ?를 숨긴다. 요구 기물이면 3초 체류만 내부 누적.
-            Requests?.NotifySatOnProp(currentProp);
         }
 
         private void TickStaying(float dt)
@@ -159,14 +158,14 @@ namespace Yoegoe.Characters
         /// </summary>
         private float TickStayingSlice(float dt)
         {
-            const float drain = 1f / 20f; // 6-2: 1분당 3 = 20초당 1
+            float drain = StaminaDrainPerSecond;
             float timeToZero = Stats.Stamina > 0f ? Stats.Stamina / drain : 0f;
             float slice = Mathf.Min(dt, timeToZero);
 
             if (slice <= 0f)
             {
                 Stats.Stamina = 0f;
-                EnterSlumped();
+                EnterPlaying(); // 기력 0 → 놀기/쉬기 (점유 해제)
                 return 0.0001f;
             }
 
@@ -187,13 +186,13 @@ namespace Yoegoe.Characters
             if (Stats.Stamina <= 0f)
             {
                 Stats.Stamina = 0f;
-                EnterSlumped();
+                EnterPlaying();
             }
 
             return slice;
         }
 
-        /// <summary>7-1: 머물기·생산 중일 때만 분당 생산량. 상점 리셋 비용용.</summary>
+        /// <summary>7-1: 머물기·생산 중일 때만 분당 생산량.</summary>
         public double GetProductionPerMinuteIfStaying()
         {
             if (Stats.Stage == GrowthStage.Neok) return 0;
@@ -229,26 +228,22 @@ namespace Yoegoe.Characters
             if (currentProp != null)
             {
                 currentProp.Vacate(this);
-                previousProp = currentProp; // 다음 목적지 선정 시 제외 대상
+                previousProp = currentProp;
                 currentProp = null;
-                Requests?.NotifyLeftProp();
             }
             SetSpriteVisible(true);
         }
 
-        // ---------------- Playing (놀기, 6-2) ----------------
+        // ---------------- Playing (놀기 / 기력0 쉬기) ----------------
 
         /// <summary>
-        /// 놀기: 기물 점유를 풀고 5분간 맵을 돌아다닌다. 기력 소모·생산 없음.
-        /// 진입: 기물 아닌 곳 드래그 드롭.
-        /// 종료: 5분 후 Walking(목표 타겟팅) → 기물. Docs/06_행동룰.md
+        /// 놀기: 기물 점유를 풀고 맵을 돌아다닌다. 기력 소모·생산 없음.
+        /// 기력 &gt; 0: 5분 후 Walking. 기력 0: 쓰러지지 않고 배회, 18시간 후 기절. 드래그로 앉히면 재가동.
         /// </summary>
         public void EnterPlaying()
         {
             if (Stats.Stage == GrowthStage.Neok) return;
             if (Stats.State == ActionState.Fainted) return;
-
-            bool fromStay = Stats.State == ActionState.Staying;
 
             ClearWalkDestination();
             LeaveCurrentProp();
@@ -259,27 +254,28 @@ namespace Yoegoe.Characters
             animFrame = 0;
             animTimer = 0f;
             lastPosition = transform.position;
-
-            // 10장 기물 요구: 머물다 일어남(놀기 진입)
-            if (fromStay) Requests.TryStartPropRequest();
         }
 
         private void TickPlaying(float dt)
         {
             Stats.StateTimer += dt;
-            if (Stats.StateTimer >= PlayDurationSeconds)
+
+            if (Stats.Stamina <= 0f)
+            {
+                if (Stats.StateTimer >= FaintThresholdSeconds)
+                    EnterFainted();
+            }
+            else if (Stats.StateTimer >= PlayDurationSeconds)
             {
                 EnterWalking();
                 return;
             }
 
-            // 목적지 없이 맵을 떠돈다. 가끔 한곳에 멈춰 쉬는 연출은 wander 도착 시 짧은 대기로 대체.
+            if (Stats.State != ActionState.Playing) return;
+
             if (wanderTarget == null || Vector3.Distance(transform.position, wanderTarget.Value) < 0.05f)
-            {
-                // 도착 후 1~3초 쉬는 느낌: 다음 타겟을 바로 안 고르고 타이머만 쓰려면 복잡해지므로
-                // 랜덤 지점으로 계속 이동 (기력 소모 없음).
                 wanderTarget = MapBounds.RandomPoint(transform.position.z);
-            }
+
             transform.position = MapBounds.Clamp(
                 Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
             ResolveSeparation(dt);
@@ -287,13 +283,12 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 놀기·걷기 중 기물에 올려 앉히기. 성공 시 머물기(기력 0까지 생산)가 새로 시작된다.
-        /// 이미 다른 요괴가 앉아 있거나 엔딩기물 제한이면 false.
+        /// 기력 0 놀기 중에도 무료로 앉혀 재가동 가능.
         /// </summary>
         public bool TrySitOnProp(PropSlot prop)
         {
             if (prop == null || Stats.Stage == GrowthStage.Neok) return false;
             if (Stats.State == ActionState.Fainted) return false;
-            if (Stats.State == ActionState.Slumped) return false; // 주저앉기는 SettleSlumpedAfterDrag
 
             ClearWalkDestination();
             LeaveCurrentProp();
@@ -307,7 +302,6 @@ namespace Yoegoe.Characters
             var p = prop.transform.position;
             transform.position = MapBounds.Clamp(new Vector3(p.x, p.y, transform.position.z));
             EnterStaying();
-            Requests.NotifySatOnProp(prop);
             return true;
         }
 
@@ -322,48 +316,37 @@ namespace Yoegoe.Characters
             wanderTarget = null;
         }
 
-        // ---------------- Slumped / Fainted ----------------
+        // ---------------- Fainted ----------------
 
-        private void EnterSlumped()
+        void EnterFainted()
         {
-            // 6-2 기물 배정 규칙: 주저앉기·기절 중에는 현재 기물을 계속 점유한다 (Vacate 호출 안 함)
-            Stats.State = ActionState.Slumped;
+            Stats.State = ActionState.Fainted;
             Stats.StateTimer = 0f;
-            Requests.ClearAll(); // 신규 요구 없음·진행 중 요구도 정리
-        }
-
-        private void TickSlumped(float dt)
-        {
-            TickSlumpedSlice(dt);
-        }
-
-        private float TickSlumpedSlice(float dt)
-        {
-            float timeToFaint = Mathf.Max(0f, FaintThresholdSeconds - Stats.StateTimer);
-            float slice = Mathf.Min(dt, timeToFaint > 0f ? timeToFaint : dt);
-            if (slice <= 0f) slice = dt;
-
-            Stats.StateTimer += slice;
-            if (Stats.StateTimer >= FaintThresholdSeconds)
-            {
-                Stats.State = ActionState.Fainted;
-                Stats.StateTimer = 0f;
-                Requests.ClearAll(); // 기절 시 요구 삭제 [확정]
-                ShowFaintedEllipsis();
-            }
-            return slice;
+            // 기절 중에도 점유 유지 — 이미 놀기에서 비웠으면 null
+            Requests.ClearAll();
+            ShowFaintedEllipsis();
         }
 
         private float TickPlayingSlice(float dt)
         {
-            float timeToEnd = Mathf.Max(0f, PlayDurationSeconds - Stats.StateTimer);
-            float slice = Mathf.Min(dt, timeToEnd > 0f ? timeToEnd : dt);
-            if (slice <= 0f) slice = dt;
+            if (Stats.Stamina <= 0f)
+            {
+                float timeToFaint = Mathf.Max(0f, FaintThresholdSeconds - Stats.StateTimer);
+                float slice = Mathf.Min(dt, timeToFaint > 0f ? timeToFaint : dt);
+                if (slice <= 0f) slice = dt;
+                Stats.StateTimer += slice;
+                if (Stats.StateTimer >= FaintThresholdSeconds)
+                    EnterFainted();
+                return slice;
+            }
 
-            Stats.StateTimer += slice;
+            float timeToEnd = Mathf.Max(0f, PlayDurationSeconds - Stats.StateTimer);
+            float sliceWalk = Mathf.Min(dt, timeToEnd > 0f ? timeToEnd : dt);
+            if (sliceWalk <= 0f) sliceWalk = dt;
+            Stats.StateTimer += sliceWalk;
             if (Stats.StateTimer >= PlayDurationSeconds)
                 EnterWalking();
-            return slice;
+            return sliceWalk;
         }
     }
 }

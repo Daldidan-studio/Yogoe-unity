@@ -51,7 +51,7 @@ namespace Yoegoe.Characters
 
             Stats.Stage = GrowthStage.Hon;
             Stats.Intimacy = 0f;
-            Stats.Stamina = Mathf.Max(Stats.Stamina, 100f);
+            Stats.Stamina = MaxStaminaFromIntimacy(0f); // 20
             Stats.StateTimer = 0f;
             Requests.ClearAll();
             transform.position = MapBounds.Clamp(neokLogicalPos.sqrMagnitude > 0.0001f

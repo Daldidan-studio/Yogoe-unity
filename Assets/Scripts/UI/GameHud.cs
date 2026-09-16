@@ -323,10 +323,11 @@ namespace Yoegoe.UI
                 if (chip.StaminaFill != null && chip.StaminaFillRt != null)
                 {
                     var state = chip.Agent.Stats.State;
-                    bool alert = state == ActionState.Slumped || state == ActionState.Fainted;
-                    float ratio = alert ? 1f : Mathf.Clamp01(chip.Agent.Stats.Stamina / 100f);
+                    bool alert = state == ActionState.Fainted;
+                    float maxStamina = Mathf.Max(0.001f, chip.Agent.MaxStamina);
+                    float ratio = alert ? 1f : Mathf.Clamp01(chip.Agent.Stats.Stamina / maxStamina);
 
-                    bool flash = state == ActionState.Slumped || state == ActionState.Fainted;
+                    bool flash = state == ActionState.Fainted;
                     bool ratioChanged = Mathf.Abs(ratio - chip.LastStaminaRatio) > 0.002f;
                     bool stateChanged = state != chip.LastStaminaState;
                     if (ratioChanged || stateChanged || flash)
@@ -386,7 +387,7 @@ namespace Yoegoe.UI
             if (chip.HasLastBatchAmount && amount.Equals(chip.LastBatchAmount)) return;
             chip.HasLastBatchAmount = true;
             chip.LastBatchAmount = amount;
-            chip.LastBatchLabel = "일괄 수거\n" + amount.ToDisplayString() + "\n(광고×3)";
+            chip.LastBatchLabel = "일괄 수거\n" + amount.ToDisplayString() + "\n(광고×2)";
             chip.BatchButtonLabel.text = chip.LastBatchLabel;
         }
 

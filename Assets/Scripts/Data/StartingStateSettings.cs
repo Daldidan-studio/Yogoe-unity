@@ -12,8 +12,8 @@ namespace Yoegoe.Data
         [Header("시작 캐릭터 (혼 3인 공통)")]
         [Tooltip("친밀도 0~100. 기획서 시작 3인 = 50.")]
         public float startingIntimacy = 50f;
-        [Tooltip("기력 상한 100. 기획서 시작 3인 = 100.")]
-        public float startingStamina = 100f;
+        [Tooltip("레거시. 혼 시작 기력은 코드에서 20+친밀도로 계산.")]
+        public float startingStamina = 70f;
 
         [Header("시작 재화")]
         [Tooltip("공덕. 기획서 = 1,000.")]

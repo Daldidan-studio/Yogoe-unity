@@ -117,7 +117,7 @@ namespace Yoegoe.Characters
             ReservedBy = null;
         }
 
-        /// <summary>점유 해제. 주저앉기·기절 중에는 호출하지 않는다. 더미는 기물에 남는다.</summary>
+        /// <summary>점유 해제. 기절 중에는 호출하지 않는다. 더미는 기물에 남는다.</summary>
         public void Vacate(CharacterAgent agent)
         {
             if (Occupant == agent)

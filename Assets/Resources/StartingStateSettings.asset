@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: StartingStateSettings
   m_EditorClassIdentifier: 
   startingIntimacy: 50
-  startingStamina: 100
+  startingStamina: 70
   startingMerit: 1000
   startingYeopjeon: 0
   startingHyang: 3

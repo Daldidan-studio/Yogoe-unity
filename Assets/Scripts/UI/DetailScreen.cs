@@ -308,9 +308,10 @@ namespace Yoegoe.UI
                 ApplyStageLayout(isNeok);
 
             int stamina = Mathf.RoundToInt(stats.Stamina);
+            int maxStamina = Mathf.RoundToInt(currentAgent.MaxStamina);
             if (staminaValueText != null)
-                staminaValueText.text = stamina + "/100";
-            SetBarFill(staminaFillRt, Mathf.Clamp01(stats.Stamina / 100f));
+                staminaValueText.text = stamina + "/" + maxStamina;
+            SetBarFill(staminaFillRt, Mathf.Clamp01(stats.Stamina / Mathf.Max(0.001f, currentAgent.MaxStamina)));
             if (staminaFill != null)
                 staminaFill.color = CharacterStatusPresentation.ForStaminaBar(stats.State, Time.unscaledTime);
 
@@ -567,7 +568,7 @@ namespace Yoegoe.UI
 
             // 혼 기력 풀이면 소모만 되고 변화가 없어 "안 먹힌다"로 보임 → 낭비 방지
             if (currentAgent.Stats.Stage != GrowthStage.Neok
-                && currentAgent.Stats.Stamina >= 100f - 0.001f)
+                && currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f)
             {
                 NotifyFeedBlocked("기력이 가득 찼어요");
                 return false;
@@ -607,7 +608,7 @@ namespace Yoegoe.UI
 
             bool preferred = IsPreferred(offering);
             bool hasRequest = currentAgent.Requests != null && currentAgent.Requests.HasOfferingRequest;
-            bool staminaFull = currentAgent.Stats.Stamina >= 100f - 0.001f;
+            bool staminaFull = currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f;
 
             // 기력 풀 + 요구 없음 + 비선호 → 체감상 "안 먹힘". 선호·요구 이행은 허용.
             if (staminaFull && !hasRequest && !preferred)
@@ -1069,6 +1070,8 @@ namespace Yoegoe.UI
             bottomLayout.childAlignment = TextAnchor.MiddleCenter;
             bottomLayout.childForceExpandWidth = false;
             bottomLayout.childForceExpandHeight = true;
+            bottomLayout.childControlWidth = true;
+            bottomLayout.childControlHeight = true;
             bottomLayout.padding = new RectOffset(8, 8, 8, 8);
 
             CreatePurifiedWaterDragChip(bottomRt);
@@ -1077,8 +1080,12 @@ namespace Yoegoe.UI
             preferredRow = preferredHostGO.AddComponent<RectTransform>();
             preferredRow.SetParent(bottomRt, false);
             var prefHostLe = preferredHostGO.AddComponent<LayoutElement>();
+            // preferred=0 + flexible=1 → 칩 개수와 무관하게 정화수|…|인벤 사이 남은 폭만 사용
+            prefHostLe.minWidth = 0f;
+            prefHostLe.preferredWidth = 0f;
             prefHostLe.flexibleWidth = 1f;
             prefHostLe.preferredHeight = 140;
+            preferredHostGO.AddComponent<RectMask2D>();
             var prefLayout = preferredHostGO.AddComponent<HorizontalLayoutGroup>();
             prefLayout.spacing = 12;
             prefLayout.childAlignment = TextAnchor.MiddleCenter;
@@ -1159,8 +1166,11 @@ namespace Yoegoe.UI
             go.transform.SetParent(parent, false);
             purifiedDragGroup = go.AddComponent<CanvasGroup>();
             var le = go.AddComponent<LayoutElement>();
+            le.minWidth = 120;
             le.preferredWidth = 120;
+            le.flexibleWidth = 0f;
             le.preferredHeight = 140;
+            le.layoutPriority = 2;
 
             var v = go.AddComponent<VerticalLayoutGroup>();
             v.spacing = 6;
@@ -1219,8 +1229,11 @@ namespace Yoegoe.UI
             var go = new GameObject("Action_" + label);
             go.transform.SetParent(parent, false);
             var le = go.AddComponent<LayoutElement>();
+            le.minWidth = 120;
             le.preferredWidth = 120;
+            le.flexibleWidth = 0f;
             le.preferredHeight = 140;
+            le.layoutPriority = 2;
 
             var v = go.AddComponent<VerticalLayoutGroup>();
             v.spacing = 6;

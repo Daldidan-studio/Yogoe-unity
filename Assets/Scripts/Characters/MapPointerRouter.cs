@@ -414,14 +414,6 @@ namespace Yoegoe.Characters
             if (pendingMonologueTap != null && pendingMonologueTap != agent)
                 FlushPendingMonologueTap();
 
-            // 기물 요구 ? 단일탭: 혼잣말·상세 없음. 더블탭 창만 연다.
-            if (agent.Requests != null && agent.Requests.HasVisiblePropRequest)
-            {
-                pendingMonologueTap = agent;
-                pendingMonologueDeadline = Time.unscaledTime + doubleTapSeconds;
-                return;
-            }
-
             // 공양물 요구 말풍선 탭 → 즉시 상세(강조)
             if (agent.HasOfferingRequest)
             {
@@ -446,8 +438,6 @@ namespace Yoegoe.Characters
             var agent = pendingMonologueTap;
             pendingMonologueTap = null;
             if (agent == null) return;
-            if (agent.Requests != null && agent.Requests.HasVisiblePropRequest)
-                return;
             if (agent.HasOfferingRequest)
             {
                 OpenCharacterDetail(agent);

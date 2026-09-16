@@ -40,7 +40,6 @@ namespace Yoegoe.Characters
         /// 드래그 종료.
         /// 빈 기물 → 즉시 착석. 타 엔딩 기물 → 옆에 두고 3초 도리도리 후 걷기.
         /// 점유된 기물 → 옆에 내려놓음. 그 외 → 놀기.
-        /// 주저앉기 중이면 지친 상태를 유지한 채 배치.
         /// </summary>
         public void EndPlayerDrag(PropSlot dropProp)
         {
@@ -50,10 +49,7 @@ namespace Yoegoe.Characters
             lastPosition = transform.position;
 
             if (Stats.State == ActionState.Slumped)
-            {
-                SettleSlumpedAfterDrag(dropProp);
-                return;
-            }
+                MigrateSlumpedToPlaying();
 
             if (dropProp != null && dropProp.IsForbiddenEndingFor(this))
             {
@@ -153,35 +149,6 @@ namespace Yoegoe.Characters
             if (frames[0] != null)
                 spriteRenderer.sprite = frames[0];
             spriteRenderer.flipX = flipX;
-        }
-
-        /// <summary>주저앉기 드래그 드롭: 상태·12시간 타이머 유지, 가능하면 기물 점유. 점유·타 엔딩이면 옆에.</summary>
-        private void SettleSlumpedAfterDrag(PropSlot dropProp)
-        {
-            if (dropProp != null
-                && dropProp.CanBeUsedBy(this)
-                && !dropProp.IsOccupied
-                && dropProp.TryOccupy(this))
-            {
-                currentProp = dropProp;
-                var p = dropProp.transform.position;
-                transform.position = new Vector3(p.x, p.y, transform.position.z);
-                return;
-            }
-
-            if (dropProp != null && (dropProp.IsOccupied && dropProp.CanBeUsedBy(this) || dropProp.IsForbiddenEndingFor(this)))
-            {
-                Vector3 origin = dropProp.transform.position;
-                Vector3 away = transform.position - (dropProp.Occupant != null
-                    ? dropProp.Occupant.transform.position
-                    : origin);
-                if (away.sqrMagnitude < 0.0001f)
-                    away = Random.value < 0.5f ? Vector3.left : Vector3.right;
-                Vector3 beside = origin + away.normalized * DragBesideDistance;
-                beside.z = transform.position.z;
-                transform.position = MapBounds.Clamp(beside);
-            }
-            // 기물 아니면 드롭 좌표에 그대로 주저앉음 (State는 이미 Slumped)
         }
     }
 }

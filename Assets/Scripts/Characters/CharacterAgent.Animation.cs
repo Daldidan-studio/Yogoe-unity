@@ -54,9 +54,9 @@ namespace Yoegoe.Characters
                 UpdateFacingFromDelta(delta);
 
             bool advanceFrames = wantsWalkCycle || Stats.State == ActionState.Staying
-                || Stats.State == ActionState.Slumped
                 || Stats.State == ActionState.Fainted
-                || Stats.State == ActionState.Playing;
+                || Stats.State == ActionState.Playing
+                || Stats.State == ActionState.Slumped;
 
             Sprite[] frames = ResolveAnimationFrames(wantsWalkCycle, out bool flipX);
             if (frames == null || frames.Length == 0) return;
@@ -119,10 +119,8 @@ namespace Yoegoe.Characters
                     if (HasFrames(Data.stay)) return Data.stay;
                     break;
                 case ActionState.Playing:
+                case ActionState.Slumped: // 구세이브 호환 → idle
                     if (HasFrames(Data.idle)) return Data.idle;
-                    break;
-                case ActionState.Slumped:
-                    if (HasFrames(Data.slumped)) return Data.slumped;
                     break;
                 case ActionState.Fainted:
                     if (HasFrames(Data.fainted)) return Data.fainted;

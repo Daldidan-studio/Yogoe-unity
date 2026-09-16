@@ -6,7 +6,7 @@ using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
-    /// <summary>7-2 일괄 수거: 1배 받기 / 광고(또는 보상권) 3배.</summary>
+    /// <summary>7-2 일괄 수거: 1배 받기 / 광고(또는 보상권) 2배.</summary>
     public class BatchCollectPopup : MonoBehaviour
     {
         public static BatchCollectPopup Instance { get; private set; }
@@ -15,7 +15,7 @@ namespace Yoegoe.UI
 
         GameObject root;
         Text amountText;
-        Text tripleHintText;
+        Text doubleHintText;
         Text adBtnLabel;
         Button claimBtn;
         Button adBtn;
@@ -60,14 +60,14 @@ namespace Yoegoe.UI
             var amount = GameEconomy.Instance.PendingBatchMerit;
             if (amountText != null)
                 amountText.text = amount.ToDisplayString();
-            if (tripleHintText != null)
-                tripleHintText.text = "광고 시 ×3 → " + (amount * 3.0).ToDisplayString();
+            if (doubleHintText != null)
+                doubleHintText.text = "광고 시 ×2 → " + (amount * 2.0).ToDisplayString();
             if (adBtnLabel != null)
             {
                 if (GiftBundle.AdTickets > 0)
-                    adBtnLabel.text = "보상권으로 ×3 (" + GiftBundle.AdTickets + ")";
+                    adBtnLabel.text = "보상권으로 ×2 (" + GiftBundle.AdTickets + ")";
                 else
-                    adBtnLabel.text = "광고 보고 ×3";
+                    adBtnLabel.text = "광고 보고 ×2";
             }
         }
 
@@ -77,13 +77,13 @@ namespace Yoegoe.UI
             FinishClaim(1);
         }
 
-        void OnClaim3x()
+        void OnClaim2x()
         {
             if (busy) return;
-            StartCoroutine(Claim3xRoutine());
+            StartCoroutine(Claim2xRoutine());
         }
 
-        IEnumerator Claim3xRoutine()
+        IEnumerator Claim2xRoutine()
         {
             busy = true;
             SetButtonsInteractable(false);
@@ -95,7 +95,7 @@ namespace Yoegoe.UI
                 yield return new WaitForSecondsRealtime(0.8f);
             }
 
-            FinishClaim(3);
+            FinishClaim(2);
             busy = false;
         }
 
@@ -166,12 +166,12 @@ namespace Yoegoe.UI
             MakeText(box, "일괄 수거", 36, new Vector2(0, 200));
             MakeText(box, "쌓인 공덕", 22, new Vector2(0, 140), new Color(0.9f, 0.85f, 0.7f));
             amountText = MakeText(box, "0", 42, new Vector2(0, 80));
-            tripleHintText = MakeText(box, "", 24, new Vector2(0, 20), new Color(1f, 0.85f, 0.45f));
+            doubleHintText = MakeText(box, "", 24, new Vector2(0, 20), new Color(1f, 0.85f, 0.45f));
 
             claimBtn = MakeButton(box, "BtnClaim", "받기", new Vector2(0, -70),
                 new Vector2(360, 72), new Color(0.35f, 0.55f, 0.4f, 1f), OnClaim1x);
-            adBtn = MakeButton(box, "BtnAd3x", "광고 보고 ×3", new Vector2(0, -160),
-                new Vector2(360, 72), new Color(0.55f, 0.4f, 0.2f, 1f), OnClaim3x);
+            adBtn = MakeButton(box, "BtnAd2x", "광고 보고 ×2", new Vector2(0, -160),
+                new Vector2(360, 72), new Color(0.55f, 0.4f, 0.2f, 1f), OnClaim2x);
             adBtnLabel = adBtn.GetComponentInChildren<Text>();
 
             closeBtn = MakeButton(box, "BtnClose", "닫기", new Vector2(0, -250),
