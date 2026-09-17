@@ -175,8 +175,9 @@ namespace Yoegoe.Tests.EditMode
             agent.TrySitOnProp(prop);
             agent.Stats.State = ActionState.Slumped;
             agent.Stats.Stamina = 0f;
+            agent.Stats.Intimacy = 50f; // max = 70, 게인 30이 클램프 없이 그대로 반영되도록 여유를 둠
 
-            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0.25f);
+            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0f);
 
             // 구 Slumped → Playing 이관 후 기력만 회복 (기절 기상과 달리 Walking 강제 아님)
             Assert.AreEqual(ActionState.Playing, agent.Stats.State);
