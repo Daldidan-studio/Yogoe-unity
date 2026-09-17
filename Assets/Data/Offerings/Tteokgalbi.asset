@@ -16,6 +16,6 @@ MonoBehaviour:
   displayName: 떡갈비
   kind: 0
   icon: {fileID: 21300000, guid: 1b15c83e1969843f29598a6c02f3bb3e, type: 3}
-  staminaGain: 20
-  intimacyGain: 0.25
+  staminaGain: 0
+  intimacyGain: 0
   shopPriceYeopjeon: 10

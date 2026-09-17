@@ -30,5 +30,10 @@ namespace Yoegoe.Data
 
         [Tooltip("주인 캐릭터가 점유 중일 때 기물에 표시할 전용 스프라이트 (예: 옥토끼+떡절구). 비우면 기본 기물 그림 유지.")]
         public Sprite occupiedByOwnerSprite;
+
+        [Header("공양간")]
+        [Tooltip("탭하면 공양간(요리) 화면을 연다. 화덕.")]
+        public bool opensGongyanggan;
     }
 }
+

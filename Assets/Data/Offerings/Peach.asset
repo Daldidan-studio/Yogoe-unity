@@ -16,6 +16,6 @@ MonoBehaviour:
   displayName: 복숭아
   kind: 1
   icon: {fileID: 21300000, guid: 8a450506a353240c08cddb191502d3df, type: 3}
-  staminaGain: 20
-  intimacyGain: 0.25
+  staminaGain: 0
+  intimacyGain: 0
   shopPriceYeopjeon: 10

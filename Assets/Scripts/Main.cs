@@ -122,6 +122,7 @@ namespace Yoegoe
             economyGO.AddComponent<GameEconomy>().ApplyStartingState(StartingStateSettings.Get());
 
             CharacterCatalog.EnsureLoaded();
+            EnsureOfferingsCatalog();
             CharacterCatalog.SetOfferings(offerings);
             ShopStock.SetCatalog(offerings);
             ShopStock.EnsureFresh(DateTime.UtcNow);
@@ -139,7 +140,7 @@ namespace Yoegoe
 
             CreateCharacter("옥토끼", new Vector3(-1f, 0.5f, 0), Color.white, oktoData);
             CreateCharacter("삼족오", new Vector3(0f, 0.5f, 0), Color.black, samjokOData);
-            CreateCharacter("구미호", new Vector3(1f, 0.5f, 0), new Color(1f, 0.6f, 0.2f), gumihoData);
+            // 구미호: 잠금 슬롯(엽전 99) 해금 후 소환 — 시작 스폰 없음
 
             CreateHud();
         }
@@ -148,6 +149,9 @@ namespace Yoegoe
         {
             // CharacterAgent.Start(기본 스탯)가 끝난 뒤 세이브를 덮어써야 복원이 유지된다.
             yield return null;
+            // Bake Prefab은 Root가 켜진 채로 저장된다. Start에서 끄지만,
+            // 누락/순서 문제로 Root가 남으면 풀스크린이 맵 클릭을 가로챈다.
+            ForceCloseOverlayScreens();
             GameSaveBridge.TryLoadSimulateAndApply();
             lastActiveUtc = DateTime.UtcNow;
             worldReady = true;
@@ -276,6 +280,17 @@ namespace Yoegoe
                     shop.gameObject.SetActive(true);
             }
 
+            var gongyanggan = GongyangganScreen.Resolve();
+            if (gongyanggan == null)
+            {
+                Debug.LogError(
+                    "[Main] GongyangganScreen 프리팹이 없습니다. Yoegoe → Bake GongyangganScreen Prefab (Into Main Scene)");
+            }
+            else
+            {
+                gongyanggan.font = hudFont;
+            }
+
             var yut = UnityEngine.Object.FindAnyObjectByType<YutScreen>(FindObjectsInactive.Include);
             if (yut == null)
             {
@@ -328,6 +343,33 @@ namespace Yoegoe
             hud.detailScreen = detail;
             if (!hud.gameObject.activeSelf)
                 hud.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Inspector에 offerings가 비어 있으면 StartingStateSettings 목록을 쓴다.
+        /// </summary>
+        void EnsureOfferingsCatalog()
+        {
+            if (offerings != null && offerings.Length > 0) return;
+
+            var fromStart = StartingStateSettings.Get()?.startingOfferings;
+            if (fromStart != null && fromStart.Length > 0)
+                offerings = fromStart;
+        }
+
+        static void ForceCloseOverlayScreens()
+        {
+            var detail = UnityEngine.Object.FindAnyObjectByType<DetailScreen>(FindObjectsInactive.Include);
+            if (detail != null) detail.Close();
+
+            var shop = UnityEngine.Object.FindAnyObjectByType<ShopScreen>(FindObjectsInactive.Include);
+            if (shop != null) shop.Close();
+
+            var gongyanggan = UnityEngine.Object.FindAnyObjectByType<GongyangganScreen>(FindObjectsInactive.Include);
+            if (gongyanggan != null) gongyanggan.Close();
+
+            var yut = UnityEngine.Object.FindAnyObjectByType<YutScreen>(FindObjectsInactive.Include);
+            if (yut != null) yut.Close();
         }
 
         /// <summary>

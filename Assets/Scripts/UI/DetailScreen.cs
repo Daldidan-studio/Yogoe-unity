@@ -7,6 +7,8 @@ using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.Save;
+using UnityEngine.EventSystems;
+using Yoegoe.Cooking;
 
 namespace Yoegoe.UI
 {
@@ -581,7 +583,7 @@ namespace Yoegoe.UI
             }
 
             var pw = FindPurifiedWater();
-            int gain = pw != null ? pw.staminaGain : 20;
+            int gain = pw != null ? pw.ResolveStaminaGain(false) : 3;
             // 기절 상태는 정화수 1개당 기력 1만 회복 (완전 회복 방지, 여러 번 먹여야 깨어남)
             if (currentAgent.Stats.State == ActionState.Fainted) gain = 1;
             currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
@@ -607,11 +609,15 @@ namespace Yoegoe.UI
             }
 
             bool preferred = IsPreferred(offering);
+            var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
+            int staminaGain = offering.ResolveStaminaGain(preferred);
+            float intimacyGain = offering.ResolveIntimacyGain(preferred);
+
             bool hasRequest = currentAgent.Requests != null && currentAgent.Requests.HasOfferingRequest;
             bool staminaFull = currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f;
 
-            // 기력 풀 + 요구 없음 + 비선호 → 체감상 "안 먹힘". 선호·요구 이행은 허용.
-            if (staminaFull && !hasRequest && !preferred)
+            // 기력 풀: 친밀도 오르는 공양만 허용(음식은 기력만이라 막음)
+            if (staminaFull && !hasRequest && intimacyGain <= 0.0001f)
             {
                 NotifyFeedBlocked("기력이 가득 찼어요");
                 return false;
@@ -622,10 +628,6 @@ namespace Yoegoe.UI
                 NotifyFeedBlocked("공양물이 없어요");
                 return false;
             }
-
-            var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
-            int staminaGain = offering.staminaGain > 0 ? offering.staminaGain : 20;
-            float intimacyGain = preferred ? 0.25f : 0f;
 
             bool clearedOfferingRequest = false;
             if (currentAgent.Requests != null

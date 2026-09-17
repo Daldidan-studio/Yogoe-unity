@@ -12,6 +12,6 @@ namespace Yoegoe.Data
 
     public enum CharacterId { Rabbit, SamjokO, Gumiho, Gorani } // 옥토끼, 삼족오, 구미호, 고라니
 
-    /// <summary>공양물 종류 (기획서 5-4). 정화수는 넋/혼 공통으로 기력만 채운다.</summary>
-    public enum OfferingKind { General, Preferred, PurifiedWater } // 일반 공양물, 선호 공양물, 정화수
+    /// <summary>공양/음식 종류. Preferred는 캐릭터 선호 판정용(데이터 kind로는 거의 안 씀).</summary>
+    public enum OfferingKind { General, Preferred, PurifiedWater, Food } // 공양물, (선호표시), 물, 음식
 }

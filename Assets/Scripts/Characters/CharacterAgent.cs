@@ -116,7 +116,7 @@ namespace Yoegoe.Characters
             {
                 var start = StartingStateSettings.Get();
                 Stats.Intimacy = start.startingIntimacy;
-                // 최대·시작 기력 = 20 + 친밀도
+                // 최대·시작 기력 = 25 + 친밀도
                 Stats.Stamina = MaxStaminaFromIntimacy(Stats.Intimacy);
             }
         }
@@ -125,7 +125,7 @@ namespace Yoegoe.Characters
         public float MaxStamina =>
             Stats.Stage == GrowthStage.Neok ? 100f : MaxStaminaFromIntimacy(Stats.Intimacy);
 
-        public static float MaxStaminaFromIntimacy(float intimacy) => 20f + Mathf.Clamp(intimacy, 0f, 100f);
+        public static float MaxStaminaFromIntimacy(float intimacy) => 25f + Mathf.Clamp(intimacy, 0f, 100f);
 
         /// <summary>세이브 복원·소환 직후 Start가 스탯을 리셋하지 않도록 표시.</summary>
         public void MarkStatsAppliedExternally() => statsAppliedExternally = true;

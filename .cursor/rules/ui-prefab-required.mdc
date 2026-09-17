@@ -1,0 +1,20 @@
+---
+description: UI는 런타임 Build 금지, Prefab + Baker 패턴 필수
+alwaysApply: true
+---
+
+# UI = Prefab 필수
+
+새 화면·팝업·HUD·미니게임 UI를 만들거나 레이아웃을 바꿀 때:
+
+1. **런타임으로 UI 트리를 `new GameObject` / `AddComponent`로 조립하지 않는다.** (기존 Shop/Detail/Yut처럼 셸은 Prefab)
+2. 에셋 경로: `Assets/Prefabs/UI/<Name>.prefab`
+3. Editor Baker: `Assets/Scripts/UI/Editor/<Name>PrefabBaker.cs`
+   - 메뉴 `Yoegoe → Bake <Name> Prefab (Into Main Scene)`
+   - Prefab 저장 후 Main 씬에 인스턴스 배치(기본 비활성)
+4. 스크립트는 Prefab에 붙은 컴포넌트 + **직렬화된 참조**로만 동작. Play 모드에서 셸 생성 금지.
+5. 동적 콘텐츠(리스트 셀, 말풍선 등)만 코드 생성 허용. 셸·고정 레이아웃은 Prefab.
+
+참고 기존: `ShopScreenPrefabBaker`, `DetailScreenPrefabBaker`, `YutScreenPrefabBaker`, `GameHudPrefabBaker`.
+
+공양간·출석 윷점 등 신규 UI도 동일.

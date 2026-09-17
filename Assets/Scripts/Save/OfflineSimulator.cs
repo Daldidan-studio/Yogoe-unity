@@ -13,7 +13,7 @@ namespace Yoegoe.Save
     {
         public static float MaxOfflineSeconds = 18f * 60f * 60f;
 
-        private const float StaminaDrainPerSecond = 1f / 120f; // 2분당 1
+        private const float StaminaDrainPerSecond = 1f / 600f; // 10분당 1
         private const float FaintThresholdSeconds = 18f * 60f * 60f;
         private const float PlayDurationSeconds = 1f * 60f;
 

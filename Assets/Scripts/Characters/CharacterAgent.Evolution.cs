@@ -26,13 +26,13 @@ namespace Yoegoe.Characters
         /// </summary>
         public static event System.Action<string, System.Action> EvolutionConfirmRequested;
 
-        /// <summary>소환 직후 넋 상태로 고정 (Start보다 먼저 호출).</summary>
+        /// <summary>소환 직후 — 즉시 혼, 친밀도 0, 기력 1 (Docs/00 §2·§9).</summary>
         public void ApplyFreshNeokSummon()
         {
             statsAppliedExternally = true;
-            Stats.Stage = GrowthStage.Neok;
+            Stats.Stage = GrowthStage.Hon;
             Stats.Intimacy = 0f;
-            Stats.Stamina = 0f;
+            Stats.Stamina = 1f;
             Stats.State = ActionState.Walking;
             Stats.StateTimer = 0f;
             neokLogicalPos = transform.position;
@@ -41,17 +41,19 @@ namespace Yoegoe.Characters
             lastPosition = transform.position;
             if (spriteRenderer == null)
                 spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            CharacterSpawner.EnsureHonVisual(this);
+            EnterWalking();
             ApplyAnimationFrameImmediate();
         }
 
-        /// <summary>넋 → 혼. 친밀도 0부터. playFx면 줌인·변화 후 확인 창.</summary>
+        /// <summary>레거시 넋→혼. 소환은 ApplyFreshNeokSummon이 즉시 혼.</summary>
         public void EvolveToHon(bool playFx = true)
         {
             if (Stats.Stage != GrowthStage.Neok || evolvingToHon) return;
 
             Stats.Stage = GrowthStage.Hon;
             Stats.Intimacy = 0f;
-            Stats.Stamina = MaxStaminaFromIntimacy(0f); // 20
+            Stats.Stamina = 1f;
             Stats.StateTimer = 0f;
             Requests.ClearAll();
             transform.position = MapBounds.Clamp(neokLogicalPos.sqrMagnitude > 0.0001f

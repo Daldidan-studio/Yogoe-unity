@@ -9,7 +9,7 @@ namespace Yoegoe.Characters
     {
         private const float PlayDurationSeconds = 1f * 60f; // 기력 있는 놀기
         private const float FaintThresholdSeconds = 18f * 60f * 60f; // 기력0 놀기 18시간 → 기절
-        private const float StaminaDrainPerSecond = 1f / 120f; // 2분당 1
+        private const float StaminaDrainPerSecond = 1f / 600f; // 10분당 1
         private const float WanderRetrySeconds = 30f;
         private const float SeparationRadius = 0.55f;
         /// <summary>전진을 죽이지 않도록 이동 속도보다 낮게 유지.</summary>

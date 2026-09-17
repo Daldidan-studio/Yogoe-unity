@@ -81,8 +81,9 @@ namespace Yoegoe.UI
 
         public bool HasPrefabShell => root != null && miniGame != null;
 
-        /// <summary>윷 화면이 떠 있는 동안 본맵 핀치/휠 줌·드래그가 새면 안 된다.</summary>
-        public bool IsOpen => root != null && root.activeInHierarchy;
+        /// <summary>윷 화면이 떠 있는 동안 본맵 핀치/휠 줌·드래그가 새면 안 된다.
+        /// Prefab Bake 직후 Root가 켜져 있어도, Open() 전에는 맵 입력을 막지 않는다.</summary>
+        public bool IsOpen { get; private set; }
 
         YutMatch match;
         YutThrowOutcome? pendingOutcome;
@@ -170,6 +171,7 @@ namespace Yoegoe.UI
             EnsureBuilt();
             WireRuntimeListeners();
             if (root != null) root.SetActive(false);
+            IsOpen = false;
         }
 
         void OnDestroy()
@@ -258,6 +260,7 @@ namespace Yoegoe.UI
             AssignSpecialOfferings();
             challenge.StartNew(match.PlayerPieces.Count, this);
             root.SetActive(true);
+            IsOpen = true;
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
             miniGame.SetThrowVisible(true);
@@ -274,6 +277,7 @@ namespace Yoegoe.UI
         void ResumeExistingMatch()
         {
             root.SetActive(true);
+            IsOpen = true;
             miniGame.Show();
             miniGame.SetLeaveVisible(true);
             miniGame.SetThrowVisible(true);
@@ -351,6 +355,7 @@ namespace Yoegoe.UI
             if (reviveRoot != null) reviveRoot.SetActive(false);
             if (miniGame != null) miniGame.Hide();
             if (root != null) root.SetActive(false);
+            IsOpen = false;
             GameSaveBridge.SaveFromWorld();
             // 머리 위 획득물·이어지는 공양 요구는 완주 후 윷을 완전히 끝낼 때만.
             // 중도 나가기는 매치를 이어가므로 연출하지 않고, 미연출 목록은 유지한다.

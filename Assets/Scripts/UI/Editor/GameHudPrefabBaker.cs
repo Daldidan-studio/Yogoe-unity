@@ -73,6 +73,7 @@ namespace Yoegoe.UI.EditorTools
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
+            MainSceneBootstrap.EnsureInOpenScene();
             EditorSceneManager.SaveScene(scene);
             Debug.Log("[GameHudPrefabBaker] Prefab + Main 씬 배치 완료: " + PrefabPath);
         }

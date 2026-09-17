@@ -60,6 +60,7 @@ namespace Yoegoe.UI.EditorTools
             if (baked != null) baked.font = font;
 
             EditorSceneManager.MarkSceneDirty(scene);
+            MainSceneBootstrap.EnsureInOpenScene();
             EditorSceneManager.SaveScene(scene);
             Debug.Log("[YutScreenPrefabBaker] Prefab 완료. 레이아웃은 Assets/Prefabs/UI/YutScreen.prefab 을 열어 보세요.");
         }

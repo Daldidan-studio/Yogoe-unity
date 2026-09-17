@@ -6,20 +6,19 @@ using Yoegoe.UI;
 namespace Yoegoe.UI.EditorTools
 {
     /// <summary>
-    /// 상세화면 셸을 Prefab으로 굽고 Main 씬에 배치한다.
-    /// 메뉴: Yoegoe → Bake DetailScreen Prefab (Into Main Scene)
+    /// 공양간 셸 Prefab + Main 씬 배치.
+    /// 메뉴: Yoegoe → Bake GongyangganScreen Prefab (Into Main Scene)
     /// </summary>
-    public static class DetailScreenPrefabBaker
+    public static class GongyangganScreenPrefabBaker
     {
-        const string PrefabPath = "Assets/Prefabs/UI/DetailScreen.prefab";
+        const string PrefabPath = "Assets/Prefabs/UI/GongyangganScreen.prefab";
         const string MainScenePath = "Assets/Scenes/Main.unity";
         const string FontPath = "Assets/Fonts/DOSGothic.ttf";
-        const string WaterIconPath = "Assets/Art/Offerings/Offering_PurifiedWater.png";
 
-        [MenuItem("Yoegoe/Bake DetailScreen Prefab (Into Main Scene)")]
+        [MenuItem("Yoegoe/Bake GongyangganScreen Prefab (Into Main Scene)")]
         public static void BakeFromMenu() => Bake();
 
-        /// <summary>Unity -batchmode -executeMethod Yoegoe.UI.EditorTools.DetailScreenPrefabBaker.Bake</summary>
+        /// <summary>Unity -batchmode -executeMethod Yoegoe.UI.EditorTools.GongyangganScreenPrefabBaker.Bake</summary>
         public static void Bake()
         {
             if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))
@@ -28,47 +27,47 @@ namespace Yoegoe.UI.EditorTools
                 AssetDatabase.CreateFolder("Assets/Prefabs", "UI");
 
             var font = AssetDatabase.LoadAssetAtPath<Font>(FontPath);
-            var waterIcon = AssetDatabase.LoadAssetAtPath<Sprite>(WaterIconPath);
 
-            var root = new GameObject("DetailScreen");
-            var screen = root.AddComponent<DetailScreen>();
+            var root = new GameObject("GongyangganScreen");
+            var screen = root.AddComponent<GongyangganScreen>();
             screen.font = font;
-            screen.purifiedWaterIcon = waterIcon;
             screen.EnsureBuiltForBake();
 
             PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool success);
             Object.DestroyImmediate(root);
             if (!success)
             {
-                Debug.LogError("[DetailScreenPrefabBaker] Prefab 저장 실패: " + PrefabPath);
+                Debug.LogError("[GongyangganScreenPrefabBaker] Prefab 저장 실패: " + PrefabPath);
                 return;
             }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            // Resources에도 동일 Prefab 복사 (런타임 Resolve 폴백용)
+            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+                AssetDatabase.CreateFolder("Assets", "Resources");
+            if (!AssetDatabase.IsValidFolder("Assets/Resources/UI"))
+                AssetDatabase.CreateFolder("Assets/Resources", "UI");
+            AssetDatabase.CopyAsset(PrefabPath, "Assets/Resources/UI/GongyangganScreen.prefab");
+
             var scene = EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Single);
 
-            foreach (var old in Object.FindObjectsByType<DetailScreen>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var old in Object.FindObjectsByType<GongyangganScreen>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 Object.DestroyImmediate(old.gameObject);
 
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
-            instance.name = "DetailScreen";
-            // Main 씬에서는 기본 비활성 — Prefab 에셋을 열어 레이아웃 편집
+            instance.name = "GongyangganScreen";
             instance.SetActive(false);
 
-            var baked = instance.GetComponent<DetailScreen>();
-            if (baked != null)
-            {
-                baked.font = font;
-                baked.purifiedWaterIcon = waterIcon;
-            }
+            var baked = instance.GetComponent<GongyangganScreen>();
+            if (baked != null) baked.font = font;
 
             EditorSceneManager.MarkSceneDirty(scene);
             MainSceneBootstrap.EnsureInOpenScene();
             EditorSceneManager.SaveScene(scene);
-            Debug.Log("[DetailScreenPrefabBaker] Prefab + Main 씬 배치 완료: " + PrefabPath);
+            Debug.Log("[GongyangganScreenPrefabBaker] Prefab + Main 씬 배치 완료: " + PrefabPath);
         }
     }
 }

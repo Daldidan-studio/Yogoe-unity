@@ -5,64 +5,67 @@ using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
-    /// <summary>10장 공양물 요구 상태. CharacterAgent가 소유. (기물 요구는 최종 밸런스에서 삭제)</summary>
+    /// <summary>10장 음식 요구. CharacterAgent가 소유. (기물 요구 삭제)</summary>
     public class CharacterRequestState
     {
         public const float OfferingDurationSeconds = 60f;
-        public const float OfferingCooldownSeconds = 5f * 60f;
+        public const float RequestIntervalMin = 3f * 60f;
+        public const float RequestIntervalMax = 5f * 60f;
+        /// <summary>기력 ≤ 최대 − 이 값 이면 요구 후보 구간.</summary>
+        public const float StaminaRequestMargin = 25f;
 
-        /// <summary>
-        /// 요구 완료 보상으로 선물꾸러미 당첨. UI(GiftBundlePopup)가 구독해서 팝업을 연다.
-        /// </summary>
         public static event System.Action<string> GiftBundleAwarded;
 
         public OfferingData OfferingRequest { get; private set; }
         public float OfferingExpireAt { get; private set; }
-        public float CooldownUntil { get; private set; }
+        public float NextRequestCheckAt { get; private set; }
 
         public bool HasOfferingRequest => OfferingRequest != null;
 
         SpriteRenderer offeringIcon;
         readonly CharacterAgent owner;
 
-        public CharacterRequestState(CharacterAgent agent) => owner = agent;
+        public CharacterRequestState(CharacterAgent agent)
+        {
+            owner = agent;
+            ScheduleNextCheck();
+        }
 
         public void Tick(float dt)
         {
             if (HasOfferingRequest && Time.time >= OfferingExpireAt)
                 ClearOfferingRequest();
+
+            if (!HasOfferingRequest
+                && CanSpawnOfferingRequest()
+                && InLowStaminaBand()
+                && Time.time >= NextRequestCheckAt)
+            {
+                TryStartOfferingRequest();
+                ScheduleNextCheck();
+            }
+
             UpdateVisualPositions();
         }
 
-        /// <summary>
-        /// 기력 소모 시: 현재 기력이 (최대−20) 이하인 구간에서 −5 절대경계를 하향 통과하면 요구.
-        /// </summary>
-        public void NotifyStaminaDrain(float before, float after)
+        /// <summary>레거시 훅. 주기 타이머로 대체됨.</summary>
+        public void NotifyStaminaDrain(float before, float after) { }
+
+        void ScheduleNextCheck()
         {
-            if (!CanSpawnOfferingRequest()) return;
-            if (HasOfferingRequest) return;
-            if (Time.time < CooldownUntil) return;
+            NextRequestCheckAt = Time.time + Random.Range(RequestIntervalMin, RequestIntervalMax);
+        }
 
-            float max = owner.MaxStamina;
-            float regionCeiling = max - 20f;
-            if (regionCeiling < 5f) return;
-
-            int top = Mathf.FloorToInt(regionCeiling / 5f) * 5;
-            for (int b = top; b >= 5; b -= 5)
-            {
-                if (before > b && after <= b)
-                {
-                    TryStartOfferingRequest();
-                    return;
-                }
-            }
+        bool InLowStaminaBand()
+        {
+            if (owner == null) return false;
+            return owner.Stats.Stamina <= owner.MaxStamina - StaminaRequestMargin + 0.001f;
         }
 
         public bool CanSpawnOfferingRequest()
         {
             if (owner == null || owner.Stats == null) return false;
             if (owner.Stats.Stage != GrowthStage.Hon) return false;
-            // 기절만 제외. 놀기(기력0 포함)·걷기·머물기는 가능.
             if (owner.Stats.State == ActionState.Fainted) return false;
             return true;
         }
@@ -70,9 +73,9 @@ namespace Yoegoe.Characters
         public void TryStartOfferingRequest()
         {
             if (!CanSpawnOfferingRequest() || HasOfferingRequest) return;
-            if (Time.time < CooldownUntil) return;
+            if (!InLowStaminaBand()) return;
 
-            var offering = PickPreferredOffering();
+            var offering = PickFoodRequest();
             if (offering == null) return;
 
             OfferingRequest = offering;
@@ -89,12 +92,12 @@ namespace Yoegoe.Characters
 
         public void ClearAll() => ClearOfferingRequest();
 
-        /// <summary>상세에서 공양 급여. true면 처리 완료(호출측에서 인벤 차감·리프레시).</summary>
+        /// <summary>상세에서 급여. true면 처리 완료(호출측에서 인벤 차감·리프레시).</summary>
         public bool TryHandleFeed(OfferingData offering, bool isPurified, bool isPreferred,
             out int staminaGain, out float intimacyGain, out bool fulfilledRequest)
         {
-            staminaGain = offering != null && offering.staminaGain > 0 ? offering.staminaGain : 20;
-            intimacyGain = (!isPurified && isPreferred) ? 0.25f : 0f;
+            staminaGain = offering != null ? offering.ResolveStaminaGain(isPreferred) : 3;
+            intimacyGain = offering != null ? offering.ResolveIntimacyGain(isPreferred) : 0f;
             fulfilledRequest = false;
 
             if (isPurified || !HasOfferingRequest)
@@ -106,11 +109,12 @@ namespace Yoegoe.Characters
 
             if (matches)
             {
-                staminaGain = 30;
-                intimacyGain = 0.25f;
+                // 음식 요구 완료: +12 · 친밀도 없음
+                staminaGain = 12;
+                intimacyGain = 0f;
                 fulfilledRequest = true;
                 ClearOfferingRequest();
-                CooldownUntil = Time.time + OfferingCooldownSeconds;
+                ScheduleNextCheck();
                 bool gift = GiftBundle.RollAfterRequestFulfilled();
                 if (gift)
                 {
@@ -129,20 +133,38 @@ namespace Yoegoe.Characters
                 return true;
             }
 
-            staminaGain = 20;
-            intimacyGain = 0f;
+            // 다른 것 주면 기력(일반 효과)만 오르고 요구 삭제
             ClearOfferingRequest();
+            ScheduleNextCheck();
             return true;
         }
 
-        OfferingData PickPreferredOffering()
+        OfferingData PickFoodRequest()
         {
-            if (owner.Data == null) return null;
-            var prefs = owner.Data.preferredOfferings;
-            if (prefs != null && prefs.Length > 0)
+            var ownedFood = new System.Collections.Generic.List<OfferingData>();
+            var ownedAny = new System.Collections.Generic.List<OfferingData>();
+            var eco = GameEconomy.Instance;
+            if (eco != null)
+            {
+                var snap = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>();
+                eco.CaptureOfferingCounts(snap);
+                for (int i = 0; i < snap.Count; i++)
+                {
+                    var o = CharacterCatalog.FindOffering(snap[i].Key);
+                    if (o == null || o.kind == OfferingKind.PurifiedWater) continue;
+                    ownedAny.Add(o);
+                    if (o.kind == OfferingKind.Food) ownedFood.Add(o);
+                }
+            }
+            if (ownedFood.Count > 0) return ownedFood[Random.Range(0, ownedFood.Count)];
+            if (ownedAny.Count > 0) return ownedAny[Random.Range(0, ownedAny.Count)];
+
+            if (owner?.Data == null) return null;
+
+            if (owner.Data.preferredOfferings != null && owner.Data.preferredOfferings.Length > 0)
             {
                 var list = new System.Collections.Generic.List<OfferingData>();
-                foreach (var o in prefs)
+                foreach (var o in owner.Data.preferredOfferings)
                     if (o != null && o.kind != OfferingKind.PurifiedWater) list.Add(o);
                 if (list.Count > 0) return list[Random.Range(0, list.Count)];
             }

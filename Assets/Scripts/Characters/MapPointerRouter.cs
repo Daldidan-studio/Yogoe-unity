@@ -69,7 +69,7 @@ namespace Yoegoe.Characters
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
         /// <summary>press 시점에 딱 한 번 정해지는 "무엇을 눌렀는지". Hold/Release는 이 값만 본다.</summary>
-        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character }
+        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character, GongyangganProp }
 
         private Phase phase = Phase.Idle;
         private PressTarget pressTarget = PressTarget.Empty;
@@ -104,6 +104,7 @@ namespace Yoegoe.Characters
             // 윷은 풀스크린 UI인데 보드 칸 Image가 raycast를 안 먹는 구멍이 있어,
             // 휠/핀치가 IsBlockingUi를 통과해 본맵 카메라로 새는 경우가 있다.
             if (YutScreen.Instance != null && YutScreen.Instance.IsOpen) return;
+            if (GongyangganScreen.Instance != null && GongyangganScreen.Instance.IsOpen) return;
 
             // 핀치·휠은 단일 포인터 제스처보다 우선
             if (TryHandlePinchZoom()) return;
@@ -257,6 +258,11 @@ namespace Yoegoe.Characters
         PressTarget ClassifyPressTarget(PropSlot pileProp)
         {
             if (pressProp != null && !pressProp.IsBuilt) return PressTarget.LockedProp;
+            // 화덕(공양간): 기물 본체 탭
+            if (pressProp != null && pressProp.IsBuilt
+                && pressProp.data != null && pressProp.data.opensGongyanggan
+                && pileProp == null)
+                return PressTarget.GongyangganProp;
             // TEMP: 더미 라벨이 요괴보다 위 — 라벨 탭은 수거 우선
             if (pileProp != null) return PressTarget.CollectibleProp;
             // 기절 등으로 드래그 불가한 캐릭터도 탭(상세화면 진입)은 가능해야 한다 —
@@ -280,6 +286,9 @@ namespace Yoegoe.Characters
                 {
                     case PressTarget.LockedProp:
                         // 자물쇠 탭은 캐릭터·지도 드래그로 절대 전환되지 않는다 — release에서 구매 판정.
+                        return;
+
+                    case PressTarget.GongyangganProp:
                         return;
 
                     case PressTarget.CollectibleProp:
@@ -352,6 +361,19 @@ namespace Yoegoe.Characters
                         Debug.Log("[DEBUG-LOCK] OnRelease: PropPurchaseRequested 발행, 구독자 있음="
                             + (PropPurchaseRequested != null));
                         PropPurchaseRequested?.Invoke(pressProp, null);
+                        break;
+
+                    case PressTarget.GongyangganProp:
+                        CancelPendingMonologueTap();
+                        {
+                            var screen = GongyangganScreen.Resolve();
+                            if (screen != null)
+                                screen.Open();
+                            else
+                                Debug.LogError(
+                                    "[MapPointerRouter] GongyangganScreen을 찾을 수 없습니다. " +
+                                    "Hierarchy에 Prefab이 있는지 확인하거나 Yoegoe → Bake GongyangganScreen Prefab 을 실행하세요.");
+                        }
                         break;
 
                     case PressTarget.CollectibleProp:

@@ -232,6 +232,8 @@ namespace Yoegoe.UI
 
         private void Update()
         {
+            if (GameEconomy.Instance == null) return;
+
             RefreshCurrencies();
             RefreshSlotBar();
             RefreshUpgradeButton();
@@ -240,13 +242,16 @@ namespace Yoegoe.UI
 
         private void RefreshCurrencies()
         {
+            var eco = GameEconomy.Instance;
+            if (eco == null) return;
+
             if (meritText != null)
             {
                 if (meritCounting)
                     TickMeritCountUp();
                 else
                 {
-                    var merit = GameEconomy.Instance.MeritPile;
+                    var merit = eco.MeritPile;
                     if (!hasLastMeritShown || !merit.Equals(lastMeritShown))
                     {
                         hasLastMeritShown = true;
@@ -255,26 +260,26 @@ namespace Yoegoe.UI
                     }
                 }
             }
-            if (yeopjeonText != null && GameEconomy.Instance.Yeopjeon != lastYeopjeon)
+            if (yeopjeonText != null && eco.Yeopjeon != lastYeopjeon)
             {
-                lastYeopjeon = GameEconomy.Instance.Yeopjeon;
+                lastYeopjeon = eco.Yeopjeon;
                 yeopjeonText.text = "엽전 " + lastYeopjeon;
             }
-            if (hyangText != null && GameEconomy.Instance.Hyang != lastHyang)
+            if (hyangText != null && eco.Hyang != lastHyang)
             {
-                lastHyang = GameEconomy.Instance.Hyang;
+                lastHyang = eco.Hyang;
                 hyangText.text = "향 " + lastHyang;
             }
-            if (purifiedWaterText != null && GameEconomy.Instance.PurifiedWater != lastPurifiedWater)
+            if (purifiedWaterText != null && eco.PurifiedWater != lastPurifiedWater)
             {
-                lastPurifiedWater = GameEconomy.Instance.PurifiedWater;
+                lastPurifiedWater = eco.PurifiedWater;
                 purifiedWaterText.text = "정화수 " + lastPurifiedWater;
             }
             if (yutTokenText != null
-                && (GameEconomy.Instance.YutToken != lastYutToken || GameEconomy.Instance.YutTokenMax != lastYutTokenMax))
+                && (eco.YutToken != lastYutToken || eco.YutTokenMax != lastYutTokenMax))
             {
-                lastYutToken = GameEconomy.Instance.YutToken;
-                lastYutTokenMax = GameEconomy.Instance.YutTokenMax;
+                lastYutToken = eco.YutToken;
+                lastYutTokenMax = eco.YutTokenMax;
                 yutTokenText.text = "윷 " + lastYutToken + "/" + lastYutTokenMax;
             }
         }
