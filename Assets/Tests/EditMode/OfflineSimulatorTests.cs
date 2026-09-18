@@ -66,8 +66,8 @@ namespace Yoegoe.Tests.EditMode
         public void Simulate_StayingAgent_DrainsStaminaAndProducesMerit()
         {
             var now = DateTime.UtcNow;
-            // 2분당 1 → 120초당 1. 120초면 기력 1 감소.
-            var data = MakeSave(now.AddSeconds(-120));
+            // 10분당 1 → 600초면 기력 1 감소.
+            var data = MakeSave(now.AddSeconds(-600));
             data.agents[0].stamina = 70f;
 
             var result = OfflineSimulator.Simulate(data, now);
@@ -81,7 +81,7 @@ namespace Yoegoe.Tests.EditMode
         public void Simulate_StaminaReachesZero_EntersPlayingAndVacatesProp()
         {
             var now = DateTime.UtcNow;
-            // 기력 1 → 120초면 0, 나머지 시간은 기력0 놀기
+            // 기력 1 → 600초면 0, 나머지 시간(1시간 중 남은 3000초)은 기력0 놀기
             var data = MakeSave(now.AddHours(-1));
             data.agents[0].stamina = 1f;
 

@@ -175,7 +175,7 @@ namespace Yoegoe.Tests.EditMode
             agent.TrySitOnProp(prop);
             agent.Stats.State = ActionState.Slumped;
             agent.Stats.Stamina = 0f;
-            agent.Stats.Intimacy = 50f; // max = 70, 게인 30이 클램프 없이 그대로 반영되도록 여유를 둠
+            agent.Stats.Intimacy = 50f; // max = 75, 게인 30이 클램프 없이 그대로 반영되도록 여유를 둠
 
             agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0f);
 
@@ -199,12 +199,12 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void ReceiveOffering_ClampsHonStaminaToMaxFromIntimacy()
         {
-            agent.Stats.Intimacy = 50f; // max = 70
+            agent.Stats.Intimacy = 50f; // max = 25 + 50 = 75
             agent.Stats.Stamina = 60f;
 
             agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0f);
 
-            Assert.AreEqual(70f, agent.Stats.Stamina, 0.0001f);
+            Assert.AreEqual(75f, agent.Stats.Stamina, 0.0001f);
         }
 
         [Test]
