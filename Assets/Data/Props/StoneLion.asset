@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   propId: 화덕
   displayName: 화덕
-  icon: {fileID: 21300000, guid: 9e842dce33cdb436bb8ff5a04d24f253, type: 3}
+  icon: {fileID: 21300000, guid: 022e76c4e12f49e297c905152eb7ca5e, type: 3}
   baseProductionPerMinute: 0
   upgradeBaseCost: 500
   upgradeCostMultiplier: 1.15
