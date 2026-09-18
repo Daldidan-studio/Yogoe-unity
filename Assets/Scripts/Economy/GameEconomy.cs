@@ -728,29 +728,48 @@ namespace Yoegoe.Cooking
             _ => BaseSeconds
         };
 
+        /// <summary>한 번도 완성 못 하는 판이 나오지 않도록, 풀리는 배치가 나올 때까지 재시도한다
+        /// (인벤토리 자체는 다시 뽑지 않고 위치만 재배치 — 실제 재료 소모는 최종 배치 확정 후 1회).</summary>
+        const int DealBoardMaxAttempts = 30;
+
         void DealBoard()
         {
-            Grid = new CookingIngredientId?[GridSize, GridSize];
-            Locked = new bool[GridSize, GridSize];
+            CookingIngredientId?[,] bestGrid = null;
+            List<CookingIngredientId> bestSpent = null;
 
-            var empties = new HashSet<int>();
-            while (empties.Count < EmptyCellCount)
-                empties.Add(UnityEngine.Random.Range(0, GridSize * GridSize));
-
-            var pool = BuildMaterialPool();
-            int pi = 0;
-            for (int y = 0; y < GridSize; y++)
-            for (int x = 0; x < GridSize; x++)
+            for (int attempt = 0; attempt < DealBoardMaxAttempts; attempt++)
             {
-                int idx = y * GridSize + x;
-                if (empties.Contains(idx)) continue;
-                if (pi >= pool.Count) break;
-                var id = pool[pi++];
-                Grid[x, y] = id;
-                SpentOnBoard.Add(id);
+                var grid = new CookingIngredientId?[GridSize, GridSize];
+                var empties = new HashSet<int>();
+                while (empties.Count < EmptyCellCount)
+                    empties.Add(UnityEngine.Random.Range(0, GridSize * GridSize));
+
+                var pool = BuildMaterialPool();
+                var spent = new List<CookingIngredientId>();
+                int pi = 0;
+                for (int y = 0; y < GridSize; y++)
+                for (int x = 0; x < GridSize; x++)
+                {
+                    int idx = y * GridSize + x;
+                    if (empties.Contains(idx)) continue;
+                    if (pi >= pool.Count) break;
+                    var id = pool[pi++];
+                    grid[x, y] = id;
+                    spent.Add(id);
+                }
+
+                bestGrid = grid;
+                bestSpent = spent;
+                if (CookingRecipeCatalog.AnyCompletable(grid, AllowDiagonal)) break;
+                // 재료가 워낙 부족/편중돼 있으면 끝까지 안 풀릴 수 있음 — 그때는 마지막 시도 그대로 사용.
             }
 
-            // 인벤에서 차감
+            Grid = bestGrid;
+            Locked = new bool[GridSize, GridSize];
+            SpentOnBoard.Clear();
+            SpentOnBoard.AddRange(bestSpent);
+
+            // 인벤에서 차감 (최종 확정된 배치 1회만)
             var eco = Yoegoe.Economy.GameEconomy.Instance;
             if (eco != null)
             {

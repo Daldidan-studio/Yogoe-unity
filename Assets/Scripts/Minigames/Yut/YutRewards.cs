@@ -27,6 +27,11 @@ namespace Yoegoe.Minigames.Yut
     /// </summary>
     public static class YutRewards
     {
+        // TODO(부적 완주 보상): 3차 기획 기준 완주 보상은 정화수가 아니라 부적 1개(6종 중 랜덤,
+        // GameEconomy.CookingCharmType 재사용)로 교체됨. 종류별 확률은 플레이테스트 후 조정 —
+        // 그 전까지는 6종 균등(1/6)으로 구현. 아래 FinishPurifiedWater* 는 구 모델이라 교체 대상.
+        // Docs/00_기획정리.md §10, Docs/05_기획_미확정사항.md 참고.
+
         /// <summary>완주 보상 — 말 1마리 기준 정화수 1개(업기 스택 수만큼 배율).</summary>
         public const int FinishPurifiedWaterPerPiece = 1;
 
