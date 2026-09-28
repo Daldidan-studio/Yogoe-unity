@@ -19,36 +19,77 @@ from pathlib import Path
 
 MARK = "※"
 
-DESCRIPTIONS: dict[str, str] = {
-    "characters":
-        "※ 캐릭터 기본 정보 · 한 줄 = 요괴 1명 · id(Rabbit/SamjokO/Gumiho/Gorani)는 코드와 연결되니 바꾸지 마세요 · "
-        "endingPropId = 엔딩기물 이름 · note = 메모(게임 미반영) · 수정 후 npm run characters",
-    "character_preferences":
-        "※ 요괴별 선호 공양물 · 한 줄 = 선호 1개(위에서부터 표시 순서) · offering_id = 공양간 레시피 id(예: sinseollo) · "
-        "줄이 하나도 없는 요괴는 선호 없음(X 표시) · 수정 후 npm run characters",
-    "character_lines":
-        "※ 요괴 대사 · 한 줄 = 대사 1개, 같은 type 여러 줄이면 랜덤 · type: monologue(혼잣말) / request_thanks(음식 요구 완료) / "
-        "request_gift(선물꾸러미 줄 때) / golden_find(황금 재료 수거, {item} = 황금쌀·황금꿀) · 수정 후 npm run characters",
-    "props":
-        "※ 기물별 산출 · resourceType: Merit(공덕) / PurifiedWater(물) / Yeopjeon(엽전) / Hunt(사냥 재료) / Gather(채집 재료) / None · "
-        "자원 기물: cycleMinutes = 1개 주기(레벨 무관), baseCapacity = Lv1 보관(10레벨마다 +1) · "
-        "공덕 기물: 분당 meritPerMinute × levelGrowth^(L−1), meritCapacityMinutes분치 쌓이면 만창 · "
-        "intimacyBonus·upgradable = TRUE/FALSE · 수정 후 npm run props",
-    "prop_drop_tables":
-        "※ 활터(Hunt)·약초밭(Gather) 재료 확률 · weight = 확률 %(표마다 합 100 권장) · ingredient: Rice 쌀, Namul 산나물, "
-        "Fruit 과실, Chili 고추, Herb 약재, RedBean 팥, Egg 새알, Oil 기름, Fish 물고기, Boar 멧돼지고기, Bird 새고기, Honey 꿀, "
-        "GoldenRice 황금쌀, GoldenHoney 황금꿀 · 수정 후 npm run props",
-    "prop_settings":
-        "※ 기물 전역 값 · 기물 구매 비용 = purchaseBaseCost × purchaseCostGrowth^(n−1), n = 구매 순서 · 수정 후 npm run props",
-    "attendance":
-        "※ 출석 윷점 일차별 엽전 · 한 줄 = 하루(1일차부터 순서대로) · 마지막 날 다음은 1일차로 순환 · 수정 후 npm run attendance",
-    "yut_fortune":
-        "※ 옥토끼 윷점 64괘(부록 B) · gua = 도·개·걸 형식(윷점에서 윷 = 모) · text_work(일)/text_people(사람)/text_heart(마음) 중 "
-        "하나가 랜덤 출력(태그는 플레이어에게 안 보임) · 64괘 모두 있어야 함 · 수정 후 npm run attendance",
-    "yut_bubbles":
-        "※ 윷놀이 말풍선 · id는 코드와 연결되니 바꾸지 마세요 · text_ko/en/zh/ja = 언어별 문구 · "
-        "{result}·{steps} 같은 자리표시는 그대로 두세요 · 수정 후 npm run yut-bubbles",
+_LINES: dict[str, list[str]] = {
+    "characters": [
+        "※ 캐릭터 기본 정보",
+        "- 한 줄 = 요괴 1명",
+        "- id(Rabbit / SamjokO / Gumiho / Gorani)는 코드와 연결되니 바꾸지 마세요",
+        "- endingPropId = 엔딩기물 이름 (없으면 비움)",
+        "- note = 메모 (게임에 안 들어감)",
+        "- 수정 후: npm run characters",
+    ],
+    "character_preferences": [
+        "※ 요괴별 선호 공양물",
+        "- 한 줄 = 선호 1개 (위에서부터 표시 순서)",
+        "- offering_id = 공양간 레시피 id (예: sinseollo, hwachae, yakju)",
+        "- 줄이 하나도 없는 요괴 = 선호 없음 (상세 화면에 X 표시)",
+        "- 수정 후: npm run characters",
+    ],
+    "character_lines": [
+        "※ 요괴 대사",
+        "- 한 줄 = 대사 1개. 같은 요괴·같은 type이 여러 줄이면 그중 랜덤",
+        "- type",
+        "    monologue = 혼잣말",
+        "    request_thanks = 음식 요구 완료",
+        "    request_gift = 선물꾸러미 줄 때",
+        "    golden_find = 황금 재료 수거 ({item} 자리에 황금쌀/황금꿀)",
+        "- 수정 후: npm run characters",
+    ],
+    "props": [
+        "※ 기물별 산출",
+        "- resourceType: Merit(공덕) / PurifiedWater(물) / Yeopjeon(엽전) / Hunt(사냥 재료) / Gather(채집 재료) / None(없음)",
+        "- 자원 기물: cycleMinutes = 1개 만드는 주기(분, 레벨 무관) / baseCapacity = Lv1 보관 (10레벨마다 +1)",
+        "- 공덕 기물: 분당 meritPerMinute × levelGrowth^(레벨−1) / meritCapacityMinutes분치 쌓이면 만창",
+        "- intimacyBonus(친밀도 보정), upgradable(레벨업 가능) = TRUE / FALSE",
+        "- 수정 후: npm run props",
+    ],
+    "prop_drop_tables": [
+        "※ 활터(Hunt) · 약초밭(Gather) 재료 확률",
+        "- weight = 확률 % (표마다 합 100 권장)",
+        "- ingredient: Rice 쌀 / Namul 산나물 / Fruit 과실 / Chili 고추 / Herb 약재 / RedBean 팥",
+        "              Egg 새알 / Oil 기름 / Fish 물고기 / Boar 멧돼지고기 / Bird 새고기 / Honey 꿀",
+        "              GoldenRice 황금쌀 / GoldenHoney 황금꿀",
+        "- 수정 후: npm run props",
+    ],
+    "prop_settings": [
+        "※ 기물 전역 값",
+        "- 기물 구매 비용 = purchaseBaseCost × purchaseCostGrowth^(n−1)  (n = 몇 번째 구매인지)",
+        "- 수정 후: npm run props",
+    ],
+    "attendance": [
+        "※ 출석 윷점 일차별 엽전",
+        "- 한 줄 = 하루 (1일차부터 순서대로)",
+        "- 마지막 날 다음은 1일차로 돌아감",
+        "- 수정 후: npm run attendance",
+    ],
+    "yut_fortune": [
+        "※ 옥토끼 윷점 64괘 (기획서 부록 B)",
+        "- gua = 도·개·걸 형식 (윷점에서 윷 = 모)",
+        "- text_work(일) / text_people(사람) / text_heart(마음) 중 하나가 랜덤으로 나옴 (태그는 플레이어에게 안 보임)",
+        "- 64괘가 모두 있어야 함",
+        "- 수정 후: npm run attendance",
+    ],
+    "yut_bubbles": [
+        "※ 윷놀이 말풍선",
+        "- id는 코드와 연결되니 바꾸지 마세요",
+        "- text_ko / text_en / text_zh / text_ja = 언어별 문구",
+        "- {result}, {steps} 같은 자리표시는 그대로 두세요",
+        "- 수정 후: npm run yut-bubbles",
+    ],
 }
+
+# 한 칸 안에 줄바꿈으로 여러 줄
+DESCRIPTIONS: dict[str, str] = {tab: "\n".join(lines) for tab, lines in _LINES.items()}
 
 
 def description_row(tab: str, width: int) -> list[str] | None:

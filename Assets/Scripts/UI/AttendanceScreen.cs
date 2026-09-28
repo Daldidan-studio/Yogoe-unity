@@ -5,6 +5,7 @@ using Yoegoe.Characters;
 using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
+using Yoegoe.Minigames.Yut;
 using Yoegoe.Save;
 
 namespace Yoegoe.UI
@@ -22,7 +23,6 @@ namespace Yoegoe.UI
         public Font font;
 
         const int Days = 7;
-        const int Sticks = 4;
         const int Throws = 3;
 
         [SerializeField] GameObject root;
@@ -33,7 +33,8 @@ namespace Yoegoe.UI
         [SerializeField] Text guideText;
         [SerializeField] Button closeButton;
         [SerializeField] GameObject throwPanel;
-        [SerializeField] Image[] stickImages = new Image[Sticks];
+        [Tooltip("윷가락이 착지하는 영역 (윷놀이 YutBoard 역할)")]
+        [SerializeField] RectTransform throwLandZone;
         [SerializeField] Text[] throwResultTexts = new Text[Throws];
         [SerializeField] GameObject dialogPanel;
         [SerializeField] Image dialogPortrait;
@@ -46,7 +47,7 @@ namespace Yoegoe.UI
         static readonly Color FutureColor = new Color(0.85f, 0.8f, 0.7f, 1f);
 
         bool busy;
-        Sprite stickFront, stickBack;
+        readonly RectTransform[] sticks = new RectTransform[4];
 
         void Awake() => Instance = this;
         void OnEnable() => Instance = this;
@@ -56,12 +57,14 @@ namespace Yoegoe.UI
             if (Instance == this) Instance = null;
         }
 
-        /// <summary>오늘 아직 처리 안 했으면 연다 (Main: 로드 직후·앱 복귀 시).</summary>
-        public static void TryOpenIfDue()
+        /// <summary>오늘 아직 처리 안 했으면 연다 (Main: 로드 직후·앱 복귀 시). hudFont = 한글 폰트.</summary>
+        public static void TryOpenIfDue(Font hudFont)
         {
             if (IsOpen || !Attendance.ShouldOpen(Attendance.TodayKey)) return;
             var screen = Resolve();
-            if (screen != null) screen.Open();
+            if (screen == null) return;
+            if (hudFont != null) screen.font = hudFont;
+            screen.Open();
         }
 
         /// <summary>씬 인스턴스 → Resources 프리팹 → (없으면) 코드 셸 순으로 찾는다.</summary>
@@ -93,6 +96,7 @@ namespace Yoegoe.UI
         public void Open()
         {
             if (!EnsureShell()) return;
+            ApplyFont();
             IsOpen = true;
             busy = false;
             SpeechGate.Silence();
@@ -151,37 +155,47 @@ namespace Yoegoe.UI
 
             int gua = Attendance.RollGua(max => Random.Range(0, max), out int a, out int b, out int c);
             int[] results = { a, b, c };
+            var panel = (RectTransform)throwPanel.transform;
+            var land = throwLandZone != null ? throwLandZone : panel;
             for (int t = 0; t < Throws; t++)
             {
-                // 이무기 던지기처럼 윷가락이 빠르게 뒤집히며 돈다
-                float spin = 0.75f, flip = 0f;
-                while (spin > 0f)
-                {
-                    spin -= Time.unscaledDeltaTime;
-                    flip -= Time.unscaledDeltaTime;
-                    for (int s = 0; s < Sticks; s++)
-                        stickImages[s].rectTransform.Rotate(0f, 0f, 900f * Time.unscaledDeltaTime * (s % 2 == 0 ? 1f : -1f));
-                    if (flip <= 0f)
-                    {
-                        flip = 0.06f;
-                        for (int s = 0; s < Sticks; s++)
-                            stickImages[s].sprite = Random.value < 0.5f ? StickFront() : StickBack();
-                    }
-                    yield return null;
-                }
-                // 도=배 1개 … 윷=배 4개 (윷점에선 모도 윷)
-                int fronts = results[t] + 1;
-                for (int s = 0; s < Sticks; s++)
-                {
-                    stickImages[s].rectTransform.localRotation = Quaternion.identity;
-                    stickImages[s].sprite = s < fronts ? StickFront() : StickBack();
-                }
+                ClearSticks();
+                // 윷놀이와 같은 던지기 연출 (YutMiniGame.ThrowSticks) — 아래 가운데에서 던져 착지 영역에 떨어진다
+                var origin = new Vector2(0f, -panel.rect.height * 0.45f);
+                yield return YutMiniGame.ThrowSticks(this, panel, origin, land, ToThrowResult(results[t]), 0.75f, sticks);
                 throwResultTexts[t].text = Attendance.ThrowName(results[t]);
-                yield return new WaitForSecondsRealtime(0.45f);
+                yield return new WaitForSecondsRealtime(0.6f);
             }
 
             yield return new WaitForSecondsRealtime(0.4f);
+            ClearSticks();
             ShowFortune(gua, results);
+        }
+
+        /// <summary>윷점 0~3 → 윷놀이 결과 (윷점의 윷 = 등 4개, 모는 안 나옴).</summary>
+        static YutThrowResult ToThrowResult(int v) => v switch
+        {
+            0 => YutThrowResult.Do,
+            1 => YutThrowResult.Gae,
+            2 => YutThrowResult.Geol,
+            _ => YutThrowResult.Yut,
+        };
+
+        void ClearSticks()
+        {
+            for (int i = 0; i < sticks.Length; i++)
+            {
+                if (sticks[i] != null) Destroy(sticks[i].gameObject);
+                sticks[i] = null;
+            }
+        }
+
+        /// <summary>코드 셸(LegacyRuntime)로 만들어졌어도 한글 폰트로 덮는다.</summary>
+        void ApplyFont()
+        {
+            if (font == null || root == null) return;
+            foreach (var t in root.GetComponentsInChildren<Text>(true))
+                t.font = font;
         }
 
         void ShowFortune(int gua, int[] results)
@@ -226,6 +240,7 @@ namespace Yoegoe.UI
 
         void Finish()
         {
+            ClearSticks();
             if (root != null) root.SetActive(false);
             IsOpen = false;
             busy = false;
@@ -238,12 +253,6 @@ namespace Yoegoe.UI
                 if (a != null && a.Data != null && a.Data.id == CharacterId.Rabbit) return a;
             return null;
         }
-
-        Sprite StickFront() => stickFront != null ? stickFront
-            : (stickFront = Resources.Load<Sprite>("UI/YutPieces/YutStick_Front"));
-
-        Sprite StickBack() => stickBack != null ? stickBack
-            : (stickBack = Resources.Load<Sprite>("UI/YutPieces/YutStick_Back"));
 
         // ---------------- 셸 (Prefab / Bake) ----------------
 
@@ -335,17 +344,12 @@ namespace Yoegoe.UI
 
             // ---- 윷 던지기 ----
             throwPanel = new GameObject("Throw", typeof(RectTransform));
-            var tp = Place(throwPanel, rootRt, new Vector2(0.5f, 0.3f), new Vector2(900, 360));
-            for (int s = 0; s < Sticks; s++)
-            {
-                var st = new GameObject("Stick" + s, typeof(RectTransform));
-                Place(st, tp, new Vector2(0.2f + s * 0.2f, 0.62f), new Vector2(70, 220));
-                stickImages[s] = st.AddComponent<Image>();
-                stickImages[s].preserveAspect = true;
-            }
+            var tp = Place(throwPanel, rootRt, new Vector2(0.5f, 0.4f), new Vector2(900, 900));
+            var landGO = new GameObject("LandZone", typeof(RectTransform));
+            throwLandZone = Place(landGO, tp, new Vector2(0.5f, 0.55f), new Vector2(620, 420));
             for (int t = 0; t < Throws; t++)
             {
-                throwResultTexts[t] = MakeText(tp, "Result" + t, "", 52, new Vector2(0.3f + t * 0.2f, 0.1f), new Vector2(160, 70));
+                throwResultTexts[t] = MakeText(tp, "Result" + t, "", 52, new Vector2(0.3f + t * 0.2f, 0.93f), new Vector2(160, 70));
                 throwResultTexts[t].color = new Color(1f, 0.85f, 0.4f, 1f);
             }
 

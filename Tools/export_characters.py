@@ -196,8 +196,39 @@ def load_config() -> dict:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8")) if CONFIG_PATH.exists() else {}
 
 
+# push 때 시트의 note(메모)를 살리기 위한 행 식별 열 — JSON에는 note가 없어서 시트에서 가져온다
+NOTE_KEYS: dict[str, list[str]] = {
+    "characters": ["id"],
+    "character_preferences": ["character_id", "offering_id"],
+    "character_lines": ["character_id", "type", "text_ko"],
+    "props": ["propId"],
+    "prop_drop_tables": ["table", "ingredient"],
+    "prop_settings": ["key"],
+    "attendance": ["day"],
+    "yut_fortune": ["gua"],
+}
+
+
+def keep_sheet_notes(config: dict, tab: str, rows: list[dict]) -> None:
+    """시트에 적혀 있던 note를 같은 행(식별 열 일치)에 다시 채운다. 못 읽으면 그냥 넘어간다."""
+    keys = NOTE_KEYS.get(tab)
+    if not keys or not config.get("sheet_id"):
+        return
+    try:
+        existing = read_csv_text(fetch_sheet_csv(config["sheet_id"], tab), keys, tab)
+    except Exception as e:  # 탭이 아직 없거나 네트워크 문제
+        print(f"경고: [{tab}] 기존 note를 못 읽었습니다 ({e})", file=sys.stderr)
+        return
+    notes = {tuple(r.get(k, "") for k in keys): r.get("note", "") for r in existing if r.get("note")}
+    for r in rows:
+        if not r.get("note"):
+            r["note"] = notes.get(tuple(r.get(k, "") for k in keys), "")
+
+
 def push_tab(config: dict, tab: str, headers: list[str], rows: list[dict]) -> None:
     from sheet_descriptions import description_row
+    if "note" in headers:
+        keep_sheet_notes(config, tab, rows)
     body = [[r.get(h, "") for h in headers] for r in rows]
     desc = description_row(tab, len(headers))
     payload = {"tab": tab, "headers": desc or headers, "rows": ([headers] + body) if desc else body}

@@ -2585,7 +2585,6 @@ namespace Yoegoe.Minigames.Yut
             EnsureBoard();
             EnsureThrowSwipeZone();
             ClearParkedSticks();
-            EnsureStickSprites();
 
             var panel = (RectTransform)transform;
             Vector2 WorldToPanelLocal(Vector3 world) => panel.InverseTransformPoint(world);
@@ -2597,13 +2596,32 @@ namespace Yoegoe.Minigames.Yut
                 ? WorldToPanelLocal(ZoneNormToWorld(throwRt, new Vector2(0.5f, 0.72f)))
                 : WorldToPanelLocal(ZoneNormToWorld(landZone, new Vector2(0.5f, 0.05f)));
 
+            var sticks = new RectTransform[4];
+            yield return ThrowSticks(this, panel, originLocal, landZone, result, power, sticks);
+
+            yield return new WaitForSecondsRealtime(0.35f);
+
+            // Prefab/Scene의 Quadrant_North 레이아웃을 따른다 — 고정 보드 좌표로 보내지 않음.
+            var thrownZone = GetQuadrant(YutBoardQuadrant.North);
+            yield return ParkSticksInto(sticks, thrownZone);
+            _parkedSticks = sticks;
+        }
+
+        /// <summary>
+        /// 윷가락 4개를 panel 위 originLocal에서 던져 landZone 안에 착지시킨다 — 윷놀이·출석 윷점 공용 연출.
+        /// 결과(result)에 맞는 앞/뒷면으로 떨어지고, 만든 가락은 sticksOut(길이 4)에 담긴다(정리는 호출측).
+        /// </summary>
+        public static IEnumerator ThrowSticks(MonoBehaviour host, RectTransform panel, Vector2 originLocal,
+            RectTransform landZone, YutThrowResult result, float power, RectTransform[] sticksOut)
+        {
+            EnsureStickSprites();
+            System.Func<Vector3, Vector2> WorldToPanelLocal = world => panel.InverseTransformPoint(world);
             var frontStates = DetermineFrontStates(result);
 
-            var sticks = new RectTransform[4];
             for (int i = 0; i < 4; i++)
             {
                 var go = new GameObject($"YutStick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                go.transform.SetParent(transform, false);
+                go.transform.SetParent(panel, false);
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0.5f);
@@ -2626,23 +2644,16 @@ namespace Yoegoe.Minigames.Yut
                     markImg.raycastTarget = false;
                 }
                 go.transform.SetAsLastSibling();
-                sticks[i] = rt;
+                sticksOut[i] = rt;
             }
 
             var routines = new Coroutine[4];
             for (int i = 0; i < 4; i++)
-                routines[i] = StartCoroutine(ThrowOneStick(
-                    sticks[i], originLocal, landZone, WorldToPanelLocal,
+                routines[i] = host.StartCoroutine(ThrowOneStick(
+                    sticksOut[i], originLocal, landZone, WorldToPanelLocal,
                     i * 0.05f, frontStates[i], isBaekdoStick: i == 0, power));
             for (int i = 0; i < 4; i++)
                 yield return routines[i];
-
-            yield return new WaitForSecondsRealtime(0.35f);
-
-            // Prefab/Scene의 Quadrant_North 레이아웃을 따른다 — 고정 보드 좌표로 보내지 않음.
-            var thrownZone = GetQuadrant(YutBoardQuadrant.North);
-            yield return ParkSticksInto(sticks, thrownZone);
-            _parkedSticks = sticks;
         }
 
         // North 구역 로컬(0~1) 기준 — 구역을 Scene에서 옮겨도 결과가 같이 따라간다.
@@ -2750,7 +2761,7 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        IEnumerator ThrowOneStick(
+        static IEnumerator ThrowOneStick(
             RectTransform rt,
             Vector2 startLocal,
             RectTransform landZone,
