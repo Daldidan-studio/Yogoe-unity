@@ -18,9 +18,8 @@ namespace Yoegoe.Economy
         public static double LevelMultiplier(int level) =>
             Math.Pow(LevelGrowth, Math.Max(1, level) - 1);
 
-        /// <summary>친밀도 보정 = 1 + 친밀도/100. 넋은 친밀도 없음 → ×1.</summary>
-        public static double IntimacyMultiplier(GrowthStage stage, float intimacy) =>
-            stage == GrowthStage.Neok ? 1.0 : 1.0 + intimacy / 100.0;
+        /// <summary>친밀도 보정 = 1 + 친밀도/100.</summary>
+        public static double IntimacyMultiplier(float intimacy) => 1.0 + intimacy / 100.0;
 
         /// <summary>주인이 자기 엔딩 기물에 앉으면 ×2.</summary>
         public static double EndingMultiplier(bool isEndingProp, bool sameOwner) =>
@@ -28,12 +27,12 @@ namespace Yoegoe.Economy
 
         public static double PerMinute(
             double baseProductionPerMinute, int level,
-            GrowthStage stage, float intimacy,
+            float intimacy,
             bool isEndingProp, bool sameOwner)
         {
             return baseProductionPerMinute
                    * LevelMultiplier(level)
-                   * IntimacyMultiplier(stage, intimacy)
+                   * IntimacyMultiplier(intimacy)
                    * EndingMultiplier(isEndingProp, sameOwner);
         }
     }

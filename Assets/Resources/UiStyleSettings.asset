@@ -22,7 +22,6 @@ MonoBehaviour:
     intimacyPink: {r: 0.92, g: 0.35, b: 0.45, a: 1}
     staminaGreen: {r: 0.35, g: 0.78, b: 0.42, a: 1}
     barTrack: {r: 0.85, g: 0.85, b: 0.87, a: 1}
-    neokPortrait: {r: 0.45, g: 0.85, b: 1, a: 1}
     mutedLabel: {r: 0.45, g: 0.45, b: 0.5, a: 1}
     feedHint: {r: 0.35, g: 0.35, b: 0.4, a: 1}
     badgeBg: {r: 0.12, g: 0.12, b: 0.14, a: 0.85}

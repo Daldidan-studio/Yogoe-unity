@@ -23,7 +23,6 @@ namespace Yoegoe.Data
             public Color intimacyPink = new Color(0.92f, 0.35f, 0.45f, 1f);
             public Color staminaGreen = new Color(0.35f, 0.78f, 0.42f, 1f);
             public Color barTrack = new Color(0.85f, 0.85f, 0.87f, 1f);
-            public Color neokPortrait = new Color(0.45f, 0.85f, 1f, 1f);
             public Color mutedLabel = new Color(0.45f, 0.45f, 0.5f, 1f);
             public Color feedHint = new Color(0.35f, 0.35f, 0.4f, 1f);
             public Color badgeBg = new Color(0.12f, 0.12f, 0.14f, 0.85f);

@@ -16,7 +16,7 @@ namespace Yoegoe.Debugging
         private Vector2 minCenter;
         private Vector2 maxCenter;
 
-        [Tooltip("최대 확대(ortho 최소). 넋을 크게 보려면 낮게.")]
+        [Tooltip("최대 확대(ortho 최소).")]
         public float minOrtho = 1.4f;
 
         [Tooltip("최대 축소(ortho 최대). CaptureHome / 맵 맞춤 시 갱신.")]

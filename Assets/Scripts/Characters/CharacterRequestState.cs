@@ -68,7 +68,6 @@ namespace Yoegoe.Characters
         public bool CanSpawnOfferingRequest()
         {
             if (owner == null || owner.Stats == null) return false;
-            if (owner.Stats.Stage != GrowthStage.Hon) return false;
             if (owner.Stats.State == ActionState.Fainted) return false;
             return true;
         }

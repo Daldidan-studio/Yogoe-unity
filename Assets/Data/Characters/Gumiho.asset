@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 2
   displayName: 구미호
-  startingStage: 1
   preferredOfferings:
   - {fileID: 11400000, guid: 26314678e70647f398a9913fc6d62b7e, type: 2}
   endingProp: {fileID: 0}

@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 0
   displayName: 옥토끼
-  startingStage: 1
   preferredOfferings: []
   endingProp: {fileID: 0}
   detailDescription: 달에서 떡방아를 찧던 토끼. 고가구점 안내인을 자처하며 참견이 많고 낙천적이다.

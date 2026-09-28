@@ -74,7 +74,6 @@ namespace Yoegoe.UI
             public GameObject BatchButtonRoot;
             public Text BatchButtonLabel;
             public string LastNameLabel;
-            public GrowthStage LastNameStage = (GrowthStage)(-1);
             public string LastDisplayName;
             public ActionState LastStatusState = (ActionState)(-1);
             public bool LastBatchVisible;
@@ -315,14 +314,11 @@ namespace Yoegoe.UI
             foreach (var chip in slotChips)
             {
                 if (chip.IsSummonSlot || chip.Agent == null) continue;
-                string stageLabel = chip.Agent.Stats.Stage == GrowthStage.Neok ? "넋" : "혼";
                 string name = chip.Agent.Data != null ? chip.Agent.Data.displayName : "?";
-                if (chip.NameText != null
-                    && (chip.LastDisplayName != name || chip.LastNameStage != chip.Agent.Stats.Stage))
+                if (chip.NameText != null && chip.LastDisplayName != name)
                 {
                     chip.LastDisplayName = name;
-                    chip.LastNameStage = chip.Agent.Stats.Stage;
-                    chip.LastNameLabel = name + " · " + stageLabel;
+                    chip.LastNameLabel = name;
                     chip.NameText.text = chip.LastNameLabel;
                 }
                 if (chip.StaminaFill != null && chip.StaminaFillRt != null)

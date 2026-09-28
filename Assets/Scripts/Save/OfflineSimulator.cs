@@ -46,7 +46,6 @@ namespace Yoegoe.Save
                 foreach (var agent in data.agents)
                 {
                     if (agent == null) continue;
-                    if (agent.stage == GrowthStage.Neok) continue;
                     if (agent.state == ActionState.Slumped)
                         MigrateSlumped(agent);
                     SimulateAgent(agent, data, elapsed);
@@ -150,7 +149,7 @@ namespace Yoegoe.Save
             bool sameOwner = !string.IsNullOrEmpty(prop.ownerCharacterId)
                              && prop.ownerCharacterId == agent.characterId;
             double perMinute = ProductionFormula.PerMinute(
-                basePerMin, level, agent.stage, agent.intimacy, prop.isEndingProp, sameOwner);
+                basePerMin, level, agent.intimacy, prop.isEndingProp, sameOwner);
 
             var add = BigNumberSave.From((BigNumber)(perMinute / 60.0 * dt));
             var cur = prop.pendingMerit.ToBigNumber() + add.ToBigNumber();

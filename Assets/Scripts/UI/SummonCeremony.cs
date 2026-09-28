@@ -9,7 +9,7 @@ using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
-    /// <summary>9-1 소환 연출: 암전 → 빛나는 넋이 화면 중앙으로 하강.</summary>
+    /// <summary>9-1 소환 연출: 암전 → 빛나는 요괴가 화면 중앙으로 하강.</summary>
     public class SummonCeremony : MonoBehaviour
     {
         public static SummonCeremony Instance { get; private set; }
@@ -68,7 +68,7 @@ namespace Yoegoe.UI
                 yield break;
             }
 
-            var agent = CharacterSummon.SpawnGoraniNeok(goraniData, font, start);
+            var agent = CharacterSummon.SpawnGorani(goraniData, font, start);
             if (agent == null)
             {
                 GameEconomy.Instance.AddHyang(CharacterSummon.HyangCost);
@@ -77,8 +77,8 @@ namespace Yoegoe.UI
                 yield break;
             }
 
-            agent.ApplyFreshNeokSummon();
-            // 연출 중 부유 AI 잠시 고정
+            agent.ApplyFreshSummon();
+            // 연출 중(CeremonyGate) 맵 AI 정지
             Transform tr = agent.transform;
             Vector3 baseScale = tr.localScale;
             tr.localScale = baseScale * 0.35f;
@@ -98,7 +98,7 @@ namespace Yoegoe.UI
 
             tr.position = center;
             tr.localScale = baseScale;
-            agent.ApplyFreshNeokSummon(); // logical pos 재동기화
+            agent.ApplyFreshSummon(); // 착지 위치 기준으로 걷기 재시작
             PulseGlow(agent, false);
 
             t = 0f;

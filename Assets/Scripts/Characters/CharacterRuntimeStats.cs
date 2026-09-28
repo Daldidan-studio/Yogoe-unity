@@ -11,9 +11,8 @@ namespace Yoegoe.Characters
     [Serializable]
     public class CharacterRuntimeStats
     {
-        public GrowthStage Stage;
-        public float Intimacy;   // 0~100, 넋은 0 고정
-        public float Stamina;    // 혼: 0~(20+친밀도), 넋: 0~100(진화)
+        public float Intimacy;   // 0~100
+        public float Stamina;    // 0~(25+친밀도)
         public ActionState State = ActionState.Walking;
         public float StateTimer; // 놀기 5분 / 기력0 놀기 18시간→기절
 

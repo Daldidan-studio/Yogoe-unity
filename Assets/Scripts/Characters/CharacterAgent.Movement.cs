@@ -113,7 +113,6 @@ namespace Yoegoe.Characters
             {
                 var other = ActiveAgents[i];
                 if (other == null || other == this) continue;
-                if (other.Stats.Stage == GrowthStage.Neok) continue;
                 // 앉아/기절한 상대는 밀되, 같이 걷는 상대만 상호 분리(앉아있는 요괴 자리는 건드리지 않음)
                 if (other.Stats.State == ActionState.Fainted) continue;
 
@@ -195,7 +194,6 @@ namespace Yoegoe.Characters
         /// <summary>7-1: 머물기·생산 중일 때만 분당 생산량.</summary>
         public double GetProductionPerMinuteIfStaying()
         {
-            if (Stats.Stage == GrowthStage.Neok) return 0;
             if (Stats.State != ActionState.Staying || currentProp == null) return 0;
             return currentProp.GetBaseProductionThisLevel()
                    * GetIntimacyCorrection()
@@ -204,7 +202,7 @@ namespace Yoegoe.Characters
 
         /// <summary>7-1: 친밀도 보정. 온라인/오프라인 공통 공식은 <see cref="ProductionFormula"/> 참고.</summary>
         private double GetIntimacyCorrection() =>
-            ProductionFormula.IntimacyMultiplier(Stats.Stage, Stats.Intimacy);
+            ProductionFormula.IntimacyMultiplier(Stats.Intimacy);
 
         /// <summary>7-1: 엔딩 기물 보정 (MVP: 옥토끼–떡절구). 공식은 <see cref="ProductionFormula"/> 참고.</summary>
         private double GetEndingPropCorrection()
@@ -242,7 +240,6 @@ namespace Yoegoe.Characters
         /// </summary>
         public void EnterPlaying()
         {
-            if (Stats.Stage == GrowthStage.Neok) return;
             if (Stats.State == ActionState.Fainted) return;
 
             ClearWalkDestination();
@@ -287,7 +284,7 @@ namespace Yoegoe.Characters
         /// </summary>
         public bool TrySitOnProp(PropSlot prop)
         {
-            if (prop == null || Stats.Stage == GrowthStage.Neok) return false;
+            if (prop == null) return false;
             if (Stats.State == ActionState.Fainted) return false;
 
             ClearWalkDestination();

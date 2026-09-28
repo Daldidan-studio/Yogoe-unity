@@ -6,29 +6,16 @@ namespace Yoegoe.Characters
     /// <summary>캐릭터 GameObject + CharacterAgent 생성 (Main·소환·세이브 복원 공용).</summary>
     public static class CharacterSpawner
     {
-        const string NeokFlameResourcePath = "UI/NeokFlame";
-        static Sprite _neokFlameSprite;
-
-        /// <summary>넋(도깨비불) 스프라이트. Resources/UI/NeokFlame.</summary>
-        public static Sprite NeokFlameSprite()
-        {
-            if (_neokFlameSprite == null)
-                _neokFlameSprite = Resources.Load<Sprite>(NeokFlameResourcePath);
-            return _neokFlameSprite;
-        }
-
         public static CharacterAgent Spawn(
             CharacterData data,
             Vector3 pos,
             Color fallbackColor,
-            Font bubbleFont,
-            bool forceNeokPlaceholder = false)
+            Font bubbleFont)
         {
             if (data == null) return null;
 
             string name = string.IsNullOrEmpty(data.displayName) ? data.id.ToString() : data.displayName;
             bool hasArt = FirstSprite(data) != null;
-            bool useNeokFlame = forceNeokPlaceholder || !hasArt;
             var scale = ArtScaleSettings.GetOrDefault();
 
             GameObject go = new GameObject("Char_" + name);
@@ -37,33 +24,23 @@ namespace Yoegoe.Characters
             sr.sortingOrder = scale.SortOrderForCharacter(pos.y);
             go.transform.localScale = Vector3.one * scale.characterScale;
 
-            if (useNeokFlame)
-            {
-                // 넋: 혼 아트가 있어도 소환 직후엔 작은 불꽃
-                var flame = NeokFlameSprite();
-                if (flame != null)
-                {
-                    sr.sprite = flame;
-                    sr.color = Color.white;
-                }
-                else
-                {
-                    // 에셋 로드 실패 시에만 예전 구체 폴백
-                    Object.DestroyImmediate(sr);
-                    Object.DestroyImmediate(go);
-                    go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    go.name = "Char_" + name;
-                    go.transform.position = pos;
-                    go.transform.localScale = Vector3.one * 0.35f;
-                    var col = go.GetComponent<Collider>();
-                    if (col != null) Object.Destroy(col);
-                    ApplyUrpColor(go.GetComponent<Renderer>(), fallbackColor);
-                }
-            }
-            else
+            if (hasArt)
             {
                 sr.sprite = FirstSprite(data);
                 sr.color = Color.white;
+            }
+            else
+            {
+                // 아트 미연결 시 색 구체 폴백
+                Object.DestroyImmediate(sr);
+                Object.DestroyImmediate(go);
+                go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "Char_" + name;
+                go.transform.position = pos;
+                go.transform.localScale = Vector3.one * 0.35f;
+                var col = go.GetComponent<Collider>();
+                if (col != null) Object.Destroy(col);
+                ApplyUrpColor(go.GetComponent<Renderer>(), fallbackColor);
             }
 
             var agent = go.AddComponent<CharacterAgent>();
@@ -73,46 +50,6 @@ namespace Yoegoe.Characters
             if (boundSr != null)
                 agent.BindSpriteRenderer(boundSr);
             return agent;
-        }
-
-        /// <summary>넋 불꽃 → 혼 스프라이트 렌더러로 교체.</summary>
-        public static void EnsureHonVisual(CharacterAgent agent)
-        {
-            if (agent == null || agent.Data == null) return;
-            var sprite = FirstSprite(agent.Data);
-            if (sprite == null)
-            {
-                Debug.LogWarning("[CharacterSpawner] 혼 스프라이트가 없어 비주얼 교체를 건너뜁니다: " +
-                                 agent.Data.displayName);
-                return;
-            }
-
-            var go = agent.gameObject;
-            if (go == null) return;
-            var scale = ArtScaleSettings.GetOrDefault();
-
-            // Destroy()는 프레임 끝에 지워져서 같은 프레임 AddComponent가 실패/null 될 수 있음
-            var meshRenderer = go.GetComponent<MeshRenderer>();
-            var meshFilter = go.GetComponent<MeshFilter>();
-            if (meshRenderer != null) Object.DestroyImmediate(meshRenderer);
-            if (meshFilter != null) Object.DestroyImmediate(meshFilter);
-
-            var sr = go.GetComponent<SpriteRenderer>();
-            if (sr == null) sr = go.AddComponent<SpriteRenderer>();
-            if (sr == null)
-            {
-                var child = new GameObject("HonSprite");
-                child.transform.SetParent(go.transform, false);
-                sr = child.AddComponent<SpriteRenderer>();
-            }
-            if (sr == null) return;
-
-            sr.sprite = sprite;
-            sr.color = Color.white;
-            sr.sortingOrder = scale.SortOrderForCharacter(go.transform.position.y);
-            go.transform.localScale = Vector3.one * scale.characterScale;
-
-            agent.BindSpriteRenderer(sr);
         }
 
         public static Sprite FirstSprite(CharacterData data)

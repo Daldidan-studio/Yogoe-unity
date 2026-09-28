@@ -303,12 +303,6 @@ namespace Yoegoe
             if (!yut.gameObject.activeSelf)
                 yut.gameObject.SetActive(true);
 
-            var evoGO = new GameObject("EvolutionConfirmPopup");
-            evoGO.SetActive(false);
-            var evo = evoGO.AddComponent<EvolutionConfirmPopup>();
-            evo.font = hudFont;
-            evoGO.SetActive(true);
-
             var giftGO = new GameObject("GiftBundlePopup");
             giftGO.SetActive(false);
             var gift = giftGO.AddComponent<GiftBundlePopup>();
@@ -404,8 +398,6 @@ namespace Yoegoe
 
             cam.orthographic = true;
             cam.orthographicSize = Scale.cameraOrthoSize;
-            if (cam.GetComponent<MapCameraFocus>() == null)
-                cam.gameObject.AddComponent<MapCameraFocus>();
         }
 
         /// <summary>
@@ -521,10 +513,6 @@ namespace Yoegoe
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router != null) router.mapDrag = drag;
-
-            if (cam.GetComponent<MapCameraFocus>() == null)
-                cam.gameObject.AddComponent<MapCameraFocus>();
-            cam.GetComponent<MapCameraFocus>().CaptureHome();
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)
@@ -605,7 +593,6 @@ namespace Yoegoe
             var data = ScriptableObject.CreateInstance<CharacterData>();
             data.id = ResolveCharacterIdByName(name);
             data.displayName = name;
-            data.startingStage = GrowthStage.Hon;
             data.startingIntimacy = 50f;
             data.startingStamina = 70f;
             CharacterCatalog.ApplyTo(data);

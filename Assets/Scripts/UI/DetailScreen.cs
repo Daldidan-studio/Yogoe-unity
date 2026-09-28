@@ -62,9 +62,6 @@ namespace Yoegoe.UI
         private CharacterAgent currentAgent;
         private Vector3 portraitBaseScale = Vector3.one;
         private readonly List<CountBadge> offeringCountBadges = new List<CountBadge>();
-        private Sprite neokPlaceholderSprite;
-        private GrowthStage lastPortraitStage = GrowthStage.Hon;
-        private Coroutine portraitEvolveFx;
         private bool offeringDragActive;
         /// <summary>드래그 중 한 프레임이라도 드롭존 위였으면 터치 릴리즈 지터로 실패하지 않게.</summary>
         private bool feedDropHoverLatched;
@@ -101,12 +98,6 @@ namespace Yoegoe.UI
         public void Open(CharacterAgent agent, string highlightOfferingId = null)
         {
             EnsureBuilt();
-            if (portraitEvolveFx != null)
-            {
-                StopCoroutine(portraitEvolveFx);
-                portraitEvolveFx = null;
-            }
-
             currentAgent = agent;
             root.SetActive(true);
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
@@ -114,11 +105,10 @@ namespace Yoegoe.UI
             if (agent.Data != null)
                 CharacterCatalog.ApplyTo(agent.Data);
 
-            lastPortraitStage = agent.Stats.Stage;
-            ApplyStageLayout(agent.Stats.Stage == GrowthStage.Neok);
+            ApplyLayout();
             RefreshDescription();
             RefreshIdentity();
-            ApplyPortraitImmediate(agent.Stats.Stage);
+            RefreshPortrait();
             RebuildPreferredRow();
             RebuildInventoryRow(highlightOfferingId);
             RefreshStats();
@@ -128,23 +118,22 @@ namespace Yoegoe.UI
                 inventoryPanel.SetActive(true);
         }
 
-        /// <summary>
-        /// 넋: 초상(넋)·기력·정화수만 활성. 친밀도·선호공양·인벤토리 비활성.
-        /// </summary>
-        void ApplyStageLayout(bool isNeok)
+        void ApplyLayout()
         {
-            if (preferredHostGO != null) preferredHostGO.SetActive(!isNeok);
-            if (inventoryButtonGO != null) inventoryButtonGO.SetActive(!isNeok);
-            if (inventoryPanel != null && isNeok) inventoryPanel.SetActive(false);
+            if (preferredHostGO != null) preferredHostGO.SetActive(true);
+            if (inventoryButtonGO != null) inventoryButtonGO.SetActive(true);
 
             if (intimacyColGO != null)
             {
                 intimacyColGO.SetActive(true);
+                // 예전 Bake본에 남은 반투명 CanvasGroup 복구
                 var cg = intimacyColGO.GetComponent<CanvasGroup>();
-                if (cg == null) cg = intimacyColGO.AddComponent<CanvasGroup>();
-                cg.alpha = isNeok ? 0.35f : 1f;
-                cg.interactable = !isNeok;
-                cg.blocksRaycasts = !isNeok;
+                if (cg != null)
+                {
+                    cg.alpha = 1f;
+                    cg.interactable = true;
+                    cg.blocksRaycasts = true;
+                }
             }
 
             if (purifiedDragGroup != null)
@@ -172,19 +161,11 @@ namespace Yoegoe.UI
                     && entry != null)
                     desc = entry.detailDescription;
             }
-            if (string.IsNullOrEmpty(desc) && currentAgent != null
-                && currentAgent.Stats.Stage == GrowthStage.Neok)
-                desc = "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다.";
             descriptionText.text = desc ?? "";
         }
 
         public void Close()
         {
-            if (portraitEvolveFx != null)
-            {
-                StopCoroutine(portraitEvolveFx);
-                portraitEvolveFx = null;
-            }
             if (emoteBubble != null) emoteBubble.Hide();
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
             if (root != null) root.SetActive(false);
@@ -299,20 +280,15 @@ namespace Yoegoe.UI
                 if (data != null && CharacterCatalog.TryGet(data.id, out var entry) && entry != null)
                     name = entry.displayName;
             }
-            bool isNeok = currentAgent.Stats.Stage == GrowthStage.Neok;
-            nameValueText.text = name + ", " + (isNeok ? "넋" : "혼");
+            nameValueText.text = name;
             if (statusText != null)
-                statusText.text = isNeok ? "넋" : CharacterStatusPresentation.ForDetail(currentAgent.Stats.State);
+                statusText.text = CharacterStatusPresentation.ForDetail(currentAgent.Stats.State);
         }
 
         private void RefreshStats()
         {
             if (currentAgent == null) return;
             var stats = currentAgent.Stats;
-            bool isNeok = stats.Stage == GrowthStage.Neok;
-
-            if (preferredHostGO != null && preferredHostGO.activeSelf == isNeok)
-                ApplyStageLayout(isNeok);
 
             int stamina = Mathf.RoundToInt(stats.Stamina);
             int maxStamina = Mathf.RoundToInt(currentAgent.MaxStamina);
@@ -322,19 +298,11 @@ namespace Yoegoe.UI
             if (staminaFill != null)
                 staminaFill.color = CharacterStatusPresentation.ForStaminaBar(stats.State, Time.unscaledTime);
 
-            if (isNeok)
-            {
-                if (intimacyLevelText != null) intimacyLevelText.text = "—";
-                SetBarFill(intimacyFillRt, 0f);
-            }
-            else
-            {
-                int lv = Mathf.Clamp(Mathf.FloorToInt(stats.Intimacy / 20f), 0, 5);
-                if (stats.Intimacy > 0f && lv == 0) lv = 1;
-                if (intimacyLevelText != null)
-                    intimacyLevelText.text = "Lv. " + lv;
-                SetBarFill(intimacyFillRt, Mathf.Clamp01(stats.Intimacy / 100f));
-            }
+            int lv = Mathf.Clamp(Mathf.FloorToInt(stats.Intimacy / 20f), 0, 5);
+            if (stats.Intimacy > 0f && lv == 0) lv = 1;
+            if (intimacyLevelText != null)
+                intimacyLevelText.text = "Lv. " + lv;
+            SetBarFill(intimacyFillRt, Mathf.Clamp01(stats.Intimacy / 100f));
 
             RefreshIdentity();
             RefreshPortrait();
@@ -374,85 +342,11 @@ namespace Yoegoe.UI
         private void RefreshPortrait()
         {
             if (portraitImage == null || currentAgent == null) return;
-            if (portraitEvolveFx != null) return;
-
-            var stage = currentAgent.Stats.Stage;
-            if (lastPortraitStage == GrowthStage.Neok && stage == GrowthStage.Hon)
-            {
-                portraitEvolveFx = StartCoroutine(PortraitEvolveFxRoutine());
-                lastPortraitStage = stage;
-                return;
-            }
-
-            lastPortraitStage = stage;
-            ApplyPortraitImmediate(stage);
-        }
-
-        private void ApplyPortraitImmediate(GrowthStage stage)
-        {
-            if (portraitImage == null) return;
             if (portraitRt != null) portraitRt.localScale = portraitBaseScale;
-
-            if (stage == GrowthStage.Neok)
-            {
-                portraitImage.sprite = GetNeokPlaceholderSprite();
-                portraitImage.color = Color.white;
-            }
-            else
-            {
-                portraitImage.sprite = currentAgent != null ? FirstSprite(currentAgent.Data) : null;
-                portraitImage.color = Color.white;
-            }
-            portraitImage.preserveAspect = true;
-        }
-
-        private IEnumerator PortraitEvolveFxRoutine()
-        {
-            Color neokColor = portraitImage.color;
-            Vector3 startScale = portraitRt != null ? portraitRt.localScale : Vector3.one;
-            const float fadeOut = 0.35f;
-            float t = 0f;
-            while (t < fadeOut)
-            {
-                t += Time.unscaledDeltaTime;
-                float u = Mathf.Clamp01(t / fadeOut);
-                float e = u * u;
-                var c = neokColor;
-                c.a = 1f - e;
-                portraitImage.color = c;
-                if (portraitRt != null)
-                    portraitRt.localScale = Vector3.Lerp(startScale, startScale * 0.7f, e);
-                yield return null;
-            }
-
-            portraitImage.sprite = FirstSprite(currentAgent != null ? currentAgent.Data : null);
-            portraitImage.preserveAspect = true;
-            var honColor = Color.white;
-            honColor.a = 0f;
-            portraitImage.color = honColor;
-            if (portraitRt != null) portraitRt.localScale = portraitBaseScale * 0.8f;
-
-            const float fadeIn = 0.5f;
-            t = 0f;
-            while (t < fadeIn)
-            {
-                t += Time.unscaledDeltaTime;
-                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / fadeIn));
-                honColor.a = u;
-                portraitImage.color = honColor;
-                if (portraitRt != null)
-                    portraitRt.localScale = Vector3.Lerp(portraitBaseScale * 0.8f, portraitBaseScale, u);
-                yield return null;
-            }
-
+            var sprite = FirstSprite(currentAgent.Data);
+            if (portraitImage.sprite != sprite) portraitImage.sprite = sprite;
             portraitImage.color = Color.white;
-            if (portraitRt != null) portraitRt.localScale = portraitBaseScale;
-            portraitEvolveFx = null;
-            ApplyStageLayout(false);
-            RefreshDescription();
-            RebuildPreferredRow();
-            RebuildInventoryRow();
-            RefreshStats();
+            portraitImage.preserveAspect = true;
         }
 
         // ---------------- feed / drag ----------------
@@ -478,14 +372,13 @@ namespace Yoegoe.UI
 
         /// <summary>
         /// 초상 위로 공양물을 끌고 오면 표정 힌트: 선호면 ♥, 아니면 💢.
-        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 정화수·넋은 힌트 없음.
+        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 정화수는 힌트 없음.
         /// </summary>
         void UpdateEmoteHint(bool over)
         {
             bool show = over
                 && offeringDragActive
                 && currentAgent != null
-                && currentAgent.Stats.Stage != GrowthStage.Neok
                 && draggedOffering != null
                 && !draggedPurified
                 && !IsPurified(draggedOffering);
@@ -529,13 +422,7 @@ namespace Yoegoe.UI
                 feedHintText.text = reason;
         }
 
-        string DefaultFeedHint()
-        {
-            bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
-            return isNeok
-                ? "정화수를 드래그해 넋에게 먹이세요"
-                : "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
-        }
+        static string DefaultFeedHint() => "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
 
         public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
         {
@@ -552,17 +439,6 @@ namespace Yoegoe.UI
                 return false;
             }
 
-            bool isNeok = currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok;
-            if (isNeok)
-            {
-                // 넋은 정화수만
-                if (!(purifiedWater || (offering != null && IsPurified(offering))))
-                {
-                    NotifyFeedBlocked("넋은 정화수만 먹을 수 있어요");
-                    return false;
-                }
-                return OnFeedPurifiedWater();
-            }
             if (purifiedWater || (offering != null && IsPurified(offering)))
                 return OnFeedPurifiedWater();
             if (offering == null) return false;
@@ -605,9 +481,8 @@ namespace Yoegoe.UI
                 return false;
             }
 
-            // 혼 기력 풀이면 소모만 되고 변화가 없어 "안 먹힌다"로 보임 → 낭비 방지
-            if (currentAgent.Stats.Stage != GrowthStage.Neok
-                && currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f)
+            // 기력 풀이면 소모만 되고 변화가 없어 "안 먹힌다"로 보임 → 낭비 방지
+            if (currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f)
             {
                 NotifyFeedBlocked("기력이 가득 찼어요");
                 return false;
@@ -627,8 +502,7 @@ namespace Yoegoe.UI
             PlayGainPopup(gain, 0f);
             RefreshStats();
             RefreshItemCounts();
-            if (currentAgent.Stats.Stage == GrowthStage.Hon)
-                GameSaveBridge.SaveFromWorld();
+            GameSaveBridge.SaveFromWorld();
             return true;
         }
 
@@ -638,12 +512,6 @@ namespace Yoegoe.UI
 
             if (IsPurified(offering))
                 return OnFeedPurifiedWater();
-
-            if (currentAgent.Stats.Stage == GrowthStage.Neok)
-            {
-                NotifyFeedBlocked("넋은 정화수만 먹을 수 있어요");
-                return false;
-            }
 
             bool preferred = IsPreferred(offering);
             var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
@@ -687,8 +555,7 @@ namespace Yoegoe.UI
                 RebuildPreferredRow();
             if (clearedOfferingRequest || revealed)
                 RebuildInventoryRow();
-            if (currentAgent.Stats.Stage == GrowthStage.Hon)
-                GameSaveBridge.SaveFromWorld();
+            GameSaveBridge.SaveFromWorld();
             return true;
         }
 
@@ -747,9 +614,6 @@ namespace Yoegoe.UI
             if (preferredRow == null) return;
             ClearChildren(preferredRow);
             PruneDeadCountBadges();
-
-            if (currentAgent != null && currentAgent.Stats.Stage == GrowthStage.Neok)
-                return;
 
             CharacterCatalog.PreferredOffering[] prefs = null;
             if (currentAgent?.Data != null
@@ -949,30 +813,6 @@ namespace Yoegoe.UI
             if (data.walkRight != null) foreach (var s in data.walkRight) if (s != null) return s;
             if (data.walkUp != null) foreach (var s in data.walkUp) if (s != null) return s;
             return null;
-        }
-
-        private Sprite GetNeokPlaceholderSprite()
-        {
-            if (neokPlaceholderSprite != null) return neokPlaceholderSprite;
-            neokPlaceholderSprite = CharacterSpawner.NeokFlameSprite();
-            if (neokPlaceholderSprite != null) return neokPlaceholderSprite;
-
-            // 에셋 없을 때만 예전 원형 폴백
-            const int size = 64;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Bilinear;
-            float r = size * 0.45f;
-            float cx = (size - 1) * 0.5f;
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float d = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cx));
-                float a = Mathf.Clamp01(1f - (d - r + 1.5f) / 1.5f);
-                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
-            }
-            tex.Apply(false, true);
-            neokPlaceholderSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            return neokPlaceholderSprite;
         }
 
         // ---------------- build ----------------

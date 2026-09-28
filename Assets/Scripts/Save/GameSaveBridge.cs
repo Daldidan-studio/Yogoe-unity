@@ -126,7 +126,6 @@ namespace Yoegoe.Save
                 data.agents[i] = new AgentSave
                 {
                     characterId = cid,
-                    stage = a.Stats.Stage,
                     intimacy = a.Stats.Intimacy,
                     stamina = a.Stats.Stamina,
                     state = a.Stats.State,
@@ -198,7 +197,6 @@ namespace Yoegoe.Save
                         }
 
                         a.ApplySaveSnapshot(
-                            ags.stage,
                             ags.intimacy,
                             ags.stamina,
                             ags.state,

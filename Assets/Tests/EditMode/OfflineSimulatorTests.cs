@@ -25,7 +25,6 @@ namespace Yoegoe.Tests.EditMode
                     new AgentSave
                     {
                         characterId = "rabbit",
-                        stage = GrowthStage.Hon,
                         stamina = 100f,
                         intimacy = 0f,
                         state = ActionState.Staying,
@@ -133,18 +132,6 @@ namespace Yoegoe.Tests.EditMode
             OfflineSimulator.Simulate(data, now);
 
             Assert.AreEqual(ActionState.Fainted, data.agents[0].state);
-        }
-
-        [Test]
-        public void Simulate_NeokAgent_IsUnaffected()
-        {
-            var now = DateTime.UtcNow;
-            var data = MakeSave(now.AddSeconds(-100));
-            data.agents[0].stage = GrowthStage.Neok;
-
-            OfflineSimulator.Simulate(data, now);
-
-            Assert.AreEqual(100f, data.agents[0].stamina); // 넋은 자연 기력 변화 없음
         }
 
         [Test]

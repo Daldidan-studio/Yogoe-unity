@@ -21,17 +21,11 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void IntimacyMultiplier_NeokIsAlwaysOne()
+        public void IntimacyMultiplier_ScalesWithIntimacy()
         {
-            Assert.AreEqual(1.0, ProductionFormula.IntimacyMultiplier(GrowthStage.Neok, 80f), 0.0001);
-        }
-
-        [Test]
-        public void IntimacyMultiplier_HonScalesWithIntimacy()
-        {
-            Assert.AreEqual(1.0, ProductionFormula.IntimacyMultiplier(GrowthStage.Hon, 0f), 0.0001);
-            Assert.AreEqual(1.5, ProductionFormula.IntimacyMultiplier(GrowthStage.Hon, 50f), 0.0001);
-            Assert.AreEqual(2.0, ProductionFormula.IntimacyMultiplier(GrowthStage.Hon, 100f), 0.0001);
+            Assert.AreEqual(1.0, ProductionFormula.IntimacyMultiplier(0f), 0.0001);
+            Assert.AreEqual(1.5, ProductionFormula.IntimacyMultiplier(50f), 0.0001);
+            Assert.AreEqual(2.0, ProductionFormula.IntimacyMultiplier(100f), 0.0001);
         }
 
         [Test]
@@ -48,7 +42,6 @@ namespace Yoegoe.Tests.EditMode
             double result = ProductionFormula.PerMinute(
                 baseProductionPerMinute: 100,
                 level: 2,
-                stage: GrowthStage.Hon,
                 intimacy: 50f,
                 isEndingProp: true,
                 sameOwner: true);

@@ -123,7 +123,6 @@ namespace Yoegoe.Save
     public class AgentSave
     {
         public string characterId; // CharacterData.id 또는 displayName
-        public GrowthStage stage;
         public float intimacy;
         public float stamina;
         public ActionState state;
