@@ -6,7 +6,8 @@
                     meritCapacityMinutes, intimacyBonus, ownerMultiplier, upgradable, upgradeBaseCost,
                     upgradeCostMultiplier, note
                     resourceType: Merit(공덕) · PurifiedWater(물) · Yeopjeon(엽전) · Hunt(사냥 재료) · Gather(채집 재료) · None
-  prop_drop_tables  table, ingredient, name, weight, note     (table: Hunt / Gather, weight: 확률 %)
+  prop_drop_tables  table, ingredient, name, weight, note     (table: Hunt / Gather, weight: 확률 %,
+                    ingredient: 요리 재료 이름 또는 GoldenRice / GoldenHoney)
   prop_settings     key, value, note                         (purchaseBaseCost, purchaseCostGrowth)
 
 사용법:
@@ -33,6 +34,7 @@ JSON_PATH = ROOT / "Assets" / "Resources" / "props.json"
 SHEETS_DIR = ROOT / "Tools" / "sheets"
 PROP_ASSETS = ROOT / "Assets" / "Data" / "Props"
 ECONOMY_CS = ROOT / "Assets" / "Scripts" / "Economy" / "GameEconomy.cs"
+ENUMS_CS = ROOT / "Assets" / "Scripts" / "Data" / "Enums.cs"
 
 TAB_PROPS = "props"
 TAB_DROPS = "prop_drop_tables"
@@ -61,13 +63,15 @@ def known_prop_ids() -> set[str]:
 
 
 def ingredient_names() -> list[str]:
-    src = ECONOMY_CS.read_text(encoding="utf-8")
-    m = re.search(r"enum\s+CookingIngredientId\s*\{([^}]*)\}", src)
+    """요리 재료(CookingIngredientId) + 특수 수집품(SpecialItemId: 황금쌀·황금꿀)."""
     names = []
+    m = re.search(r"enum\s+CookingIngredientId\s*\{([^}]*)\}", ECONOMY_CS.read_text(encoding="utf-8"))
     for line in (m.group(1) if m else "").splitlines():
         name = line.split("//")[0].split("=")[0].strip().rstrip(",").strip()
         if name and name != "Count":
             names.append(name)
+    m = re.search(r"enum\s+SpecialItemId\s*\{([^}]*)\}", ENUMS_CS.read_text(encoding="utf-8"))
+    names += [x.strip() for x in (m.group(1) if m else "").split(",") if x.strip()]
     return names
 
 

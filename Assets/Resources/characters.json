@@ -18,6 +18,9 @@
       ],
       "requestGiftLines": [
         "이거… 챙겨뒀어."
+      ],
+      "goldenFindLines": [
+        "내가 {item}을 발견했어!"
       ]
     },
     {
@@ -51,6 +54,9 @@
       ],
       "requestGiftLines": [
         "이거… 챙겨뒀어."
+      ],
+      "goldenFindLines": [
+        "흠, 내가 {item}을 찾아냈다."
       ]
     },
     {
@@ -84,6 +90,9 @@
       ],
       "requestGiftLines": [
         "이거… 챙겨뒀어."
+      ],
+      "goldenFindLines": [
+        "어머, 내가 {item}을 발견했어~"
       ]
     },
     {
@@ -111,6 +120,9 @@
       ],
       "requestGiftLines": [
         "이거… 챙겨뒀어."
+      ],
+      "goldenFindLines": [
+        "내, 내가 {item}을 발견했어!"
       ]
     }
   ]

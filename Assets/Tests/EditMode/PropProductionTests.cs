@@ -96,12 +96,17 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void RollIngredient_FollowsGatherWeights()
+        public void RollDrop_FollowsGatherWeights_WithGoldenAtTheEnd()
         {
-            Assert.AreEqual(CookingIngredientId.Rice, PropCatalog.RollIngredient(PropResourceType.Gather, 0f));
-            Assert.AreEqual(CookingIngredientId.Rice, PropCatalog.RollIngredient(PropResourceType.Gather, 0.39f));
-            Assert.AreEqual(CookingIngredientId.RedBean, PropCatalog.RollIngredient(PropResourceType.Gather, 0.999f));
-            Assert.AreEqual(CookingIngredientId.Egg, PropCatalog.RollIngredient(PropResourceType.Hunt, 0f));
+            Assert.AreEqual((int)CookingIngredientId.Rice, PropCatalog.RollDrop(PropResourceType.Gather, 0f));
+            Assert.AreEqual((int)CookingIngredientId.Rice, PropCatalog.RollDrop(PropResourceType.Gather, 0.385f));
+            Assert.AreEqual((int)CookingIngredientId.RedBean, PropCatalog.RollDrop(PropResourceType.Gather, 0.985f));
+            int golden = PropCatalog.RollDrop(PropResourceType.Gather, 0.999f);
+            Assert.IsTrue(PropCatalog.IsSpecialCode(golden));
+            Assert.AreEqual(SpecialItemId.GoldenRice, PropCatalog.SpecialOf(golden));
+            Assert.AreEqual(SpecialItemId.GoldenHoney,
+                PropCatalog.SpecialOf(PropCatalog.RollDrop(PropResourceType.Hunt, 1f)));
+            Assert.AreEqual((int)CookingIngredientId.Egg, PropCatalog.RollDrop(PropResourceType.Hunt, 0f));
         }
 
         // ---------------- PropSlot 온라인 + 수거 ----------------
@@ -170,6 +175,20 @@ namespace Yoegoe.Tests.EditMode
             for (int i = 0; i < (int)CookingIngredientId.Count; i++)
                 after += economy.GetMaterialCount((CookingIngredientId)i);
             Assert.AreEqual(before + 4, after);
+        }
+
+        [Test]
+        public void GoldenPending_CollectGoesToSpecialItems()
+        {
+            MakeProp(PropResourceType.Gather, 20f, 9);
+            prop.RestoreStorage(2, 0f, false,
+                new[] { (int)CookingIngredientId.Rice, PropCatalog.SpecialCodeBase + (int)SpecialItemId.GoldenRice });
+            Assert.IsTrue(prop.HasGoldenPending);
+
+            prop.TryCollect();
+
+            Assert.AreEqual(1, economy.GetSpecialItemCount(SpecialItemId.GoldenRice));
+            Assert.IsFalse(prop.HasGoldenPending);
         }
 
         [Test]

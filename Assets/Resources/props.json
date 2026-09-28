@@ -96,7 +96,7 @@
       "table": "Gather",
       "ingredient": "Rice",
       "name": "쌀",
-      "weight": 40.0
+      "weight": 39.0
     },
     {
       "table": "Gather",
@@ -127,6 +127,12 @@
       "ingredient": "RedBean",
       "name": "팥",
       "weight": 5.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "GoldenRice",
+      "name": "황금쌀",
+      "weight": 1.0
     },
     {
       "table": "Hunt",
@@ -162,7 +168,13 @@
       "table": "Hunt",
       "ingredient": "Honey",
       "name": "꿀",
-      "weight": 10.0
+      "weight": 9.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "GoldenHoney",
+      "name": "황금꿀",
+      "weight": 1.0
     }
   ],
   "settings": {

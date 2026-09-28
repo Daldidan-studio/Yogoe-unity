@@ -22,6 +22,7 @@ namespace Yoegoe.UI
         Button closeBtn;
         bool busy;
         RectTransform fxFrom;
+        Vector3? fxFromWorld;
 
         void Awake() => Instance = this;
 
@@ -43,9 +44,17 @@ namespace Yoegoe.UI
             EnsureBuilt();
             busy = false;
             fxFrom = fxOrigin;
+            fxFromWorld = null;
             RefreshLabels();
             SetButtonsInteractable(true);
             root.SetActive(true);
+        }
+
+        /// <summary>공덕 버드나무 만땅 탭 — 꽃잎은 버드나무(월드)에서 출발.</summary>
+        public void OpenFromWorld(Vector3 worldOrigin)
+        {
+            Open(null);
+            fxFromWorld = worldOrigin;
         }
 
         public void Close()
@@ -123,6 +132,8 @@ namespace Yoegoe.UI
                 GameHud.Instance.BeginMeritCountUpPublic(before, after);
                 if (fxFrom != null)
                     GameHud.Instance.PlayMeritCollectFx(fxFrom);
+                else if (fxFromWorld.HasValue)
+                    GameHud.Instance.PlayMeritCollectFxFromWorld(fxFromWorld.Value);
             }
 
             busy = false;

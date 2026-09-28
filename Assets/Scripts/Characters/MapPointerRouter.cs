@@ -69,7 +69,7 @@ namespace Yoegoe.Characters
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
         /// <summary>press 시점에 딱 한 번 정해지는 "무엇을 눌렀는지". Hold/Release는 이 값만 본다.</summary>
-        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character, GongyangganProp }
+        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character, GongyangganProp, Willow }
 
         private Phase phase = Phase.Idle;
         private PressTarget pressTarget = PressTarget.Empty;
@@ -243,6 +243,9 @@ namespace Yoegoe.Characters
             if (pileProp != null) pressProp = pileProp;
             dragCharacter = null;
             pressTarget = ClassifyPressTarget(pileProp);
+            // 공덕 버드나무: 요괴·기물·라벨이 아닌 곳에서만 (드래그 방해 안 하게)
+            if (pressTarget == PressTarget.Empty && IsOverWillow(screenPos))
+                pressTarget = PressTarget.Willow;
             phase = Phase.Pending;
             Debug.Log("[DEBUG-LOCK] OnPress: pressProp=" + (pressProp != null ? pressProp.name + " IsBuilt=" + pressProp.IsBuilt : "null")
                 + " pressCharacter=" + (pressCharacter != null ? pressCharacter.name : "null")
@@ -379,6 +382,11 @@ namespace Yoegoe.Characters
                     case PressTarget.CollectibleProp:
                         CancelPendingMonologueTap();
                         pressProp.TryCollect();
+                        break;
+
+                    case PressTarget.Willow:
+                        CancelPendingMonologueTap();
+                        MeritWillow.Instance?.OnTapped();
                         break;
 
                     case PressTarget.Character:
@@ -595,6 +603,14 @@ namespace Yoegoe.Characters
             var locked = PropManager.Instance.FindNearestUnbuiltProp(world, lockTapRadius);
             if (locked != null) return locked;
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
+        }
+
+        bool IsOverWillow(Vector2 screenPos)
+        {
+            if (targetCamera == null || MeritWillow.Instance == null) return false;
+            float depth = -targetCamera.transform.position.z;
+            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            return MeritWillow.Instance.HitTest(world, 0.05f);
         }
 
         /// <summary>TEMP: 공덕 더미(***·숫자) TextMesh 라벨 히트만.</summary>

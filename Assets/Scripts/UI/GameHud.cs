@@ -116,12 +116,28 @@ namespace Yoegoe.UI
         {
             MapPointerRouter.CharacterDetailRequested += HandleCharacterDetailRequested;
             PropSlot.MeritCollectedAtWorld += PlayMeritCollectFxFromWorld;
+            MeritWillow.FullTapped += HandleWillowFullTapped;
         }
 
         private void OnDisable()
         {
             MapPointerRouter.CharacterDetailRequested -= HandleCharacterDetailRequested;
             PropSlot.MeritCollectedAtWorld -= PlayMeritCollectFxFromWorld;
+            MeritWillow.FullTapped -= HandleWillowFullTapped;
+        }
+
+        /// <summary>버드나무 만땅 탭: 광고 2배 / 그냥 받기 (공덕은 일괄 대기분으로 옮겨진 상태).</summary>
+        void HandleWillowFullTapped(Vector3 worldPos)
+        {
+            if (BatchCollectPopup.Instance != null)
+            {
+                BatchCollectPopup.Instance.OpenFromWorld(worldPos);
+                return;
+            }
+            var before = GameEconomy.Instance.MeritPile;
+            if (!GameEconomy.Instance.TryClaimBatchMerit(1)) return;
+            BeginMeritCountUpPublic(before, GameEconomy.Instance.MeritPile);
+            PlayMeritCollectFxFromWorld(worldPos);
         }
 
         private void OnDestroy()
@@ -543,8 +559,7 @@ namespace Yoegoe.UI
 
         private void OnBatchCollectClicked(RectTransform from)
         {
-            // 콜드스타트 Sweep 이후 다시 쌓인 더미도 함께 수거해 기물 위 숫자가 남기지 않는다.
-            GameSaveBridge.SweepPropPilesIntoBatch();
+            // 구세이브 일괄 대기분만. 공덕 더미는 이제 버드나무에서 수거한다.
             if (!GameEconomy.Instance.HasPendingBatchMerit) return;
             if (BatchCollectPopup.Instance != null)
                 BatchCollectPopup.Instance.Open(from);

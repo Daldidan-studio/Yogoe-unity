@@ -34,8 +34,7 @@ namespace Yoegoe.Save
             }
 
             ApplyToWorld(data);
-            // 콜드스타트 전용: 기물 더미 → 일괄 수거 대기분 (백그라운드 복귀 시엔 이 함수 자체가 안 돈다)
-            SweepPropPilesIntoBatch();
+            // 공덕 더미는 기물에 남겨 두고 버드나무에서 수거한다 (7-4). 예전의 콜드스타트 일괄 스윕은 폐지.
             RefreshAllPropPileLabels();
             return true;
         }
@@ -95,6 +94,7 @@ namespace Yoegoe.Save
             ShopStock.CaptureToSave(out data.economy.shopLeftOfferingId, out data.economy.shopRightOfferingId, out data.economy.shopNextRefreshUtcTicks);
             data.economy.offerings = CaptureOfferings(GameEconomy.Instance);
             data.economy.materials = GameEconomy.Instance.CaptureMaterialCounts();
+            data.economy.specialItems = GameEconomy.Instance.CaptureSpecialItemCounts();
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -258,6 +258,8 @@ namespace Yoegoe.Save
                 ApplyOfferings(GameEconomy.Instance, e.offerings);
             if (e.materials != null && e.materials.Length > 0)
                 GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
+            if (e.specialItems != null && e.specialItems.Length > 0)
+                GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
         }

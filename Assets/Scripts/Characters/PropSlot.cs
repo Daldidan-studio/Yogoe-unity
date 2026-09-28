@@ -49,6 +49,23 @@ namespace Yoegoe.Characters
         public bool HasPendingCollectible => HasPendingMerit || HasPendingResources;
         public IReadOnlyList<int> PendingIngredients => pendingIngredients;
 
+        /// <summary>보관 중에 황금쌀·황금꿀이 있으면 기물이 반짝인다 (기획 7-3).</summary>
+        public bool HasGoldenPending
+        {
+            get
+            {
+                foreach (var code in pendingIngredients)
+                    if (PropCatalog.IsSpecialCode(code)) return true;
+                return false;
+            }
+        }
+
+        /// <summary>황금 재료를 캐낸 요괴 — 수거 탭 때 이 요괴가 "발견했어!"를 말한다.</summary>
+        CharacterAgent goldenFinder;
+        bool sparkling;
+        float petalTimer;
+        float nextPetalAt = 20f;
+
         /// <summary>만창 — 앉아 있어도 생산·기력소모 정지.</summary>
         public bool IsStorageHalted
         {
@@ -95,6 +112,23 @@ namespace Yoegoe.Characters
         {
             RefreshPileLabel();
             RefreshLockVisual();
+            RefreshGoldenSparkle();
+        }
+
+        void RefreshGoldenSparkle()
+        {
+            bool want = IsBuilt && HasGoldenPending && spriteRenderer != null;
+            if (want)
+            {
+                float u = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
+                spriteRenderer.color = Color.Lerp(Color.white, new Color(1f, 0.86f, 0.35f, 1f), u);
+                sparkling = true;
+            }
+            else if (sparkling)
+            {
+                sparkling = false;
+                if (spriteRenderer != null && IsBuilt) spriteRenderer.color = Color.white;
+            }
         }
 
         /// <summary>Main 스폰 직후 호출. prebuilt면 즉시 건립.</summary>
@@ -226,6 +260,15 @@ namespace Yoegoe.Characters
                     if (room <= 0.0001) return 0f;
                     float worked = (float)Math.Min(dt, room / meritPerMinute * 60.0);
                     AddToMeritPile(meritPerMinute / 60.0 * worked);
+                    // 가끔 공덕꽃잎이 버드나무로 날아가 붙는다 (연출)
+                    petalTimer += worked;
+                    if (petalTimer >= nextPetalAt && worked < 60f)
+                    {
+                        petalTimer = 0f;
+                        nextPetalAt = UnityEngine.Random.Range(15f, 35f);
+                        if (MeritWillow.Instance != null)
+                            MeritWillow.Instance.LaunchPetalFrom(TopAnchorWorld(0.05f));
+                    }
                     return worked;
                 }
                 case PropResourceType.PurifiedWater:
@@ -238,14 +281,19 @@ namespace Yoegoe.Characters
                         PropStorage.OverflowChance(level), dt, () => UnityEngine.Random.value,
                         () =>
                         {
-                            if (type == PropResourceType.Hunt || type == PropResourceType.Gather)
-                                pendingIngredients.Add((int)PropCatalog.RollIngredient(type, UnityEngine.Random.value));
+                            if (type != PropResourceType.Hunt && type != PropResourceType.Gather) return;
+                            int code = PropCatalog.RollDrop(type, UnityEngine.Random.value);
+                            pendingIngredients.Add(code);
+                            if (PropCatalog.IsSpecialCode(code) && Occupant != null) goldenFinder = Occupant;
                         });
                 }
                 default:
                     return dt; // 화덕 등 — 산출 없음, 기력은 평소대로
             }
         }
+
+        /// <summary>버드나무 등 기물 밖에서 공덕을 수거했을 때 같은 꽃잎 연출을 띄운다.</summary>
+        public static void NotifyMeritCollectedAt(Vector3 worldPos) => MeritCollectedAtWorld?.Invoke(worldPos);
 
         /// <summary>자원 기물 수거 지점 통지 (propSlot, 종류, 개수). UI가 구독해 연출.</summary>
         public static event Action<PropSlot, PropResourceType, int> ResourcesCollected;
@@ -262,20 +310,47 @@ namespace Yoegoe.Characters
             if (!HasPendingResources || GameEconomy.Instance == null) return false;
             var type = ResourceType;
             int n = PropStorage.TakeAll(ref storage);
+            SpecialItemId? golden = null;
             switch (type)
             {
                 case PropResourceType.PurifiedWater: GameEconomy.Instance.AddPurifiedWater(n); break;
                 case PropResourceType.Yeopjeon: GameEconomy.Instance.AddYeopjeon(n); break;
                 default:
-                    foreach (var ing in pendingIngredients)
-                        GameEconomy.Instance.AddMaterial((CookingIngredientId)ing, 1);
+                    foreach (var code in pendingIngredients)
+                    {
+                        if (PropCatalog.IsSpecialCode(code))
+                        {
+                            golden = PropCatalog.SpecialOf(code);
+                            GameEconomy.Instance.AddSpecialItem(golden.Value, 1);
+                        }
+                        else
+                            GameEconomy.Instance.AddMaterial((CookingIngredientId)code, 1);
+                    }
                     break;
             }
             pendingIngredients.Clear();
+            if (golden.HasValue) AnnounceGoldenFind(golden.Value);
             ForceRefreshPileLabel();
             ResourcesCollected?.Invoke(this, type, n);
             return true;
         }
+
+        /// <summary>"내가 황금꿀을 발견했어!" — 캐낸 요괴(없으면 지금 앉은 요괴 → 아무 요괴)가 말한다.</summary>
+        void AnnounceGoldenFind(SpecialItemId item)
+        {
+            var speaker = goldenFinder != null ? goldenFinder : Occupant;
+            if (speaker == null && CharacterAgent.All.Count > 0) speaker = CharacterAgent.All[0];
+            goldenFinder = null;
+            if (speaker == null) return;
+
+            CharacterCatalog.Entry entry = null;
+            if (speaker.Data != null) CharacterCatalog.TryGet(speaker.Data.id, out entry);
+            string line = CharacterCatalog.PickLine(entry?.goldenFindLines, "내가 {item}을 발견했어!");
+            speaker.ShowTempSpeech(line.Replace("{item}", SpecialItemName(item)));
+        }
+
+        public static string SpecialItemName(SpecialItemId item) =>
+            item == SpecialItemId.GoldenHoney ? "황금꿀" : "황금쌀";
 
         /// <summary>세이브용 자원 보관 스냅샷.</summary>
         public void CaptureStorage(out int stored, out float cycleProgress, out bool overflowJudged, out int[] ingredients)
@@ -533,6 +608,14 @@ namespace Yoegoe.Characters
 
         private void RefreshPileLabel()
         {
+            // 공덕은 버드나무에 모인 것으로 보여 준다 — 기물 위 더미 라벨 없음 (7-4)
+            if (ResourceType == PropResourceType.Merit && MeritWillow.Instance != null)
+            {
+                if (pileLabel != null && pileLabel.gameObject.activeSelf)
+                    pileLabel.gameObject.SetActive(false);
+                return;
+            }
+
             if (IsResourceProp)
             {
                 RefreshResourceLabel();

@@ -316,6 +316,39 @@ namespace Yoegoe.Economy
             Debug.Log($"[GameEconomy] 요리 획득 {displayName} x{amount} ({kind}) id={productId}");
         }
 
+        // ---------------- 특수 수집품 (황금쌀·황금꿀 — 지금은 쌓기만) ----------------
+        readonly Dictionary<int, int> SpecialItemCounts = new Dictionary<int, int>();
+        public event Action OnSpecialItemsChanged;
+
+        public int GetSpecialItemCount(SpecialItemId id) =>
+            SpecialItemCounts.TryGetValue((int)id, out int n) ? n : 0;
+
+        public void AddSpecialItem(SpecialItemId id, int amount)
+        {
+            if (amount == 0) return;
+            SpecialItemCounts.TryGetValue((int)id, out int cur);
+            SpecialItemCounts[(int)id] = Math.Max(0, cur + amount);
+            OnSpecialItemsChanged?.Invoke();
+        }
+
+        /// <summary>세이브용: SpecialItemId 순서 배열.</summary>
+        public int[] CaptureSpecialItemCounts()
+        {
+            var arr = new int[Enum.GetValues(typeof(SpecialItemId)).Length];
+            for (int i = 0; i < arr.Length; i++)
+                SpecialItemCounts.TryGetValue(i, out arr[i]);
+            return arr;
+        }
+
+        public void ReplaceSpecialItemCounts(int[] counts)
+        {
+            SpecialItemCounts.Clear();
+            if (counts != null)
+                for (int i = 0; i < counts.Length; i++)
+                    if (counts[i] > 0) SpecialItemCounts[i] = counts[i];
+            OnSpecialItemsChanged?.Invoke();
+        }
+
         /// <summary>세이브용: 재료 개수를 CookingIngredientId 순서 배열로.</summary>
         public int[] CaptureMaterialCounts()
         {

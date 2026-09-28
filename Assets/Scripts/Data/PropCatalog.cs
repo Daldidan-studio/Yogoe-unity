@@ -37,7 +37,7 @@ namespace Yoegoe.Data
         public class Drop
         {
             public string table;       // hunt / gather
-            public string ingredient;  // CookingIngredientId 이름 (Rice …)
+            public string ingredient;  // CookingIngredientId 이름 (Rice …) 또는 SpecialItemId (GoldenRice …)
             public float weight;
         }
 
@@ -66,13 +66,19 @@ namespace Yoegoe.Data
         }
 
         static Dictionary<string, Entry> byId;
-        static Dictionary<PropResourceType, List<(CookingIngredientId id, float weight)>> drops;
+        /// <summary>드롭 코드: 요리 재료 = (int)CookingIngredientId, 특수 수집품 = SpecialCodeBase + (int)SpecialItemId.</summary>
+        public const int SpecialCodeBase = 1000;
+
+        public static bool IsSpecialCode(int code) => code >= SpecialCodeBase;
+        public static SpecialItemId SpecialOf(int code) => (SpecialItemId)(code - SpecialCodeBase);
+
+        static Dictionary<PropResourceType, List<(int code, float weight)>> drops;
 
         public static void EnsureLoaded()
         {
             if (byId != null) return;
             byId = new Dictionary<string, Entry>();
-            drops = new Dictionary<PropResourceType, List<(CookingIngredientId, float)>>();
+            drops = new Dictionary<PropResourceType, List<(int, float)>>();
 
             var text = Resources.Load<TextAsset>("props");
             if (text == null)
@@ -93,10 +99,15 @@ namespace Yoegoe.Data
                 {
                     if (d == null || d.weight <= 0f) continue;
                     if (!Enum.TryParse(d.table, true, out PropResourceType table)) continue;
-                    if (!Enum.TryParse(d.ingredient, true, out CookingIngredientId ing)) continue;
+                    int code;
+                    if (Enum.TryParse(d.ingredient, true, out SpecialItemId special))
+                        code = SpecialCodeBase + (int)special;
+                    else if (Enum.TryParse(d.ingredient, true, out CookingIngredientId ing))
+                        code = (int)ing;
+                    else continue;
                     if (!drops.TryGetValue(table, out var list))
-                        drops[table] = list = new List<(CookingIngredientId, float)>();
-                    list.Add((ing, d.weight));
+                        drops[table] = list = new List<(int, float)>();
+                    list.Add((code, d.weight));
                 }
             }
         }
@@ -126,21 +137,21 @@ namespace Yoegoe.Data
             if (e.upgradeCostMultiplier > 0) data.upgradeCostMultiplier = e.upgradeCostMultiplier;
         }
 
-        /// <summary>활터(Hunt)·약초밭(Gather) 재료 1개 뽑기 (시트 prop_drop_tables 가중치).</summary>
-        public static CookingIngredientId RollIngredient(PropResourceType table, float random01)
+        /// <summary>활터(Hunt)·약초밭(Gather) 1개 뽑기 (시트 prop_drop_tables 가중치). 반환 = 드롭 코드.</summary>
+        public static int RollDrop(PropResourceType table, float random01)
         {
             EnsureLoaded();
             if (drops == null || !drops.TryGetValue(table, out var list) || list.Count == 0)
-                return CookingIngredientId.Rice;
+                return (int)CookingIngredientId.Rice;
             float total = 0f;
             foreach (var (_, w) in list) total += w;
-            float r = Mathf.Clamp01(random01) * total;
-            foreach (var (id, w) in list)
+            float r = Mathf.Min(Mathf.Clamp01(random01) * total, total - 0.0001f);
+            foreach (var (code, w) in list)
             {
-                if (r < w) return id;
+                if (r < w) return code;
                 r -= w;
             }
-            return list[list.Count - 1].id;
+            return list[list.Count - 1].code;
         }
     }
 }

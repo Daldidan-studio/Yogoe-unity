@@ -543,6 +543,10 @@ namespace Yoegoe
                 }
                 CreateProp(place.data, place.position, place.fallbackColor);
             }
+
+            // 공덕 버드나무 (7-4) — 임시 그림
+            if (MeritWillow.Instance == null)
+                MeritWillow.Create(layout.willowPosition, Scale.SortOrderForProp(layout.willowPosition.y));
         }
 
         private void CreateProp(PropData data, Vector3 pos, Color color)

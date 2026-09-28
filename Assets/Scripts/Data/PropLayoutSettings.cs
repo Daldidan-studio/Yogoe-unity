@@ -21,6 +21,9 @@ namespace Yoegoe.Data
 
         public Placement[] placements;
 
+        [Tooltip("공덕 버드나무 위치 (7-4). 공덕은 여기 모이고 탭해서 수거.")]
+        public Vector3 willowPosition = new Vector3(0f, -1.35f, 0f);
+
         public static PropLayoutSettings Get()
         {
             var loaded = Resources.Load<PropLayoutSettings>("PropLayoutSettings");

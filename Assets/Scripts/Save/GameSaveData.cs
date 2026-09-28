@@ -99,6 +99,9 @@ namespace Yoegoe.Save
 
         /// <summary>요리 재료 개수 (CookingIngredientId 순서). null/빈 배열이면 구세이브 — 시작 재료 유지.</summary>
         public int[] materials;
+
+        /// <summary>특수 수집품 개수 (SpecialItemId 순서 — 황금쌀·황금꿀).</summary>
+        public int[] specialItems;
     }
 
     [Serializable]
