@@ -21,6 +21,8 @@ namespace Yoegoe.Characters
         private bool isWandering;
         private float wanderTimer;
         private Vector3? wanderTarget; // isWandering 중 실제로 걸어갈 맵 안의 임시 목적지
+        private float boundaryStuckTimer;
+        private const float BoundaryStuckSeconds = 0.35f;
 
         /// <summary>
         /// 복귀 catch-up 중 Walking이면 목적지만 보장한다.
@@ -46,11 +48,16 @@ namespace Yoegoe.Characters
 
         private void PickDestination()
         {
+            PickDestinationExcluding(previousProp);
+        }
+
+        private void PickDestinationExcluding(PropSlot exclude)
+        {
             // 이전에 찜해둔 목적지가 있으면(도착 못 하고 재추첨하는 경우) 먼저 예약 해제.
             if (destination != null) destination.ReleaseReservation(this);
 
             destination = PropManager.Instance != null
-                ? PropManager.Instance.GetRandomAvailableProp(this, previousProp)
+                ? PropManager.Instance.GetRandomAvailableProp(this, exclude)
                 : null;
 
             // 고르는 즉시 찜해둬서, 같은 프레임에 다른 캐릭터가 고를 때 후보에서 빠지게 한다
@@ -60,6 +67,7 @@ namespace Yoegoe.Characters
             isWandering = destination == null;
             wanderTimer = 0f;
             wanderTarget = null;
+            boundaryStuckTimer = 0f;
         }
 
         private void TickWalking(float dt)
@@ -73,17 +81,35 @@ namespace Yoegoe.Characters
                 if (wanderTarget == null || Vector3.Distance(transform.position, wanderTarget.Value) < 0.05f)
                 {
                     wanderTarget = MapBounds.RandomPoint(transform.position.z);
+                    boundaryStuckTimer = 0f;
                 }
-                transform.position = MapBounds.Clamp(Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
+
+                transform.position = MapBounds.MoveClamped(
+                    transform.position, wanderTarget.Value, moveSpeed * dt, out bool blocked);
                 ResolveSeparation(dt);
+                if (blocked) OnBoundaryBlocked(dt, excludeProp: null);
+                else boundaryStuckTimer = 0f;
                 return;
             }
 
             if (destination == null) { PickDestination(); return; }
 
             Vector3 targetPos = destination.transform.position;
-            transform.position = MapBounds.Clamp(Vector3.MoveTowards(transform.position, targetPos, moveSpeed * dt));
+            // 기물이 맵 밖이면 가장 가까운 가장 점까지만 가고, 막히면 다른 목적지로
+            if (!MapBounds.Contains(targetPos))
+                targetPos = MapBounds.Clamp(targetPos);
+
+            transform.position = MapBounds.MoveClamped(
+                transform.position, targetPos, moveSpeed * dt, out bool blockedTowardProp);
             ResolveSeparation(dt);
+
+            if (blockedTowardProp)
+            {
+                OnBoundaryBlocked(dt, excludeProp: destination);
+                return;
+            }
+
+            boundaryStuckTimer = 0f;
 
             if (Vector3.Distance(transform.position, targetPos) < 0.05f)
             {
@@ -100,6 +126,33 @@ namespace Yoegoe.Characters
                     PickDestination();
                 }
             }
+        }
+
+        /// <summary>
+        /// 맵 경계(비직사각형 포함)에 막혀 목표로 못 나가면 방향을 바꾼다.
+        /// </summary>
+        private void OnBoundaryBlocked(float dt, PropSlot excludeProp)
+        {
+            boundaryStuckTimer += dt;
+            if (boundaryStuckTimer < BoundaryStuckSeconds) return;
+            boundaryStuckTimer = 0f;
+
+            if (excludeProp != null)
+            {
+                // 막힌 기물은 잠시 제외하고 다른 곳으로
+                PickDestinationExcluding(excludeProp);
+                if (destination != null) return;
+            }
+
+            // 방황 중이거나 대체 기물 없음 → 랜덤 방향
+            if (destination != null)
+            {
+                destination.ReleaseReservation(this);
+                destination = null;
+            }
+            isWandering = true;
+            wanderTarget = MapBounds.RandomPoint(transform.position.z);
+            wanderTimer = 0f;
         }
 
         /// <summary>

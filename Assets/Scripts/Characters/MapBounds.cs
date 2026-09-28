@@ -52,6 +52,14 @@ namespace Yoegoe.Characters
             return new Vector3(Random.Range(Min.x, Max.x), Random.Range(Min.y, Max.y), z);
         }
 
+        /// <summary>맵 안인지 (WalkArea 또는 AABB).</summary>
+        public static bool Contains(Vector3 world)
+        {
+            var p = new Vector2(world.x, world.y);
+            if (WalkArea != null) return WalkArea.OverlapPoint(p);
+            return p.x >= Min.x && p.x <= Max.x && p.y >= Min.y && p.y <= Max.y;
+        }
+
         /// <summary>맵 밖으로 나간 위치를 경계 안으로 밀어넣는다.</summary>
         public static Vector3 Clamp(Vector3 pos)
         {
@@ -70,6 +78,28 @@ namespace Yoegoe.Characters
             pos.x = Mathf.Clamp(pos.x, Min.x, Max.x);
             pos.y = Mathf.Clamp(pos.y, Min.y, Max.y);
             return pos;
+        }
+
+        /// <summary>
+        /// from → to 로 step 만큼 이동하되 맵 밖으로 못 나가게 한다.
+        /// 막혔으면(경계에 붙어서 거의 못 움직임) blocked=true.
+        /// </summary>
+        public static Vector3 MoveClamped(Vector3 from, Vector3 to, float step, out bool blocked)
+        {
+            if (step <= 0f)
+            {
+                blocked = false;
+                return from;
+            }
+
+            Vector3 next = Vector3.MoveTowards(from, to, step);
+            Vector3 clamped = Clamp(next);
+            float want = (next - from).magnitude;
+            float got = (clamped - from).magnitude;
+            // 목표 방향으로 거의 못 나갔고, 아직 목표와 멀면 경계에 막힌 것
+            float remain = Vector2.Distance(new Vector2(clamped.x, clamped.y), new Vector2(to.x, to.y));
+            blocked = want > 0.0001f && got < want * 0.25f && remain > 0.08f;
+            return clamped;
         }
     }
 }
