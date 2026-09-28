@@ -1,0 +1,7 @@
+propId,displayName,resourceType,cycleMinutes,baseCapacity,meritPerMinute,levelGrowth,meritCapacityMinutes,intimacyBonus,ownerMultiplier,upgradable,upgradeBaseCost,upgradeCostMultiplier,note
+떡절구,떡절구,Merit,0,0,100,1.1,30,FALSE,1,TRUE,500,1.15,
+옹달샘,옹달샘,PurifiedWater,30,6,0,1,0,FALSE,1,TRUE,500,1.15,
+갯바위,갯바위,Yeopjeon,60,1,0,1,0,FALSE,1,TRUE,500,1.15,
+활터,활터,Hunt,20,9,0,1,0,FALSE,1,TRUE,500,1.15,
+약초밭,약초밭,Gather,20,9,0,1,0,FALSE,1,TRUE,500,1.15,
+화덕,화덕,None,0,0,0,1,0,FALSE,1,FALSE,500,1.15,

@@ -1,11 +1,12 @@
 using System.Collections;
 using UnityEngine;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
-    // 혼잣말 말풍선(6-4장), 임시 대사 시퀀스, 넋 탭 리액션.
+    // 혼잣말 말풍선(6-4장), 임시 대사 시퀀스.
     // 단일 탭: 표시·순환·10초 연장. 더블탭: 상세화면 (말풍선은 더블탭 판정 후에만).
     public partial class CharacterAgent
     {
@@ -23,15 +24,15 @@ namespace Yoegoe.Characters
         private const float MonologueMaxInterval = 60f;
 
         private static Sprite sharedBubbleSprite;
-        Coroutine neokTapRoutine;
         Coroutine tempSpeechRoutine;
         private bool showingFaintedEllipsis;
         private const string FaintedBubbleText = "...";
 
         private bool CanShowMonologue =>
-            Stats.State == ActionState.Walking
+            !SpeechGate.YokaiSilenced
+            && (Stats.State == ActionState.Walking
             || Stats.State == ActionState.Playing
-            || Stats.State == ActionState.Staying;
+            || Stats.State == ActionState.Staying);
 
         private bool CanTapMonologue => CanShowMonologue;
 
@@ -80,16 +81,10 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 단일 탭 확정 시(더블탭이 아님) MapPointerRouter가 호출.
-        /// 넋: 통통·깜빡 리액션(보상 없음). 기절: "..." 갱신. 주저앉기·혼: 혼잣말.
+        /// 기절: "..." 갱신. 그 외: 혼잣말.
         /// </summary>
         public void OnTapped()
         {
-            if (Stats.Stage == GrowthStage.Neok)
-            {
-                PlayNeokTapReact();
-                return;
-            }
-
             if (Stats.State == ActionState.Fainted)
             {
                 ShowFaintedEllipsis();
@@ -121,77 +116,6 @@ namespace Yoegoe.Characters
             monologueShowing = true;
             monologueTimer = float.PositiveInfinity;
             FollowBubblePosition();
-        }
-
-        /// <summary>9-2: 넋 탭 시 비언어 리액션 + 살짝 줌.</summary>
-        void PlayNeokTapReact()
-        {
-            if (neokTapRoutine != null) StopCoroutine(neokTapRoutine);
-            neokTapRoutine = StartCoroutine(NeokTapReactRoutine());
-        }
-
-        IEnumerator NeokTapReactRoutine()
-        {
-            var focus = Yoegoe.Debugging.MapCameraFocus.Instance;
-            if (focus != null)
-            {
-                var cam = Camera.main;
-                float ortho = cam != null ? cam.orthographicSize * 0.72f : 3.2f;
-                focus.Focus(transform.position, ortho, 0.28f);
-            }
-
-            Vector3 baseScale = transform.localScale;
-            var sr = GetComponentInChildren<SpriteRenderer>();
-            var mr = GetComponent<MeshRenderer>();
-            Color baseColor = Color.white;
-            if (sr != null)
-            {
-                baseColor = sr.color;
-            }
-            else if (mr != null && mr.material != null)
-            {
-                if (mr.material.HasProperty("_BaseColor"))
-                    baseColor = mr.material.GetColor("_BaseColor");
-                else if (mr.material.HasProperty("_Color"))
-                    baseColor = mr.material.color;
-            }
-
-            // 통통 2회 + 깜빡
-            for (int i = 0; i < 2; i++)
-            {
-                float t = 0f;
-                const float half = 0.12f;
-                while (t < half)
-                {
-                    t += Time.deltaTime;
-                    float u = Mathf.Sin(Mathf.Clamp01(t / half) * Mathf.PI);
-                    transform.localScale = baseScale * (1f + 0.22f * u);
-                    float a = 0.55f + 0.45f * (1f - u);
-                    if (sr != null)
-                    {
-                        var c = baseColor;
-                        c.a = a;
-                        sr.color = c;
-                    }
-                    else
-                        SetMeshAlpha(mr, a);
-                    yield return null;
-                }
-            }
-
-            transform.localScale = baseScale;
-            if (sr != null)
-            {
-                sr.color = baseColor;
-            }
-            else if (mr != null && mr.material != null)
-            {
-                if (mr.material.HasProperty("_BaseColor")) mr.material.SetColor("_BaseColor", baseColor);
-                if (mr.material.HasProperty("_Color")) mr.material.color = baseColor;
-            }
-
-            if (focus != null) focus.Restore(0.35f);
-            neokTapRoutine = null;
         }
 
         private void ShowMonologue()
@@ -244,7 +168,8 @@ namespace Yoegoe.Characters
         /// <summary>대사를 순서대로 표시한 뒤 onComplete 호출. 요구→꾸러미 연출용.</summary>
         public void ShowTempSpeechSequence(string[] lines, System.Action onComplete)
         {
-            if (lines == null || lines.Length == 0)
+            // 출석 윷점 옥토끼 대사 중엔 요괴 말풍선 없이 결과만 진행
+            if (lines == null || lines.Length == 0 || SpeechGate.YokaiSilenced)
             {
                 onComplete?.Invoke();
                 return;

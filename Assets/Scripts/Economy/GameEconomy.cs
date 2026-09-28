@@ -172,7 +172,7 @@ namespace Yoegoe.Economy
             bool wasFull = YutToken >= YutTokenMax;
             YutToken -= amount;
             if (wasFull && YutToken < YutTokenMax)
-                YutTokenRegenNextUtcTicks = DateTime.UtcNow.Add(YutTokenRegenInterval).Ticks;
+                YutTokenRegenNextUtcTicks = TrustedTime.UtcNow.Add(YutTokenRegenInterval).Ticks;
             OnYutTokenChanged?.Invoke(YutToken);
             return true;
         }
@@ -316,6 +316,58 @@ namespace Yoegoe.Economy
             Debug.Log($"[GameEconomy] 요리 획득 {displayName} x{amount} ({kind}) id={productId}");
         }
 
+        // ---------------- 특수 수집품 (황금쌀·황금꿀 — 지금은 쌓기만) ----------------
+        readonly Dictionary<int, int> SpecialItemCounts = new Dictionary<int, int>();
+        public event Action OnSpecialItemsChanged;
+
+        public int GetSpecialItemCount(SpecialItemId id) =>
+            SpecialItemCounts.TryGetValue((int)id, out int n) ? n : 0;
+
+        public void AddSpecialItem(SpecialItemId id, int amount)
+        {
+            if (amount == 0) return;
+            SpecialItemCounts.TryGetValue((int)id, out int cur);
+            SpecialItemCounts[(int)id] = Math.Max(0, cur + amount);
+            OnSpecialItemsChanged?.Invoke();
+        }
+
+        /// <summary>세이브용: SpecialItemId 순서 배열.</summary>
+        public int[] CaptureSpecialItemCounts()
+        {
+            var arr = new int[Enum.GetValues(typeof(SpecialItemId)).Length];
+            for (int i = 0; i < arr.Length; i++)
+                SpecialItemCounts.TryGetValue(i, out arr[i]);
+            return arr;
+        }
+
+        public void ReplaceSpecialItemCounts(int[] counts)
+        {
+            SpecialItemCounts.Clear();
+            if (counts != null)
+                for (int i = 0; i < counts.Length; i++)
+                    if (counts[i] > 0) SpecialItemCounts[i] = counts[i];
+            OnSpecialItemsChanged?.Invoke();
+        }
+
+        /// <summary>세이브용: 재료 개수를 CookingIngredientId 순서 배열로.</summary>
+        public int[] CaptureMaterialCounts()
+        {
+            var arr = new int[(int)Yoegoe.Cooking.CookingIngredientId.Count];
+            for (int i = 0; i < arr.Length; i++)
+                MaterialCounts.TryGetValue(i, out arr[i]);
+            return arr;
+        }
+
+        /// <summary>세이브 로드: 재료 개수 통째로 교체.</summary>
+        public void ReplaceMaterialCounts(int[] counts)
+        {
+            MaterialCounts.Clear();
+            if (counts != null)
+                for (int i = 0; i < counts.Length && i < (int)Yoegoe.Cooking.CookingIngredientId.Count; i++)
+                    if (counts[i] > 0) MaterialCounts[i] = counts[i];
+            OnMaterialsChanged?.Invoke();
+        }
+
         public void SeedStartingMaterials(int each = 5)
         {
             MaterialCounts.Clear();
@@ -342,7 +394,7 @@ namespace Yoegoe.Economy
             YutTokenMax = Mathf.Max(1, s.yutTokenMax);
             YutToken = Mathf.Clamp(s.startingYutToken, 0, YutTokenMax);
             YutTokenRegenNextUtcTicks = YutToken < YutTokenMax
-                ? DateTime.UtcNow.Add(YutTokenRegenInterval).Ticks
+                ? TrustedTime.UtcNow.Add(YutTokenRegenInterval).Ticks
                 : 0;
 
             OfferingCounts.Clear();
@@ -491,16 +543,16 @@ namespace Yoegoe.Cooking
             Food("patteok", "팥떡", CookingIngredientId.Rice, CookingIngredientId.RedBean);
             Food("namulbap", "나물밥", CookingIngredientId.Rice, CookingIngredientId.Namul);
             Food("kkulteok", "꿀떡", CookingIngredientId.Rice, CookingIngredientId.Honey);
-            Food("gogijuk_bird", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Bird);
-            Food("gogijuk_boar", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Boar);
+            Food("gogijuk", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Bird);
+            Food("gogijuk", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Boar);
             Food("juak", "주악", CookingIngredientId.Rice, CookingIngredientId.Oil);
             Food("sujeonggwa", "수정과", CookingIngredientId.Fruit, CookingIngredientId.Herb);
             Food("dasik", "다식", CookingIngredientId.Fruit, CookingIngredientId.Honey);
-            Food("sanjeok_boar", "산적", CookingIngredientId.Namul, CookingIngredientId.Boar);
-            Food("sanjeok_bird", "산적", CookingIngredientId.Namul, CookingIngredientId.Bird);
+            Food("sanjeok", "산적", CookingIngredientId.Namul, CookingIngredientId.Boar);
+            Food("sanjeok", "산적", CookingIngredientId.Namul, CookingIngredientId.Bird);
             Food("hwajeon", "화전", CookingIngredientId.Namul, CookingIngredientId.Oil);
-            Food("yukpo_boar", "육포", CookingIngredientId.Honey, CookingIngredientId.Boar);
-            Food("yukpo_bird", "육포", CookingIngredientId.Honey, CookingIngredientId.Bird);
+            Food("yukpo", "육포", CookingIngredientId.Honey, CookingIngredientId.Boar);
+            Food("yukpo", "육포", CookingIngredientId.Honey, CookingIngredientId.Bird);
             Food("saengsungui", "생선구이", CookingIngredientId.Fish, CookingIngredientId.Oil);
             Food("dalgyalmar", "달걀말이", CookingIngredientId.Egg, CookingIngredientId.Oil);
             Food("saengsunjorim", "생선조림", CookingIngredientId.Chili, CookingIngredientId.Fish);
@@ -524,11 +576,11 @@ namespace Yoegoe.Cooking
             Off("baekseolgi", "백설기", CookingIngredientId.Rice, CookingIngredientId.Rice, CookingIngredientId.Water);
             Off("sinseollo", "신선로", CookingIngredientId.Boar, CookingIngredientId.Namul, CookingIngredientId.Water);
             Off("hanyak", "한약", CookingIngredientId.Herb, CookingIngredientId.Honey, CookingIngredientId.Herb);
-            // 생고기: 멧/새 아무 3개 — 조합 4종
-            Off("saenggogi_bbb", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Boar);
-            Off("saenggogi_bbd", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Bird);
-            Off("saenggogi_bdd", "생고기", CookingIngredientId.Boar, CookingIngredientId.Bird, CookingIngredientId.Bird);
-            Off("saenggogi_ddd", "생고기", CookingIngredientId.Bird, CookingIngredientId.Bird, CookingIngredientId.Bird);
+            // 생고기: 멧/새 아무 3개 — 조합 4종이지만 결과물 id는 하나
+            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Boar);
+            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Bird);
+            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Bird, CookingIngredientId.Bird);
+            Off("saenggogi", "생고기", CookingIngredientId.Bird, CookingIngredientId.Bird, CookingIngredientId.Bird);
             Off("yakju", "약주", CookingIngredientId.Rice, CookingIngredientId.Herb, CookingIngredientId.Water);
             Off("sikhye", "식혜", CookingIngredientId.Rice, CookingIngredientId.Honey, CookingIngredientId.Water);
             Off("kkotmakgeolli", "꽃막걸리", CookingIngredientId.Rice, CookingIngredientId.Water, CookingIngredientId.Namul);
@@ -562,6 +614,18 @@ namespace Yoegoe.Cooking
             if (!ByKey.ContainsKey(key))
                 ByKey[key] = r;
         }
+
+        /// <summary>조합별로 id가 갈려 있던 구세이브 id → 현재 결과물 id (예: saenggogi_bbb → saenggogi).</summary>
+        public static string CanonicalProductId(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return id;
+            foreach (var prefix in LegacyVariantPrefixes)
+                if (id.StartsWith(prefix + "_", StringComparison.Ordinal))
+                    return prefix;
+            return id;
+        }
+
+        static readonly string[] LegacyVariantPrefixes = { "saenggogi", "gogijuk", "sanjeok", "yukpo" };
 
         public static bool TryMatch(IList<CookingIngredientId> path, out CookingRecipe recipe)
         {

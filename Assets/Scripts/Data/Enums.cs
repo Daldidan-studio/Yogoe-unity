@@ -1,14 +1,13 @@
 namespace Yoegoe.Data
 {
-    /// <summary>
-    /// 요괴 성장 단계. [괴 단계 제거] 넋→혼 2단계.
-    /// 옥토끼/삼족오/구미호는 처음부터 혼, 고라니만 넋으로 시작해 혼으로 진화.
-    /// 진화: Docs/05 4항 확정 — 기력 100 도달 시 혼, 친밀도 0부터.
-    /// </summary>
-    public enum GrowthStage { Neok, Hon } // 넋, 혼
-
     /// <summary>행동 상태 5종 (기획서 6-2). 룰: Docs/06_행동룰.md</summary>
     public enum ActionState { Walking, Staying, Slumped, Fainted, Playing } // Slumped=구세이브 호환(런타임은 Playing으로 이관)
+
+    /// <summary>기물 산출물 (Docs/00 §6-1). 시트 props.resourceType.</summary>
+    public enum PropResourceType { None, Merit, PurifiedWater, Yeopjeon, Hunt, Gather }
+
+    /// <summary>요리 재료가 아닌 특수 수집품 (활터·약초밭 1% — 기획 7-3). 지금은 인벤에 쌓기만.</summary>
+    public enum SpecialItemId { GoldenRice, GoldenHoney }
 
     public enum CharacterId { Rabbit, SamjokO, Gumiho, Gorani } // 옥토끼, 삼족오, 구미호, 고라니
 

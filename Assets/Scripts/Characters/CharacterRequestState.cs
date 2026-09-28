@@ -25,6 +25,9 @@ namespace Yoegoe.Characters
         SpriteRenderer offeringIcon;
         readonly CharacterAgent owner;
 
+        const string DefaultThanksLine = "너무 맛있어. 고마워.";
+        const string DefaultGiftLine = "이거… 챙겨뒀어.";
+
         public CharacterRequestState(CharacterAgent agent)
         {
             owner = agent;
@@ -65,7 +68,6 @@ namespace Yoegoe.Characters
         public bool CanSpawnOfferingRequest()
         {
             if (owner == null || owner.Stats == null) return false;
-            if (owner.Stats.Stage != GrowthStage.Hon) return false;
             if (owner.Stats.State == ActionState.Fainted) return false;
             return true;
         }
@@ -116,19 +118,24 @@ namespace Yoegoe.Characters
                 ClearOfferingRequest();
                 ScheduleNextCheck();
                 bool gift = GiftBundle.RollAfterRequestFulfilled();
+                // 대사는 characters.json(시트 character_lines) — 없으면 기본 대사
+                CharacterCatalog.Entry entry = null;
+                if (owner.Data != null) CharacterCatalog.TryGet(owner.Data.id, out entry);
+                string thanks = CharacterCatalog.PickLine(entry?.requestThanksLines, DefaultThanksLine);
                 if (gift)
                 {
+                    string giftLine = CharacterCatalog.PickLine(entry?.requestGiftLines, DefaultGiftLine);
                     owner.ShowTempSpeechSequence(
-                        new[] { "너무 맛있어. 고마워." },
+                        new[] { thanks },
                         () =>
                         {
-                            owner.ShowTempSpeech("이거… 챙겨뒀어.");
+                            owner.ShowTempSpeech(giftLine);
                             GiftBundleAwarded?.Invoke("선물꾸러미");
                         });
                 }
                 else
                 {
-                    owner.ShowTempSpeech("너무 맛있어. 고마워.");
+                    owner.ShowTempSpeech(thanks);
                 }
                 return true;
             }

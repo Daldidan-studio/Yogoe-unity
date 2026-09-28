@@ -76,7 +76,6 @@ namespace Yoegoe.UI
         [SerializeField] Button confirmYesButton;
         [SerializeField] Button confirmNoButton;
 
-        const int EvolveWithPurifiedWaterCost = 5;
         const float ReviveAdWatchSeconds = 0.8f;
 
         public bool HasPrefabShell => root != null && miniGame != null;
@@ -215,7 +214,7 @@ namespace Yoegoe.UI
             }
 
             var agents = CharacterAgent.All
-                .Where(a => a != null && a.Stats != null && a.Stats.Stage == GrowthStage.Hon)
+                .Where(a => a != null && a.Stats != null)
                 .ToList();
 
             if (agents.Count == 0)
@@ -385,7 +384,7 @@ namespace Yoegoe.UI
                 for (int i = 0; i < CharacterAgent.All.Count; i++)
                 {
                     var a = CharacterAgent.All[i];
-                    if (a != null && a.Stats != null && a.Stats.Stage == GrowthStage.Hon)
+                    if (a != null && a.Stats != null)
                         team.Add(a);
                 }
             }
@@ -645,7 +644,7 @@ namespace Yoegoe.UI
                 {
                     int count = saved.pendingOfferingCounts[i];
                     if (count <= 0) continue;
-                    var offering = pool.FirstOrDefault(o => o != null && o.offeringId == saved.pendingOfferingIds[i]);
+                    var offering = FindSavedOffering(pool, saved.pendingOfferingIds[i]);
                     if (offering == null) continue;
                     matchOfferingCounts[offering] = count;
                     MergeLootEntry(pendingLoot, YutSquareRewardKind.Offering, offering, count);
@@ -675,7 +674,7 @@ namespace Yoegoe.UI
                 var pool = GetOfferingPool();
                 for (int i = 0; i < saved.specialOfferingNodeIds.Length && i < saved.specialOfferingIds.Length; i++)
                 {
-                    var offering = pool.FirstOrDefault(o => o.offeringId == saved.specialOfferingIds[i]);
+                    var offering = FindSavedOffering(pool, saved.specialOfferingIds[i]);
                     if (offering != null) specialOfferingByNode[saved.specialOfferingNodeIds[i]] = offering;
                 }
             }
@@ -1258,15 +1257,26 @@ namespace Yoegoe.UI
         /// <summary>공양물 칸에 배정할 후보 — 정화수 제외 전체 공양물 목록. 수동 루프로 필터링한다
         /// (LINQ .Where/.ToList를 새 조합에 처음 쓰면 IL2CPP WebGL에서 "null function"이 나던
         /// 문제 때문에 — 오늘 이미 두 번 겪었다).</summary>
+        /// <summary>공양물 칸·보물상자 풀 = 3차 공양물 24종 (OfferingCatalog.RandomPool).
+        /// 카탈로그가 아직 없으면(테스트 등) StartingState 목록으로 폴백.</summary>
         List<OfferingData> GetOfferingPool()
         {
-            var settings = StartingStateSettings.Get();
             var pool = new List<OfferingData>();
+            if (OfferingCatalog.RandomPool.Count > 0)
+            {
+                pool.AddRange(OfferingCatalog.RandomPool);
+                return pool;
+            }
+            var settings = StartingStateSettings.Get();
             if (settings.startingOfferings == null) return pool;
             foreach (var o in settings.startingOfferings)
                 if (o != null && o.kind != OfferingKind.PurifiedWater) pool.Add(o);
             return pool;
         }
+
+        /// <summary>세이브 복원용 — 풀에 없는(예전) 공양물 id도 전체 카탈로그에서 찾는다.</summary>
+        static OfferingData FindSavedOffering(List<OfferingData> pool, string id) =>
+            pool.FirstOrDefault(o => o != null && o.offeringId == id) ?? OfferingCatalog.Find(id);
 
         /// <summary>매치 시작 때 한 번 — 공양물 칸마다 공양물을 미리 뽑는다.
         /// 칸이 여럿이면 서로 다른 종류로 맞춘다(풀이 부족하면 그때만 중복 허용).</summary>
@@ -1584,31 +1594,11 @@ namespace Yoegoe.UI
                     waitingInSlot));
             }
             // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다. 고라니를 아직 안 불렀으면
-            // "소환하기", 불렀는데 아직 넋이라 말로 못 쓰면 "진화 필요" 슬롯을 안내한다.
-            bool showExtraSlot = false;
-            string extraLabel = null;
-            Action extraAction = null;
-            Sprite extraIcon = null;
-            if (!CharacterSummon.IsPresent(CharacterId.Gorani))
-            {
-                showExtraSlot = true;
-                extraLabel = "소환하기";
-                extraAction = OnSummonSlotTapped;
-            }
-            else
-            {
-                var gorani = CharacterSummon.Find(CharacterId.Gorani);
-                if (gorani != null && gorani.Stats != null && gorani.Stats.Stage == GrowthStage.Neok)
-                {
-                    showExtraSlot = true;
-                    extraLabel = "진화 필요";
-                    extraAction = OnEvolveSlotTapped;
-                    // "+"가 아니라 넋 아이콘을 계속 보여줘서 이미 소환된 상태임을 알린다.
-                    extraIcon = miniGame.GetNeokSprite();
-                }
-            }
+            // "소환하기" 슬롯을 안내한다.
+            bool showExtraSlot = !CharacterSummon.IsPresent(CharacterId.Gorani);
             // 대기말을 슬롯에 붙이려면 로스터 칩이 먼저 있어야 한다.
-            miniGame.ShowRoster(roster, showExtraSlot, extraLabel, extraAction, extraIcon);
+            miniGame.ShowRoster(roster, showExtraSlot, showExtraSlot ? "소환하기" : null,
+                showExtraSlot ? OnSummonSlotTapped : (Action)null);
 
             var infos = match.PlayerPieces
                 .Where(p => !p.Finished)
@@ -1651,10 +1641,10 @@ namespace Yoegoe.UI
                 () => StartCoroutine(SummonCeremonyRoutine()), null);
         }
 
-        /// <summary>메인 화면 소환 연출(암전 → 넋 등장)과 같은 느낌을, 윷 화면 안에서 직접
+        /// <summary>메인 화면 소환 연출(암전 → 요괴 등장)과 같은 느낌을, 윷 화면 안에서 직접
         /// 재현한다 — SummonCeremony는 월드 스페이스 연출이라 윷 화면의 불투명 패널에
         /// 가려져 안 보인다(SummonPopup과 같은 문제). 대신 화면을 어둡게 했다 밝히면서 그
-        /// 사이에 넋을 소환해 "슬롯에 넋이 들어오는" 느낌만 살린다.</summary>
+        /// 사이에 요괴를 소환해 "슬롯에 요괴가 들어오는" 느낌만 살린다.</summary>
         IEnumerator SummonCeremonyRoutine()
         {
             CeremonyGate.Begin();
@@ -1678,7 +1668,7 @@ namespace Yoegoe.UI
 
             var agent = CharacterSummon.TrySummonGorani(null, font);
 
-            // 넋 아이콘이 화면 위에서 로스터의 "소환하기" 슬롯 자리로 떨어져 안착하는 연출 —
+            // 소환된 요괴 아이콘이 화면 위에서 로스터의 "소환하기" 슬롯 자리로 떨어져 안착하는 연출 —
             // dimGo의 자식으로 붙여서 암전 위에 확실히 보이게 한다(YutMiniGame 쪽에 붙이면
             // 암전 오버레이보다 그리기 순서가 앞서서 안 보였다).
             if (agent != null)
@@ -1703,11 +1693,22 @@ namespace Yoegoe.UI
                 yield break;
             }
 
+            // 소환 즉시 말로 쓸 수 있으니 진행 중인 매치에도 바로 대기 말로 합류시킨다.
+            if (match != null && !match.IsEnded)
+            {
+                string id = agent.Data != null ? agent.Data.id.ToString() : agent.name;
+                string name = agent.Data != null && !string.IsNullOrEmpty(agent.Data.displayName)
+                    ? agent.Data.displayName
+                    : agent.name;
+                if (match.TryAddPlayerPiece(id, name))
+                    teamById[id] = agent;
+            }
+
             HandlePiecesChanged();
             GameSaveBridge.SaveFromWorld();
         }
 
-        /// <summary>넋 아이콘을 화면 위쪽에서 로스터의 "소환하기" 슬롯 위치까지 떨어뜨린다.
+        /// <summary>소환된 요괴 아이콘을 화면 위쪽에서 로스터의 "소환하기" 슬롯 위치까지 떨어뜨린다.
         /// 슬롯 위치를 못 구하면(레이아웃 준비 전 등) 화면 중앙으로 대신 떨어뜨린다.</summary>
         IEnumerator PlaySummonDrop(Transform parent)
         {
@@ -1717,7 +1718,8 @@ namespace Yoegoe.UI
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(64f, 64f);
             var img = go.GetComponent<Image>();
-            var sprite = miniGame != null ? miniGame.GetNeokSprite() : CharacterSpawner.NeokFlameSprite();
+            var gorani = CharacterSummon.Find(CharacterId.Gorani);
+            var sprite = gorani != null ? CharacterSpawner.FirstSprite(gorani.Data) : null;
             if (sprite != null)
             {
                 img.sprite = sprite;
@@ -1726,7 +1728,7 @@ namespace Yoegoe.UI
             }
             else
             {
-                img.color = new Color(0.45f, 0.85f, 1f, 1f); // 불꽃 에셋 없을 때 폴백
+                img.color = CharacterSummon.GoraniPlaceholderColor; // 아트 없을 때 폴백
             }
 
             Vector3? slotPos = miniGame != null ? miniGame.GetSummonSlotWorldPosition() : null;
@@ -1759,46 +1761,6 @@ namespace Yoegoe.UI
             rt.position = targetPos;
             yield return new WaitForSecondsRealtime(0.2f);
             Destroy(go);
-        }
-
-        /// <summary>넋은 아직 윷놀이 말로 못 쓴다 — 정화수를 써서 즉시 진화시키는 지름길.</summary>
-        void OnEvolveSlotTapped()
-        {
-            var gorani = CharacterSummon.Find(CharacterId.Gorani);
-            if (gorani == null || gorani.Stats == null || gorani.Stats.Stage != GrowthStage.Neok) return;
-
-            ShowConfirm(
-                $"아직은 윷놀이를 할 수 없다.\n정화수 {EvolveWithPurifiedWaterCost}개를 써서 진화시킬까?",
-                "예", "아니오",
-                () => DoEvolveGorani(gorani), null);
-        }
-
-        void DoEvolveGorani(CharacterAgent gorani)
-        {
-            if (gorani == null || gorani.Stats == null || gorani.Stats.Stage != GrowthStage.Neok) return;
-
-            if (!GameEconomy.Instance.TrySpendPurifiedWater(EvolveWithPurifiedWaterCost))
-            {
-                ShowNotice("정화수가 부족합니다.", null);
-                return;
-            }
-
-            gorani.EvolveToHon(playFx: false); // 윷 화면 뒤라 월드 연출이 안 보이니 생략
-
-            // 진화했으면 지금 이 매치에도 바로 대기 말로 합류시킨다 — 다음 판까지 안 기다리고
-            // 곧장 다른 말들처럼 로스터에 뜨게.
-            if (match != null && !match.IsEnded)
-            {
-                string id = gorani.Data != null ? gorani.Data.id.ToString() : gorani.name;
-                string name = gorani.Data != null && !string.IsNullOrEmpty(gorani.Data.displayName)
-                    ? gorani.Data.displayName
-                    : gorani.name;
-                if (match.TryAddPlayerPiece(id, name))
-                    teamById[id] = gorani;
-            }
-
-            GameSaveBridge.SaveFromWorld();
-            HandlePiecesChanged();
         }
 
         /// <summary>말 하나의 현재 보드 위치를 사람이 읽는 이름으로 — 대기/완주가 아니면 잘 알려진
@@ -3214,7 +3176,7 @@ namespace Yoegoe.UI
                 {
                     foreach (var a in CharacterAgent.All)
                     {
-                        if (a == null || a.Stats == null || a.Stats.Stage != GrowthStage.Hon) continue;
+                        if (a == null || a.Stats == null) continue;
                         string id = a.Data != null ? a.Data.id.ToString() : a.name;
                         string name = a.Data != null && !string.IsNullOrEmpty(a.Data.displayName) ? a.Data.displayName : a.name;
                         teamById[id] = a;

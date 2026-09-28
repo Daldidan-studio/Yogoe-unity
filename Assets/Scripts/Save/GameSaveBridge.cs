@@ -26,7 +26,7 @@ namespace Yoegoe.Save
 
             GameSaveMigration.MigrateToCurrent(data);
 
-            var sim = OfflineSimulator.Simulate(data, DateTime.UtcNow);
+            var sim = OfflineSimulator.Simulate(data, TrustedTime.UtcNow);
             if (sim.SimulatedSeconds > 1f)
             {
                 Debug.Log($"[GameSaveBridge] 오프라인 따라잡기 {sim.SimulatedSeconds:F0}s " +
@@ -34,8 +34,7 @@ namespace Yoegoe.Save
             }
 
             ApplyToWorld(data);
-            // 콜드스타트 전용: 기물 더미 → 일괄 수거 대기분 (백그라운드 복귀 시엔 이 함수 자체가 안 돈다)
-            SweepPropPilesIntoBatch();
+            // 공덕 더미는 기물에 남겨 두고 버드나무에서 수거한다 (7-4). 예전의 콜드스타트 일괄 스윕은 폐지.
             RefreshAllPropPileLabels();
             return true;
         }
@@ -74,7 +73,7 @@ namespace Yoegoe.Save
             var data = new GameSaveData
             {
                 version = GameSaveMigration.CurrentVersion,
-                savedAtUtcTicks = DateTime.UtcNow.Ticks,
+                savedAtUtcTicks = TrustedTime.UtcNow.Ticks,
                 economy = new EconomySave
                 {
                     merit = BigNumberSave.From(GameEconomy.Instance.MeritPile),
@@ -94,6 +93,9 @@ namespace Yoegoe.Save
             GiftBundle.CaptureToSave(out data.economy.giftMissStreak, out data.economy.giftFirstGrantDone, out data.economy.adRewardTickets);
             ShopStock.CaptureToSave(out data.economy.shopLeftOfferingId, out data.economy.shopRightOfferingId, out data.economy.shopNextRefreshUtcTicks);
             data.economy.offerings = CaptureOfferings(GameEconomy.Instance);
+            data.economy.materials = GameEconomy.Instance.CaptureMaterialCounts();
+            data.economy.specialItems = GameEconomy.Instance.CaptureSpecialItemCounts();
+            Attendance.CaptureToSave(out data.economy.attendanceNextDayIndex, out data.economy.attendanceLastHandledDayKey);
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -102,8 +104,13 @@ namespace Yoegoe.Save
             {
                 var p = props[i];
                 string id = p.data != null ? p.data.propId : p.name;
+                p.CaptureStorage(out int stored, out float cycleProgress, out bool judged, out int[] ingredients);
                 data.props[i] = new PropSave
                 {
+                    storedResources = stored,
+                    cycleProgressSeconds = cycleProgress,
+                    overflowJudged = judged,
+                    pendingIngredients = ingredients,
                     propId = id,
                     level = p.level,
                     isBuilt = p.IsBuilt,
@@ -126,14 +133,14 @@ namespace Yoegoe.Save
                 data.agents[i] = new AgentSave
                 {
                     characterId = cid,
-                    stage = a.Stats.Stage,
                     intimacy = a.Stats.Intimacy,
                     stamina = a.Stats.Stamina,
                     state = a.Stats.State,
                     stateTimer = a.Stats.StateTimer,
                     posX = a.transform.position.x,
                     posY = a.transform.position.y,
-                    occupiedPropId = propId
+                    occupiedPropId = propId,
+                    revealedPreferredOfferingIds = a.Stats.RevealedPreferredOfferingIds.ToArray()
                 };
             }
 
@@ -166,6 +173,7 @@ namespace Yoegoe.Save
                         if (id != ps.propId) continue;
                         p.ApplySaveBuiltState(ps.isBuilt, ps.level);
                         p.SetPendingMeritFromSave(ps.pendingMerit.ToBigNumber());
+                        p.RestoreStorage(ps.storedResources, ps.cycleProgressSeconds, ps.overflowJudged, ps.pendingIngredients);
                         break;
                     }
                 }
@@ -197,13 +205,13 @@ namespace Yoegoe.Save
                         }
 
                         a.ApplySaveSnapshot(
-                            ags.stage,
                             ags.intimacy,
                             ags.stamina,
                             ags.state,
                             ags.stateTimer,
                             new Vector3(ags.posX, ags.posY, a.transform.position.z),
                             occupy);
+                        a.Stats.SetRevealedPreferences(ags.revealedPreferredOfferingIds);
                         break;
                     }
                 }
@@ -249,8 +257,13 @@ namespace Yoegoe.Save
             // null = 구세이브(필드 없음) → StartingState 인벤 유지. 배열 있으면(빈 배열 포함) 통째 교체.
             if (e.offerings != null)
                 ApplyOfferings(GameEconomy.Instance, e.offerings);
+            if (e.materials != null && e.materials.Length > 0)
+                GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
+            if (e.specialItems != null && e.specialItems.Length > 0)
+                GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
+            Attendance.ResetFromSave(e.attendanceNextDayIndex, e.attendanceLastHandledDayKey);
         }
 
         static OfferingCountSave[] CaptureOfferings(GameEconomy eco)
@@ -272,13 +285,20 @@ namespace Yoegoe.Save
 
         static void ApplyOfferings(GameEconomy eco, OfferingCountSave[] offerings)
         {
-            var buf = new List<KeyValuePair<string, int>>(offerings.Length);
+            // 구세이브의 조합별 id(saenggogi_bbb 등)는 하나로 합친다
+            var merged = new Dictionary<string, int>();
+            var order = new List<string>(offerings.Length);
             for (int i = 0; i < offerings.Length; i++)
             {
                 var o = offerings[i];
                 if (o == null || string.IsNullOrEmpty(o.offeringId) || o.count <= 0) continue;
-                buf.Add(new KeyValuePair<string, int>(o.offeringId, o.count));
+                string id = Yoegoe.Cooking.CookingRecipeCatalog.CanonicalProductId(o.offeringId);
+                if (!merged.ContainsKey(id)) { merged[id] = 0; order.Add(id); }
+                merged[id] += o.count;
             }
+            var buf = new List<KeyValuePair<string, int>>(order.Count);
+            foreach (var id in order)
+                buf.Add(new KeyValuePair<string, int>(id, merged[id]));
             eco.ReplaceOfferingCounts(buf);
         }
 

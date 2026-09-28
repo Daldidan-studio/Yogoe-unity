@@ -3,29 +3,30 @@ using Yoegoe.Data;
 
 namespace Yoegoe.Characters
 {
-    // 플레이어 드래그(집어서 놓기)와 엔딩 기물 거절 리액션.
+    // 플레이어 드래그(집어서 놓기)와 내려놓은 뒤 2초 딱지((?)/(x)).
     public partial class CharacterAgent
     {
         const float DragLiftScale = 1.12f;
         const float DragBesideDistance = 0.85f;
-        const float RefuseDurationSeconds = 3f;
-        const float RefuseFlipInterval = 0.2f;
+        const float DropMarkSeconds = 2f;
+        const float DropMarkPad = 0.08f;
         Vector3 dragScaleBefore;
-        private bool isRefusing;
-        private float refuseTimer;
-        private float refuseFlipTimer;
+        private bool showingDropMark;
+        private float dropMarkTimer;
+        private SpriteRenderer dropMarkRenderer;
 
         /// <summary>플레이어 드래그 시작 — 예약/점유를 풀고 AI를 멈춘다. 살짝 키워 들어올린 느낌을 낸다.</summary>
         public void BeginPlayerDrag()
         {
             if (!CanBeDraggedByPlayer) return;
             IsBeingDragged = true;
-            isRefusing = false;
+            HideDropMark();
             ClearWalkDestination();
             LeaveCurrentProp();
             lastPosition = transform.position;
             dragScaleBefore = transform.localScale;
             transform.localScale = dragScaleBefore * DragLiftScale;
+            PropDragMarkers.Show(this);
         }
 
         public void SetDragWorldPosition(Vector3 world)
@@ -38,40 +39,39 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 드래그 종료.
-        /// 빈 기물 → 즉시 착석. 타 엔딩 기물 → 옆에 두고 3초 도리도리 후 걷기.
-        /// 점유된 기물 → 옆에 내려놓음. 그 외 → 놀기.
+        /// 앉을 수 있는 빈 기물 → 즉시 착석.
+        /// 못 앉는 기물(점유됨·다른 요괴의 엔딩기물) → 옆에 내려놓고 2초 (x) 후 놀기.
+        /// 바닥 → 2초 (?) 후 놀기. showFloorMark=false면(자물쇠 구매 팝업·제스처 취소) 딱지 없이 놀기.
         /// </summary>
-        public void EndPlayerDrag(PropSlot dropProp)
+        public void EndPlayerDrag(PropSlot dropProp, bool showFloorMark = true)
         {
             if (!IsBeingDragged) return;
             IsBeingDragged = false;
+            PropDragMarkers.Hide();
             transform.localScale = dragScaleBefore.sqrMagnitude > 0.0001f ? dragScaleBefore : transform.localScale;
             lastPosition = transform.position;
 
             if (Stats.State == ActionState.Slumped)
                 MigrateSlumpedToPlaying();
 
-            if (dropProp != null && dropProp.IsForbiddenEndingFor(this))
-            {
-                PlaceBesideProp(dropProp, startWalking: false);
-                BeginRefuseShake();
-                return;
-            }
-
-            if (dropProp != null && !dropProp.IsOccupied && TrySitOnProp(dropProp))
+            if (dropProp != null && dropProp.CanSitNow(this) && TrySitOnProp(dropProp))
                 return;
 
-            if (dropProp != null && dropProp.IsOccupied && dropProp.CanBeUsedBy(this))
+            if (dropProp != null)
             {
                 PlaceBesideProp(dropProp);
+                EnterPlaying();
+                BeginDropMark(DropMarkBadge.Kind.Cross);
                 return;
             }
 
             EnterPlaying();
+            if (showFloorMark)
+                BeginDropMark(DropMarkBadge.Kind.Question);
         }
 
-        /// <summary>기물 옆에 내려놓는다. startWalking이면 빈 기물 탐색으로 이어간다.</summary>
-        void PlaceBesideProp(PropSlot prop, bool startWalking = true)
+        /// <summary>기물 옆에 내려놓는다.</summary>
+        void PlaceBesideProp(PropSlot prop)
         {
             ClearWalkDestination();
             LeaveCurrentProp();
@@ -100,55 +100,48 @@ namespace Yoegoe.Characters
             beside.z = transform.position.z;
             transform.position = MapBounds.Clamp(beside);
             lastPosition = transform.position;
-            if (startWalking) EnterWalking();
         }
 
-        /// <summary>타 엔딩 기물 거절: 좌우 도리도리 후 걷기.</summary>
-        void BeginRefuseShake()
+        /// <summary>머리 위 딱지 2초 — 그동안 제자리에 서 있다가 놀기를 이어간다.</summary>
+        void BeginDropMark(DropMarkBadge.Kind kind)
         {
-            isRefusing = true;
-            refuseTimer = RefuseDurationSeconds;
-            refuseFlipTimer = 0f;
-            facing = FacingDir.Left;
-            animFrame = 0;
-            animTimer = 0f;
-            ApplyRefuseFacingSprite();
-        }
-
-        void TickRefuse(float dt)
-        {
-            refuseTimer -= dt;
-            refuseFlipTimer += dt;
-            if (refuseFlipTimer >= RefuseFlipInterval)
+            if (dropMarkRenderer == null)
             {
-                refuseFlipTimer = 0f;
-                facing = facing == FacingDir.Left ? FacingDir.Right : FacingDir.Left;
-                ApplyRefuseFacingSprite();
+                var go = new GameObject("DropMark_" + name);
+                dropMarkRenderer = go.AddComponent<SpriteRenderer>();
+                dropMarkRenderer.sortingOrder = 1400;
             }
-
-            if (refuseTimer > 0f) return;
-
-            isRefusing = false;
-            EnterWalking();
+            dropMarkRenderer.sprite = DropMarkBadge.Get(kind);
+            dropMarkRenderer.gameObject.SetActive(true);
+            showingDropMark = true;
+            dropMarkTimer = DropMarkSeconds;
+            PlaceDropMark();
+            ApplyAnimationFrameImmediate();
         }
 
-        void ApplyRefuseFacingSprite()
+        void TickDropMark(float dt)
         {
-            if (spriteRenderer == null)
-                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
-            if (spriteRenderer == null || Data == null) return;
+            dropMarkTimer -= dt;
+            PlaceDropMark();
+            if (dropMarkTimer > 0f) return;
+            HideDropMark();
+            if (Stats.State == ActionState.Playing) Stats.StateTimer = 0f; // 놀기는 딱지가 끝난 뒤부터
+        }
 
-            Sprite[] frames = WalkFramesForFacing(out bool flipX);
-            if (frames == null || frames.Length == 0)
-            {
-                frames = Data.idle;
-                flipX = facing == FacingDir.Left;
-            }
-            if (frames == null || frames.Length == 0) return;
+        void PlaceDropMark()
+        {
+            if (dropMarkRenderer == null) return;
+            float top = spriteRenderer != null && spriteRenderer.sprite != null
+                ? spriteRenderer.bounds.max.y
+                : transform.position.y + 0.3f;
+            dropMarkRenderer.transform.position = new Vector3(
+                transform.position.x, top + DropMarkPad + DropMarkBadge.WorldSize * 0.5f, transform.position.z);
+        }
 
-            if (frames[0] != null)
-                spriteRenderer.sprite = frames[0];
-            spriteRenderer.flipX = flipX;
+        void HideDropMark()
+        {
+            showingDropMark = false;
+            if (dropMarkRenderer != null) dropMarkRenderer.gameObject.SetActive(false);
         }
     }
 }

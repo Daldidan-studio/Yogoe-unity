@@ -1668,11 +1668,9 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>참가 요괴 명단을 최신 상태로 다시 그린다. 인원 수가 바뀔 때만 칩을 새로 만들고,
         /// 그 외엔 이미 만든 칩의 초상·이름·스탯·상태 텍스트만 갱신한다.
         /// showExtraSlot이 true면 맨 끝에 빈 슬롯을 하나 더 붙인다 — 고라니 미소환이면
-        /// "소환하기", 소환은 됐지만 아직 넋이라 말로 못 쓰면 "진화 필요"(탭하면 YutScreen이
-        /// 진화 확인 다이얼로그를 띄운다). 키우는/쓸 수 있는 요괴 수만큼만 말을 쓸 수 있다는 걸
-        /// 그 자리에서 바로 안내하기 위함.</summary>
+        /// "소환하기". 키우는 요괴 수만큼만 말을 쓸 수 있다는 걸 그 자리에서 바로 안내하기 위함.</summary>
         public void ShowRoster(IReadOnlyList<RosterEntry> entries, bool showExtraSlot, string extraSlotLabel,
-            Action onExtraSlotTapped, Sprite extraSlotIcon = null)
+            Action onExtraSlotTapped)
         {
             EnsureBoard();
             if (_rosterRow == null || entries == null) return;
@@ -1740,22 +1738,6 @@ namespace Yoegoe.Minigames.Yut
                 var labelText = _summonSlotChip.transform.Find("Label")?.GetComponent<Text>();
                 if (labelText != null) labelText.text = extraSlotLabel ?? "";
 
-                // 진화 필요(넋을 소환은 했지만 아직 말로 못 쓰는) 상태면 "+" 대신 넋 아이콘을 계속
-                // 보여준다 — 이미 뭔가 소환돼 있는데 빈 슬롯처럼 "+"만 보이면 헷갈린다는 피드백.
-                var plusText = _summonSlotChip.transform.Find("Plus")?.GetComponent<Text>();
-                var iconImg = _summonSlotChip.transform.Find("Icon")?.GetComponent<Image>();
-                bool showIcon = extraSlotIcon != null;
-                if (plusText != null) plusText.gameObject.SetActive(!showIcon);
-                if (iconImg != null)
-                {
-                    iconImg.gameObject.SetActive(showIcon);
-                    if (showIcon)
-                    {
-                        iconImg.sprite = extraSlotIcon;
-                        iconImg.preserveAspect = true;
-                    }
-                }
-
                 var btn = _summonSlotChip.GetComponent<Button>();
                 btn.onClick.RemoveAllListeners();
                 if (onExtraSlotTapped != null)
@@ -1767,8 +1749,8 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        /// <summary>키우는 중이 아니거나(소환 전) 아직 말로 못 쓰는(넋) 요괴 자리 — 라벨/탭 동작은
-        /// YutScreen이 매번 넘겨준다(YutMiniGame은 소환·진화 로직을 모른다).</summary>
+        /// <summary>아직 소환 전인 요괴 자리 — 라벨/탭 동작은
+        /// YutScreen이 매번 넘겨준다(YutMiniGame은 소환 로직을 모른다).</summary>
         GameObject BuildSummonSlotChip(RectTransform parent)
         {
             var go = new GameObject("SummonSlot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -1786,17 +1768,6 @@ namespace Yoegoe.Minigames.Yut
             plus.color = new Color(0.85f, 0.8f, 0.7f, 0.9f);
             plus.raycastTarget = false;
 
-            // 진화 필요 상태일 때 "+" 대신 켜지는 넋 아이콘 — ShowRoster가 필요할 때만 활성화한다.
-            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            var iconRt = (RectTransform)iconGo.transform;
-            iconRt.SetParent(rt, false);
-            iconRt.anchorMin = new Vector2(0f, 0.42f);
-            iconRt.anchorMax = new Vector2(1f, 1f);
-            iconRt.offsetMin = iconRt.offsetMax = Vector2.zero;
-            var iconImg = iconGo.GetComponent<Image>();
-            iconImg.raycastTarget = false;
-            iconGo.SetActive(false);
-
             var label = CreateText(rt, "Label", "", 22, TextAnchor.MiddleCenter);
             label.rectTransform.anchorMin = new Vector2(0f, 0f);
             label.rectTransform.anchorMax = new Vector2(1f, 0.42f);
@@ -1808,15 +1779,12 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>소환 연출용 — 로스터 "소환하기" 슬롯의 현재 월드 위치(없으면 null).
-        /// YutScreen이 암전 연출 중 그 자리로 넋 아이콘을 떨어뜨리는 데 쓴다.</summary>
+        /// YutScreen이 암전 연출 중 그 자리로 소환된 요괴 아이콘을 떨어뜨리는 데 쓴다.</summary>
         public Vector3? GetSummonSlotWorldPosition()
         {
             if (_summonSlotChip == null || !_summonSlotChip.activeSelf) return null;
             return _summonSlotChip.GetComponent<RectTransform>().position;
         }
-
-        /// <summary>소환 연출용 — 넋(도깨비불) 아이콘.</summary>
-        public Sprite GetNeokSprite() => CharacterSpawner.NeokFlameSprite();
 
         /// <summary>로스터 줄에서 index/count번째 칸 위치로 앵커한다 — 요괴 칩과 소환 슬롯 칩이
         /// 같은 규칙으로 나란히 놓이게 공용으로 쓴다.</summary>
@@ -2617,7 +2585,6 @@ namespace Yoegoe.Minigames.Yut
             EnsureBoard();
             EnsureThrowSwipeZone();
             ClearParkedSticks();
-            EnsureStickSprites();
 
             var panel = (RectTransform)transform;
             Vector2 WorldToPanelLocal(Vector3 world) => panel.InverseTransformPoint(world);
@@ -2629,13 +2596,32 @@ namespace Yoegoe.Minigames.Yut
                 ? WorldToPanelLocal(ZoneNormToWorld(throwRt, new Vector2(0.5f, 0.72f)))
                 : WorldToPanelLocal(ZoneNormToWorld(landZone, new Vector2(0.5f, 0.05f)));
 
+            var sticks = new RectTransform[4];
+            yield return ThrowSticks(this, panel, originLocal, landZone, result, power, sticks);
+
+            yield return new WaitForSecondsRealtime(0.35f);
+
+            // Prefab/Scene의 Quadrant_North 레이아웃을 따른다 — 고정 보드 좌표로 보내지 않음.
+            var thrownZone = GetQuadrant(YutBoardQuadrant.North);
+            yield return ParkSticksInto(sticks, thrownZone);
+            _parkedSticks = sticks;
+        }
+
+        /// <summary>
+        /// 윷가락 4개를 panel 위 originLocal에서 던져 landZone 안에 착지시킨다 — 윷놀이·출석 윷점 공용 연출.
+        /// 결과(result)에 맞는 앞/뒷면으로 떨어지고, 만든 가락은 sticksOut(길이 4)에 담긴다(정리는 호출측).
+        /// </summary>
+        public static IEnumerator ThrowSticks(MonoBehaviour host, RectTransform panel, Vector2 originLocal,
+            RectTransform landZone, YutThrowResult result, float power, RectTransform[] sticksOut)
+        {
+            EnsureStickSprites();
+            System.Func<Vector3, Vector2> WorldToPanelLocal = world => panel.InverseTransformPoint(world);
             var frontStates = DetermineFrontStates(result);
 
-            var sticks = new RectTransform[4];
             for (int i = 0; i < 4; i++)
             {
                 var go = new GameObject($"YutStick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                go.transform.SetParent(transform, false);
+                go.transform.SetParent(panel, false);
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0.5f);
@@ -2658,23 +2644,16 @@ namespace Yoegoe.Minigames.Yut
                     markImg.raycastTarget = false;
                 }
                 go.transform.SetAsLastSibling();
-                sticks[i] = rt;
+                sticksOut[i] = rt;
             }
 
             var routines = new Coroutine[4];
             for (int i = 0; i < 4; i++)
-                routines[i] = StartCoroutine(ThrowOneStick(
-                    sticks[i], originLocal, landZone, WorldToPanelLocal,
+                routines[i] = host.StartCoroutine(ThrowOneStick(
+                    sticksOut[i], originLocal, landZone, WorldToPanelLocal,
                     i * 0.05f, frontStates[i], isBaekdoStick: i == 0, power));
             for (int i = 0; i < 4; i++)
                 yield return routines[i];
-
-            yield return new WaitForSecondsRealtime(0.35f);
-
-            // Prefab/Scene의 Quadrant_North 레이아웃을 따른다 — 고정 보드 좌표로 보내지 않음.
-            var thrownZone = GetQuadrant(YutBoardQuadrant.North);
-            yield return ParkSticksInto(sticks, thrownZone);
-            _parkedSticks = sticks;
         }
 
         // North 구역 로컬(0~1) 기준 — 구역을 Scene에서 옮겨도 결과가 같이 따라간다.
@@ -2782,7 +2761,7 @@ namespace Yoegoe.Minigames.Yut
             }
         }
 
-        IEnumerator ThrowOneStick(
+        static IEnumerator ThrowOneStick(
             RectTransform rt,
             Vector2 startLocal,
             RectTransform landZone,

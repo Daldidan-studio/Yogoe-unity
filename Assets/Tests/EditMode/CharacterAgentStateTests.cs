@@ -36,7 +36,6 @@ namespace Yoegoe.Tests.EditMode
             agentGO = new GameObject("Agent_Test");
             agent = agentGO.AddComponent<CharacterAgent>();
             agent.Data = data;
-            agent.Stats.Stage = GrowthStage.Hon;
             agent.Stats.State = ActionState.Walking;
             agent.Stats.Stamina = 100f;
             agent.Stats.Intimacy = 0f;
@@ -94,15 +93,6 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void TrySitOnProp_WhenNeok_AlwaysFails()
-        {
-            agent.Stats.Stage = GrowthStage.Neok;
-
-            Assert.IsFalse(agent.TrySitOnProp(prop));
-            Assert.IsFalse(prop.IsOccupied);
-        }
-
-        [Test]
         public void TrySitOnProp_WhenFainted_Fails()
         {
             agent.Stats.State = ActionState.Fainted;
@@ -148,16 +138,6 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void EnterPlaying_WhenNeok_NoOp()
-        {
-            agent.Stats.Stage = GrowthStage.Neok;
-
-            agent.EnterPlaying();
-
-            Assert.AreEqual(ActionState.Walking, agent.Stats.State);
-        }
-
-        [Test]
         public void EnterPlaying_WhenFainted_NoOp()
         {
             agent.Stats.State = ActionState.Fainted;
@@ -191,7 +171,8 @@ namespace Yoegoe.Tests.EditMode
             agent.Stats.State = ActionState.Fainted;
             agent.Stats.Stamina = 0f;
 
-            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0.25f);
+            // 기절은 정화수로만 깨어난다
+            agent.ReceiveOffering(staminaGain: 1, intimacyGain: 0f, kind: OfferingKind.PurifiedWater);
 
             Assert.AreEqual(ActionState.Walking, agent.Stats.State);
         }
@@ -217,28 +198,6 @@ namespace Yoegoe.Tests.EditMode
 
             Assert.AreEqual(100f, agent.Stats.Intimacy, 0.0001f);
             Assert.AreEqual(50f, agent.Stats.Stamina, 0.0001f); // max now 120, no clamp on stamina
-        }
-
-        [Test]
-        public void ReceiveOffering_Neok_IgnoresGeneralOffering()
-        {
-            agent.Stats.Stage = GrowthStage.Neok;
-            agent.Stats.Stamina = 0f;
-
-            agent.ReceiveOffering(30, 0.25f, OfferingKind.General);
-
-            Assert.AreEqual(0f, agent.Stats.Stamina); // 넋은 정화수만 기력을 채운다
-        }
-
-        [Test]
-        public void ReceiveOffering_Neok_PurifiedWaterFillsStamina()
-        {
-            agent.Stats.Stage = GrowthStage.Neok;
-            agent.Stats.Stamina = 0f;
-
-            agent.ReceiveOffering(30, 0f, OfferingKind.PurifiedWater);
-
-            Assert.AreEqual(30f, agent.Stats.Stamina, 0.01f);
         }
 
         // ---------------- 생산량 조회 (온라인 경로가 ProductionFormula를 실제로 쓰는지) ----------------

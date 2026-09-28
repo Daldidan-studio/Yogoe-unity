@@ -31,3 +31,4 @@ MonoBehaviour:
   - data: {fileID: 11400000, guid: f0c8b64ef3024908823f6d370c0933e6, type: 2}
     position: {x: 0.5, y: 1.35, z: 0}
     fallbackColor: {r: 0.75, g: 0.55, b: 0.35, a: 1}
+  willowPosition: {x: 0, y: -1.35, z: 0}

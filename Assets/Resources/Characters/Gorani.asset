@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 3
   displayName: "고라니"
-  startingStage: 0
   preferredOfferings: []
   endingProp: {fileID: 0}
   detailDescription: "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다."

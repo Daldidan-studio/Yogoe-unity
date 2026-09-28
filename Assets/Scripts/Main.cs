@@ -10,6 +10,7 @@ using Yoegoe.Debugging;
 using Yoegoe.Economy;
 using Yoegoe.Save;
 using Yoegoe.UI;
+using Yoegoe.Core;
 
 namespace Yoegoe
 {
@@ -116,7 +117,7 @@ namespace Yoegoe
             // maximumDeltaTime은 이동 스파이크 방지용으로 남겨 두되, 실제 공백 정산은 벽시계로 한다.
             // (WebGL은 탭 복귀 시 deltaTime 스파이크를 안 주는 경우가 많다.)
             Time.maximumDeltaTime = 3600f;
-            lastActiveUtc = DateTime.UtcNow;
+            lastActiveUtc = TrustedTime.UtcNow;
 
             var economyGO = new GameObject("GameEconomy");
             economyGO.AddComponent<GameEconomy>().ApplyStartingState(StartingStateSettings.Get());
@@ -125,7 +126,7 @@ namespace Yoegoe
             EnsureOfferingsCatalog();
             CharacterCatalog.SetOfferings(offerings);
             ShopStock.SetCatalog(offerings);
-            ShopStock.EnsureFresh(DateTime.UtcNow);
+            ShopStock.EnsureFresh(TrustedTime.UtcNow);
 
             EnsureCamera();
             EnsureLight();
@@ -153,8 +154,10 @@ namespace Yoegoe
             // 누락/순서 문제로 Root가 남으면 풀스크린이 맵 클릭을 가로챈다.
             ForceCloseOverlayScreens();
             GameSaveBridge.TryLoadSimulateAndApply();
-            lastActiveUtc = DateTime.UtcNow;
+            lastActiveUtc = TrustedTime.UtcNow;
             worldReady = true;
+            // 콜드스타트 순서: 출석 윷점 → (옥토끼 대사) → 기타 팝업 (Docs/00 §13)
+            AttendanceScreen.TryOpenIfDue(hudFont);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             YogoeHideLoadingOverlay();
@@ -165,7 +168,7 @@ namespace Yoegoe
         {
             if (!worldReady) return;
 
-            var now = DateTime.UtcNow;
+            var now = TrustedTime.UtcNow;
             double gap = (now - lastActiveUtc).TotalSeconds;
             lastActiveUtc = now;
 
@@ -191,6 +194,7 @@ namespace Yoegoe
 
             // pause=false: Update 한 프레임이 오기 전에 포커스가 돌아올 수 있어 여기서도 정산.
             ApplyWallClockCatchUpIfNeeded();
+            if (worldReady) AttendanceScreen.TryOpenIfDue(hudFont); // 새벽 4시를 넘겨 복귀했으면 그날 첫 접속
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -202,13 +206,14 @@ namespace Yoegoe
             }
 
             ApplyWallClockCatchUpIfNeeded();
+            if (worldReady) AttendanceScreen.TryOpenIfDue(hudFont);
         }
 
         private void ApplyWallClockCatchUpIfNeeded()
         {
             if (!worldReady) return;
 
-            var now = DateTime.UtcNow;
+            var now = TrustedTime.UtcNow;
             double gap = (now - lastActiveUtc).TotalSeconds;
             lastActiveUtc = now;
 
@@ -303,12 +308,6 @@ namespace Yoegoe
             if (!yut.gameObject.activeSelf)
                 yut.gameObject.SetActive(true);
 
-            var evoGO = new GameObject("EvolutionConfirmPopup");
-            evoGO.SetActive(false);
-            var evo = evoGO.AddComponent<EvolutionConfirmPopup>();
-            evo.font = hudFont;
-            evoGO.SetActive(true);
-
             var giftGO = new GameObject("GiftBundlePopup");
             giftGO.SetActive(false);
             var gift = giftGO.AddComponent<GiftBundlePopup>();
@@ -346,15 +345,14 @@ namespace Yoegoe
         }
 
         /// <summary>
-        /// Inspector에 offerings가 비어 있으면 StartingStateSettings 목록을 쓴다.
+        /// Inspector에 offerings가 비어 있으면 StartingStateSettings 목록을 쓰고,
+        /// 공양간 레시피 결과물(음식·공양물)을 합쳐 전체 카탈로그로 만든다.
         /// </summary>
         void EnsureOfferingsCatalog()
         {
-            if (offerings != null && offerings.Length > 0) return;
-
-            var fromStart = StartingStateSettings.Get()?.startingOfferings;
-            if (fromStart != null && fromStart.Length > 0)
-                offerings = fromStart;
+            if (offerings == null || offerings.Length == 0)
+                offerings = StartingStateSettings.Get()?.startingOfferings;
+            offerings = OfferingCatalog.Build(offerings);
         }
 
         static void ForceCloseOverlayScreens()
@@ -404,8 +402,6 @@ namespace Yoegoe
 
             cam.orthographic = true;
             cam.orthographicSize = Scale.cameraOrthoSize;
-            if (cam.GetComponent<MapCameraFocus>() == null)
-                cam.gameObject.AddComponent<MapCameraFocus>();
         }
 
         /// <summary>
@@ -521,10 +517,6 @@ namespace Yoegoe
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router != null) router.mapDrag = drag;
-
-            if (cam.GetComponent<MapCameraFocus>() == null)
-                cam.gameObject.AddComponent<MapCameraFocus>();
-            cam.GetComponent<MapCameraFocus>().CaptureHome();
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)
@@ -556,10 +548,15 @@ namespace Yoegoe
                 }
                 CreateProp(place.data, place.position, place.fallbackColor);
             }
+
+            // 공덕 버드나무 (7-4) — 임시 그림
+            if (MeritWillow.Instance == null)
+                MeritWillow.Create(layout.willowPosition, Scale.SortOrderForProp(layout.willowPosition.y));
         }
 
         private void CreateProp(PropData data, Vector3 pos, Color color)
         {
+            PropCatalog.ApplyTo(data); // 시트(props.json) 밸런스
             string name = !string.IsNullOrEmpty(data.displayName) ? data.displayName
                 : (!string.IsNullOrEmpty(data.propId) ? data.propId : "Prop");
             Sprite sprite = data.icon;
@@ -605,7 +602,6 @@ namespace Yoegoe
             var data = ScriptableObject.CreateInstance<CharacterData>();
             data.id = ResolveCharacterIdByName(name);
             data.displayName = name;
-            data.startingStage = GrowthStage.Hon;
             data.startingIntimacy = 50f;
             data.startingStamina = 70f;
             CharacterCatalog.ApplyTo(data);

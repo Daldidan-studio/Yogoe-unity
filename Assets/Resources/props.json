@@ -1,0 +1,184 @@
+{
+  "props": [
+    {
+      "propId": "떡절구",
+      "displayName": "떡절구",
+      "resourceType": "Merit",
+      "cycleMinutes": 0.0,
+      "meritPerMinute": 100.0,
+      "levelGrowth": 1.1,
+      "meritCapacityMinutes": 30.0,
+      "ownerMultiplier": 1.0,
+      "upgradeBaseCost": 500.0,
+      "upgradeCostMultiplier": 1.15,
+      "baseCapacity": 0,
+      "intimacyBonus": false,
+      "upgradable": true
+    },
+    {
+      "propId": "옹달샘",
+      "displayName": "옹달샘",
+      "resourceType": "PurifiedWater",
+      "cycleMinutes": 30.0,
+      "meritPerMinute": 0.0,
+      "levelGrowth": 1.0,
+      "meritCapacityMinutes": 0.0,
+      "ownerMultiplier": 1.0,
+      "upgradeBaseCost": 500.0,
+      "upgradeCostMultiplier": 1.15,
+      "baseCapacity": 6,
+      "intimacyBonus": false,
+      "upgradable": true
+    },
+    {
+      "propId": "갯바위",
+      "displayName": "갯바위",
+      "resourceType": "Yeopjeon",
+      "cycleMinutes": 60.0,
+      "meritPerMinute": 0.0,
+      "levelGrowth": 1.0,
+      "meritCapacityMinutes": 0.0,
+      "ownerMultiplier": 1.0,
+      "upgradeBaseCost": 500.0,
+      "upgradeCostMultiplier": 1.15,
+      "baseCapacity": 1,
+      "intimacyBonus": false,
+      "upgradable": true
+    },
+    {
+      "propId": "활터",
+      "displayName": "활터",
+      "resourceType": "Hunt",
+      "cycleMinutes": 20.0,
+      "meritPerMinute": 0.0,
+      "levelGrowth": 1.0,
+      "meritCapacityMinutes": 0.0,
+      "ownerMultiplier": 1.0,
+      "upgradeBaseCost": 500.0,
+      "upgradeCostMultiplier": 1.15,
+      "baseCapacity": 9,
+      "intimacyBonus": false,
+      "upgradable": true
+    },
+    {
+      "propId": "약초밭",
+      "displayName": "약초밭",
+      "resourceType": "Gather",
+      "cycleMinutes": 20.0,
+      "meritPerMinute": 0.0,
+      "levelGrowth": 1.0,
+      "meritCapacityMinutes": 0.0,
+      "ownerMultiplier": 1.0,
+      "upgradeBaseCost": 500.0,
+      "upgradeCostMultiplier": 1.15,
+      "baseCapacity": 9,
+      "intimacyBonus": false,
+      "upgradable": true
+    },
+    {
+      "propId": "화덕",
+      "displayName": "화덕",
+      "resourceType": "None",
+      "cycleMinutes": 0.0,
+      "meritPerMinute": 0.0,
+      "levelGrowth": 1.0,
+      "meritCapacityMinutes": 0.0,
+      "ownerMultiplier": 1.0,
+      "upgradeBaseCost": 500.0,
+      "upgradeCostMultiplier": 1.15,
+      "baseCapacity": 0,
+      "intimacyBonus": false,
+      "upgradable": false
+    }
+  ],
+  "dropTables": [
+    {
+      "table": "Gather",
+      "ingredient": "Rice",
+      "name": "쌀",
+      "weight": 39.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "Namul",
+      "name": "산나물",
+      "weight": 20.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "Fruit",
+      "name": "과실",
+      "weight": 15.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "Chili",
+      "name": "고추",
+      "weight": 10.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "Herb",
+      "name": "약재",
+      "weight": 10.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "RedBean",
+      "name": "팥",
+      "weight": 5.0
+    },
+    {
+      "table": "Gather",
+      "ingredient": "GoldenRice",
+      "name": "황금쌀",
+      "weight": 1.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "Egg",
+      "name": "새알",
+      "weight": 20.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "Oil",
+      "name": "기름",
+      "weight": 20.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "Fish",
+      "name": "물고기",
+      "weight": 20.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "Boar",
+      "name": "멧돼지고기",
+      "weight": 15.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "Bird",
+      "name": "새고기",
+      "weight": 15.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "Honey",
+      "name": "꿀",
+      "weight": 9.0
+    },
+    {
+      "table": "Hunt",
+      "ingredient": "GoldenHoney",
+      "name": "황금꿀",
+      "weight": 1.0
+    }
+  ],
+  "settings": {
+    "purchaseBaseCost": 300.0,
+    "purchaseCostGrowth": 1.35
+  }
+}

@@ -113,7 +113,6 @@ namespace Yoegoe.Characters
             {
                 var other = ActiveAgents[i];
                 if (other == null || other == this) continue;
-                if (other.Stats.Stage == GrowthStage.Neok) continue;
                 // 앉아/기절한 상대는 밀되, 같이 걷는 상대만 상호 분리(앉아있는 요괴 자리는 건드리지 않음)
                 if (other.Stats.State == ActionState.Fainted) continue;
 
@@ -154,10 +153,16 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 머물기 한 구간. 소모한 초를 반환한다.
-        /// 생산은 앉아 있는 동안 기력 0까지 계속(상한 없음). 5분·33분치 강제 종료 없음.
+        /// 생산은 앉아 있는 동안 기력 0 또는 기물 만창까지. 만창이면 생산·기력소모 둘 다 멈추고 앉아만 있다.
         /// </summary>
         private float TickStayingSlice(float dt)
         {
+            if (currentProp != null && currentProp.IsStorageHalted)
+            {
+                Stats.StateTimer += dt;
+                return dt;
+            }
+
             float drain = StaminaDrainPerSecond;
             float timeToZero = Stats.Stamina > 0f ? Stats.Stamina / drain : 0f;
             float slice = Mathf.Min(dt, timeToZero);
@@ -169,19 +174,19 @@ namespace Yoegoe.Characters
                 return 0.0001f;
             }
 
+            // 기물이 만창에 닿으면 그 시점까지만 일한 것으로 친다
+            float worked = currentProp != null
+                ? currentProp.ProduceWhileStaying(slice, GetProductionPerMinuteIfStaying())
+                : slice;
+            if (worked <= 0f && currentProp != null && currentProp.IsStorageHalted)
+                return 0.0001f; // 다음 구간에서 정지 분기로
+
             float staminaBefore = Stats.Stamina;
-            Stats.StateTimer += slice;
-            Stats.Stamina -= slice * drain;
+            Stats.StateTimer += worked;
+            Stats.Stamina -= worked * drain;
             if (Stats.Stamina < 0f) Stats.Stamina = 0f;
             Requests.NotifyStaminaDrain(staminaBefore, Stats.Stamina);
-
-            if (currentProp != null)
-            {
-                double perMinute = currentProp.GetBaseProductionThisLevel()
-                                    * GetIntimacyCorrection()
-                                    * GetEndingPropCorrection();
-                currentProp.AddToMeritPile(perMinute / 60.0 * slice);
-            }
+            slice = worked > 0f ? worked : slice;
 
             if (Stats.Stamina <= 0f)
             {
@@ -195,7 +200,6 @@ namespace Yoegoe.Characters
         /// <summary>7-1: 머물기·생산 중일 때만 분당 생산량.</summary>
         public double GetProductionPerMinuteIfStaying()
         {
-            if (Stats.Stage == GrowthStage.Neok) return 0;
             if (Stats.State != ActionState.Staying || currentProp == null) return 0;
             return currentProp.GetBaseProductionThisLevel()
                    * GetIntimacyCorrection()
@@ -204,14 +208,17 @@ namespace Yoegoe.Characters
 
         /// <summary>7-1: 친밀도 보정. 온라인/오프라인 공통 공식은 <see cref="ProductionFormula"/> 참고.</summary>
         private double GetIntimacyCorrection() =>
-            ProductionFormula.IntimacyMultiplier(Stats.Stage, Stats.Intimacy);
+            currentProp != null && currentProp.data != null && !currentProp.data.intimacyBonus
+                ? 1.0
+                : ProductionFormula.IntimacyMultiplier(Stats.Intimacy);
 
         /// <summary>7-1: 엔딩 기물 보정 (MVP: 옥토끼–떡절구). 공식은 <see cref="ProductionFormula"/> 참고.</summary>
         private double GetEndingPropCorrection()
         {
             if (currentProp == null || currentProp.data == null || Data == null) return 1.0;
             bool sameOwner = currentProp.data.owner == Data.id;
-            return ProductionFormula.EndingMultiplier(currentProp.data.isEndingProp, sameOwner);
+            return ProductionFormula.EndingMultiplier(currentProp.data.isEndingProp, sameOwner,
+                currentProp.data.ownerMultiplier);
         }
 
         /// <summary>전용 점유 아트 표시 중에는 캐릭터 스프라이트를 숨긴다.</summary>
@@ -242,7 +249,6 @@ namespace Yoegoe.Characters
         /// </summary>
         public void EnterPlaying()
         {
-            if (Stats.Stage == GrowthStage.Neok) return;
             if (Stats.State == ActionState.Fainted) return;
 
             ClearWalkDestination();
@@ -287,7 +293,7 @@ namespace Yoegoe.Characters
         /// </summary>
         public bool TrySitOnProp(PropSlot prop)
         {
-            if (prop == null || Stats.Stage == GrowthStage.Neok) return false;
+            if (prop == null) return false;
             if (Stats.State == ActionState.Fainted) return false;
 
             ClearWalkDestination();

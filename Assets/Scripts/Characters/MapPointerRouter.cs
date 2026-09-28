@@ -13,7 +13,7 @@ namespace Yoegoe.Characters
     /// 맵 포인터 제스처 단일 진입점.
     /// 캐릭터: 길게 누르기(또는 임계 이동) → 들어올림 드래그.
     /// 맵: 임계 이동 후 패닝. 두 손가락 핀치·마우스 휠 → 줌.
-    /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말/넋 리액션.
+    /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말.
     ///
     /// 설계 원칙(반복된 회귀 버그를 겪고 정리함): "무엇을 눌렀는지"는 press 시점에 딱 한 번만
     /// 정한다(<see cref="PressTarget"/>). Hold·Release는 그 판정을 다시 계산하지 않고 그대로
@@ -69,7 +69,7 @@ namespace Yoegoe.Characters
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
         /// <summary>press 시점에 딱 한 번 정해지는 "무엇을 눌렀는지". Hold/Release는 이 값만 본다.</summary>
-        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character, GongyangganProp }
+        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character, GongyangganProp, Willow }
 
         private Phase phase = Phase.Idle;
         private PressTarget pressTarget = PressTarget.Empty;
@@ -216,7 +216,7 @@ namespace Yoegoe.Characters
             CancelPendingMonologueTap();
             if (phase == Phase.CharacterDrag && dragCharacter != null)
             {
-                dragCharacter.EndPlayerDrag(null);
+                dragCharacter.EndPlayerDrag(null, showFloorMark: false);
                 dragCharacter = null;
             }
             pressCharacter = null;
@@ -243,6 +243,9 @@ namespace Yoegoe.Characters
             if (pileProp != null) pressProp = pileProp;
             dragCharacter = null;
             pressTarget = ClassifyPressTarget(pileProp);
+            // 공덕 버드나무: 요괴·기물·라벨이 아닌 곳에서만 (드래그 방해 안 하게)
+            if (pressTarget == PressTarget.Empty && IsOverWillow(screenPos))
+                pressTarget = PressTarget.Willow;
             phase = Phase.Pending;
             Debug.Log("[DEBUG-LOCK] OnPress: pressProp=" + (pressProp != null ? pressProp.name + " IsBuilt=" + pressProp.IsBuilt : "null")
                 + " pressCharacter=" + (pressCharacter != null ? pressCharacter.name : "null")
@@ -378,7 +381,12 @@ namespace Yoegoe.Characters
 
                     case PressTarget.CollectibleProp:
                         CancelPendingMonologueTap();
-                        pressProp.TryCollectMerit();
+                        pressProp.TryCollect();
+                        break;
+
+                    case PressTarget.Willow:
+                        CancelPendingMonologueTap();
+                        MeritWillow.Instance?.OnTapped();
                         break;
 
                     case PressTarget.Character:
@@ -392,13 +400,17 @@ namespace Yoegoe.Characters
                 var prop = FindDropProp(dragCharacter, screenPos);
                 // 건립된 기물에 못 앉히면 — 자물쇠 위에 놓았는지 보고 구매 팝업(탭과 동일 경로).
                 // 건설 확정 시 이 요괴를 자동 앉히도록 함께 넘긴다.
+                bool purchasePrompted = false;
                 if (prop == null)
                 {
                     var locked = FindUnbuiltDropProp(dragCharacter, screenPos);
                     if (locked != null)
+                    {
                         PropPurchaseRequested?.Invoke(locked, dragCharacter);
+                        purchasePrompted = true;
+                    }
                 }
-                dragCharacter.EndPlayerDrag(prop);
+                dragCharacter.EndPlayerDrag(prop, showFloorMark: !purchasePrompted);
             }
 
             phase = Phase.Idle;
@@ -591,6 +603,14 @@ namespace Yoegoe.Characters
             var locked = PropManager.Instance.FindNearestUnbuiltProp(world, lockTapRadius);
             if (locked != null) return locked;
             return PropManager.Instance.FindNearestProp(world, propTapRadius);
+        }
+
+        bool IsOverWillow(Vector2 screenPos)
+        {
+            if (targetCamera == null || MeritWillow.Instance == null) return false;
+            float depth = -targetCamera.transform.position.z;
+            Vector3 world = targetCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, depth));
+            return MeritWillow.Instance.HitTest(world, 0.05f);
         }
 
         /// <summary>TEMP: 공덕 더미(***·숫자) TextMesh 라벨 히트만.</summary>

@@ -14,9 +14,6 @@ namespace Yoegoe.Data
         [Tooltip("characters.json 이 소스. Apply 전 폴백.")]
         public string displayName;
 
-        [Tooltip("characters.json 이 소스.")]
-        public GrowthStage startingStage;
-
         [Header("선호 공양물 — characters.json preferredOfferings 가 소스")]
         public OfferingData[] preferredOfferings;
 

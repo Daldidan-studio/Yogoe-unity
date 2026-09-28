@@ -96,7 +96,7 @@ namespace Yoegoe.UI
             if (!EnsureShell()) return;
             WireRuntimeListeners();
             ShopStock.SetCatalog(offerings);
-            ShopStock.EnsureFresh(DateTime.UtcNow);
+            ShopStock.EnsureFresh(TrustedTime.UtcNow);
             dialogueIndex = 0;
             SetDialogue(ImugiLines[0]);
             RefreshSlots();

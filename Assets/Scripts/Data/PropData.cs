@@ -10,8 +10,27 @@ namespace Yoegoe.Data
         public string displayName;
         public Sprite icon;
 
-        [Header("생산 (7-1): 분당생산량 = baseProductionPerMinute * 1.1^(L-1) * 친밀도보정 * 엔딩기물보정")]
+        [Header("산출 — Resources/props.json(구글 시트 props 탭)이 소스. 여기 값은 폴백")]
+        public PropResourceType resourceType = PropResourceType.Merit;
+
+        [Tooltip("공덕 기물: Lv1 분당 공덕. 분당 = base × levelGrowth^(L-1) (× 친밀도보정 × 주인보정)")]
         public double baseProductionPerMinute = 100;
+        [Tooltip("공덕 기물: 레벨당 산출 배율")]
+        public double levelGrowth = 1.1;
+        [Tooltip("공덕 기물: 보관(만창) = 분당 산출 × 이 분")]
+        public float meritCapacityMinutes = 30f;
+        [Tooltip("공덕 기물: 친밀도 보정(1 + 친밀도/100) 적용 여부")]
+        public bool intimacyBonus = true;
+        [Tooltip("공덕 기물: 엔딩기물 주인이 앉았을 때 배율")]
+        public double ownerMultiplier = 2.0;
+
+        [Tooltip("자원 기물: 1개 산출 주기(분, 레벨 무관)")]
+        public float cycleMinutes;
+        [Tooltip("자원 기물: Lv1 기본 보관. Capacity(L) = base + floor(L/10)")]
+        public int baseCapacity;
+
+        [Tooltip("레벨업 가능 여부 (화덕은 false)")]
+        public bool upgradable = true;
 
         [Header("업그레이드 비용 (8장): 500 * 1.15^(L-1), 레벨업마다 15% 증가")]
         public double upgradeBaseCost = 500;

@@ -136,6 +136,9 @@ namespace Yoegoe.Economy
 
         static OfferingData PickRandomOffering(OfferingData[] catalog)
         {
+            // 3차: 공양물 24종에서 (음식 제외)
+            var pool = OfferingCatalog.RandomPool;
+            if (pool.Count > 0) return pool[Random.Range(0, pool.Count)];
             if (catalog == null || catalog.Length == 0) return null;
             int guard = 0;
             while (guard++ < 24)

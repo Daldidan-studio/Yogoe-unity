@@ -82,7 +82,40 @@ def _ssl_context():
         return ssl.create_default_context()
 
 
+_GID_CACHE: dict[str, dict[str, str]] = {}
+
+
+def resolve_gid(sheet_id: str, tab: str) -> str | None:
+    """탭 이름 → gid (공개 htmlview에서 읽음, 읽기 전용)."""
+    if sheet_id not in _GID_CACHE:
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/htmlview"
+        req = urllib.request.Request(url, headers={"User-Agent": "YogoeSheetsExport/1.0"})
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=_ssl_context()))
+        try:
+            with opener.open(req, timeout=30) as res:
+                html = res.read().decode("utf-8", "replace")
+            _GID_CACHE[sheet_id] = dict(re.findall(r'\{name: "([^"]+)", pageUrl: "[^"]*gid=(\d+)', html))
+        except Exception:
+            _GID_CACHE[sheet_id] = {}
+    return _GID_CACHE[sheet_id].get(tab)
+
+
 def fetch_sheet_csv(sheet_id: str, tab: str) -> str:
+    """탭 CSV. gid 내보내기(셀 값 그대로)를 먼저 쓰고, 안 되면 gviz로.
+    gviz는 열 타입을 추측해서 숫자 열의 글자(설명 줄·헤더)를 비워버릴 수 있다."""
+    gid = resolve_gid(sheet_id, tab)
+    if gid is not None:
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+        req = urllib.request.Request(url, headers={"User-Agent": "YogoeSheetsExport/1.0"})
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=_ssl_context()))
+        try:
+            with opener.open(req, timeout=30) as res:
+                text = res.read().decode("utf-8-sig")
+            if "<html" not in text[:200].lower():
+                return text
+        except Exception:
+            pass
+
     query = urllib.parse.urlencode({"tqx": "out:csv", "sheet": tab})
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?{query}"
     req = urllib.request.Request(url, headers={"User-Agent": "YogoeYutBubblesExport/1.0"})
@@ -127,6 +160,8 @@ def detect_locales(fields: set[str], configured: list[str]) -> list[str]:
 
 
 def read_rows(text: str, configured_locales: list[str]) -> tuple[list[dict], list[str]]:
+    from sheet_descriptions import strip_description
+    text = strip_description(text, ["id"])  # 1행 ※설명 줄 건너뛰기
     reader = csv.DictReader(io.StringIO(text))
     if not reader.fieldnames:
         raise RuntimeError("CSV 헤더가 없습니다.")

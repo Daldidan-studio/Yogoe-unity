@@ -23,12 +23,13 @@ namespace Yoegoe.Data
             public Color intimacyPink = new Color(0.92f, 0.35f, 0.45f, 1f);
             public Color staminaGreen = new Color(0.35f, 0.78f, 0.42f, 1f);
             public Color barTrack = new Color(0.85f, 0.85f, 0.87f, 1f);
-            public Color neokPortrait = new Color(0.45f, 0.85f, 1f, 1f);
             public Color mutedLabel = new Color(0.45f, 0.45f, 0.5f, 1f);
             public Color feedHint = new Color(0.35f, 0.35f, 0.4f, 1f);
             public Color badgeBg = new Color(0.12f, 0.12f, 0.14f, 0.85f);
             public Color offeringHighlight = new Color(1f, 0.92f, 0.45f, 1f);
             public Color offeringIdle = new Color(0.95f, 0.95f, 0.97f, 1f);
+            /// <summary>공개된 선호 공양물 인벤 칩 금테.</summary>
+            public Color preferredGoldFrame = new Color(0.93f, 0.7f, 0.16f, 1f);
 
             [Header("공통 글자")]
             public Color textDark = new Color(0.12f, 0.12f, 0.14f, 1f);

@@ -12,12 +12,9 @@ namespace Yoegoe.Characters
     /// SpriteRenderer는 있으면 참조만 해두는 정도. 씬에는 빈 GameObject에 이 스크립트 붙이고
     /// 위치만 잡아두면 테스트 가능 (Scene 뷰 Gizmo: 초록=걷기/파랑=머물기/분홍=놀기/빨강=기절).
     ///
-    /// 넋 단계는 이 상태머신을 타지 않음 (고정 도깨비불, 정화수로 기력 100 → 혼).
-    ///
     /// 구현은 관심사별로 여러 파일에 나뉜 partial class다 (이 파일은 라이프사이클/공개 API만):
     /// <see cref="CharacterAgent"/>.Movement.cs(걷기/머물기/놀기 상태머신),
-    /// .Drag.cs(플레이어 드래그), .Animation.cs(스프라이트/방향), .Dialogue.cs(혼잣말·임시 대사),
-    /// .Evolution.cs(넋 부유·넋→혼 진화).
+    /// .Drag.cs(플레이어 드래그), .Animation.cs(스프라이트/방향), .Dialogue.cs(혼잣말·임시 대사).
     /// </summary>
     public partial class CharacterAgent : MonoBehaviour
     {
@@ -43,10 +40,9 @@ namespace Yoegoe.Characters
         /// </summary>
         public bool BehaviorPaused { get; private set; }
 
-        /// <summary>넋·기절·행동 일시정지는 드래그 불가.</summary>
+        /// <summary>기절·행동 일시정지는 드래그 불가.</summary>
         public bool CanBeDraggedByPlayer =>
             !BehaviorPaused
-            && Stats.Stage != GrowthStage.Neok
             && Stats.State != ActionState.Fainted;
 
         /// <summary>머물기/걷기 등 AI 틱 일시정지·재개.</summary>
@@ -76,6 +72,8 @@ namespace Yoegoe.Characters
         private void OnDisable()
         {
             ActiveAgents.Remove(this);
+            if (IsBeingDragged) PropDragMarkers.Hide();
+            if (dropMarkRenderer != null) Destroy(dropMarkRenderer.gameObject);
             if (bubbleBg != null) Destroy(bubbleBg.gameObject);
             if (bubbleTextMesh != null) Destroy(bubbleTextMesh.gameObject);
             requests?.DestroyVisuals();
@@ -91,7 +89,7 @@ namespace Yoegoe.Characters
             if (!statsAppliedExternally && Data != null)
                 ApplyDefaultStatsFromData();
 
-            if (Stats.Stage != GrowthStage.Neok) EnterWalking();
+            EnterWalking();
 
             // 로딩 직후 모든 캐릭터가 동시에 혼잣말을 시작하지 않도록 첫 대사까지 약간의 랜덤 지연을 둔다.
             monologueTimer = Random.Range(2f, MonologueMinInterval);
@@ -105,25 +103,29 @@ namespace Yoegoe.Characters
 
         private void ApplyDefaultStatsFromData()
         {
-            Stats.Stage = Data.startingStage;
-            if (Stats.Stage == GrowthStage.Neok)
-            {
-                // 넋: 정화수로만 기력 충전 → 100이면 혼. 시작은 기력 0·친밀도 0 고정.
-                Stats.Intimacy = 0f;
-                Stats.Stamina = 0f;
-            }
-            else
-            {
-                var start = StartingStateSettings.Get();
-                Stats.Intimacy = start.startingIntimacy;
-                // 최대·시작 기력 = 25 + 친밀도
-                Stats.Stamina = MaxStaminaFromIntimacy(Stats.Intimacy);
-            }
+            var start = StartingStateSettings.Get();
+            Stats.Intimacy = start.startingIntimacy;
+            // 최대·시작 기력 = 25 + 친밀도
+            Stats.Stamina = MaxStaminaFromIntimacy(Stats.Intimacy);
         }
 
-        /// <summary>혼 최대 기력. 넋은 진화용 상한 100.</summary>
-        public float MaxStamina =>
-            Stats.Stage == GrowthStage.Neok ? 100f : MaxStaminaFromIntimacy(Stats.Intimacy);
+        /// <summary>소환 직후 — 친밀도 0, 기력 1 (Docs/00 §2·§9).</summary>
+        public void ApplyFreshSummon()
+        {
+            statsAppliedExternally = true;
+            Stats.Intimacy = 0f;
+            Stats.Stamina = 1f;
+            Stats.State = ActionState.Walking;
+            Stats.StateTimer = 0f;
+            lastPosition = transform.position;
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            EnterWalking();
+            ApplyAnimationFrameImmediate();
+        }
+
+        /// <summary>최대 기력 = 25 + 친밀도.</summary>
+        public float MaxStamina => MaxStaminaFromIntimacy(Stats.Intimacy);
 
         public static float MaxStaminaFromIntimacy(float intimacy) => 25f + Mathf.Clamp(intimacy, 0f, 100f);
 
@@ -135,30 +137,9 @@ namespace Yoegoe.Characters
             float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
             Requests.Tick(dt);
 
-            if (evolvingToHon)
-            {
-                UpdateSortingOrder();
-                return;
-            }
-
-            // 소환·진화 연출 중 맵 AI/부유 정지
+            // 소환 연출 중 맵 AI 정지
             if (CeremonyGate.BlocksWorldInput)
             {
-                UpdateSortingOrder();
-                return;
-            }
-
-            if (Stats.Stage == GrowthStage.Neok)
-            {
-                // 기력 100이면 정화수가 없어도 진화 (이전에 다 먹인 채 멈춘 경우 포함)
-                if (Stats.Stamina >= 100f - 0.001f)
-                {
-                    EvolveToHon();
-                    return;
-                }
-
-                if (!IsBeingDragged)
-                    TickNeokFloat(dt);
                 UpdateSortingOrder();
                 return;
             }
@@ -175,9 +156,9 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            if (isRefusing)
+            if (showingDropMark)
             {
-                TickRefuse(dt);
+                TickDropMark(dt);
                 UpdateSortingOrder();
                 return;
             }
@@ -220,7 +201,6 @@ namespace Yoegoe.Characters
 
         private void CatchUpWallClock(float remaining)
         {
-            if (Stats.Stage == GrowthStage.Neok) return;
             if (BehaviorPaused) return;
 
             int guard = 0;
@@ -263,7 +243,6 @@ namespace Yoegoe.Characters
 
         /// <summary>오프라인 시뮬 결과를 월드에 붙일 때 호출. 점유 기물이 있으면 강제 앉힌다.</summary>
         public void ApplySaveSnapshot(
-            GrowthStage stage,
             float intimacy,
             float stamina,
             ActionState state,
@@ -279,7 +258,6 @@ namespace Yoegoe.Characters
                 currentProp = null;
             }
 
-            Stats.Stage = stage;
             Stats.Intimacy = intimacy;
             Stats.Stamina = stamina;
             // 구세이브 Slumped → Playing(기력0 쉬기). 점유는 놀기 규칙상 해제.
@@ -290,17 +268,9 @@ namespace Yoegoe.Characters
             }
             Stats.State = state;
             Stats.StateTimer = stateTimer;
-            if (Stats.Stage == GrowthStage.Hon)
-                Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
+            Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
             transform.position = MapBounds.Clamp(worldPos);
             lastPosition = transform.position;
-            neokLogicalPos = transform.position;
-            neokDriftTarget = null;
-
-            if (Stats.Stage == GrowthStage.Hon)
-                CharacterSpawner.EnsureHonVisual(this);
-            else if (Stats.Stage == GrowthStage.Neok && Stats.Stamina >= 100f - 0.001f)
-                EvolveToHon(playFx: false);
 
             if (occupyProp != null
                 && (state == ActionState.Staying || state == ActionState.Fainted))
@@ -326,11 +296,11 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 공양 처리 (5-3/5-4). 공양물 종류별 수치 계산은 공양 시스템 쪽에서 하고 여기엔 최종값만 넘긴다.
-        /// 넋은 정화수만 기력을 채우며, 기력 100 도달 시 즉시 혼으로 진화 (Docs/05 4항).
+        /// 기절 중엔 정화수만 받는다(깨어남). 기력은 최대에서 멈추고 친밀도는 계속 오른다.
         /// </summary>
         public void ReceiveOffering(int staminaGain, float intimacyGain, OfferingKind kind = OfferingKind.General)
         {
-            if (Stats.Stage == GrowthStage.Neok && kind != OfferingKind.PurifiedWater)
+            if (Stats.State == ActionState.Fainted && kind != OfferingKind.PurifiedWater)
                 return;
 
             if (Stats.State == ActionState.Slumped)
@@ -338,18 +308,8 @@ namespace Yoegoe.Characters
 
             float max = MaxStamina;
             Stats.Stamina = Mathf.Min(max, Stats.Stamina + Mathf.Max(0, staminaGain));
-
-            if (Stats.Stage != GrowthStage.Neok)
-            {
-                Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + intimacyGain);
-                Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
-            }
-
-            if (Stats.Stage == GrowthStage.Neok && Stats.Stamina >= 100f - 0.001f)
-            {
-                EvolveToHon();
-                return;
-            }
+            Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + intimacyGain);
+            Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
 
             if (Stats.State == ActionState.Fainted)
             {
@@ -381,10 +341,9 @@ namespace Yoegoe.Characters
             spriteRenderer = sr;
         }
 
-        /// <summary>공양이 아닌 경로(윷놀이 말 이동 등)로 친밀도만 올릴 때 사용. 넋은 친밀도가 없어 무시.</summary>
+        /// <summary>공양이 아닌 경로(윷놀이 말 이동 등)로 친밀도만 올릴 때 사용.</summary>
         public void AddIntimacy(float amount)
         {
-            if (Stats.Stage == GrowthStage.Neok) return;
             Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + amount);
             Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
         }

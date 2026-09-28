@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 1
   displayName: 삼족오
-  startingStage: 1
   preferredOfferings:
   - {fileID: 11400000, guid: 7f5cedae05be4608aa496627ce941ad9, type: 2}
   endingProp: {fileID: 0}
