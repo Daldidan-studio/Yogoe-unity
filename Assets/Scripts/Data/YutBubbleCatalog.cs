@@ -20,7 +20,8 @@ namespace Yoegoe.Data
             public const string RabbitCheer = "rabbit.cheer";
             public const string RabbitUrgeFinish = "rabbit.urge_finish";
             public const string CandidateTreasure = "candidate.treasure";
-            public const string CandidateOffering = "candidate.offering";
+            public const string CandidateOffering = "candidate.offering"; // 구 공양물 칸
+            public const string CandidateIngredientBag = "candidate.ingredient_bag";
             public const string CandidateCoin = "candidate.coin";
             public const string CandidatePurifiedWater = "candidate.purified_water";
             public const string CandidateCapture = "candidate.capture";
@@ -131,6 +132,7 @@ namespace Yoegoe.Data
             Ids.RabbitUrgeFinish => "저 친구, 완주할 수 있어요!",
             Ids.CandidateTreasure => "보물상자로 갈 수 있어.",
             Ids.CandidateOffering => "공양물을 얻을 수 있어.",
+            Ids.CandidateIngredientBag => "재료보따리로 갈 수 있어.",
             Ids.CandidateCoin => "엽전을 얻을 수 있어.",
             Ids.CandidatePurifiedWater => "정화수를 얻을 수 있어.",
             Ids.CandidateCapture => "이무기 님을 잡을 수 있어.",

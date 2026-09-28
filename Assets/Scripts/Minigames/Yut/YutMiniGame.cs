@@ -1901,7 +1901,7 @@ namespace Yoegoe.Minigames.Yut
         {
             if (pad == null) return;
             pad.color = YutBoardLayout.IsSpecialReward(nodeId)
-                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/공양물/보물상자/정화수(YutBoardLayout.SpecialSquareKind)
+                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/재료보따리/보물상자/정화수
                 : IsWaypoint(nodeId)
                     ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);
@@ -2287,6 +2287,7 @@ namespace Yoegoe.Minigames.Yut
         static Sprite _yeopjeonIcon;
         static Sprite _purifiedWaterIcon;
         static Sprite _treasureChestOpenIcon;
+        static Sprite _ingredientBagIcon;
 
         /// <summary>엽전 아이콘. Resources/UI/Currency/Yeopjeon.</summary>
         public static Sprite YeopjeonIcon()
@@ -2314,6 +2315,18 @@ namespace Yoegoe.Minigames.Yut
             if (_treasureChestOpenIcon == null)
                 _treasureChestOpenIcon = Resources.Load<Sprite>("UI/GiftChest_Open");
             return _treasureChestOpenIcon;
+        }
+
+        /// <summary>재료보따리 칸 아이콘. 전용 아트 없으면 닫힌 상자 폴백.</summary>
+        public static Sprite IngredientBagIcon()
+        {
+            if (_ingredientBagIcon == null)
+            {
+                _ingredientBagIcon = Resources.Load<Sprite>("UI/IngredientBag");
+                if (_ingredientBagIcon == null)
+                    _ingredientBagIcon = Resources.Load<Sprite>("UI/GiftChest_Closed");
+            }
+            return _ingredientBagIcon;
         }
 
         /// <summary>특수 칸에서 얻은 아이콘이 동(東) 보상란으로 슝 날아간다.</summary>

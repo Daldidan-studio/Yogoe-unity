@@ -368,6 +368,69 @@ namespace Yoegoe.Economy
             OnMaterialsChanged?.Invoke();
         }
 
+        // ---------------- 요리 부적 (사전 장착 5종 — 나가리 제외) ----------------
+        readonly Dictionary<int, int> CharmCounts = new Dictionary<int, int>();
+        public event Action OnCharmsChanged;
+
+        public static bool IsInventoryCharm(Yoegoe.Cooking.CookingCharmType type) =>
+            type == Yoegoe.Cooking.CookingCharmType.PlusFive
+            || type == Yoegoe.Cooking.CookingCharmType.Diagonal
+            || type == Yoegoe.Cooking.CookingCharmType.Clairvoyance
+            || type == Yoegoe.Cooking.CookingCharmType.Recycle
+            || type == Yoegoe.Cooking.CookingCharmType.Double;
+
+        public int GetCharmCount(Yoegoe.Cooking.CookingCharmType type)
+        {
+            if (!IsInventoryCharm(type)) return 0;
+            return CharmCounts.TryGetValue((int)type, out int n) ? n : 0;
+        }
+
+        public void AddCharm(Yoegoe.Cooking.CookingCharmType type, int amount)
+        {
+            if (!IsInventoryCharm(type) || amount == 0) return;
+            int key = (int)type;
+            CharmCounts.TryGetValue(key, out int cur);
+            CharmCounts[key] = Math.Max(0, cur + amount);
+            OnCharmsChanged?.Invoke();
+        }
+
+        public bool TrySpendCharm(Yoegoe.Cooking.CookingCharmType type, int amount = 1)
+        {
+            if (!IsInventoryCharm(type) || amount < 0) return false;
+            int key = (int)type;
+            CharmCounts.TryGetValue(key, out int cur);
+            if (cur < amount) return false;
+            CharmCounts[key] = cur - amount;
+            OnCharmsChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>세이브용: CookingCharmType 순서 배열(None=0 슬롯 포함).</summary>
+        public int[] CaptureCharmCounts()
+        {
+            int len = (int)Yoegoe.Cooking.CookingCharmType.Cancel + 1;
+            var arr = new int[len];
+            for (int i = 0; i < len; i++)
+                CharmCounts.TryGetValue(i, out arr[i]);
+            return arr;
+        }
+
+        public void ReplaceCharmCounts(int[] counts)
+        {
+            CharmCounts.Clear();
+            if (counts != null)
+            {
+                for (int i = 0; i < counts.Length; i++)
+                {
+                    if (counts[i] <= 0) continue;
+                    var type = (Yoegoe.Cooking.CookingCharmType)i;
+                    if (!IsInventoryCharm(type)) continue;
+                    CharmCounts[i] = counts[i];
+                }
+            }
+            OnCharmsChanged?.Invoke();
+        }
+
         public void SeedStartingMaterials(int each = 5)
         {
             MaterialCounts.Clear();
@@ -410,6 +473,8 @@ namespace Yoegoe.Economy
             }
 
             SeedStartingMaterials(5);
+            CharmCounts.Clear();
+            OnCharmsChanged?.Invoke();
 
             OnMeritChanged?.Invoke(MeritPile);
             OnBatchMeritChanged?.Invoke();

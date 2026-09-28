@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Yoegoe.Characters;
+using Yoegoe.Cooking;
 using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
@@ -15,7 +16,7 @@ namespace Yoegoe.UI
 {
     /// <summary>
     /// 윷놀이 진입점(11장). 윷 토큰 소모 → 옥토끼+현재 슬롯의 혼 전원 vs 이무기(말 1개) →
-    /// 완주 시 정화수 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
+    /// 완주 시 부적 지급까지의 최소 완결 루프. 화면/입력은 YutMiniGame, 규칙은 YutMatch가 담당.
     /// </summary>
     public class YutScreen : MonoBehaviour, IYutChallengeHost, IYutSquareRewardHost
     {
@@ -51,6 +52,9 @@ namespace Yoegoe.UI
 
         /// <summary>말 이동 시 친밀도 +0.25(11장) 적용을 위한 piece id → 캐릭터 매핑.</summary>
         readonly Dictionary<string, CharacterAgent> teamById = new Dictionary<string, CharacterAgent>();
+
+        /// <summary>이번 윷 Open 세션에서 말 이동으로 오른 친밀도(요괴별). Close 때 하트 연출용.</summary>
+        readonly Dictionary<string, float> sessionIntimacyGain = new Dictionary<string, float>();
 
         [Header("셸 (Prefab — 필수)")]
         [SerializeField] GameObject root;
@@ -94,8 +98,8 @@ namespace Yoegoe.UI
         bool awaitingFinishChoice;
         bool pendingBonusAfterContinue;
 
-        /// <summary>4마리 동시 완주 광고 2배 팝업용 — 배율 적용 전(스택 반영된) 정화수.</summary>
-        int pendingFinishPurifiedWater;
+        /// <summary>완주 부적 지급용 — 이번 판 완주 말 수.</summary>
+        int pendingFinishCharmCount;
         int pendingFinishStack;
 
         /// <summary>직전 OnPlayerPieceFinished 스택(자동 플레이가 그만/계속 판단용).</summary>
@@ -125,8 +129,7 @@ namespace Yoegoe.UI
         /// <summary>매 판 도전과제 — 배너·완료 보상(보물상자 ×3)은 Presenter가 담당.</summary>
         readonly YutChallengePresenter challenge = new YutChallengePresenter();
 
-        /// <summary>매치 시작 때 한 번 뽑는다 — 공양물 칸(YutBoardLayout.SpecialSquareKind.Offering)
-        /// 노드마다 어떤 공양물을 줄지. 매치 내내 고정(같은 칸을 다시 밟아도 같은 공양물).</summary>
+        /// <summary>구세이브 호환용(공양물 칸 내용). 신규 특수칸엔 재료보따리만 쓰므로 비어 있음.</summary>
         readonly Dictionary<int, OfferingData> specialOfferingByNode = new Dictionary<int, OfferingData>();
 
         /// <summary>"광고 보고 말 되살리기" 팝업이 떠 있는 동안 이무기 보너스 턴 진행을 멈춘다.</summary>
@@ -136,6 +139,8 @@ namespace Yoegoe.UI
         /// <summary>이번 매치에서 특수 칸으로 모은 것들 — 동(東) 구역에 표시, 매치가 끝나면 요약
         /// 다이얼로그로도 보여준다. 새 매치 시작할 때 비운다(재시작 복원 시엔 다시 0부터).</summary>
         readonly Dictionary<OfferingData, int> matchOfferingCounts = new Dictionary<OfferingData, int>();
+        readonly Dictionary<CookingIngredientId, int> matchIngredientCounts = new Dictionary<CookingIngredientId, int>();
+        readonly Dictionary<CookingCharmType, int> matchCharmCounts = new Dictionary<CookingCharmType, int>();
         int matchYeopjeonTotal;
         int matchPurifiedWaterTotal;
         int matchHyangTotal;
@@ -213,6 +218,7 @@ namespace Yoegoe.UI
             }
 
             teamById.Clear();
+            sessionIntimacyGain.Clear();
             var team = new List<(string id, string name)>();
             foreach (var a in agents)
             {
@@ -236,6 +242,8 @@ namespace Yoegoe.UI
             awaitingReviveChoice = false;
             pendingOpponentLappedFx = false;
             matchOfferingCounts.Clear();
+            matchIngredientCounts.Clear();
+            matchCharmCounts.Clear();
             matchYeopjeonTotal = 0;
             matchPurifiedWaterTotal = 0;
             matchHyangTotal = 0;
@@ -244,7 +252,7 @@ namespace Yoegoe.UI
             pendingLoot.Clear();
             // 완주 후 새 판 — 정산 구간 종료. 연출용 presentable·allow 플래그는 Close까지 유지.
             grantRewardsToEconomyNow = false;
-            AssignSpecialOfferings();
+            specialOfferingByNode.Clear();
             challenge.StartNew(match.PlayerPieces.Count, this);
             root.SetActive(true);
             IsOpen = true;
@@ -351,6 +359,33 @@ namespace Yoegoe.UI
                 allowPostYutLootPresentation = false;
                 TryPresentPostYutLoot();
             }
+            // 친밀도 하트: 이번 Open에서 오른 분(반내림) — 완주·중도 나가기 모두.
+            PlaySessionIntimacyHearts();
+        }
+
+        /// <summary>세션 중 쌓인 친밀도만큼 맵 요괴 머리 위 하트 연출 후 누적 초기화.</summary>
+        void PlaySessionIntimacyHearts()
+        {
+            if (sessionIntimacyGain.Count == 0) return;
+            foreach (var kv in sessionIntimacyGain)
+            {
+                if (kv.Value <= 0.0001f) continue;
+                CharacterAgent agent = null;
+                if (!string.IsNullOrEmpty(kv.Key))
+                    teamById.TryGetValue(kv.Key, out agent);
+                if (agent == null)
+                {
+                    for (int i = 0; i < CharacterAgent.All.Count; i++)
+                    {
+                        var a = CharacterAgent.All[i];
+                        if (a == null || a.Data == null) continue;
+                        if (a.Data.id.ToString() == kv.Key) { agent = a; break; }
+                    }
+                }
+                if (agent != null)
+                    IntimacyHeartFx.PlayFromAgent(agent, kv.Value);
+            }
+            sessionIntimacyGain.Clear();
         }
 
         /// <summary>완주 후 Close — 이미 지급된 미연출 획득이 있으면 팀 캐릭터 만세·수거 연출.</summary>
@@ -383,17 +418,18 @@ namespace Yoegoe.UI
 
         /// <summary>매치 중 획득 — 완주 전에는 경제에 넣지 않고 pending에만 쌓는다.
         /// 완주 정산 구간(grantRewardsToEconomyNow)에는 바로 지급하고 연출 목록에 넣는다.</summary>
-        void TrackMatchLoot(YutSquareRewardKind kind, OfferingData offering, int amount)
+        void TrackMatchLoot(YutSquareRewardKind kind, OfferingData offering, int amount,
+            CookingIngredientId ingredient = default, CookingCharmType charm = CookingCharmType.None)
         {
             if (amount <= 0) return;
             if (grantRewardsToEconomyNow)
             {
-                GrantLootToEconomy(kind, offering, amount);
-                MergeLootEntry(presentableLoot, kind, offering, amount);
+                GrantLootToEconomy(kind, offering, amount, ingredient, charm);
+                MergeLootEntry(presentableLoot, kind, offering, amount, ingredient, charm);
             }
             else
             {
-                MergeLootEntry(pendingLoot, kind, offering, amount);
+                MergeLootEntry(pendingLoot, kind, offering, amount, ingredient, charm);
             }
         }
 
@@ -403,13 +439,14 @@ namespace Yoegoe.UI
             for (int i = 0; i < pendingLoot.Count; i++)
             {
                 var e = pendingLoot[i];
-                GrantLootToEconomy(e.Kind, e.Offering, e.Amount);
-                MergeLootEntry(presentableLoot, e.Kind, e.Offering, e.Amount);
+                GrantLootToEconomy(e.Kind, e.Offering, e.Amount, e.Ingredient, e.Charm);
+                MergeLootEntry(presentableLoot, e.Kind, e.Offering, e.Amount, e.Ingredient, e.Charm);
             }
             pendingLoot.Clear();
         }
 
-        void GrantLootToEconomy(YutSquareRewardKind kind, OfferingData offering, int amount)
+        void GrantLootToEconomy(YutSquareRewardKind kind, OfferingData offering, int amount,
+            CookingIngredientId ingredient = default, CookingCharmType charm = CookingCharmType.None)
         {
             if (amount <= 0 || GameEconomy.Instance == null) return;
             switch (kind)
@@ -432,10 +469,17 @@ namespace Yoegoe.UI
                 case YutSquareRewardKind.YutToken:
                     GameEconomy.Instance.AddYutTokenOverflow(amount, YutRewards.YutTokenHardCap);
                     break;
+                case YutSquareRewardKind.IngredientBundle:
+                    GameEconomy.Instance.AddMaterial(ingredient, amount);
+                    break;
+                case YutSquareRewardKind.Charm:
+                    GameEconomy.Instance.AddCharm(charm, amount);
+                    break;
             }
         }
 
-        void MergeLootEntry(List<PostYutLootEntry> list, YutSquareRewardKind kind, OfferingData offering, int amount)
+        void MergeLootEntry(List<PostYutLootEntry> list, YutSquareRewardKind kind, OfferingData offering, int amount,
+            CookingIngredientId ingredient = default, CookingCharmType charm = CookingCharmType.None)
         {
             if (amount <= 0 || list == null) return;
 
@@ -465,6 +509,13 @@ namespace Yoegoe.UI
                     icon = offering.icon;
                     label = !string.IsNullOrEmpty(offering.displayName) ? offering.displayName : "공양물";
                     break;
+                case YutSquareRewardKind.IngredientBundle:
+                    icon = YutMiniGame.IngredientBagIcon();
+                    label = CookingRecipeCatalog.DisplayName(ingredient);
+                    break;
+                case YutSquareRewardKind.Charm:
+                    label = YutRewards.CharmDisplayName(charm);
+                    break;
                 default:
                     return;
             }
@@ -476,14 +527,17 @@ namespace Yoegoe.UI
                     || ReferenceEquals(e.Offering, offering)
                     || (e.Offering != null && offering != null
                         && string.Equals(e.Offering.offeringId, offering.offeringId, StringComparison.OrdinalIgnoreCase));
-                if (e.Kind == kind && sameOffering)
+                bool sameIngredient = kind != YutSquareRewardKind.IngredientBundle || e.Ingredient == ingredient;
+                bool sameCharm = kind != YutSquareRewardKind.Charm || e.Charm == charm;
+                if (e.Kind == kind && sameOffering && sameIngredient && sameCharm)
                 {
-                    list[i] = new PostYutLootEntry(kind, e.Offering ?? offering, e.Amount + amount, e.Icon ?? icon, e.Label);
+                    list[i] = new PostYutLootEntry(kind, e.Offering ?? offering, e.Amount + amount, e.Icon ?? icon, e.Label,
+                        ingredient, charm);
                     return;
                 }
             }
 
-            list.Add(new PostYutLootEntry(kind, offering, amount, icon, label));
+            list.Add(new PostYutLootEntry(kind, offering, amount, icon, label, ingredient, charm));
         }
 
         /// <summary>세이브용 스냅샷 — 진행 중(승패 안 난) 매치가 없으면 null. 특수 칸 배치도 같이
@@ -522,6 +576,24 @@ namespace Yoegoe.UI
                 pendingOfferingCounts.Add(kv.Value);
             }
 
+            var pendingIngredientIds = new List<int>();
+            var pendingIngredientCounts = new List<int>();
+            foreach (var kv in matchIngredientCounts)
+            {
+                if (kv.Value <= 0) continue;
+                pendingIngredientIds.Add((int)kv.Key);
+                pendingIngredientCounts.Add(kv.Value);
+            }
+
+            var pendingCharmTypes = new List<int>();
+            var pendingCharmCounts = new List<int>();
+            foreach (var kv in matchCharmCounts)
+            {
+                if (kv.Value <= 0) continue;
+                pendingCharmTypes.Add((int)kv.Key);
+                pendingCharmCounts.Add(kv.Value);
+            }
+
             return new YutMatchSave
             {
                 playerPieces = match.PlayerPieces.Select(ToPieceSave).ToArray(),
@@ -541,6 +613,10 @@ namespace Yoegoe.UI
                 pendingYutToken = matchYutTokenTotal,
                 pendingOfferingIds = pendingOfferingIds.ToArray(),
                 pendingOfferingCounts = pendingOfferingCounts.ToArray(),
+                pendingIngredientIds = pendingIngredientIds.ToArray(),
+                pendingIngredientCounts = pendingIngredientCounts.ToArray(),
+                pendingCharmTypes = pendingCharmTypes.ToArray(),
+                pendingCharmCounts = pendingCharmCounts.ToArray(),
             };
         }
 
@@ -608,6 +684,8 @@ namespace Yoegoe.UI
         {
             pendingLoot.Clear();
             matchOfferingCounts.Clear();
+            matchIngredientCounts.Clear();
+            matchCharmCounts.Clear();
             matchYeopjeonTotal = Mathf.Max(0, saved.pendingYeopjeon);
             matchPurifiedWaterTotal = Mathf.Max(0, saved.pendingPurifiedWater);
             matchHyangTotal = Mathf.Max(0, saved.pendingHyang);
@@ -638,6 +716,32 @@ namespace Yoegoe.UI
                     MergeLootEntry(pendingLoot, YutSquareRewardKind.Offering, offering, count);
                 }
             }
+
+            if (saved.pendingIngredientIds != null && saved.pendingIngredientCounts != null)
+            {
+                for (int i = 0; i < saved.pendingIngredientIds.Length && i < saved.pendingIngredientCounts.Length; i++)
+                {
+                    int count = saved.pendingIngredientCounts[i];
+                    if (count <= 0) continue;
+                    var id = (CookingIngredientId)saved.pendingIngredientIds[i];
+                    matchIngredientCounts.TryGetValue(id, out int cur);
+                    matchIngredientCounts[id] = cur + count;
+                    MergeLootEntry(pendingLoot, YutSquareRewardKind.IngredientBundle, null, count, id);
+                }
+            }
+
+            if (saved.pendingCharmTypes != null && saved.pendingCharmCounts != null)
+            {
+                for (int i = 0; i < saved.pendingCharmTypes.Length && i < saved.pendingCharmCounts.Length; i++)
+                {
+                    int count = saved.pendingCharmCounts[i];
+                    if (count <= 0) continue;
+                    var charm = (CookingCharmType)saved.pendingCharmTypes[i];
+                    matchCharmCounts.TryGetValue(charm, out int cur);
+                    matchCharmCounts[charm] = cur + count;
+                    MergeLootEntry(pendingLoot, YutSquareRewardKind.Charm, null, count, default, charm);
+                }
+            }
         }
 
         /// <summary>말 위치는 그대로 복원되는데 특수 칸만 새로 섞이면 안 되니, 저장된 배치가
@@ -647,7 +751,6 @@ namespace Yoegoe.UI
             if (saved.specialSquareNodeIds == null || saved.specialSquareNodeIds.Length == 0)
             {
                 YutBoardLayout.RegenerateSpecialSquares();
-                AssignSpecialOfferings();
                 return;
             }
 
@@ -680,8 +783,12 @@ namespace Yoegoe.UI
         void HandlePlayerPiecesMoved(IReadOnlyList<string> pieceIds)
         {
             foreach (var id in pieceIds)
-                if (teamById.TryGetValue(id, out var agent) && agent != null)
-                    agent.AddIntimacy(0.25f);
+            {
+                if (!teamById.TryGetValue(id, out var agent) || agent == null) continue;
+                agent.AddIntimacy(0.25f);
+                sessionIntimacyGain.TryGetValue(id, out float cur);
+                sessionIntimacyGain[id] = cur + 0.25f;
+            }
         }
 
         /// <summary>이무기한테 내 말이 잡혔을 때 — 말풍선 규칙: 반드시 먼저 "으악"이라고 말한
@@ -787,7 +894,7 @@ namespace Yoegoe.UI
                 yield break;
             }
 
-            ReshuffleRemainingSpecialSquaresKeepingOfferings(applyVisuals: false);
+            ReshuffleRemainingSpecialSquares(applyVisuals: false);
             var after = SnapshotSpecialSquareVisuals();
             var flights = BuildSpecialSquareFlights(before, after);
             yield return miniGame.PlaySpecialSquaresReshuffleAnim(flights);
@@ -824,7 +931,7 @@ namespace Yoegoe.UI
             var kinds = new[]
             {
                 YutBoardLayout.SpecialSquareKind.Coin,
-                YutBoardLayout.SpecialSquareKind.Offering,
+                YutBoardLayout.SpecialSquareKind.IngredientBag,
                 YutBoardLayout.SpecialSquareKind.Treasure,
                 YutBoardLayout.SpecialSquareKind.PurifiedWater,
             };
@@ -849,63 +956,15 @@ namespace Yoegoe.UI
             return flights;
         }
 
-        /// <summary>소진되지 않은 특수 칸 종류·공양물 내용물은 유지하고 노드 위치만 랜덤 재배치.</summary>
-        void ReshuffleRemainingSpecialSquaresKeepingOfferings(bool applyVisuals = true)
+        /// <summary>소진되지 않은 특수 칸 종류를 유지하고 노드 위치만 랜덤 재배치.</summary>
+        void ReshuffleRemainingSpecialSquares(bool applyVisuals = true)
         {
-            var offerings = new List<OfferingData>();
-            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
-            {
-                if (YutBoardLayout.GetSpecialKind(nodeId) != YutBoardLayout.SpecialSquareKind.Offering)
-                    continue;
-                if (specialOfferingByNode.TryGetValue(nodeId, out var offering) && offering != null)
-                    offerings.Add(offering);
-            }
-
             YutBoardLayout.ReshuffleRemainingSpecialSquares();
-
-            specialOfferingByNode.Clear();
-            var offeringNodes = new List<int>();
-            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
-            {
-                if (YutBoardLayout.GetSpecialKind(nodeId) == YutBoardLayout.SpecialSquareKind.Offering)
-                    offeringNodes.Add(nodeId);
-            }
-
-            // 기존 내용물을 우선 쓰고, 모자라면 이미 쓴 종류와 겹치지 않게 보충.
-            var assigned = new List<OfferingData>(offerings);
-            if (assigned.Count < offeringNodes.Count)
-            {
-                var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                for (int i = 0; i < assigned.Count; i++)
-                {
-                    if (assigned[i] != null && !string.IsNullOrEmpty(assigned[i].offeringId))
-                        usedIds.Add(assigned[i].offeringId);
-                }
-
-                var pool = GetOfferingPool();
-                var fresh = new List<OfferingData>();
-                for (int i = 0; i < pool.Count; i++)
-                {
-                    var o = pool[i];
-                    if (o == null || string.IsNullOrEmpty(o.offeringId) || usedIds.Contains(o.offeringId))
-                        continue;
-                    fresh.Add(o);
-                }
-
-                int need = offeringNodes.Count - assigned.Count;
-                var extras = PickDistinctOfferings(fresh.Count > 0 ? fresh : pool, need);
-                for (int i = 0; i < extras.Count; i++)
-                    assigned.Add(extras[i]);
-            }
-
-            for (int i = 0; i < offeringNodes.Count && i < assigned.Count; i++)
-                specialOfferingByNode[offeringNodes[i]] = assigned[i];
-
             if (applyVisuals)
                 ApplySpecialSquareVisuals();
         }
 
-        /// <summary>보드 위 특수 칸마다 무슨 보상인지 아이콘을 입힌다 — 엽전 칸/공양물 칸은 실제
+        /// <summary>보드 위 특수 칸마다 무슨 보상인지 아이콘을 입힌다 — 엽전·재료보따리·정화수는
         /// 내용물을, 보물상자 칸은 안이 뭔지 숨기고 상자 아이콘만 보여준다.</summary>
         void ApplySpecialSquareVisuals()
         {
@@ -924,9 +983,8 @@ namespace Yoegoe.UI
                     case YutBoardLayout.SpecialSquareKind.Coin:
                         icons[nodeId] = YutMiniGame.YeopjeonIcon();
                         break;
-                    case YutBoardLayout.SpecialSquareKind.Offering:
-                        if (specialOfferingByNode.TryGetValue(nodeId, out var offering) && offering != null)
-                            icons[nodeId] = offering.icon;
+                    case YutBoardLayout.SpecialSquareKind.IngredientBag:
+                        icons[nodeId] = YutMiniGame.IngredientBagIcon();
                         break;
                     case YutBoardLayout.SpecialSquareKind.Treasure:
                         icons[nodeId] = Resources.Load<Sprite>("UI/GiftChest_Closed");
@@ -1019,8 +1077,8 @@ namespace Yoegoe.UI
             {
                 case YutBoardLayout.SpecialSquareKind.Treasure:
                     return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateTreasure);
-                case YutBoardLayout.SpecialSquareKind.Offering:
-                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateOffering);
+                case YutBoardLayout.SpecialSquareKind.IngredientBag:
+                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateIngredientBag);
                 case YutBoardLayout.SpecialSquareKind.Coin:
                     return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateCoin);
                 case YutBoardLayout.SpecialSquareKind.PurifiedWater:
@@ -1266,26 +1324,8 @@ namespace Yoegoe.UI
         static OfferingData FindSavedOffering(List<OfferingData> pool, string id) =>
             pool.FirstOrDefault(o => o != null && o.offeringId == id) ?? OfferingCatalog.Find(id);
 
-        /// <summary>매치 시작 때 한 번 — 공양물 칸마다 공양물을 미리 뽑는다.
-        /// 칸이 여럿이면 서로 다른 종류로 맞춘다(풀이 부족하면 그때만 중복 허용).</summary>
-        void AssignSpecialOfferings()
-        {
-            specialOfferingByNode.Clear();
-            var pool = GetOfferingPool();
-            if (pool.Count == 0) return;
-
-            var nodeIds = new List<int>();
-            for (int nodeId = 0; nodeId < YutBoardLayout.NodeCount; nodeId++)
-            {
-                if (YutBoardLayout.GetSpecialKind(nodeId) == YutBoardLayout.SpecialSquareKind.Offering)
-                    nodeIds.Add(nodeId);
-            }
-            if (nodeIds.Count == 0) return;
-
-            var picks = PickDistinctOfferings(pool, nodeIds.Count);
-            for (int i = 0; i < nodeIds.Count; i++)
-                specialOfferingByNode[nodeIds[i]] = picks[i];
-        }
+        /// <summary>구 공양물 칸 배정 — 재료보따리로 바뀐 뒤엔 비운다.</summary>
+        void AssignSpecialOfferings() => specialOfferingByNode.Clear();
 
         /// <summary>pool에서 count개를 뽑되, 가능하면 offeringId가 겹치지 않게 한다.</summary>
         static List<OfferingData> PickDistinctOfferings(IReadOnlyList<OfferingData> pool, int count)
@@ -1391,6 +1431,25 @@ namespace Yoegoe.UI
                     Tint = overflowed ? new Color(1f, 0.55f, 0.85f, 1f) : (Color?)null,
                 });
             }
+            foreach (var kv in matchIngredientCounts)
+            {
+                if (kv.Value <= 0) continue;
+                items.Add(new YutMiniGame.CollectedItemView
+                {
+                    Icon = YutMiniGame.IngredientBagIcon(),
+                    Count = kv.Value,
+                    Label = CookingRecipeCatalog.DisplayName(kv.Key),
+                });
+            }
+            foreach (var kv in matchCharmCounts)
+            {
+                if (kv.Value <= 0) continue;
+                items.Add(new YutMiniGame.CollectedItemView
+                {
+                    Count = kv.Value,
+                    Label = YutRewards.CharmDisplayName(kv.Key),
+                });
+            }
             miniGame.ShowCollectedItems(items);
         }
 
@@ -1408,6 +1467,16 @@ namespace Yoegoe.UI
             if (matchHyangTotal > 0) parts.Add($"향 {matchHyangTotal}개");
             if (matchAdTicketTotal > 0) parts.Add($"광고보상권 {matchAdTicketTotal}개");
             if (matchYutTokenTotal > 0) parts.Add($"윷 토큰 {matchYutTokenTotal}개");
+            foreach (var kv in matchIngredientCounts)
+            {
+                if (kv.Value <= 0) continue;
+                parts.Add($"{CookingRecipeCatalog.DisplayName(kv.Key)} {kv.Value}개");
+            }
+            foreach (var kv in matchCharmCounts)
+            {
+                if (kv.Value <= 0) continue;
+                parts.Add($"{YutRewards.CharmDisplayName(kv.Key)} {kv.Value}개");
+            }
             return parts.Count > 0 ? string.Join(", ", parts) + "를 얻었다" : null;
         }
 
@@ -1464,7 +1533,6 @@ namespace Yoegoe.UI
         void ResetSpecialSquares()
         {
             YutBoardLayout.RegenerateSpecialSquares();
-            AssignSpecialOfferings();
             ApplySpecialSquareVisuals();
         }
 
@@ -1798,45 +1866,28 @@ namespace Yoegoe.UI
             pendingFinishStack = stack;
             // 보상은 이번 골인 스택이 아니라 이번 판에서 완주한 말 전체 수 기준 — 말들이 따로
             // 골인해서 "계속하기"를 거쳤어도 먼저 들어온 말의 몫이 누락되지 않도록 한다.
-            pendingFinishPurifiedWater = YutRewards.FinishPurifiedWaterAmount(totalFinished);
+            pendingFinishCharmCount = Mathf.Max(1, totalFinished);
+            GrantFinishRewardAndNotice();
+        }
 
-            // 가진 말을 FinishAdBonusStackCount마리 전부 업고 한 번에 완주할 때만 광고 2배 선택.
-            if (YutRewards.OffersFinishAdBonus(stack))
+        /// <summary>완주 부적 지급 후 안내.
+        /// 안내를 닫으면(도전 보상 있으면 이어서) 전원 완주이므로 판을 강제로 새 판으로 리셋한다.</summary>
+        void GrantFinishRewardAndNotice()
+        {
+            var charmNames = new List<string>(pendingFinishCharmCount);
+            for (int i = 0; i < pendingFinishCharmCount; i++)
             {
-                ShowRewardChoice(
-                    $"{stack}마리 업고 완주 (×{stack})!\n정화수 {pendingFinishPurifiedWater}개",
-                    onPlain: HandleFinishRewardPlain,
-                    onAd: HandleFinishRewardAd);
-                return;
+                var charm = YutRewards.RollFinishCharm();
+                matchCharmCounts.TryGetValue(charm, out int cur);
+                matchCharmCounts[charm] = cur + 1;
+                TrackMatchLoot(YutSquareRewardKind.Charm, null, 1, default, charm);
+                charmNames.Add(YutRewards.CharmDisplayName(charm));
             }
 
-            GrantFinishRewardAndNotice(1);
-        }
-
-        void HandleFinishRewardPlain() => GrantFinishRewardAndNotice(1);
-
-        void HandleFinishRewardAd() => StartCoroutine(FinishRewardAdRoutine());
-
-        IEnumerator FinishRewardAdRoutine()
-        {
-            yield return new WaitForSecondsRealtime(YutRewards.SquareRewardAdWatchSeconds);
-            GrantFinishRewardAndNotice(2);
-        }
-
-        /// <summary>완주 정화수 지급 후 안내. multiplier는 광고 2배용.
-        /// 안내를 닫으면(도전 보상 있으면 이어서) 전원 완주이므로 판을 강제로 새 판으로 리셋한다.</summary>
-        void GrantFinishRewardAndNotice(int multiplier)
-        {
-            int water = pendingFinishPurifiedWater * multiplier;
-            // allowPostYutLootPresentation·grantRewardsToEconomyNow 이미 true — 바로 경제 지급 + 연출 목록.
-            matchPurifiedWaterTotal += water;
-            TrackMatchLoot(YutSquareRewardKind.PurifiedWater, null, water);
-
+            string charmsLine = string.Join(", ", charmNames);
             string message = pendingFinishStack > 1
-                ? $"완주! {pendingFinishStack}마리 업고 ×{pendingFinishStack}\n정화수 {water}개 획득"
-                : $"완주! 정화수 {water}개 획득";
-            if (multiplier > 1)
-                message += $"\n(광고 ×{multiplier})";
+                ? $"완주! {pendingFinishStack}마리 업고 ×{pendingFinishStack}\n부적: {charmsLine}"
+                : $"완주! 부적 획득: {charmsLine}";
 
             string collected = BuildCollectedItemsSummary();
             if (!string.IsNullOrEmpty(collected))
@@ -1901,6 +1952,34 @@ namespace Yoegoe.UI
                     TrackMatchLoot(YutSquareRewardKind.YutToken, null, amount);
                     miniGame.AddPlayLogEntry($"윷 토큰 {amount}개 획득.");
                     return $"윷 토큰 {amount}개";
+                case YutSquareRewardKind.IngredientBundle:
+                    {
+                        if (reward.Ingredients == null || reward.Ingredients.Length == 0)
+                            return null;
+                        var parts = new List<string>();
+                        for (int i = 0; i < reward.Ingredients.Length; i++)
+                        {
+                            var id = reward.Ingredients[i];
+                            matchIngredientCounts.TryGetValue(id, out int cur);
+                            matchIngredientCounts[id] = cur + amount;
+                            TrackMatchLoot(YutSquareRewardKind.IngredientBundle, null, amount, id);
+                            parts.Add(CookingRecipeCatalog.DisplayName(id));
+                        }
+                        string desc = string.Join(", ", parts);
+                        if (amount > 1) desc += $" ×{amount}";
+                        miniGame.AddPlayLogEntry($"재료보따리 획득: {desc}");
+                        return $"재료 {desc}";
+                    }
+                case YutSquareRewardKind.Charm:
+                    {
+                        var charm = reward.Charm;
+                        matchCharmCounts.TryGetValue(charm, out int cur);
+                        matchCharmCounts[charm] = cur + amount;
+                        TrackMatchLoot(YutSquareRewardKind.Charm, null, amount, default, charm);
+                        string name = YutRewards.CharmDisplayName(charm);
+                        miniGame.AddPlayLogEntry($"{name} {amount}개 획득.");
+                        return $"{name} {amount}개";
+                    }
                 default:
                     return null;
             }
@@ -2458,7 +2537,7 @@ namespace Yoegoe.UI
         static string SquareRewardQaLabel(YutBoardLayout.SpecialSquareKind kind) => kind switch
         {
             YutBoardLayout.SpecialSquareKind.Coin => "엽전",
-            YutBoardLayout.SpecialSquareKind.Offering => "공양물",
+            YutBoardLayout.SpecialSquareKind.IngredientBag => "재료보따리",
             YutBoardLayout.SpecialSquareKind.Treasure => "보물상자",
             YutBoardLayout.SpecialSquareKind.PurifiedWater => "정화수",
             _ => kind.ToString(),
@@ -2546,15 +2625,11 @@ namespace Yoegoe.UI
             {
                 { 8, YutBoardLayout.SpecialSquareKind.Coin },
                 { 9, YutBoardLayout.SpecialSquareKind.Coin },
-                { 11, YutBoardLayout.SpecialSquareKind.Coin },
-                { 12, YutBoardLayout.SpecialSquareKind.Offering },
-                { 13, YutBoardLayout.SpecialSquareKind.Offering },
+                { 12, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 { 14, YutBoardLayout.SpecialSquareKind.Treasure },
                 { 16, YutBoardLayout.SpecialSquareKind.PurifiedWater },
-                { 17, YutBoardLayout.SpecialSquareKind.PurifiedWater },
             };
             YutBoardLayout.RestoreSpecialSquares(kinds);
-            AssignSpecialOfferings();
 
             match.OpponentPiece.NodeId = YutBoardLayout.JjiMo;
             match.OpponentPiece.Finished = false;
@@ -2653,15 +2728,11 @@ namespace Yoegoe.UI
             {
                 { 8, YutBoardLayout.SpecialSquareKind.Coin },
                 { 9, YutBoardLayout.SpecialSquareKind.Coin },
-                { 11, YutBoardLayout.SpecialSquareKind.Coin },
-                { 12, YutBoardLayout.SpecialSquareKind.Offering },
-                { 13, YutBoardLayout.SpecialSquareKind.Offering },
+                { 12, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 { 14, YutBoardLayout.SpecialSquareKind.Treasure },
                 { 16, YutBoardLayout.SpecialSquareKind.PurifiedWater },
-                { 17, YutBoardLayout.SpecialSquareKind.PurifiedWater },
             };
             YutBoardLayout.RestoreSpecialSquares(kinds);
-            AssignSpecialOfferings();
 
             var piece = match.PlayerPieces[0];
             piece.NodeId = playerNode;
@@ -2702,9 +2773,7 @@ namespace Yoegoe.UI
             {
                 YutBoardLayout.SpecialSquareKind.Coin,
                 YutBoardLayout.SpecialSquareKind.Coin,
-                YutBoardLayout.SpecialSquareKind.Coin,
-                YutBoardLayout.SpecialSquareKind.Offering,
-                YutBoardLayout.SpecialSquareKind.Offering,
+                YutBoardLayout.SpecialSquareKind.IngredientBag,
                 YutBoardLayout.SpecialSquareKind.Treasure,
                 YutBoardLayout.SpecialSquareKind.PurifiedWater,
             };
@@ -2716,12 +2785,11 @@ namespace Yoegoe.UI
                     ? YutBoardLayout.SpecialSquareKind.Coin
                     : extraKinds[i];
                 if (kind == targetKind)
-                    kind = YutBoardLayout.SpecialSquareKind.Offering;
+                    kind = YutBoardLayout.SpecialSquareKind.IngredientBag;
                 kinds[extras[i]] = kind;
             }
 
             YutBoardLayout.RestoreSpecialSquares(kinds);
-            AssignSpecialOfferings();
 
             var piece = match.PlayerPieces[0];
             piece.NodeId = approachNode;

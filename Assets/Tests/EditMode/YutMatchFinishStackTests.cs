@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Yoegoe.Economy;
 using Yoegoe.Minigames.Yut;
 
 namespace Yoegoe.Tests.EditMode
 {
     /// <summary>
-    /// 완주 보상 배율의 근거는 "이번 골인에 같이 들어온 업기 스택 수"다.
-    /// YutMatch가 OnMatchEnded(finishStackCount) / OnPlayerPieceFinished(ids)로
-    /// 그 수를 넘기는 계약을 고정한다 — UI(YutScreen)는 이 값만 믿고 ×보상·광고 분기를 탄다.
+    /// 완주 시 같이 들어온 업기 스택 수·전원 완주 종료 계약을 고정한다.
+    /// 완주 보상은 부적(말 수만큼) — YutRewards.RollFinishCharm.
     /// </summary>
     public class YutMatchFinishStackTests
     {
@@ -121,17 +121,14 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void FinishRewardAmounts_MatchScreenContract()
+        public void FinishCharm_IsInventoryPool()
         {
-            // YutRewards: 정화수 1/마리, 배율 = stack, 광고 시 ×2.
-            Assert.AreEqual(1, YutRewards.FinishPurifiedWaterAmount(1));
-            Assert.AreEqual(2, YutRewards.FinishPurifiedWaterAmount(2));
-            Assert.AreEqual(4, YutRewards.FinishPurifiedWaterAmount(YutRewards.FinishAdBonusStackCount));
-            Assert.AreEqual(8, YutRewards.FinishPurifiedWaterAmount(YutRewards.FinishAdBonusStackCount)
-                * YutRewards.SquareRewardAdMultiplier);
-            Assert.AreEqual(3, YutRewards.FinishPurifiedWaterAmount(3));
-            Assert.IsFalse(YutRewards.OffersFinishAdBonus(3));
-            Assert.IsTrue(YutRewards.OffersFinishAdBonus(4));
+            // 완주 보상 = 사전 부적 5종 균등 (나가리·정화수 광고 2배 모델 폐기).
+            for (int i = 0; i < 20; i++)
+            {
+                var c = YutRewards.RollFinishCharm();
+                Assert.IsTrue(GameEconomy.IsInventoryCharm(c));
+            }
         }
     }
 }

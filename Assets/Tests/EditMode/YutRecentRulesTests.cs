@@ -148,16 +148,16 @@ namespace Yoegoe.Tests.EditMode
         // ---------- 특수 칸 재배치 ----------
 
         [Test]
-        public void RegenerateSpecialSquares_IncludesTwoPurifiedWater()
+        public void RegenerateSpecialSquares_HasFivePlannedKinds()
         {
             Random.InitState(42);
             YutBoardLayout.RegenerateSpecialSquares();
             var counts = CountKinds();
-            Assert.AreEqual(3, counts[YutBoardLayout.SpecialSquareKind.Coin]);
-            Assert.AreEqual(2, counts[YutBoardLayout.SpecialSquareKind.Offering]);
+            Assert.AreEqual(2, counts[YutBoardLayout.SpecialSquareKind.Coin]);
+            Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.IngredientBag]);
             Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.Treasure]);
-            Assert.AreEqual(2, counts[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
-            Assert.AreEqual(8, OccupiedSpecialNodes().Count);
+            Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
+            Assert.AreEqual(5, OccupiedSpecialNodes().Count);
         }
 
         [Test]
@@ -167,7 +167,7 @@ namespace Yoegoe.Tests.EditMode
             {
                 { 1, YutBoardLayout.SpecialSquareKind.Coin },
                 { 2, YutBoardLayout.SpecialSquareKind.Coin },
-                { 3, YutBoardLayout.SpecialSquareKind.Offering },
+                { 3, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 { 4, YutBoardLayout.SpecialSquareKind.Treasure },
                 { 6, YutBoardLayout.SpecialSquareKind.PurifiedWater },
             });
@@ -175,7 +175,7 @@ namespace Yoegoe.Tests.EditMode
 
             var beforeKinds = CountKinds();
             Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.Coin]);
-            Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.Offering]);
+            Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.IngredientBag]);
             Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.Treasure]);
             Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
 
@@ -184,7 +184,7 @@ namespace Yoegoe.Tests.EditMode
 
             var afterKinds = CountKinds();
             Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.Coin], afterKinds[YutBoardLayout.SpecialSquareKind.Coin]);
-            Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.Offering], afterKinds[YutBoardLayout.SpecialSquareKind.Offering]);
+            Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.IngredientBag], afterKinds[YutBoardLayout.SpecialSquareKind.IngredientBag]);
             Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.Treasure], afterKinds[YutBoardLayout.SpecialSquareKind.Treasure]);
             Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.PurifiedWater], afterKinds[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
             Assert.AreEqual(4, OccupiedSpecialNodes().Count);
@@ -205,7 +205,7 @@ namespace Yoegoe.Tests.EditMode
             YutBoardLayout.RestoreSpecialSquares(new Dictionary<int, YutBoardLayout.SpecialSquareKind>
             {
                 { 1, YutBoardLayout.SpecialSquareKind.Coin },
-                { 2, YutBoardLayout.SpecialSquareKind.Offering },
+                { 2, YutBoardLayout.SpecialSquareKind.IngredientBag },
             });
             var before = OccupiedSpecialNodes();
 
@@ -215,7 +215,7 @@ namespace Yoegoe.Tests.EditMode
                 YutBoardLayout.RestoreSpecialSquares(new Dictionary<int, YutBoardLayout.SpecialSquareKind>
                 {
                     { 1, YutBoardLayout.SpecialSquareKind.Coin },
-                    { 2, YutBoardLayout.SpecialSquareKind.Offering },
+                    { 2, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 });
                 Random.InitState(seed);
                 YutBoardLayout.ReshuffleRemainingSpecialSquares();

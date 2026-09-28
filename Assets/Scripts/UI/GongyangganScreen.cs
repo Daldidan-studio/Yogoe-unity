@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Yoegoe.Cooking;
+using Yoegoe.Economy;
 
 namespace Yoegoe.UI
 {
@@ -180,9 +181,14 @@ public class GongyangganScreen : MonoBehaviour
     void OnStart()
     {
         if (session == null) return;
-        // 시작 전 선택 부적으로 재딜
+        // 시작 전 선택 부적으로 재딜 — 보유 부적만 소모
         if (!session.Running)
         {
+            if (selectedCharm != CookingCharmType.None)
+            {
+                if (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendCharm(selectedCharm))
+                    selectedCharm = CookingCharmType.None;
+            }
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
             session = new CookingSession();
@@ -197,6 +203,11 @@ public class GongyangganScreen : MonoBehaviour
     void SelectCharm(CookingCharmType charm)
     {
         if (session != null && session.Running) return;
+        if (charm != CookingCharmType.None)
+        {
+            int held = GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(charm) : 0;
+            if (held <= 0 && selectedCharm != charm) return;
+        }
         selectedCharm = selectedCharm == charm ? CookingCharmType.None : charm;
         if (session != null)
         {
@@ -239,7 +250,9 @@ public class GongyangganScreen : MonoBehaviour
         }
         if (statusText != null)
         {
-            string charm = selectedCharm == CookingCharmType.None ? "부적 없음" : CharmLabel(selectedCharm);
+            string charm = selectedCharm == CookingCharmType.None
+                ? "부적 없음"
+                : $"{CharmLabel(selectedCharm)} (보유 {(GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(selectedCharm) : 0)})";
             statusText.text = session.Running ? $"요리 중 · {charm}" : $"준비 · {charm}";
         }
         if (nagariButton != null)
@@ -282,9 +295,19 @@ public class GongyangganScreen : MonoBehaviour
             if (charmButtons[i] == null) continue;
             var img = charmButtons[i].GetComponent<Image>();
             var t = CharmAt(i);
+            int held = GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(t) : 0;
             bool sel = selectedCharm == t;
+            bool canUse = held > 0;
             if (img != null)
-                img.color = sel ? new Color(0.85f, 0.65f, 0.3f) : new Color(0.4f, 0.35f, 0.3f);
+            {
+                if (sel) img.color = new Color(0.85f, 0.65f, 0.3f);
+                else if (canUse) img.color = new Color(0.4f, 0.35f, 0.3f);
+                else img.color = new Color(0.22f, 0.2f, 0.18f, 0.7f);
+            }
+            charmButtons[i].interactable = canUse || sel;
+            var label = charmButtons[i].GetComponentInChildren<Text>(true);
+            if (label != null)
+                label.text = $"{CharmLabel(t)}\n×{held}";
         }
     }
 

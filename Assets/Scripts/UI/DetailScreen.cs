@@ -564,6 +564,7 @@ namespace Yoegoe.UI
         {
             if (rootCanvas == null || portraitDropRt == null) return;
             OfferingGainPopup.Play(rootCanvas.transform, portraitDropRt, font, staminaGain, intimacyGain);
+            IntimacyHeartFx.PlayUi(rootCanvas.transform, portraitDropRt, intimacyGain);
         }
 
         static bool IsPurified(OfferingData offering)

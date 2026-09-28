@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Yoegoe.Characters;
+using Yoegoe.Cooking;
 using Yoegoe.Data;
 using Yoegoe.Minigames.Yut;
 
@@ -15,14 +16,19 @@ namespace Yoegoe.UI
         public int Amount;
         public Sprite Icon;
         public string Label;
+        public CookingIngredientId Ingredient;
+        public CookingCharmType Charm;
 
-        public PostYutLootEntry(YutSquareRewardKind kind, OfferingData offering, int amount, Sprite icon, string label)
+        public PostYutLootEntry(YutSquareRewardKind kind, OfferingData offering, int amount, Sprite icon, string label,
+            CookingIngredientId ingredient = default, CookingCharmType charm = CookingCharmType.None)
         {
             Kind = kind;
             Offering = offering;
             Amount = amount;
             Icon = icon;
             Label = label;
+            Ingredient = ingredient;
+            Charm = charm;
         }
     }
 

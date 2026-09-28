@@ -56,6 +56,12 @@ namespace Yoegoe.Save
         public int pendingYutToken;
         public string[] pendingOfferingIds = Array.Empty<string>();
         public int[] pendingOfferingCounts = Array.Empty<int>();
+
+        /// <summary>미지급 재료(CookingIngredientId)·부적(CookingCharmType) 병렬 배열.</summary>
+        public int[] pendingIngredientIds = Array.Empty<int>();
+        public int[] pendingIngredientCounts = Array.Empty<int>();
+        public int[] pendingCharmTypes = Array.Empty<int>();
+        public int[] pendingCharmCounts = Array.Empty<int>();
     }
 
     [Serializable]
@@ -106,6 +112,9 @@ namespace Yoegoe.Save
 
         /// <summary>특수 수집품 개수 (SpecialItemId 순서 — 황금쌀·황금꿀).</summary>
         public int[] specialItems;
+
+        /// <summary>요리 부적 개수 (CookingCharmType 순서). null/빈이면 구세이브 — 0으로.</summary>
+        public int[] charms;
     }
 
     [Serializable]
