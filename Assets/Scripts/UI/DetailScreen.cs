@@ -621,6 +621,7 @@ namespace Yoegoe.UI
                 && entry != null)
                 prefs = entry.preferredOfferings;
 
+            int shown = 0;
             if (prefs == null || prefs.Length == 0)
             {
                 var soPrefs = currentAgent?.Data?.preferredOfferings;
@@ -633,23 +634,30 @@ namespace Yoegoe.UI
                             CreatePreferredChip(preferredRow, o.displayName, o.icon, o);
                         else
                             CreateHiddenPreferredChip(preferredRow);
+                        shown++;
                     }
                 }
-                return;
+            }
+            else
+            {
+                foreach (var p in prefs)
+                {
+                    if (p == null) continue;
+                    shown++;
+                    if (!currentAgent.Stats.IsPreferenceRevealed(p.id))
+                    {
+                        CreateHiddenPreferredChip(preferredRow);
+                        continue;
+                    }
+                    var resolved = CharacterCatalog.FindOffering(p.id);
+                    string label = !string.IsNullOrEmpty(p.name) ? p.name : p.id;
+                    CreatePreferredChip(preferredRow, label, resolved != null ? resolved.icon : null, resolved);
+                }
             }
 
-            foreach (var p in prefs)
-            {
-                if (p == null) continue;
-                if (!currentAgent.Stats.IsPreferenceRevealed(p.id))
-                {
-                    CreateHiddenPreferredChip(preferredRow);
-                    continue;
-                }
-                var resolved = CharacterCatalog.FindOffering(p.id);
-                string label = !string.IsNullOrEmpty(p.name) ? p.name : p.id;
-                CreatePreferredChip(preferredRow, label, resolved != null ? resolved.icon : null, resolved);
-            }
+            // 선호 공양물이 없는 요괴(옥토끼) — 처음부터 X로 "없음"을 알려 준다
+            if (shown == 0)
+                CreateMarkChip(preferredRow, "X", "없음");
         }
 
         private void RebuildInventoryRow(string highlightOfferingId = null)
@@ -695,14 +703,17 @@ namespace Yoegoe.UI
             && IsPreferred(offering);
 
         /// <summary>아직 먹여 보지 않은 선호 — 이름·아이콘 없이 "?" (드래그 불가).</summary>
-        private void CreateHiddenPreferredChip(Transform parent)
+        private void CreateHiddenPreferredChip(Transform parent) => CreateMarkChip(parent, "?", "???");
+
+        /// <summary>아이콘 대신 큰 글자 하나(?, X)를 띄우는 드래그 불가 칩.</summary>
+        private void CreateMarkChip(Transform parent, string mark, string label)
         {
-            CreatePreferredChip(parent, "???", null, null);
+            CreatePreferredChip(parent, label, null, null);
             var circle = parent.GetChild(parent.childCount - 1).Find("Circle");
             if (circle == null) return;
             var icon = circle.Find("Icon");
             if (icon != null) icon.gameObject.SetActive(false);
-            var q = CreateText(circle, "?", F.title, TextAnchor.MiddleCenter);
+            var q = CreateText(circle, mark, F.title, TextAnchor.MiddleCenter);
             q.color = C.textDark;
             q.raycastTarget = false;
             SetupRect(q.gameObject, circle, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
