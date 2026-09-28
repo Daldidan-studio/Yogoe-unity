@@ -14,8 +14,7 @@ namespace Yoegoe.UI
 {
     /// <summary>
     /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
-    /// Prefab/씬에 셸이 있으면 그대로 쓰고, 없으면 Play 때 코드로 조립한다.
-    /// 선호·인벤토리 칩은 항상 코드로 갱신. 정화수·공양물은 드래그해서 본문에 놓아 먹인다.
+    /// 레이아웃은 Prefab만 사용. 선호·인벤토리 칩은 항상 코드로 갱신. 정화수·공양물은 드래그해서 본문에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
     {
@@ -24,7 +23,7 @@ namespace Yoegoe.UI
         public OfferingData[] offerings;
         public Sprite purifiedWaterIcon;
 
-        [Header("셸 (Prefab/씬 — 비어 있으면 Play 시 코드 조립)")]
+        [Header("셸 (Prefab — 필수)")]
         [SerializeField] GameObject root;
         [SerializeField] Canvas rootCanvas;
         [SerializeField] Image portraitImage;
@@ -98,6 +97,7 @@ namespace Yoegoe.UI
         public void Open(CharacterAgent agent, string highlightOfferingId = null)
         {
             EnsureBuilt();
+            if (!HasPrefabShell || root == null) return;
             currentAgent = agent;
             root.SetActive(true);
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
@@ -126,7 +126,7 @@ namespace Yoegoe.UI
             if (intimacyColGO != null)
             {
                 intimacyColGO.SetActive(true);
-                // 예전 Bake본에 남은 반투명 CanvasGroup 복구
+                // 예전 Prefab에 남은 반투명 CanvasGroup 복구
                 var cg = intimacyColGO.GetComponent<CanvasGroup>();
                 if (cg != null)
                 {
@@ -172,7 +172,7 @@ namespace Yoegoe.UI
             currentAgent = null;
         }
 
-        /// <summary>Prefab 셸이 있으면 유지, 없으면 코드로 조립. 에디터 Bake도 이 경로를 쓴다.</summary>
+        /// <summary>Prefab 셸만 사용. 없으면 에러 (런타임 생성 없음).</summary>
         public void EnsureBuilt()
         {
             if (HasPrefabShell)
@@ -182,17 +182,8 @@ namespace Yoegoe.UI
                 return;
             }
 
-            if (root != null) return;
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Build();
-        }
-
-        /// <summary>에디터 Bake용. Prefab에서 레이아웃을 볼 수 있게 루트를 켠다.</summary>
-        public void EnsureBuiltForBake()
-        {
-            EnsureBuilt();
-            if (root != null) root.SetActive(true);
+            Debug.LogError(
+                "[DetailScreen] Prefab 셸이 없습니다. Main 씬에 DetailScreen Prefab 인스턴스를 배치하세요.");
         }
 
         /// <summary>
@@ -836,430 +827,6 @@ namespace Yoegoe.UI
             if (data.walkRight != null) foreach (var s in data.walkRight) if (s != null) return s;
             if (data.walkUp != null) foreach (var s in data.walkUp) if (s != null) return s;
             return null;
-        }
-
-        // ---------------- build ----------------
-
-        private void Build()
-        {
-            var canvasGO = new GameObject("Canvas_Detail");
-            canvasGO.transform.SetParent(transform, false);
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 600;
-            rootCanvas = canvas;
-
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            // 전체 딤 — 바깥 탭으로 닫기 (맵 입력도 차단)
-            root = new GameObject("Root");
-            var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var dim = root.AddComponent<Image>();
-            dim.color = C.dim;
-            dimCloseButton = root.AddComponent<Button>();
-            dimCloseButton.targetGraphic = dim;
-            dimCloseButton.onClick.AddListener(Close);
-
-            // 화면 중앙 다이얼로그
-            var dialog = new GameObject("Dialog");
-            var dialogRt = SetupRect(dialog, rootRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1480f));
-            var dialogBg = dialog.AddComponent<Image>();
-            dialogBg.color = C.detailBg;
-            // 다이얼로그 클릭이 딤 닫기를 치지 않게
-            var dialogBlock = dialog.AddComponent<Button>();
-            dialogBlock.targetGraphic = dialogBg;
-            dialogBlock.transition = Selectable.Transition.None;
-
-            // 닫기
-            var closeGO = new GameObject("CloseButton");
-            SetupRect(closeGO, dialogRt, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-16f, -16f), new Vector2(56f, 56f));
-            var closeImg = closeGO.AddComponent<Image>();
-            closeImg.color = C.border;
-            closeButton = closeGO.AddComponent<Button>();
-            closeButton.targetGraphic = closeImg;
-            closeButton.onClick.AddListener(Close);
-            CreateCloseBar(closeGO.transform, 45f);
-            CreateCloseBar(closeGO.transform, -45f);
-
-            // 본문: 하단 바 위 (급여 드롭 존)
-            var body = new GameObject("Body");
-            var bodyRt = SetupRect(body, dialogRt, new Vector2(0f, 0.22f), new Vector2(1f, 1f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            feedDropRt = bodyRt;
-            // top padding for close
-            var bodyPad = new GameObject("BodyInner");
-            var bodyInner = SetupRect(bodyPad, bodyRt, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.90f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-
-            // 좌: 초상 (드롭 타겟)
-            var portraitPanel = CreateBorderedPanel(bodyInner, "PortraitPanel", C.portraitBg);
-            portraitDropRt = portraitPanel.GetComponent<RectTransform>();
-            SetupRect(portraitPanel, bodyInner, new Vector2(0f, 0f), new Vector2(0.42f, 1f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var portraitInner = FindInner(portraitPanel);
-            portraitPanelHighlight = portraitInner.GetComponent<Image>();
-            var portraitGO = new GameObject("Portrait");
-            SetupRect(portraitGO, portraitInner, new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            portraitImage = portraitGO.AddComponent<Image>();
-            portraitImage.preserveAspect = true;
-            portraitImage.raycastTarget = false;
-            portraitRt = portraitGO.GetComponent<RectTransform>();
-            portraitBaseScale = portraitRt.localScale;
-
-            // 우: 정보 스택
-            var infoCol = new GameObject("InfoColumn");
-            var infoRt = SetupRect(infoCol, bodyInner, new Vector2(0.45f, 0f), new Vector2(1f, 1f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var infoLayout = infoCol.AddComponent<VerticalLayoutGroup>();
-            infoLayout.spacing = 16;
-            infoLayout.padding = new RectOffset(0, 0, 0, 0);
-            infoLayout.childAlignment = TextAnchor.UpperCenter;
-            infoLayout.childControlHeight = true;
-            infoLayout.childControlWidth = true;
-            infoLayout.childForceExpandHeight = false;
-            infoLayout.childForceExpandWidth = true;
-
-            // 이름 패널
-            var namePanel = CreateBorderedPanel(infoRt, "NamePanel", C.panel);
-            namePanel.AddComponent<LayoutElement>().preferredHeight = 120;
-            var nameInner = FindInner(namePanel);
-            var nameLabel = CreateText(nameInner, "이름", F.label, TextAnchor.UpperLeft);
-            nameLabel.color = C.textDark;
-            nameLabel.fontStyle = FontStyle.Bold;
-            SetupRect(nameLabel.gameObject, nameInner, new Vector2(0.05f, 0.55f), new Vector2(0.95f, 0.95f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-            nameValueText = CreateText(nameInner, "", F.title, TextAnchor.MiddleLeft);
-            nameValueText.color = C.textDark;
-            SetupRect(nameValueText.gameObject, nameInner, new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.58f),
-                new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
-            statusText = CreateText(nameInner, "", F.small, TextAnchor.LowerRight);
-            statusText.color = C.mutedLabel;
-            SetupRect(statusText.gameObject, nameInner, new Vector2(0.4f, 0.02f), new Vector2(0.95f, 0.28f),
-                new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
-
-            // 스탯 패널 (친밀도 | 기력)
-            var statsPanel = CreateBorderedPanel(infoRt, "StatsPanel", C.panel);
-            statsPanel.AddComponent<LayoutElement>().preferredHeight = 160;
-            var statsInner = FindInner(statsPanel);
-
-            var intCol = new GameObject("IntimacyCol");
-            intimacyColGO = intCol;
-            SetupRect(intCol, statsInner, new Vector2(0.03f, 0.08f), new Vector2(0.48f, 0.92f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            BuildStatColumn(intCol.transform, "친밀도", out intimacyLevelText, out intimacyFill, out intimacyFillRt, C.intimacyPink, true);
-
-            var staCol = new GameObject("StaminaCol");
-            SetupRect(staCol, statsInner, new Vector2(0.52f, 0.08f), new Vector2(0.97f, 0.92f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            BuildStatColumn(staCol.transform, "기력", out staminaValueText, out staminaFill, out staminaFillRt, C.staminaGreen, false);
-
-            // 설명 패널
-            var descPanel = CreateBorderedPanel(infoRt, "DescPanel", C.panel);
-            var descLe = descPanel.AddComponent<LayoutElement>();
-            descLe.preferredHeight = 280;
-            descLe.flexibleHeight = 1f;
-            var descInner = FindInner(descPanel);
-            var descLabel = CreateText(descInner, "캐릭터 설명", F.label, TextAnchor.UpperLeft);
-            descLabel.color = C.textDark;
-            descLabel.fontStyle = FontStyle.Bold;
-            SetupRect(descLabel.gameObject, descInner, new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            var scrollGO = new GameObject("DescScroll");
-            SetupRect(scrollGO, descInner, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.78f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var scroll = scrollGO.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-
-            var viewport = new GameObject("Viewport");
-            var vpRt = SetupRect(viewport, scrollGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            viewport.AddComponent<RectMask2D>();
-            var vpImg = viewport.AddComponent<Image>();
-            vpImg.color = new Color(1, 1, 1, 0.01f);
-
-            var content = new GameObject("Content");
-            var contentRt = SetupRect(content, vpRt, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
-                Vector2.zero, new Vector2(0f, 200f));
-            descriptionText = CreateText(contentRt, "", F.body, TextAnchor.UpperLeft);
-            descriptionText.color = C.textDark;
-            descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
-            var descTextRt = SetupRect(descriptionText.gameObject, contentRt, new Vector2(0f, 0f), new Vector2(1f, 1f),
-                new Vector2(0.5f, 1f), Vector2.zero, Vector2.zero);
-            var fitter = descriptionText.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            descriptionText.gameObject.AddComponent<LayoutElement>();
-
-            scroll.viewport = vpRt;
-            scroll.content = contentRt;
-
-            // 하단 바
-            var bottom = new GameObject("BottomBar");
-            var bottomRt = SetupRect(bottom, dialogRt, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.20f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var bottomLayout = bottom.AddComponent<HorizontalLayoutGroup>();
-            bottomLayout.spacing = 16;
-            bottomLayout.childAlignment = TextAnchor.MiddleCenter;
-            bottomLayout.childForceExpandWidth = false;
-            bottomLayout.childForceExpandHeight = true;
-            bottomLayout.childControlWidth = true;
-            bottomLayout.childControlHeight = true;
-            bottomLayout.padding = new RectOffset(8, 8, 8, 8);
-
-            CreatePurifiedWaterDragChip(bottomRt);
-
-            preferredHostGO = new GameObject("PreferredHost");
-            preferredRow = preferredHostGO.AddComponent<RectTransform>();
-            preferredRow.SetParent(bottomRt, false);
-            var prefHostLe = preferredHostGO.AddComponent<LayoutElement>();
-            // preferred=0 + flexible=1 → 칩 개수와 무관하게 정화수|…|인벤 사이 남은 폭만 사용
-            prefHostLe.minWidth = 0f;
-            prefHostLe.preferredWidth = 0f;
-            prefHostLe.flexibleWidth = 1f;
-            prefHostLe.preferredHeight = 140;
-            preferredHostGO.AddComponent<RectMask2D>();
-            var prefLayout = preferredHostGO.AddComponent<HorizontalLayoutGroup>();
-            prefLayout.spacing = 12;
-            prefLayout.childAlignment = TextAnchor.MiddleCenter;
-            prefLayout.childForceExpandWidth = false;
-            prefLayout.childForceExpandHeight = false;
-
-            inventoryButtonGO = CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
-            inventoryButton = inventoryButtonGO != null
-                ? inventoryButtonGO.transform.Find("IconBox")?.GetComponent<Button>()
-                : null;
-
-            feedHintText = CreateText(dialogRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", F.hint, TextAnchor.MiddleCenter);
-            feedHintText.color = C.feedHint;
-            SetupRect(feedHintText.gameObject, dialogRt, new Vector2(0.5f, 0.205f), new Vector2(0.5f, 0.205f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880, 28));
-
-            // 인벤토리 오버레이 (하단 바 위)
-            inventoryPanel = CreateBorderedPanel(dialogRt, "InventoryPanel", C.panel);
-            SetupRect(inventoryPanel, dialogRt, new Vector2(0.06f, 0.22f), new Vector2(0.94f, 0.42f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            inventoryPanel.SetActive(false);
-            var invInner = FindInner(inventoryPanel);
-            var invTitle = CreateText(invInner, "인벤토리", F.label, TextAnchor.UpperLeft);
-            invTitle.color = C.textDark;
-            invTitle.fontStyle = FontStyle.Bold;
-            SetupRect(invTitle.gameObject, invInner, new Vector2(0.04f, 0.75f), new Vector2(0.5f, 0.95f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            var invRowGO = new GameObject("InventoryRow");
-            inventoryRow = SetupRect(invRowGO, invInner, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.72f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var invLayout = invRowGO.AddComponent<HorizontalLayoutGroup>();
-            invLayout.spacing = 10;
-            invLayout.childAlignment = TextAnchor.MiddleLeft;
-            invLayout.childForceExpandWidth = false;
-        }
-
-        private void BuildStatColumn(Transform parent, string title, out Text valueText, out Image fill,
-            out RectTransform fillRt, Color fillColor, bool showHeart)
-        {
-            var titleT = CreateText(parent, title, F.label, TextAnchor.UpperLeft);
-            titleT.color = C.textDark;
-            titleT.fontStyle = FontStyle.Bold;
-            SetupRect(titleT.gameObject, parent, new Vector2(0f, 0.7f), new Vector2(0.55f, 1f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            valueText = CreateText(parent, "", F.label, TextAnchor.UpperRight);
-            valueText.color = C.textDark;
-            SetupRect(valueText.gameObject, parent, new Vector2(0.4f, 0.7f), new Vector2(1f, 1f),
-                new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
-
-            if (showHeart)
-            {
-                var heart = CreateText(parent, "♥", F.label, TextAnchor.MiddleLeft);
-                heart.color = C.intimacyPink;
-                SetupRect(heart.gameObject, parent, new Vector2(0f, 0.15f), new Vector2(0.15f, 0.55f),
-                    new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
-            }
-
-            float barLeft = showHeart ? 0.18f : 0f;
-            var barBgGO = new GameObject("BarBg");
-            SetupRect(barBgGO, parent, new Vector2(barLeft, 0.22f), new Vector2(1f, 0.48f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var barBg = barBgGO.AddComponent<Image>();
-            barBg.color = C.barTrack;
-
-            var fillGO = new GameObject("BarFill");
-            fillRt = SetupRect(fillGO, barBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            fill = fillGO.AddComponent<Image>();
-            fill.color = fillColor;
-            fill.raycastTarget = false;
-        }
-
-        private void CreatePurifiedWaterDragChip(Transform parent)
-        {
-            var go = new GameObject("Action_정화수");
-            go.transform.SetParent(parent, false);
-            purifiedDragGroup = go.AddComponent<CanvasGroup>();
-            var le = go.AddComponent<LayoutElement>();
-            le.minWidth = 120;
-            le.preferredWidth = 120;
-            le.flexibleWidth = 0f;
-            le.preferredHeight = 140;
-            le.layoutPriority = 2;
-
-            var v = go.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 6;
-            v.childAlignment = TextAnchor.MiddleCenter;
-            v.childForceExpandHeight = false;
-            v.childForceExpandWidth = true;
-            v.childControlHeight = true;
-            v.childControlWidth = true;
-
-            var iconBox = new GameObject("IconBox");
-            iconBox.transform.SetParent(go.transform, false);
-            iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
-            var iconBg = iconBox.AddComponent<Image>();
-            iconBg.color = C.accentBlue;
-
-            Sprite icon = purifiedWaterIcon;
-            var pw = FindPurifiedWater();
-            if (icon == null && pw != null) icon = pw.icon;
-
-            if (icon != null)
-            {
-                var iconGO = new GameObject("Icon");
-                SetupRect(iconGO, iconBox.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48, 48));
-                var img = iconGO.AddComponent<Image>();
-                img.sprite = icon;
-                img.preserveAspect = true;
-                img.raycastTarget = false;
-            }
-            else
-            {
-                var placeholder = CreateText(iconBox.transform, "정", F.title, TextAnchor.MiddleCenter);
-                placeholder.color = Color.white;
-                SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
-                    new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            }
-
-            var drag = iconBox.AddComponent<OfferingDragItem>();
-            drag.Configure(this, pw, purified: true, icon);
-            purifiedCountText = AttachCountBadge(iconBox.transform, pw, purified: true);
-
-            var tag = new GameObject("Label");
-            tag.transform.SetParent(go.transform, false);
-            tag.AddComponent<LayoutElement>().preferredHeight = 28;
-            var tagBg = tag.AddComponent<Image>();
-            tagBg.color = C.accentBlue;
-            tagBg.raycastTarget = false;
-            var t = CreateText(tag.transform, "정화수", F.small, TextAnchor.MiddleCenter);
-            t.color = Color.white;
-            SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-        }
-
-        private GameObject CreateSideActionButton(Transform parent, string label, Sprite icon, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject("Action_" + label);
-            go.transform.SetParent(parent, false);
-            var le = go.AddComponent<LayoutElement>();
-            le.minWidth = 120;
-            le.preferredWidth = 120;
-            le.flexibleWidth = 0f;
-            le.preferredHeight = 140;
-            le.layoutPriority = 2;
-
-            var v = go.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 6;
-            v.childAlignment = TextAnchor.MiddleCenter;
-            v.childForceExpandHeight = false;
-            v.childForceExpandWidth = true;
-            v.childControlHeight = true;
-            v.childControlWidth = true;
-
-            var iconBox = new GameObject("IconBox");
-            iconBox.transform.SetParent(go.transform, false);
-            iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
-            var iconBg = iconBox.AddComponent<Image>();
-            iconBg.color = C.accentBlue;
-            var btn = iconBox.AddComponent<Button>();
-            btn.targetGraphic = iconBg;
-            btn.onClick.AddListener(onClick);
-
-            if (icon != null)
-            {
-                var iconGO = new GameObject("Icon");
-                SetupRect(iconGO, iconBox.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48, 48));
-                var img = iconGO.AddComponent<Image>();
-                img.sprite = icon;
-                img.preserveAspect = true;
-                img.raycastTarget = false;
-            }
-            else
-            {
-                var placeholder = CreateText(iconBox.transform, label.Length > 0 ? label.Substring(0, 1) : "?",
-                    F.title, TextAnchor.MiddleCenter);
-                placeholder.color = Color.white;
-                SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
-                    new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-                placeholder.raycastTarget = false;
-            }
-
-            var tag = new GameObject("Label");
-            tag.transform.SetParent(go.transform, false);
-            tag.AddComponent<LayoutElement>().preferredHeight = 28;
-            var tagBg = tag.AddComponent<Image>();
-            tagBg.color = C.accentBlue;
-            var t = CreateText(tag.transform, label, F.small, TextAnchor.MiddleCenter);
-            t.color = Color.white;
-            SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            return go;
-        }
-
-        private GameObject CreateBorderedPanel(Transform parent, string name, Color fill)
-        {
-            var outer = new GameObject(name);
-            outer.transform.SetParent(parent, false);
-            var outerImg = outer.AddComponent<Image>();
-            outerImg.color = C.border;
-
-            var inner = new GameObject("Inner");
-            SetupRect(inner, outer.transform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var innerRt = inner.GetComponent<RectTransform>();
-            innerRt.offsetMin = new Vector2(3f, 3f);
-            innerRt.offsetMax = new Vector2(-3f, -3f);
-            var innerImg = inner.AddComponent<Image>();
-            innerImg.color = fill;
-            return outer;
-        }
-
-        static Transform FindInner(GameObject borderedPanel)
-        {
-            var t = borderedPanel.transform.Find("Inner");
-            return t != null ? t : borderedPanel.transform;
-        }
-
-        private static void CreateCloseBar(Transform parent, float zAngle)
-        {
-            var barGO = new GameObject("XBar");
-            var rt = SetupRect(barGO, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(32, 4));
-            rt.localRotation = Quaternion.Euler(0f, 0f, zAngle);
-            var img = barGO.AddComponent<Image>();
-            img.color = Color.white;
-            img.raycastTarget = false;
         }
 
         private Text CreateText(Transform parent, string initial, int fontSize, TextAnchor alignment)

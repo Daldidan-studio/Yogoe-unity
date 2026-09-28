@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -130,36 +129,9 @@ public class GongyangganScreen : MonoBehaviour
     {
         BindMissingRefsFromHierarchy();
         if (root != null) return true;
-
-        // Prefab 참조가 깨진 인스턴스 복구 (한 번만 셸 재생성)
-        Debug.LogWarning(
-            "[GongyangganScreen] Prefab 셸 참조가 비어 있어 복구합니다. " +
-            "가능하면 Yoegoe → Bake GongyangganScreen Prefab 을 다시 실행하세요.");
-        if (font == null)
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        Build();
-        BindMissingRefsFromHierarchy();
-        if (root != null) return true;
-
         Debug.LogError(
-            "[GongyangganScreen] Prefab 셸이 없습니다. Yoegoe → Bake GongyangganScreen Prefab 을 실행하세요.");
+            "[GongyangganScreen] Prefab 셸이 없습니다. Main 씬에 GongyangganScreen Prefab 인스턴스를 배치하세요.");
         return false;
-    }
-
-    public void EnsureBuiltForBake()
-    {
-#if UNITY_EDITOR
-        if (root == null)
-        {
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Build();
-        }
-        WireRuntimeListeners();
-        if (root != null) root.SetActive(true);
-#else
-        EnsureShell();
-#endif
     }
 
     void WireRuntimeListeners()
@@ -429,129 +401,6 @@ public class GongyangganScreen : MonoBehaviour
         if (resultPopup == null) resultPopup = rt.Find("ResultPopup")?.gameObject;
         if (resultPopup != null && resultBody == null)
             resultBody = resultPopup.transform.Find("Box/Body/Text")?.GetComponent<Text>();
-    }
-
-    void Build()
-    {
-        var canvasGO = new GameObject("Canvas_Gongyanggan", typeof(RectTransform));
-        canvasGO.transform.SetParent(transform, false);
-        var canvas = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 850;
-        var scaler = canvasGO.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1080, 1920);
-        scaler.matchWidthOrHeight = 1f;
-        canvasGO.AddComponent<GraphicRaycaster>();
-
-        root = new GameObject("Root", typeof(RectTransform));
-        var rootRt = Stretch(root, canvasGO.transform);
-        var bg = root.AddComponent<Image>();
-        bg.color = new Color(0.12f, 0.1f, 0.08f, 0.96f);
-
-        titleText = MakeLabel(rootRt, "Title", "공양간", 64, new Vector2(0.5f, 0.93f), new Vector2(600, 80));
-        timerText = MakeLabel(rootRt, "Timer", "15.0s", 48, new Vector2(0.85f, 0.93f), new Vector2(200, 60));
-        statusText = MakeLabel(rootRt, "Status", "준비", 32, new Vector2(0.5f, 0.87f), new Vector2(800, 50));
-
-        var railGO = new GameObject("CharmRail", typeof(RectTransform));
-        Place(railGO, rootRt, new Vector2(0.08f, 0.55f), new Vector2(0.5f, 0.5f), new Vector2(120, 520));
-        charmRail = railGO.transform;
-        string[] charmNames = { "+5초", "대각", "천리안", "회수", "몰빵" };
-        for (int i = 0; i < 5; i++)
-        {
-            var c = new GameObject("Charm_" + i, typeof(RectTransform));
-            Place(c, charmRail, new Vector2(0.5f, 1f - (i + 0.5f) / 5f), new Vector2(0.5f, 0.5f), new Vector2(100, 90));
-            var img = c.AddComponent<Image>();
-            img.color = new Color(0.4f, 0.35f, 0.3f);
-            c.AddComponent<Button>();
-            MakeLabel(c.transform, "Text", charmNames[i], 28, new Vector2(0.5f, 0.5f), new Vector2(100, 40));
-        }
-
-        var gridGO = new GameObject("Grid", typeof(RectTransform));
-        Place(gridGO, rootRt, new Vector2(0.58f, 0.52f), new Vector2(0.5f, 0.5f), new Vector2(720, 720));
-        gridHost = gridGO.transform;
-        float cell = 130f;
-        float gap = 8f;
-        float origin = -2f * (cell + gap);
-        for (int y = 0; y < CookingSession.GridSize; y++)
-        for (int x = 0; x < CookingSession.GridSize; x++)
-        {
-            var cellGO = new GameObject($"Cell_{x}_{y}", typeof(RectTransform));
-            var crt = cellGO.GetComponent<RectTransform>();
-            crt.SetParent(gridHost, false);
-            crt.sizeDelta = new Vector2(cell, cell);
-            crt.anchoredPosition = new Vector2(origin + x * (cell + gap), -origin - y * (cell + gap));
-            var img = cellGO.AddComponent<Image>();
-            img.color = new Color(0.35f, 0.28f, 0.22f);
-            MakeLabel(crt, "Text", "", 22, new Vector2(0.5f, 0.5f), new Vector2(120, 60));
-        }
-
-        startButton = MakeButton(rootRt, "Start", "불 지피기", new Vector2(0.5f, 0.14f), new Vector2(280, 80));
-        nagariButton = MakeButton(rootRt, "Nagari", "나가리", new Vector2(0.22f, 0.14f), new Vector2(180, 70));
-        extendButton = MakeButton(rootRt, "Extend", "광고 +15초", new Vector2(0.78f, 0.14f), new Vector2(220, 70));
-        closeButton = MakeButton(rootRt, "Close", "닫기", new Vector2(0.08f, 0.93f), new Vector2(120, 60));
-
-        resultPopup = new GameObject("ResultPopup", typeof(RectTransform));
-        Stretch(resultPopup, rootRt);
-        var dim = resultPopup.AddComponent<Image>();
-        dim.color = new Color(0, 0, 0, 0.55f);
-        var box = new GameObject("Box", typeof(RectTransform));
-        Place(box, resultPopup.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(700, 500));
-        box.AddComponent<Image>().color = new Color(0.2f, 0.16f, 0.12f, 1f);
-        MakeLabel(box.transform, "Body", "결과", 36, new Vector2(0.5f, 0.55f), new Vector2(620, 320));
-        resultBody = box.transform.Find("Body/Text")?.GetComponent<Text>();
-        MakeButton(box.transform, "Close", "확인", new Vector2(0.5f, 0.12f), new Vector2(200, 70));
-        resultPopup.SetActive(false);
-    }
-
-    Button MakeButton(Transform parent, string name, string label, Vector2 anchor, Vector2 size)
-    {
-        var go = new GameObject(name, typeof(RectTransform));
-        Place(go, parent, anchor, new Vector2(0.5f, 0.5f), size);
-        var img = go.AddComponent<Image>();
-        img.color = new Color(0.55f, 0.4f, 0.25f);
-        var btn = go.AddComponent<Button>();
-        MakeLabel(go.transform, "Text", label, 32, new Vector2(0.5f, 0.5f), size);
-        return btn;
-    }
-
-    Text MakeLabel(Transform parent, string name, string text, int size, Vector2 anchor, Vector2 sizeDelta)
-    {
-        var go = new GameObject(name, typeof(RectTransform));
-        Place(go, parent, anchor, new Vector2(0.5f, 0.5f), sizeDelta);
-        var tgo = new GameObject("Text", typeof(RectTransform));
-        Stretch(tgo, go.transform);
-        var t = tgo.AddComponent<Text>();
-        t.font = font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        t.text = text;
-        t.fontSize = size;
-        t.alignment = TextAnchor.MiddleCenter;
-        t.color = Color.white;
-        t.horizontalOverflow = HorizontalWrapMode.Wrap;
-        t.verticalOverflow = VerticalWrapMode.Overflow;
-        return t;
-    }
-
-    static RectTransform Stretch(GameObject go, Transform parent)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        rt.SetParent(parent, false);
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-        return rt;
-    }
-
-    static RectTransform Place(GameObject go, Transform parent, Vector2 anchor, Vector2 pivot, Vector2 size)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        rt.SetParent(parent, false);
-        rt.anchorMin = rt.anchorMax = anchor;
-        rt.pivot = pivot;
-        rt.sizeDelta = size;
-        rt.anchoredPosition = Vector2.zero;
-        return rt;
     }
 }
 

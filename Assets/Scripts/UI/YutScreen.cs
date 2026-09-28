@@ -52,7 +52,7 @@ namespace Yoegoe.UI
         /// <summary>말 이동 시 친밀도 +0.25(11장) 적용을 위한 piece id → 캐릭터 매핑.</summary>
         readonly Dictionary<string, CharacterAgent> teamById = new Dictionary<string, CharacterAgent>();
 
-        [Header("셸 (Prefab — 비어 있으면 Play 시 코드 조립)")]
+        [Header("셸 (Prefab — 필수)")]
         [SerializeField] GameObject root;
         [SerializeField] YutMiniGame miniGame;
         [SerializeField] GameObject noticeRoot;
@@ -81,7 +81,7 @@ namespace Yoegoe.UI
         public bool HasPrefabShell => root != null && miniGame != null;
 
         /// <summary>윷 화면이 떠 있는 동안 본맵 핀치/휠 줌·드래그가 새면 안 된다.
-        /// Prefab Bake 직후 Root가 켜져 있어도, Open() 전에는 맵 입력을 막지 않는다.</summary>
+        /// Prefab Root가 켜져 있어도, Open() 전에는 맵 입력을 막지 않는다.</summary>
         public bool IsOpen { get; private set; }
 
         YutMatch match;
@@ -178,22 +178,10 @@ namespace Yoegoe.UI
             if (Instance == this) Instance = null;
         }
 
-        /// <summary>에디터 Bake용. 보드까지 만들어 Prefab에서 레이아웃을 볼 수 있게 한다.</summary>
-        public void EnsureBuiltForBake()
-        {
-            EnsureBuilt();
-            if (miniGame != null)
-            {
-                miniGame.font = font;
-                miniGame.BindFromHierarchy();
-                miniGame.EnsureBoardForBake();
-            }
-            if (root != null) root.SetActive(true);
-        }
-
         public void Open()
         {
             EnsureBuilt();
+            if (!HasPrefabShell) return;
 
             // 맵 만세 연출·수거 후 공양 요구 타이머가 남아 있으면 취소.
             if (PostYutLootPresenter.Instance != null)
@@ -1961,44 +1949,12 @@ namespace Yoegoe.UI
         {
             if (!HasPrefabShell)
             {
-                if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-                var canvasGO = new GameObject("Canvas_Yut");
-                canvasGO.transform.SetParent(transform, false);
-                var canvas = canvasGO.AddComponent<Canvas>();
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 820;
-                var scaler = canvasGO.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1080, 1920);
-                canvasGO.AddComponent<GraphicRaycaster>();
-
-                root = new GameObject("Panel", typeof(RectTransform));
-                var rootRt = (RectTransform)root.transform;
-                rootRt.SetParent(canvasGO.transform, false);
-                Stretch(rootRt);
-                var bg = root.AddComponent<Image>();
-                bg.color = new Color(0.06f, 0.06f, 0.06f, 1f);
-
-                var gameGO = new GameObject("YutMiniGame", typeof(RectTransform));
-                var gameRt = (RectTransform)gameGO.transform;
-                gameRt.SetParent(rootRt, false);
-                Stretch(gameRt);
-                miniGame = gameGO.AddComponent<YutMiniGame>();
-                miniGame.font = font;
-                miniGame.BindFromHierarchy();
-                miniGame.Hide();
-
-                BuildNoticePanel(rootRt);
-                BuildChoicePanel(rootRt);
-
-                root.SetActive(false);
+                Debug.LogError(
+                    "[YutScreen] Prefab 셸이 없습니다. Main 씬에 YutScreen Prefab 인스턴스를 배치하세요.");
+                return;
             }
 
-            // 예전에 구운(Bake) YutScreen.prefab엔 리워드/되살리기 팝업이 없다(그 기능이 생기기
-            // 전에 구웠음) — HasPrefabShell이라 위 블록을 건너뛰어도 이 둘은 항상 있는지 보정한다.
-            // 없으면 rewardText/reviveRoot 등이 계속 null이라 특수 칸을 밟거나 말이 잡히는 순간
-            // NullReferenceException으로 죽는다.
+            // 예전 Prefab엔 리워드/되살리기 팝업이 없을 수 있어 항상 보정한다.
             EnsureExtraPanels();
         }
 
@@ -2089,62 +2045,6 @@ namespace Yoegoe.UI
             }
         }
 
-        void BuildNoticePanel(Transform parent)
-        {
-            noticeRoot = new GameObject("Notice", typeof(RectTransform));
-            var rt = (RectTransform)noticeRoot.transform;
-            rt.SetParent(parent, false);
-            Stretch(rt);
-            var dim = noticeRoot.AddComponent<Image>();
-            dim.color = new Color(0f, 0f, 0f, 0.6f);
-
-            var box = new GameObject("Box", typeof(RectTransform));
-            var boxRt = (RectTransform)box.transform;
-            boxRt.SetParent(rt, false);
-            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
-            boxRt.sizeDelta = new Vector2(640, 350);
-            var boxImg = box.AddComponent<Image>();
-            boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
-
-            var textGO = new GameObject("Text", typeof(RectTransform));
-            var textRt = (RectTransform)textGO.transform;
-            textRt.SetParent(boxRt, false);
-            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
-            textRt.anchoredPosition = new Vector2(0, 30);
-            textRt.sizeDelta = new Vector2(550, 180);
-            noticeText = textGO.AddComponent<Text>();
-            noticeText.font = font;
-            noticeText.fontSize = UiFonts.Size(40);
-            noticeText.alignment = TextAnchor.MiddleCenter;
-            noticeText.color = new Color(1f, 0.95f, 0.85f);
-            noticeText.horizontalOverflow = HorizontalWrapMode.Wrap;
-
-            var btnGO = new GameObject("Btn_Ok", typeof(RectTransform));
-            var btnRt = (RectTransform)btnGO.transform;
-            btnRt.SetParent(boxRt, false);
-            btnRt.anchorMin = btnRt.anchorMax = btnRt.pivot = new Vector2(0.5f, 0.5f);
-            btnRt.anchoredPosition = new Vector2(0, -110);
-            btnRt.sizeDelta = new Vector2(250, 85);
-            var btnImg = btnGO.AddComponent<Image>();
-            btnImg.color = new Color(0.3f, 0.5f, 0.45f, 1f);
-            noticeOkButton = btnGO.AddComponent<Button>();
-            noticeOkButton.targetGraphic = btnImg;
-
-            var labelGO = new GameObject("Label", typeof(RectTransform));
-            var labelRt = (RectTransform)labelGO.transform;
-            labelRt.SetParent(btnRt, false);
-            Stretch(labelRt);
-            var label = labelGO.AddComponent<Text>();
-            label.font = font;
-            label.fontSize = UiFonts.Size(38);
-            label.alignment = TextAnchor.MiddleCenter;
-            label.color = Color.white;
-            label.text = "확인";
-            label.raycastTarget = false;
-
-            noticeRoot.SetActive(false);
-        }
-
         void ShowNotice(string message, Action onOk)
         {
             noticeText.text = message;
@@ -2165,43 +2065,6 @@ namespace Yoegoe.UI
             action?.Invoke();
             // 매치 시작 전 안내(토큰 부족 등)였다면 화면 자체를 다시 닫는다.
             if (matchWasNullBeforeAction && root != null) root.SetActive(false);
-        }
-
-        /// <summary>말 골인 때 "계속하기"/"그만하고 보상받기" 둘 중 하나를 고르게 하는 팝업.</summary>
-        void BuildChoicePanel(Transform parent)
-        {
-            choiceRoot = new GameObject("Choice", typeof(RectTransform));
-            var rt = (RectTransform)choiceRoot.transform;
-            rt.SetParent(parent, false);
-            Stretch(rt);
-            var dim = choiceRoot.AddComponent<Image>();
-            dim.color = new Color(0f, 0f, 0f, 0.6f);
-
-            var box = new GameObject("Box", typeof(RectTransform));
-            var boxRt = (RectTransform)box.transform;
-            boxRt.SetParent(rt, false);
-            boxRt.anchorMin = boxRt.anchorMax = boxRt.pivot = new Vector2(0.5f, 0.5f);
-            boxRt.sizeDelta = new Vector2(700, 410);
-            var boxImg = box.AddComponent<Image>();
-            boxImg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
-
-            var textGO = new GameObject("Text", typeof(RectTransform));
-            var textRt = (RectTransform)textGO.transform;
-            textRt.SetParent(boxRt, false);
-            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
-            textRt.anchoredPosition = new Vector2(0, 70);
-            textRt.sizeDelta = new Vector2(610, 220);
-            choiceText = textGO.AddComponent<Text>();
-            choiceText.font = font;
-            choiceText.fontSize = UiFonts.Size(38);
-            choiceText.alignment = TextAnchor.MiddleCenter;
-            choiceText.color = new Color(1f, 0.95f, 0.85f);
-            choiceText.horizontalOverflow = HorizontalWrapMode.Wrap;
-
-            BuildChoiceButton(boxRt, new Vector2(-165, -130), "계속하기", out choiceContinueButton);
-            BuildChoiceButton(boxRt, new Vector2(165, -130), "그만하고\n보상받기", out choiceStopButton);
-
-            choiceRoot.SetActive(false);
         }
 
         void BuildChoiceButton(Transform parent, Vector2 pos, string label, out Button button)
@@ -2257,8 +2120,7 @@ namespace Yoegoe.UI
             action?.Invoke();
         }
 
-        /// <summary>특수 칸 보상 "그냥 받기"/"광고 보고 2배" 팝업. BuildChoicePanel과 구조는 같고
-        /// 버튼 라벨·핸들러만 다르다.</summary>
+        /// <summary>특수 칸 보상 "그냥 받기"/"광고 보고 2배" 팝업.</summary>
         void BuildRewardPanel(Transform parent)
         {
             rewardRoot = new GameObject("SquareReward", typeof(RectTransform));
@@ -2339,8 +2201,7 @@ namespace Yoegoe.UI
             action?.Invoke();
         }
 
-        /// <summary>이무기한테 말이 잡혔을 때 "광고 보고 되살리기"/"그냥 두기" 팝업.
-        /// BuildChoicePanel과 구조는 같고 버튼 라벨·핸들러만 다르다.</summary>
+        /// <summary>이무기한테 말이 잡혔을 때 "광고 보고 되살리기"/"그냥 두기" 팝업.</summary>
         void BuildRevivePanel(Transform parent)
         {
             reviveRoot = new GameObject("Revive", typeof(RectTransform));

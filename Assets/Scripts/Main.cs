@@ -1,16 +1,10 @@
-using System;
 using System.Collections;
-using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
-using Yoegoe.Characters;
+using Yoegoe.Bootstrap;
+using Yoegoe.Core;
 using Yoegoe.Data;
-using Yoegoe.Debugging;
 using Yoegoe.Economy;
 using Yoegoe.Save;
-using Yoegoe.UI;
-using Yoegoe.Core;
 
 namespace Yoegoe
 {
@@ -22,11 +16,6 @@ namespace Yoegoe
     /// </summary>
     public class Main : MonoBehaviour
     {
-        /// <summary>이보다 긴 벽시계 공백이면 캐릭터 정산을 돌린다 (WebGL 탭 숨김 등).</summary>
-        private const float WallClockCatchUpThresholdSeconds = 1f;
-
-        private DateTime lastActiveUtc;
-        private bool worldReady;
         [Header("실제 아트 연결 (없으면 캡슐로 대체 재생)")]
         [Tooltip("옥토끼 CharacterData (Walk Down/Left/Right/Up 스프라이트까지 채운 에셋)를 연결하면 " +
                  "캡슐 대신 실제 스프라이트로 만들고, CharacterAgent.Data도 이 실제 에셋을 그대로 사용한다.")]
@@ -63,8 +52,10 @@ namespace Yoegoe
         [Tooltip("상세화면 하단 급여 바에 나열할 공양물 전체 목록 (Assets/Data/Offerings/*.asset 전부 연결).")]
         public OfferingData[] offerings;
 
-        private ArtScaleSettings _scale;
-        private ArtScaleSettings Scale
+        AppSession session;
+
+        ArtScaleSettings _scale;
+        ArtScaleSettings Scale
         {
             get
             {
@@ -72,637 +63,62 @@ namespace Yoegoe
                 if (artScale != null) return _scale = artScale;
                 _scale = Resources.Load<ArtScaleSettings>("ArtScaleSettings");
                 if (_scale == null)
-                {
-                    // 에셋이 없어도 부트스트랩이 죽지 않게 런타임 기본값
                     _scale = ScriptableObject.CreateInstance<ArtScaleSettings>();
-                }
                 return _scale;
             }
         }
 
-        // URP 프로젝트에서 GameObject.CreatePrimitive()가 기본으로 물려주는 머티리얼은
-        // Built-in Standard 셰이더라 URP에서 인식을 못 해 분홍색(에러 셰이더)으로 보인다.
-        // [버그 수정] Shader.Find("Universal Render Pipeline/Lit")나 Shader.Find("Standard")는
-        // 에디터에서는 항상 찾아지지만, WebGL 등 실제 빌드에서는 그 셰이더를 참조하는 에셋이
-        // 하나도 없으면 빌드 과정에서 통째로 스트리핑되어 null을 반환한다 → new Material(null)이
-        // "Value cannot be null. Parameter name: shader" 예외를 던지고 부트스트랩 전체가 죽는다.
-        // 대신 현재 렌더 파이프라인(URP)이 자체적으로 들고 있는 기본 머티리얼을 복제해서 쓴다.
-        // 이건 파이프라인 에셋 자신이 참조하고 있어서 빌드에서 절대 스트리핑되지 않는다.
-        private static Material CreateBaseMaterial()
+        void Awake()
         {
-            var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
-            if (rp != null && rp.defaultMaterial != null)
-            {
-                return new Material(rp.defaultMaterial);
-            }
-
-            // 혹시 파이프라인이 아예 안 잡혀있는 극단적인 경우를 위한 최후의 폴백들.
-            var shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Standard")
-                         ?? Shader.Find("Sprites/Default")
-                         ?? Shader.Find("Unlit/Color");
-
-            if (shader == null)
-            {
-                Debug.LogError("[Main] 사용 가능한 셰이더를 하나도 찾지 못했습니다. " +
-                                "머티리얼 없이 렌더러 기본값으로 진행합니다.");
-                return null;
-            }
-
-            return new Material(shader);
-        }
-
-        private void Awake()
-        {
-            // maximumDeltaTime은 이동 스파이크 방지용으로 남겨 두되, 실제 공백 정산은 벽시계로 한다.
-            // (WebGL은 탭 복귀 시 deltaTime 스파이크를 안 주는 경우가 많다.)
             Time.maximumDeltaTime = 3600f;
-            lastActiveUtc = TrustedTime.UtcNow;
+            session = new AppSession(hudFont);
 
             var economyGO = new GameObject("GameEconomy");
             economyGO.AddComponent<GameEconomy>().ApplyStartingState(StartingStateSettings.Get());
 
             CharacterCatalog.EnsureLoaded();
-            EnsureOfferingsCatalog();
+            offerings = UiAssembler.EnsureOfferingsCatalog(offerings);
             CharacterCatalog.SetOfferings(offerings);
             ShopStock.SetCatalog(offerings);
             ShopStock.EnsureFresh(TrustedTime.UtcNow);
 
-            EnsureCamera();
-            EnsureLight();
-            EnsureEventSystem();
-            EnsureMapPointerRouter();
-            CreateBackground();
+            WorldAssembler.Build(new WorldAssembler.Config
+            {
+                scale = Scale,
+                propLayout = propLayout,
+                overviewBackgroundSprite = overviewBackgroundSprite,
+                playfieldSprite = playfieldSprite,
+                overviewOffset = overviewOffset,
+                oktoData = oktoData,
+                samjokOData = samjokOData,
+                hudFont = hudFont,
+            });
 
-            var propManagerGO = new GameObject("PropManager");
-            propManagerGO.AddComponent<PropManager>();
-
-            SpawnPropsFromLayout();
-
-            float mapScale = Mathf.Max(0.01f, Scale.mapScale);
-            CreateCharacter("옥토끼", MapToWorld(new Vector3(-1f, 0.5f, 0), mapScale), Color.white, oktoData);
-            CreateCharacter("삼족오", MapToWorld(new Vector3(0f, 0.5f, 0), mapScale), Color.black, samjokOData);
-            // 구미호: 잠금 슬롯(엽전 99) 해금 후 소환 — 시작 스폰 없음
-
-            CreateHud();
+            UiAssembler.WireHud(new UiAssembler.Config
+            {
+                hudFont = hudFont,
+                purifiedWaterIcon = purifiedWaterIcon,
+                offerings = offerings,
+                goraniData = goraniData,
+            });
         }
 
-        /// <summary>
-        /// PropLayoutSettings·시작 캐릭터 좌표는 mapScale=1(맵 로컬) 기준.
-        /// 배경 Transform 배율과 같이 곱해 월드 좌표로 만든다.
-        /// </summary>
-        static Vector3 MapToWorld(Vector3 mapLocal, float mapScale) =>
-            new Vector3(mapLocal.x * mapScale, mapLocal.y * mapScale, mapLocal.z);
-
-        private IEnumerator Start()
+        IEnumerator Start()
         {
-            // CharacterAgent.Start(기본 스탯)가 끝난 뒤 세이브를 덮어써야 복원이 유지된다.
             yield return null;
-            // Bake Prefab은 Root가 켜진 채로 저장된다. Start에서 끄지만,
-            // 누락/순서 문제로 Root가 남으면 풀스크린이 맵 클릭을 가로챈다.
-            ForceCloseOverlayScreens();
+            UiAssembler.ForceCloseOverlayScreens();
             GameSaveBridge.TryLoadSimulateAndApply();
-            lastActiveUtc = TrustedTime.UtcNow;
-            worldReady = true;
-            // 콜드스타트 순서: 출석 윷점 → (옥토끼 대사) → 기타 팝업 (Docs/00 §13)
-            AttendanceScreen.TryOpenIfDue(hudFont);
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-            YogoeHideLoadingOverlay();
-#endif
+            session.MarkReady();
+            session.TryOpenAttendanceIfDue();
+            session.HideWebGlLoadingOverlay();
         }
 
-        private void Update()
-        {
-            if (!worldReady) return;
+        void Update() => session?.Tick();
 
-            var now = TrustedTime.UtcNow;
-            double gap = (now - lastActiveUtc).TotalSeconds;
-            lastActiveUtc = now;
+        void OnApplicationPause(bool pause) => session?.OnPause(pause);
 
-            // 윷 토큰 충전(2·10장: 30분마다 1개)은 절대시각 비교라 매 프레임 불러도 싸다 —
-            // 포그라운드에 오래 켜둔 채로도 실제로 30분이 지나면 여기서 잡힌다.
-            GameEconomy.Instance?.EnsureYutTokenFresh(now);
+        void OnApplicationFocus(bool hasFocus) => session?.OnFocus(hasFocus);
 
-            // Update가 멈췄다 재개되면(탭 숨김·잠금화면 등) gap이 커진다.
-            if (gap >= WallClockCatchUpThresholdSeconds)
-            {
-                float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
-                CharacterAgent.CatchUpAll(seconds);
-            }
-        }
-
-        private void OnApplicationPause(bool pause)
-        {
-            if (pause)
-            {
-                if (worldReady) GameSaveBridge.SaveFromWorld();
-                return;
-            }
-
-            // pause=false: Update 한 프레임이 오기 전에 포커스가 돌아올 수 있어 여기서도 정산.
-            ApplyWallClockCatchUpIfNeeded();
-            if (worldReady) AttendanceScreen.TryOpenIfDue(hudFont); // 새벽 4시를 넘겨 복귀했으면 그날 첫 접속
-        }
-
-        private void OnApplicationFocus(bool hasFocus)
-        {
-            if (!hasFocus)
-            {
-                if (worldReady) GameSaveBridge.SaveFromWorld();
-                return;
-            }
-
-            ApplyWallClockCatchUpIfNeeded();
-            if (worldReady) AttendanceScreen.TryOpenIfDue(hudFont);
-        }
-
-        private void ApplyWallClockCatchUpIfNeeded()
-        {
-            if (!worldReady) return;
-
-            var now = TrustedTime.UtcNow;
-            double gap = (now - lastActiveUtc).TotalSeconds;
-            lastActiveUtc = now;
-
-            GameEconomy.Instance?.EnsureYutTokenFresh(now);
-
-            if (gap < WallClockCatchUpThresholdSeconds) return;
-
-            float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
-            CharacterAgent.CatchUpAll(seconds);
-        }
-
-        private void OnApplicationQuit()
-        {
-            GameSaveBridge.SaveFromWorld();
-        }
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-        [DllImport("__Internal")]
-        static extern void YogoeHideLoadingOverlay();
-#endif
-
-        private void CreateHud()
-        {
-            var detail = UnityEngine.Object.FindAnyObjectByType<DetailScreen>(FindObjectsInactive.Include);
-            if (detail == null)
-            {
-                var detailGO = new GameObject("DetailScreen");
-                detailGO.SetActive(false);
-                detail = detailGO.AddComponent<DetailScreen>();
-                detailGO.SetActive(true);
-            }
-            detail.font = hudFont;
-            detail.offerings = offerings;
-            detail.purifiedWaterIcon = purifiedWaterIcon;
-            if (!detail.gameObject.activeSelf)
-                detail.gameObject.SetActive(true);
-
-            var purchaseGO = new GameObject("PropPurchasePopup");
-            purchaseGO.SetActive(false);
-            var purchase = purchaseGO.AddComponent<PropPurchasePopup>();
-            purchase.font = hudFont;
-            purchaseGO.SetActive(true);
-
-            var summonGO = new GameObject("SummonPopup");
-            summonGO.SetActive(false);
-            var summon = summonGO.AddComponent<SummonPopup>();
-            summon.font = hudFont;
-            summon.goraniData = goraniData;
-            summonGO.SetActive(true);
-
-            var ceremonyGO = new GameObject("SummonCeremony");
-            var ceremony = ceremonyGO.AddComponent<SummonCeremony>();
-            ceremony.font = hudFont;
-            ceremony.goraniData = goraniData;
-
-            var shop = UnityEngine.Object.FindAnyObjectByType<ShopScreen>(FindObjectsInactive.Include);
-            if (shop == null)
-            {
-                Debug.LogError(
-                    "[Main] ShopScreen 프리팹 인스턴스가 씬에 없습니다. Yoegoe → Bake ShopScreen Prefab (Into Main Scene)");
-            }
-            else
-            {
-                shop.font = hudFont;
-                shop.offerings = offerings;
-                shop.shopBackground = Resources.Load<Sprite>("UI/ShopInterior");
-                shop.imugiSprite = Resources.Load<Sprite>("UI/ImugiPortrait");
-                if (!shop.gameObject.activeSelf)
-                    shop.gameObject.SetActive(true);
-            }
-
-            var gongyanggan = GongyangganScreen.Resolve();
-            if (gongyanggan == null)
-            {
-                Debug.LogError(
-                    "[Main] GongyangganScreen 프리팹이 없습니다. Yoegoe → Bake GongyangganScreen Prefab (Into Main Scene)");
-            }
-            else
-            {
-                gongyanggan.font = hudFont;
-            }
-
-            var yut = UnityEngine.Object.FindAnyObjectByType<YutScreen>(FindObjectsInactive.Include);
-            if (yut == null)
-            {
-                var yutGO = new GameObject("YutScreen");
-                yutGO.SetActive(false);
-                yut = yutGO.AddComponent<YutScreen>();
-                yutGO.SetActive(true);
-            }
-            yut.font = hudFont;
-            if (!yut.gameObject.activeSelf)
-                yut.gameObject.SetActive(true);
-
-            var giftGO = new GameObject("GiftBundlePopup");
-            giftGO.SetActive(false);
-            var gift = giftGO.AddComponent<GiftBundlePopup>();
-            gift.font = hudFont;
-            gift.offerings = offerings;
-            giftGO.SetActive(true);
-
-            var batchGO = new GameObject("BatchCollectPopup");
-            batchGO.SetActive(false);
-            var batch = batchGO.AddComponent<BatchCollectPopup>();
-            batch.font = hudFont;
-            batchGO.SetActive(true);
-
-            var yutShopGO = new GameObject("YutTokenShopPopup");
-            yutShopGO.SetActive(false);
-            var yutShop = yutShopGO.AddComponent<YutTokenShopPopup>();
-            yutShop.font = hudFont;
-            yutShopGO.SetActive(true);
-
-            // 씬/프리팹에 HUD 셸이 있으면 재사용 (에디터에서 배치 가능)
-            var hud = UnityEngine.Object.FindAnyObjectByType<GameHud>(FindObjectsInactive.Include);
-            if (hud == null)
-            {
-                var hudGO = new GameObject("Hud");
-                hudGO.SetActive(false);
-                hud = hudGO.AddComponent<GameHud>();
-                hudGO.SetActive(true);
-            }
-
-            hud.font = hudFont;
-            hud.purifiedWaterIcon = purifiedWaterIcon;
-            hud.detailScreen = detail;
-            if (!hud.gameObject.activeSelf)
-                hud.gameObject.SetActive(true);
-        }
-
-        /// <summary>
-        /// Inspector에 offerings가 비어 있으면 StartingStateSettings 목록을 쓰고,
-        /// 공양간 레시피 결과물(음식·공양물)을 합쳐 전체 카탈로그로 만든다.
-        /// </summary>
-        void EnsureOfferingsCatalog()
-        {
-            if (offerings == null || offerings.Length == 0)
-                offerings = StartingStateSettings.Get()?.startingOfferings;
-            offerings = OfferingCatalog.Build(offerings);
-        }
-
-        static void ForceCloseOverlayScreens()
-        {
-            var detail = UnityEngine.Object.FindAnyObjectByType<DetailScreen>(FindObjectsInactive.Include);
-            if (detail != null) detail.Close();
-
-            var shop = UnityEngine.Object.FindAnyObjectByType<ShopScreen>(FindObjectsInactive.Include);
-            if (shop != null) shop.Close();
-
-            var gongyanggan = UnityEngine.Object.FindAnyObjectByType<GongyangganScreen>(FindObjectsInactive.Include);
-            if (gongyanggan != null) gongyanggan.Close();
-
-            var yut = UnityEngine.Object.FindAnyObjectByType<YutScreen>(FindObjectsInactive.Include);
-            if (yut != null) yut.Close();
-        }
-
-        /// <summary>
-        /// uGUI 버튼(슬롯 탭 등)이 반응하려면 EventSystem이 씬에 있어야 한다. 이 프로젝트는 새
-        /// Input System만 쓰도록 설정돼 있어서(Project Settings) 구식 StandaloneInputModule 대신
-        /// InputSystemUIInputModule을 붙인다.
-        /// </summary>
-        private void EnsureEventSystem()
-        {
-            if (FindAnyObjectByType<EventSystem>() != null) return;
-            var esGo = new GameObject("EventSystem");
-            esGo.AddComponent<EventSystem>();
-            esGo.AddComponent<InputSystemUIInputModule>();
-        }
-
-        private void EnsureCamera()
-        {
-            Camera cam;
-            if (Camera.main != null)
-            {
-                cam = Camera.main;
-            }
-            else
-            {
-                var camGO = new GameObject("Main Camera") { tag = "MainCamera" };
-                cam = camGO.AddComponent<Camera>();
-                cam.orthographic = true;
-                cam.transform.position = new Vector3(0, 0, -10);
-                cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
-            }
-
-            cam.orthographic = true;
-            cam.orthographicSize = Scale.cameraOrthoSize;
-        }
-
-        /// <summary>
-        /// 맵 탭/드래그·캐릭터 드래그 단일 라우터. CreateBackground보다 먼저 붙여 두고,
-        /// MapCameraDrag는 배경 생성 시 같은 카메라에 추가된다 (라우터가 Awake 이후 GetComponent).
-        /// </summary>
-        private void EnsureMapPointerRouter()
-        {
-            var cam = Camera.main;
-            if (cam == null) return;
-
-            // 배경이 없어도 패닝 컴포넌트는 카메라에 있어야 라우터가 연결할 수 있다.
-            if (cam.GetComponent<MapCameraDrag>() == null)
-                cam.gameObject.AddComponent<MapCameraDrag>();
-
-            var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
-            if (router == null) router = cam.gameObject.AddComponent<Yoegoe.Characters.MapPointerRouter>();
-            router.targetCamera = cam;
-            router.mapDrag = cam.GetComponent<MapCameraDrag>();
-            // 기물 드롭·자물쇠: 스프라이트 기준 + 약간의 여유(초가집 등 작은 히트박스 보정)
-            router.propDropRadius = 0.15f;
-            router.lockTapRadius = 0.28f;
-        }
-
-        private void EnsureLight()
-        {
-            if (FindAnyObjectByType<Light>() != null) return;
-            var lightGO = new GameObject("Directional Light");
-            var light = lightGO.AddComponent<Light>();
-            light.type = LightType.Directional;
-            lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
-        }
-
-        /// <summary>
-        /// 전체맵(섬) + 그 위 잔디 플레이필드.
-        /// 걷기는 잔디 bounds만, 카메라 패닝은 전체맵 기준.
-        /// </summary>
-        private void CreateBackground()
-        {
-            float scale = Mathf.Max(0.01f, Scale.mapScale);
-            var cam = Camera.main;
-            // overviewOffset도 mapScale=1 기준 보정값 → 월드로 스케일
-            Vector2 overviewOffsetWorld = overviewOffset * scale;
-
-            // 1) 전체 맵 (뒤)
-            Sprite overview = overviewBackgroundSprite;
-            if (overview != null)
-            {
-                var go = new GameObject("Background_Overview");
-                go.transform.position = new Vector3(overviewOffsetWorld.x, overviewOffsetWorld.y, 1f);
-                go.transform.localScale = new Vector3(scale, scale, 1f);
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = overview;
-                sr.sortingOrder = Scale.backgroundSort;
-            }
-
-            // 2) 잔디 플레이필드 (앞) — 월드 원점, 걷기/기물 좌표 기준
-            Sprite playfield = playfieldSprite;
-            if (playfield == null) return;
-
-            var fieldGO = new GameObject("Background_Playfield");
-            fieldGO.transform.position = new Vector3(0f, 0f, 0.9f);
-            fieldGO.transform.localScale = new Vector3(scale, scale, 1f);
-            var fieldSr = fieldGO.AddComponent<SpriteRenderer>();
-            fieldSr.sprite = playfield;
-            fieldSr.sortingOrder = Scale.backgroundSort + 1;
-
-            // 걷기는 GrassField만. Overview는 카메라 패닝용(아래).
-            // PNG 사각형/AABB가 아니라 잔디 실루엣(Physics Shape) 안으로 Clamp.
-            var walkCol = BuildPlayfieldWalkCollider(fieldGO, playfield);
-            MapBounds.SetWalkArea(walkCol);
-            if (walkCol == null)
-            {
-                // 폴백: Tight 메시 AABB
-                if (!TryGetSpriteWorldAabb(playfield, scale, out Vector2 walkMin, out Vector2 walkMax))
-                    return;
-                const float margin = 0.35f;
-                MapBounds.SetBounds(
-                    new Vector2(walkMin.x + margin, walkMin.y + margin),
-                    new Vector2(walkMax.x - margin, walkMax.y - margin));
-            }
-
-            float fieldW = playfield.bounds.size.x * scale;
-            float fieldH = playfield.bounds.size.y * scale;
-
-            if (cam == null || !cam.orthographic) return;
-
-            // 패닝 범위: 전체맵이 있으면 그 크기, 없으면 잔디
-            float panW = fieldW;
-            float panH = fieldH;
-            if (overview != null)
-            {
-                panW = overview.bounds.size.x * scale;
-                panH = overview.bounds.size.y * scale;
-            }
-
-            float camHeight = cam.orthographicSize * 2f;
-            float camWidth = camHeight * cam.aspect;
-            var drag = cam.GetComponent<MapCameraDrag>();
-            if (drag == null) drag = cam.gameObject.AddComponent<MapCameraDrag>();
-
-            float halfExtraW = Mathf.Max(0f, panW / 2f - camWidth / 2f);
-            float halfExtraH = Mathf.Max(0f, panH / 2f - camHeight / 2f);
-
-            if (halfExtraW <= 0.01f && halfExtraH <= 0.01f)
-            {
-                float orthoByW = (panW / 1.2f) / (2f * Mathf.Max(0.01f, cam.aspect));
-                float orthoByH = (panH / 1.2f) / 2f;
-                float newOrtho = Mathf.Min(orthoByW, orthoByH);
-                if (newOrtho > 0.1f && newOrtho < cam.orthographicSize)
-                {
-                    cam.orthographicSize = newOrtho;
-                    camHeight = cam.orthographicSize * 2f;
-                    camWidth = camHeight * cam.aspect;
-                    halfExtraW = Mathf.Max(0f, panW / 2f - camWidth / 2f);
-                    halfExtraH = Mathf.Max(0f, panH / 2f - camHeight / 2f);
-                }
-            }
-
-            // 전체맵이 overviewOffset만큼 밀렸으면 카메라 패닝 중심도 같이 이동
-            Vector2 panCenter = overview != null ? overviewOffsetWorld : Vector2.zero;
-            drag.SetContentRect(panCenter, panW * 0.5f, panH * 0.5f);
-            drag.SetOrthoLimits(1.4f, Mathf.Max(cam.orthographicSize * 1.05f, cam.orthographicSize));
-
-            var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
-            if (router != null) router.mapDrag = drag;
-        }
-
-        /// <summary>
-        /// GrassField 알파 실루엣 → PolygonCollider2D (트리거). 경로 좌표는 스프라이트 로컬,
-        /// 부모 scale이 월드로 키운다.
-        /// </summary>
-        private static Collider2D BuildPlayfieldWalkCollider(GameObject fieldGO, Sprite sprite)
-        {
-            if (fieldGO == null || sprite == null) return null;
-
-            int shapeCount = sprite.GetPhysicsShapeCount();
-            if (shapeCount <= 0) return null;
-
-            var col = fieldGO.AddComponent<PolygonCollider2D>();
-            col.isTrigger = true;
-            col.pathCount = shapeCount;
-
-            var path = new System.Collections.Generic.List<Vector2>(64);
-            for (int i = 0; i < shapeCount; i++)
-            {
-                path.Clear();
-                sprite.GetPhysicsShape(i, path);
-                col.SetPath(i, path);
-            }
-            return col;
-        }
-
-        /// <summary>
-        /// 스프라이트 Tight 메시 꼭짓점 AABB (월드, 원점 배치·균등 scale 가정).
-        /// vertices가 비면 rect bounds로 폴백.
-        /// </summary>
-        private static bool TryGetSpriteWorldAabb(Sprite sprite, float scale, out Vector2 min, out Vector2 max)
-        {
-            min = default;
-            max = default;
-            if (sprite == null || scale <= 0f) return false;
-
-            var verts = sprite.vertices;
-            if (verts != null && verts.Length > 0)
-            {
-                float minX = float.PositiveInfinity, minY = float.PositiveInfinity;
-                float maxX = float.NegativeInfinity, maxY = float.NegativeInfinity;
-                for (int i = 0; i < verts.Length; i++)
-                {
-                    Vector2 v = verts[i] * scale;
-                    if (v.x < minX) minX = v.x;
-                    if (v.y < minY) minY = v.y;
-                    if (v.x > maxX) maxX = v.x;
-                    if (v.y > maxY) maxY = v.y;
-                }
-                if (minX < maxX && minY < maxY)
-                {
-                    min = new Vector2(minX, minY);
-                    max = new Vector2(maxX, maxY);
-                    return true;
-                }
-            }
-
-            Bounds b = sprite.bounds;
-            float hx = b.extents.x * scale;
-            float hy = b.extents.y * scale;
-            if (hx <= 0f || hy <= 0f) return false;
-            min = new Vector2(-hx, -hy);
-            max = new Vector2(hx, hy);
-            return true;
-        }
-
-        private static void ApplyUrpColor(Renderer renderer, Color color)
-        {
-            if (renderer == null) return;
-            var mat = CreateBaseMaterial();
-            if (mat == null) return; // 렌더러 기본 머티리얼(핑크)로라도 일단 화면엔 나온다
-            mat.color = color;
-            renderer.material = mat;
-        }
-
-        private void SpawnPropsFromLayout()
-        {
-            var layout = propLayout != null ? propLayout : PropLayoutSettings.Get();
-            if (layout?.placements == null || layout.placements.Length == 0)
-            {
-                Debug.LogError("[Main] PropLayoutSettings 배치가 비어 있습니다. " +
-                               "Assets/Resources/PropLayoutSettings.asset 을 확인하세요.");
-                return;
-            }
-
-            float mapScale = Mathf.Max(0.01f, Scale.mapScale);
-            for (int i = 0; i < layout.placements.Length; i++)
-            {
-                var place = layout.placements[i];
-                if (place?.data == null)
-                {
-                    Debug.LogWarning($"[Main] PropLayoutSettings.placements[{i}] 에 PropData 가 없습니다.");
-                    continue;
-                }
-                CreateProp(place.data, MapToWorld(place.position, mapScale), place.fallbackColor);
-            }
-
-            // 공덕 버드나무 (7-4) — 임시 그림
-            if (MeritWillow.Instance == null)
-            {
-                var willowPos = MapToWorld(layout.willowPosition, mapScale);
-                MeritWillow.Create(willowPos, Scale.SortOrderForProp(willowPos.y));
-            }
-        }
-
-        private void CreateProp(PropData data, Vector3 pos, Color color)
-        {
-            PropCatalog.ApplyTo(data); // 시트(props.json) 밸런스
-            string name = !string.IsNullOrEmpty(data.displayName) ? data.displayName
-                : (!string.IsNullOrEmpty(data.propId) ? data.propId : "Prop");
-            Sprite sprite = data.icon;
-            GameObject go;
-
-            if (sprite != null)
-            {
-                go = new GameObject("Prop_" + name);
-                go.transform.position = pos;
-                go.transform.localScale = Vector3.one * Scale.propScale;
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = sprite;
-                sr.sortingOrder = Scale.SortOrderForProp(pos.y);
-            }
-            else
-            {
-                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                go.name = "Prop_" + name;
-                go.transform.position = pos;
-                go.transform.localScale = Vector3.one * 0.8f;
-                var col = go.GetComponent<Collider>();
-                if (col != null) Destroy(col);
-
-                ApplyUrpColor(go.GetComponent<Renderer>(), color);
-            }
-
-            var slot = go.AddComponent<PropSlot>();
-            slot.data = data;
-            slot.SetBuiltAppearance(sprite, color, data.occupiedByOwnerSprite);
-            slot.ConfigureBuiltState(data.isPrebuilt);
-        }
-
-        private void CreateCharacter(string name, Vector3 pos, Color color, CharacterData realData)
-        {
-            if (realData != null)
-            {
-                CharacterCatalog.ApplyTo(realData);
-                CharacterSpawner.Spawn(realData, pos, color, hudFont);
-                return;
-            }
-
-            // 에셋 미연결 시 런타임 스텁 — JSON 카탈로그로 이름·선호 등 채움
-            var data = ScriptableObject.CreateInstance<CharacterData>();
-            data.id = ResolveCharacterIdByName(name);
-            data.displayName = name;
-            data.startingIntimacy = 50f;
-            data.startingStamina = 70f;
-            CharacterCatalog.ApplyTo(data);
-            CharacterSpawner.Spawn(data, pos, color, hudFont);
-        }
-
-        static CharacterId ResolveCharacterIdByName(string name)
-        {
-            if (name == "옥토끼") return CharacterId.Rabbit;
-            if (name == "삼족오") return CharacterId.SamjokO;
-            if (name == "구미호") return CharacterId.Gumiho;
-            if (name == "고라니") return CharacterId.Gorani;
-            return CharacterId.Rabbit;
-        }
+        void OnApplicationQuit() => session?.OnQuit();
     }
 }

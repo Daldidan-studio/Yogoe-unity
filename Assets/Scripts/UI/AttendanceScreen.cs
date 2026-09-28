@@ -67,7 +67,7 @@ namespace Yoegoe.UI
             screen.Open();
         }
 
-        /// <summary>씬 인스턴스 → Resources 프리팹 → (없으면) 코드 셸 순으로 찾는다.</summary>
+        /// <summary>씬 Prefab 인스턴스를 찾는다. 없으면 null (런타임 셸 생성 없음).</summary>
         public static AttendanceScreen Resolve()
         {
             if (Instance != null)
@@ -78,15 +78,10 @@ namespace Yoegoe.UI
             var found = Object.FindAnyObjectByType<AttendanceScreen>(FindObjectsInactive.Include);
             if (found == null)
             {
-                var prefab = Resources.Load<GameObject>("UI/AttendanceScreen");
-                if (prefab != null)
-                    found = Object.Instantiate(prefab).GetComponent<AttendanceScreen>();
-            }
-            if (found == null)
-            {
-                Debug.LogWarning("[AttendanceScreen] Prefab이 없어 코드로 셸을 만듭니다. " +
-                                 "Yoegoe → Bake AttendanceScreen Prefab 을 실행하세요.");
-                found = new GameObject("AttendanceScreen").AddComponent<AttendanceScreen>();
+                Debug.LogError(
+                    "[AttendanceScreen] Prefab 인스턴스가 씬에 없습니다. " +
+                    "Main 씬에 AttendanceScreen Prefab 인스턴스를 배치하세요.");
+                return null;
             }
             if (!found.gameObject.activeSelf) found.gameObject.SetActive(true);
             Instance = found;
@@ -190,7 +185,7 @@ namespace Yoegoe.UI
             }
         }
 
-        /// <summary>코드 셸(LegacyRuntime)로 만들어졌어도 한글 폰트로 덮는다.</summary>
+        /// <summary>주입된 한글 폰트로 Prefab 텍스트를 덮는다.</summary>
         void ApplyFont()
         {
             if (font == null || root == null) return;
@@ -247,6 +242,9 @@ namespace Yoegoe.UI
             SpeechGate.Release();
         }
 
+        /// <summary>콜드스타트 등에서 오버레이를 강제로 닫을 때.</summary>
+        public void Close() => Finish();
+
         static CharacterAgent FindOkto()
         {
             foreach (var a in CharacterAgent.All)
@@ -254,29 +252,20 @@ namespace Yoegoe.UI
             return null;
         }
 
-        // ---------------- 셸 (Prefab / Bake) ----------------
+        // ---------------- 셸 (Prefab) ----------------
 
+        /// <summary>Prefab 셸만 사용. 없으면 에러 (런타임 생성 없음).</summary>
         bool EnsureShell()
         {
-            if (root == null)
+            if (root != null)
             {
-                if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                Build();
+                WireListeners();
+                return true;
             }
-            WireListeners();
-            return root != null;
-        }
-
-        public void EnsureBuiltForBake()
-        {
-#if UNITY_EDITOR
-            if (root == null)
-            {
-                if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                Build();
-            }
-            if (root != null) root.SetActive(false);
-#endif
+            Debug.LogError(
+                "[AttendanceScreen] Prefab 셸이 없습니다. " +
+                "Main 씬에 AttendanceScreen Prefab 인스턴스를 배치하세요.");
+            return false;
         }
 
         bool wired;
@@ -292,139 +281,6 @@ namespace Yoegoe.UI
             }
             if (closeButton != null) closeButton.onClick.AddListener(OnCloseTapped);
             if (dialogButton != null) dialogButton.onClick.AddListener(OnDialogTapped);
-        }
-
-        void Build()
-        {
-            var canvasGO = new GameObject("Canvas_Attendance", typeof(RectTransform));
-            canvasGO.transform.SetParent(transform, false);
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 900; // HUD·다른 팝업 위 (콜드스타트 첫 순서)
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 1f;
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            root = new GameObject("Root", typeof(RectTransform));
-            var rootRt = Stretch(root, canvasGO.transform);
-            root.AddComponent<Image>().color = new Color(0f, 0f, 0.05f, 0.6f);
-
-            // ---- 윷판 (일자 7칸) ----
-            boardPanel = new GameObject("Board", typeof(RectTransform));
-            var board = Place(boardPanel, rootRt, new Vector2(0.5f, 0.62f), new Vector2(1000, 640));
-            boardPanel.AddComponent<Image>().color = new Color(0.2f, 0.15f, 0.11f, 0.97f);
-            MakeText(board, "Title", "출석 윷점", 56, new Vector2(0.5f, 0.88f), new Vector2(800, 80));
-            guideText = MakeText(board, "Guide", "", 32, new Vector2(0.5f, 0.12f), new Vector2(900, 60));
-
-            var line = new GameObject("Line", typeof(RectTransform));
-            Place(line, board, new Vector2(0.5f, 0.52f), new Vector2(840, 8));
-            line.AddComponent<Image>().color = new Color(0.55f, 0.45f, 0.35f, 1f);
-
-            for (int i = 0; i < Days; i++)
-            {
-                var node = new GameObject("Day" + (i + 1), typeof(RectTransform));
-                Place(node, board, new Vector2(0.08f + i * (0.84f / (Days - 1)), 0.52f), new Vector2(118, 118));
-                var img = node.AddComponent<Image>();
-                img.sprite = CircleSprite();
-                img.color = FutureColor;
-                dayCircles[i] = img;
-                dayButtons[i] = node.AddComponent<Button>();
-                dayButtons[i].targetGraphic = img;
-                dayRewardTexts[i] = MakeText(node.transform, "Reward", "", 22, new Vector2(0.5f, 0.5f), new Vector2(118, 80));
-                dayRewardTexts[i].color = new Color(0.2f, 0.14f, 0.1f, 1f);
-            }
-
-            var close = new GameObject("Close", typeof(RectTransform));
-            Place(close, board, new Vector2(0.95f, 0.9f), new Vector2(80, 80));
-            close.AddComponent<Image>().color = new Color(0.35f, 0.3f, 0.28f, 1f);
-            closeButton = close.AddComponent<Button>();
-            MakeText(close.transform, "X", "X", 40, new Vector2(0.5f, 0.5f), new Vector2(80, 80));
-
-            // ---- 윷 던지기 ----
-            throwPanel = new GameObject("Throw", typeof(RectTransform));
-            var tp = Place(throwPanel, rootRt, new Vector2(0.5f, 0.4f), new Vector2(900, 900));
-            var landGO = new GameObject("LandZone", typeof(RectTransform));
-            throwLandZone = Place(landGO, tp, new Vector2(0.5f, 0.55f), new Vector2(620, 420));
-            for (int t = 0; t < Throws; t++)
-            {
-                throwResultTexts[t] = MakeText(tp, "Result" + t, "", 52, new Vector2(0.3f + t * 0.2f, 0.93f), new Vector2(160, 70));
-                throwResultTexts[t].color = new Color(1f, 0.85f, 0.4f, 1f);
-            }
-
-            // ---- 옥토끼 스토리 대화창 (하단 슬롯을 가림) ----
-            dialogPanel = new GameObject("Dialog", typeof(RectTransform));
-            var dp = dialogPanel.GetComponent<RectTransform>();
-            dp.SetParent(rootRt, false);
-            dp.anchorMin = new Vector2(0f, 0f);
-            dp.anchorMax = new Vector2(1f, 0.3f);
-            dp.offsetMin = dp.offsetMax = Vector2.zero;
-            dialogPanel.AddComponent<Image>().color = new Color(0.98f, 0.95f, 0.88f, 0.98f);
-            dialogButton = dialogPanel.AddComponent<Button>();
-
-            var portrait = new GameObject("Portrait", typeof(RectTransform));
-            Place(portrait, dp, new Vector2(0.14f, 0.55f), new Vector2(220, 220));
-            dialogPortrait = portrait.AddComponent<Image>();
-            dialogPortrait.preserveAspect = true;
-            dialogNameText = MakeText(dp, "Name", "옥토끼", 36, new Vector2(0.14f, 0.12f), new Vector2(260, 60));
-            dialogNameText.color = new Color(0.45f, 0.25f, 0.2f, 1f);
-            dialogBodyText = MakeText(dp, "Body", "", 36, new Vector2(0.62f, 0.55f), new Vector2(720, 420));
-            dialogBodyText.alignment = TextAnchor.MiddleLeft;
-            dialogBodyText.color = new Color(0.18f, 0.14f, 0.12f, 1f);
-            var hint = MakeText(dp, "Hint", "▼ 탭해서 닫기", 24, new Vector2(0.9f, 0.1f), new Vector2(240, 40));
-            hint.color = new Color(0.5f, 0.45f, 0.4f, 1f);
-
-            throwPanel.SetActive(false);
-            dialogPanel.SetActive(false);
-            root.SetActive(false);
-        }
-
-        static Sprite circleSprite;
-
-        static Sprite CircleSprite() => circleSprite != null ? circleSprite
-            : (circleSprite = ProceduralSprite.Build("AttendanceCircle", 64, 100f, p =>
-            {
-                float d = (p - new Vector2(32f, 32f)).magnitude;
-                if (d > 30f) return Color.clear;
-                return d > 26f ? new Color(0.35f, 0.25f, 0.18f, 1f) : Color.white;
-            }));
-
-        static RectTransform Stretch(GameObject go, Transform parent)
-        {
-            var rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = rt.offsetMax = Vector2.zero;
-            return rt;
-        }
-
-        static RectTransform Place(GameObject go, Transform parent, Vector2 anchor, Vector2 size)
-        {
-            var rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            rt.anchorMin = rt.anchorMax = anchor;
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = size;
-            return rt;
-        }
-
-        Text MakeText(Transform parent, string name, string msg, int size, Vector2 anchor, Vector2 box)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            Place(go, parent, anchor, box);
-            var t = go.AddComponent<Text>();
-            t.font = font;
-            t.fontSize = UiFonts.Size(size);
-            t.alignment = TextAnchor.MiddleCenter;
-            t.color = Color.white;
-            t.text = msg;
-            t.raycastTarget = false;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            return t;
         }
     }
 }

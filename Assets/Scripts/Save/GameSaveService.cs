@@ -52,26 +52,43 @@ namespace Yoegoe.Save
         public static bool TryLoad(out GameSaveData data)
         {
             data = null;
-            string json = null;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-            if (PlayerPrefs.HasKey(PrefsKey))
-                json = PlayerPrefs.GetString(PrefsKey);
+            if (!PlayerPrefs.HasKey(PrefsKey)) return false;
+            return TryParse(PlayerPrefs.GetString(PrefsKey), out data);
 #else
+            // 파일·Prefs 둘 다 있으면 savedAtUtcTicks가 더 최신인 쪽을 쓴다.
+            // (예전엔 파일만 있으면 Prefs를 무시해서, 파일만 낡은 출석 키(0)일 때 재수령되던 구멍)
+            GameSaveData fromFile = null;
+            GameSaveData fromPrefs = null;
+
             if (File.Exists(FilePath))
             {
-                try { json = File.ReadAllText(FilePath); }
+                try
+                {
+                    TryParse(File.ReadAllText(FilePath), out fromFile);
+                }
                 catch (Exception e)
                 {
                     Debug.LogWarning("[GameSaveService] 파일 로드 실패: " + e.Message);
                 }
             }
-            if (string.IsNullOrEmpty(json) && PlayerPrefs.HasKey(PrefsKey))
-                json = PlayerPrefs.GetString(PrefsKey);
+            if (PlayerPrefs.HasKey(PrefsKey))
+                TryParse(PlayerPrefs.GetString(PrefsKey), out fromPrefs);
+
+            if (fromFile == null && fromPrefs == null) return false;
+            if (fromFile == null) { data = fromPrefs; return true; }
+            if (fromPrefs == null) { data = fromFile; return true; }
+
+            data = fromPrefs.savedAtUtcTicks >= fromFile.savedAtUtcTicks ? fromPrefs : fromFile;
+            return true;
 #endif
+        }
 
+        static bool TryParse(string json, out GameSaveData data)
+        {
+            data = null;
             if (string.IsNullOrEmpty(json)) return false;
-
             try
             {
                 data = JsonUtility.FromJson<GameSaveData>(json);

@@ -375,7 +375,7 @@ namespace Yoegoe.Characters
                             else
                                 Debug.LogError(
                                     "[MapPointerRouter] GongyangganScreen을 찾을 수 없습니다. " +
-                                    "Hierarchy에 Prefab이 있는지 확인하거나 Yoegoe → Bake GongyangganScreen Prefab 을 실행하세요.");
+                                    "Main 씬 Hierarchy에 Prefab 인스턴스가 있는지 확인하세요.");
                         }
                         break;
 

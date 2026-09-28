@@ -349,13 +349,6 @@ namespace Yoegoe.Minigames.Yut
             EnsureBoard();
         }
 
-        /// <summary>에디터 Prefab Bake용 — 보드·로그바까지 만들어 Scene/Prefab에서 보이게 한다.</summary>
-        public void EnsureBoardForBake()
-        {
-            gameObject.SetActive(true);
-            EnsureBoard();
-        }
-
         public void Hide()
         {
             gameObject.SetActive(false);
@@ -1589,7 +1582,7 @@ namespace Yoegoe.Minigames.Yut
             nodeId == YutBoardLayout.DwitMo || nodeId == YutBoardLayout.JjiMo ||
             nodeId == YutBoardLayout.Bang;
 
-        /// <summary>Bake/Prefab에 이미 있는 자식이면 레이아웃(앵커·색)은 건드리지 않고 그대로 쓴다.
+        /// <summary>Prefab에 이미 있는 자식이면 레이아웃(앵커·색)은 건드리지 않고 그대로 쓴다.
         /// 없을 때만 코드 기본값으로 새로 만든다 — Prefab이 레이아웃 최종 소스.</summary>
         RectTransform FindOrCreatePanel(Transform parent, string name, float xmin, float ymin, float xmax, float ymax,
             Color color, out bool created)

@@ -14,8 +14,7 @@ namespace Yoegoe.UI
 {
     /// <summary>
     /// 메인 HUD (상단 재화 바 + 하단 슬롯바).
-    /// Prefab/씬에 셸(Canvas·TopBar·버튼·SlotBar 루트)이 있으면 그대로 쓰고,
-    /// 없으면 런타임에 조립한다. 슬롯 칩은 항상 코드로 갱신.
+    /// 셸은 Prefab만 사용. 슬롯 칩은 항상 코드로 갱신.
     /// </summary>
     public class GameHud : MonoBehaviour
     {
@@ -161,21 +160,21 @@ namespace Yoegoe.UI
         }
 
         /// <summary>
-        /// Prefab 셸이 있으면 유지, 없으면 코드로 조립.
-        /// 에디터 Bake도 이 경로를 쓴다.
+        /// Prefab 셸만 사용. 없으면 에러 (런타임 생성 없음).
         /// </summary>
         public void EnsureHudShell()
         {
             if (HasPrefabShell) return;
-            BuildCanvas();
+            Debug.LogError(
+                "[GameHud] Prefab 셸이 없습니다. Main 씬에 GameHud Prefab 인스턴스를 배치하세요.");
         }
 
         /// <summary>재화 칩 4개 + [+] 버튼이 한 줄에 다 들어가는 데 필요한 TopBar 최소 폭.</summary>
         const float MinTopBarWidth = 750f;
 
         /// <summary>
-        /// 윷 토큰 칩 옆 [+] 버튼 — BuildTopBar가 만든 최신 셸엔 이미 있지만, HasPrefabShell이라
-        /// 통째로 건너뛰는 예전 Bake본에도 이름으로 찾아 붙여서 항상 나타나게 한다.
+        /// 윷 토큰 칩 옆 [+] 버튼 — Prefab에 이미 있으면 그대로 쓰고, 예전 Prefab에도
+        /// 이름으로 찾아 붙여서 항상 나타나게 한다.
         /// </summary>
         void EnsureYutTokenPlusButton()
         {
@@ -191,7 +190,7 @@ namespace Yoegoe.UI
                 }
             }
 
-            // 예전 Bake본은 재화 칩 4개 기준 폭(690)으로 굳어 있어서, [+] 버튼이 추가된 뒤로는
+            // 예전 Prefab은 재화 칩 4개 기준 폭(690)으로 굳어 있어서, [+] 버튼이 추가된 뒤로는
             // 오른쪽 칩(윷 토큰 등)이 잘려 보인다 — 최소 폭만 보장(더 넓게 손댔으면 안 줄임).
             var topBarRt = hudCanvas != null ? hudCanvas.transform.Find("TopBar") as RectTransform : null;
             if (topBarRt != null && topBarRt.sizeDelta.x < MinTopBarWidth)
@@ -764,7 +763,7 @@ namespace Yoegoe.UI
             return true;
         }
 
-        // ---------------- 빌드 ----------------
+        // ---------------- 런타임 배선 ----------------
 
         void WireRuntimeListeners()
         {
@@ -801,10 +800,8 @@ namespace Yoegoe.UI
 
         /// <summary>
         /// "초기화"/"캐시 날리기" 버튼은 Button.onClick.AddListener를 코드로만 붙이는데, 이건
-        /// UnityEvent의 "런타임 전용" 리스너라 프리팹으로 구우면 리스너가 통째로 날아간다
-        /// (Bake 당시 BuildTempDebugButtons가 실행되며 붙인 리스너는 저장되지 않음).
-        /// HasPrefabShell이라 BuildCanvas 자체를 건너뛰는 예전 Bake본에서도 버튼은 남아있으니,
-        /// 이름으로 찾아 매번 다시 연결해서 "버튼이 안 먹히는" 문제를 없앤다.
+        /// UnityEvent의 "런타임 전용" 리스너라 프리팹에 저장되지 않는다.
+        /// Prefab에 버튼이 남아있으면 이름으로 찾아 매번 다시 연결한다.
         /// </summary>
         void WireTempDebugButtons()
         {
@@ -826,92 +823,6 @@ namespace Yoegoe.UI
                 tempClearCacheButton.onClick.RemoveAllListeners();
                 tempClearCacheButton.onClick.AddListener(OnClearCacheClicked);
             }
-        }
-
-        void WireUpgradeHoldTriggers()
-        {
-            if (upgradeButtonRoot == null) return;
-
-            var trigger = upgradeButtonRoot.GetComponent<EventTrigger>();
-            if (trigger == null) trigger = upgradeButtonRoot.AddComponent<EventTrigger>();
-            trigger.triggers.Clear();
-
-            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            down.callback.AddListener(_ => OnUpgradePointerDown());
-            trigger.triggers.Add(down);
-            var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-            up.callback.AddListener(_ => OnUpgradePointerUp());
-            trigger.triggers.Add(up);
-            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
-            exit.callback.AddListener(_ => OnUpgradePointerUp());
-            trigger.triggers.Add(exit);
-        }
-
-        private void BuildCanvas()
-        {
-            var canvasGO = new GameObject("Canvas_HUD");
-            canvasGO.transform.SetParent(transform, false);
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 500;
-            hudCanvas = canvas;
-
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
-
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            BuildTopBar(canvasGO.transform);
-            BuildTempDebugButtons(canvasGO.transform);
-            BuildSlotBar(canvasGO.transform);
-            BuildUpgradeButton(canvasGO.transform);
-        }
-
-        /// <summary>임시 디버그: 초기화(세이브) + 캐시 날리기(브라우저 캐시/IndexedDB).</summary>
-        private void BuildTempDebugButtons(Transform canvasTf)
-        {
-            // 우상단 세로 스택: 상점(-24,-24,h64) → 윷놀이(-24,-100,h64) → 초기화 → 캐시 (간격 12)
-            const float x = -24f;
-            const float w = 120f;
-            const float h = 48f;
-            const float gap = 12f;
-            const float shopBottom = -100f - 64f; // 윷놀이 버튼 하단 y
-            float resetY = shopBottom - gap;
-            float cacheY = resetY - h - gap;
-
-            BuildTempDebugButton(canvasTf, "TempResetButton", "초기화",
-                new Vector2(x, resetY), new Vector2(w, h),
-                new Color(0.55f, 0.18f, 0.16f, 0.92f), OnTempResetClicked);
-
-            BuildTempDebugButton(canvasTf, "TempClearCacheButton", "캐시 날리기",
-                new Vector2(x, cacheY), new Vector2(w, h),
-                new Color(0.35f, 0.22f, 0.45f, 0.92f), OnClearCacheClicked);
-        }
-
-        void BuildTempDebugButton(Transform canvasTf, string name, string label,
-            Vector2 anchoredPos, Vector2 size, Color color, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject(name);
-            SetupRect(go, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
-                anchoredPos, size);
-            var bg = go.AddComponent<Image>();
-            bg.color = color;
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = bg;
-            btn.onClick.AddListener(onClick);
-
-            var labelGO = new GameObject("Label");
-            SetupRect(labelGO, go.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var text = labelGO.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = UiFonts.HudSlotName;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.text = label;
-            text.raycastTarget = false;
         }
 
         private static void OnTempResetClicked()
@@ -944,192 +855,23 @@ namespace Yoegoe.UI
         static extern void YogoeClearBrowserCacheAndReload();
 #endif
 
-        private void BuildUpgradeButton(Transform canvasTf)
+        void WireUpgradeHoldTriggers()
         {
-            upgradeButtonRoot = new GameObject("UpgradeButton");
-            upgradeButtonRt = SetupRect(upgradeButtonRoot, canvasTf,
-                new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0),
-                new Vector2(-28, 200), new Vector2(200, 96));
-            var bg = upgradeButtonRoot.AddComponent<Image>();
-            bg.color = C.hudUpgradeButton;
+            if (upgradeButtonRoot == null) return;
 
-            var btn = upgradeButtonRoot.AddComponent<Button>();
-            btn.targetGraphic = bg;
+            var trigger = upgradeButtonRoot.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = upgradeButtonRoot.AddComponent<EventTrigger>();
+            trigger.triggers.Clear();
 
-            var iconGO = new GameObject("Icon");
-            SetupRect(iconGO, upgradeButtonRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f),
-                new Vector2(12, 0), new Vector2(56, 56));
-            upgradeIconImage = iconGO.AddComponent<Image>();
-            upgradeIconImage.preserveAspect = true;
-            upgradeIconImage.raycastTarget = false;
-
-            var nameGO = new GameObject("Name");
-            SetupRect(nameGO, upgradeButtonRt, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1),
-                new Vector2(20, -8), new Vector2(-70, 28));
-            upgradeNameText = nameGO.AddComponent<Text>();
-            upgradeNameText.font = font;
-            upgradeNameText.fontSize = UiFonts.HudSlotName;
-            upgradeNameText.alignment = TextAnchor.MiddleLeft;
-            upgradeNameText.color = Color.white;
-            upgradeNameText.raycastTarget = false;
-
-            var costGO = new GameObject("Cost");
-            SetupRect(costGO, upgradeButtonRt, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0),
-                new Vector2(20, 10), new Vector2(-70, 32));
-            upgradeCostText = costGO.AddComponent<Text>();
-            upgradeCostText.font = font;
-            upgradeCostText.fontSize = UiFonts.Emphasis;
-            upgradeCostText.alignment = TextAnchor.MiddleLeft;
-            upgradeCostText.color = C.hudUpgradeCost;
-            upgradeCostText.raycastTarget = false;
-
-            upgradeButtonRoot.SetActive(false);
-        }
-
-        private void BuildTopBar(Transform canvasTf)
-        {
-            var topGO = new GameObject("TopBar");
-            var topRt = SetupRect(topGO, canvasTf, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(24, -24), new Vector2(MinTopBarWidth, 140));
-            var topBg = topGO.AddComponent<Image>();
-            topBg.color = C.hudTopBar;
-            topBg.raycastTarget = false;
-            var topLayout = topGO.AddComponent<VerticalLayoutGroup>();
-            topLayout.padding = new RectOffset(16, 16, 10, 10);
-            topLayout.spacing = 6;
-            topLayout.childAlignment = TextAnchor.UpperLeft;
-            topLayout.childControlWidth = true;
-            topLayout.childControlHeight = false;
-            topLayout.childForceExpandWidth = true;
-
-            var meritGO = new GameObject("MeritText");
-            meritGO.AddComponent<LayoutElement>().preferredHeight = 48;
-            meritGO.transform.SetParent(topRt, false);
-            meritTextRt = meritGO.GetComponent<RectTransform>();
-            if (meritTextRt == null) meritTextRt = meritGO.AddComponent<RectTransform>();
-            meritText = meritGO.AddComponent<Text>();
-            meritText.font = font;
-            meritText.fontSize = UiFonts.HudMerit;
-            meritText.color = C.textCream;
-            meritText.alignment = TextAnchor.MiddleLeft;
-            meritText.raycastTarget = false;
-
-            var rowGO = new GameObject("CurrencyRow");
-            rowGO.transform.SetParent(topRt, false);
-            rowGO.AddComponent<LayoutElement>().preferredHeight = 44;
-            var rowLayout = rowGO.AddComponent<HorizontalLayoutGroup>();
-            rowLayout.spacing = 10;
-            rowLayout.childAlignment = TextAnchor.MiddleLeft;
-            rowLayout.childControlWidth = false;
-            rowLayout.childControlHeight = true;
-
-            // 4종 재화가 말로만 구별돼서 헷갈린다는 피드백 — 재화별 색 아이콘 + 색 배경 칩으로 구분.
-            yeopjeonText = CreateCurrencyChip(rowGO.transform, "엽전 0", C.currencyYeopjeon);
-            hyangText = CreateCurrencyChip(rowGO.transform, "향 0", C.currencyHyang);
-            purifiedWaterText = CreateCurrencyChip(rowGO.transform, "정화수 0", C.currencyPurifiedWater, purifiedWaterIcon);
-            yutTokenText = CreateCurrencyChip(rowGO.transform, "윷 0/0", C.currencyYutToken);
-            yutTokenPlusButton = CreateYutTokenPlusButton(rowGO.transform);
-
-            // 우상단 상점 버튼
-            var shopBtnGO = new GameObject("ShopButton");
-            var shopRt = SetupRect(shopBtnGO, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-24, -24), new Vector2(120, 64));
-            var shopImg = shopBtnGO.AddComponent<Image>();
-            shopImg.color = C.hudShopButton;
-            shopButton = shopBtnGO.AddComponent<Button>();
-            shopButton.targetGraphic = shopImg;
-            var shopLabelGO = new GameObject("Label");
-            SetupRect(shopLabelGO, shopRt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var shopLabel = shopLabelGO.AddComponent<Text>();
-            shopLabel.font = font;
-            shopLabel.fontSize = UiFonts.Button;
-            shopLabel.alignment = TextAnchor.MiddleCenter;
-            shopLabel.color = C.textCream;
-            shopLabel.text = "상점";
-            shopLabel.raycastTarget = false;
-
-            // 상점 바로 아래 윷놀이 버튼
-            var yutBtnGO = new GameObject("YutButton");
-            var yutRt = SetupRect(yutBtnGO, canvasTf, new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-24, -100), new Vector2(120, 64));
-            var yutImg = yutBtnGO.AddComponent<Image>();
-            yutImg.color = C.hudYutButton;
-            yutButton = yutBtnGO.AddComponent<Button>();
-            yutButton.targetGraphic = yutImg;
-            var yutLabelGO = new GameObject("Label");
-            SetupRect(yutLabelGO, yutRt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var yutLabel = yutLabelGO.AddComponent<Text>();
-            yutLabel.font = font;
-            yutLabel.fontSize = UiFonts.Button;
-            yutLabel.alignment = TextAnchor.MiddleCenter;
-            yutLabel.color = C.textCream;
-            yutLabel.text = "윷놀이";
-            yutLabel.raycastTarget = false;
-        }
-
-        private void BuildSlotBar(Transform canvasTf)
-        {
-            var slotGO = new GameObject("SlotBar");
-            var slotRt = SetupRect(slotGO, canvasTf, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0f),
-                new Vector2(0, 24), new Vector2(-40, 160));
-            var layout = slotGO.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            slotBarRoot = slotRt;
-        }
-
-        /// <summary>
-        /// 재화 칩 하나(색 배경 + 아이콘 + 텍스트). icon이 없으면 accentColor로 물들인 원 아이콘을 대신 쓴다
-        /// (엽전·향·윷 토큰용 — 정화수처럼 실제 아이콘 에셋이 없어도 색으로 바로 구별되게).
-        /// </summary>
-        private Text CreateCurrencyChip(Transform parent, string label, Color accentColor, Sprite icon = null)
-        {
-            const float iconWidth = 30f;
-            const float textWidth = 100f;
-            const float spacing = 6f;
-            var padding = new RectOffset(6, 10, 4, 4);
-
-            var go = new GameObject("Chip");
-            go.transform.SetParent(parent, false);
-            go.AddComponent<LayoutElement>().preferredWidth =
-                padding.left + padding.right + iconWidth + spacing + textWidth;
-
-            var bg = go.AddComponent<Image>();
-            bg.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.3f);
-            bg.raycastTarget = false;
-
-            var layout = go.AddComponent<HorizontalLayoutGroup>();
-            layout.padding = padding;
-            layout.spacing = spacing;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childControlHeight = true;
-
-            var iconGO = new GameObject("Icon");
-            iconGO.transform.SetParent(go.transform, false);
-            iconGO.AddComponent<LayoutElement>().preferredWidth = iconWidth;
-            var iconImg = iconGO.AddComponent<Image>();
-            iconImg.sprite = icon != null ? icon : GetCurrencyDotSprite();
-            iconImg.color = icon != null ? Color.white : accentColor;
-            iconImg.preserveAspect = true;
-            iconImg.raycastTarget = false;
-
-            var textGO = new GameObject("Text");
-            textGO.transform.SetParent(go.transform, false);
-            var textLe = textGO.AddComponent<LayoutElement>();
-            textLe.preferredWidth = textWidth;
-            var text = textGO.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = UiFonts.HudCurrency;
-            text.color = C.textOnDark;
-            text.alignment = TextAnchor.MiddleLeft;
-            text.text = label;
-            text.raycastTarget = false;
-            return text;
+            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            down.callback.AddListener(_ => OnUpgradePointerDown());
+            trigger.triggers.Add(down);
+            var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+            up.callback.AddListener(_ => OnUpgradePointerUp());
+            trigger.triggers.Add(up);
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => OnUpgradePointerUp());
+            trigger.triggers.Add(exit);
         }
 
         /// <summary>윷 토큰 칩 옆 작은 [+] — 눌러 YutTokenShopPopup(엽전 구매/광고 충전)을 연다.</summary>
@@ -1161,34 +903,6 @@ namespace Yoegoe.UI
             label.raycastTarget = false;
 
             return btn;
-        }
-
-        private static Sprite s_currencyDotSprite;
-
-        /// <summary>재화 아이콘용 단색 원. 실제 아트가 없는 엽전·향·윷 토큰이 accentColor로 서로 구별되게.</summary>
-        private static Sprite GetCurrencyDotSprite()
-        {
-            if (s_currencyDotSprite != null) return s_currencyDotSprite;
-
-            const int size = 32;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Bilinear;
-            tex.wrapMode = TextureWrapMode.Clamp;
-            var pixels = new Color[size * size];
-            float r = size / 2f;
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float dx = x + 0.5f - r;
-                float dy = y + 0.5f - r;
-                float dist = Mathf.Sqrt(dx * dx + dy * dy);
-                float alpha = Mathf.Clamp01((r - dist) / 1.5f);
-                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
-            }
-            tex.SetPixels(pixels);
-            tex.Apply(false, true);
-            s_currencyDotSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            return s_currencyDotSprite;
         }
 
         private static RectTransform SetupRect(GameObject go, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
