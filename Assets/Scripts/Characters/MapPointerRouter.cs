@@ -216,7 +216,7 @@ namespace Yoegoe.Characters
             CancelPendingMonologueTap();
             if (phase == Phase.CharacterDrag && dragCharacter != null)
             {
-                dragCharacter.EndPlayerDrag(null);
+                dragCharacter.EndPlayerDrag(null, showFloorMark: false);
                 dragCharacter = null;
             }
             pressCharacter = null;
@@ -392,13 +392,17 @@ namespace Yoegoe.Characters
                 var prop = FindDropProp(dragCharacter, screenPos);
                 // 건립된 기물에 못 앉히면 — 자물쇠 위에 놓았는지 보고 구매 팝업(탭과 동일 경로).
                 // 건설 확정 시 이 요괴를 자동 앉히도록 함께 넘긴다.
+                bool purchasePrompted = false;
                 if (prop == null)
                 {
                     var locked = FindUnbuiltDropProp(dragCharacter, screenPos);
                     if (locked != null)
+                    {
                         PropPurchaseRequested?.Invoke(locked, dragCharacter);
+                        purchasePrompted = true;
+                    }
                 }
-                dragCharacter.EndPlayerDrag(prop);
+                dragCharacter.EndPlayerDrag(prop, showFloorMark: !purchasePrompted);
             }
 
             phase = Phase.Idle;

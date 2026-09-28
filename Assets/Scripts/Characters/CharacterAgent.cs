@@ -73,6 +73,7 @@ namespace Yoegoe.Characters
         {
             ActiveAgents.Remove(this);
             if (IsBeingDragged) PropDragMarkers.Hide();
+            if (dropMarkRenderer != null) Destroy(dropMarkRenderer.gameObject);
             if (bubbleBg != null) Destroy(bubbleBg.gameObject);
             if (bubbleTextMesh != null) Destroy(bubbleTextMesh.gameObject);
             requests?.DestroyVisuals();
@@ -155,9 +156,9 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            if (isRefusing)
+            if (showingDropMark)
             {
-                TickRefuse(dt);
+                TickDropMark(dt);
                 UpdateSortingOrder();
                 return;
             }
