@@ -19,6 +19,7 @@
     "props:push": "python3 Tools/export_props.py --push",
     "attendance": "python3 Tools/export_attendance.py",
     "attendance:csv": "python3 Tools/export_attendance.py --csv",
-    "attendance:push": "python3 Tools/export_attendance.py --push"
+    "attendance:push": "python3 Tools/export_attendance.py --push",
+    "sheets:describe": "python3 Tools/sheet_descriptions.py --apply"
   }
 }

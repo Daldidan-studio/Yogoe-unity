@@ -81,6 +81,8 @@ def known_offering_ids() -> dict[str, str]:
 # ---------------- CSV 읽기/쓰기 ----------------
 
 def read_csv_text(text: str, required: list[str], tab: str) -> list[dict[str, str]]:
+    from sheet_descriptions import strip_description
+    text = strip_description(text, required)  # 1행 ※설명 줄 건너뛰기
     reader = csv.DictReader(io.StringIO(text))
     fields = [h.strip() for h in (reader.fieldnames or [])]
     missing = [h for h in required if h not in fields]
@@ -195,7 +197,10 @@ def load_config() -> dict:
 
 
 def push_tab(config: dict, tab: str, headers: list[str], rows: list[dict]) -> None:
-    payload = {"tab": tab, "headers": headers, "rows": [[r.get(h, "") for h in headers] for r in rows]}
+    from sheet_descriptions import description_row
+    body = [[r.get(h, "") for h in headers] for r in rows]
+    desc = description_row(tab, len(headers))
+    payload = {"tab": tab, "headers": desc or headers, "rows": ([headers] + body) if desc else body}
     if config.get("sheet_id"):
         payload["spreadsheetId"] = config["sheet_id"]
     if config.get("write_token"):

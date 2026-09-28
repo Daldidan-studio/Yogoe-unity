@@ -258,10 +258,13 @@ def push_to_sheet(
     spreadsheet_id: str = "",
 ) -> dict:
     headers = fieldnames_for(locales)
+    from sheet_descriptions import description_row
+    body = [[row.get(h, "") for h in headers] for row in rows]
+    desc = description_row(tab, len(headers))  # 1행 ※설명 유지
     payload = {
         "tab": tab,
-        "headers": headers,
-        "rows": [[row.get(h, "") for h in headers] for row in rows],
+        "headers": desc or headers,
+        "rows": ([headers] + body) if desc else body,
     }
     if spreadsheet_id:
         payload["spreadsheetId"] = spreadsheet_id
