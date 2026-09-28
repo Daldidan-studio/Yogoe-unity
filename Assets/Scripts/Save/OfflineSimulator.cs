@@ -236,7 +236,7 @@ namespace Yoegoe.Save
                     () =>
                     {
                         if (type == PropResourceType.Hunt || type == PropResourceType.Gather)
-                            ingredients.Add((int)PropCatalog.RollIngredient(type, UnityEngine.Random.value));
+                            ingredients.Add(PropCatalog.RollDrop(type, UnityEngine.Random.value));
                     });
                 prop.storedResources = st.Stored;
                 prop.cycleProgressSeconds = st.CycleProgressSeconds;
