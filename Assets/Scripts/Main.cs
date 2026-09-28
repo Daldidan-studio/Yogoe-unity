@@ -10,6 +10,7 @@ using Yoegoe.Debugging;
 using Yoegoe.Economy;
 using Yoegoe.Save;
 using Yoegoe.UI;
+using Yoegoe.Core;
 
 namespace Yoegoe
 {
@@ -116,7 +117,7 @@ namespace Yoegoe
             // maximumDeltaTime은 이동 스파이크 방지용으로 남겨 두되, 실제 공백 정산은 벽시계로 한다.
             // (WebGL은 탭 복귀 시 deltaTime 스파이크를 안 주는 경우가 많다.)
             Time.maximumDeltaTime = 3600f;
-            lastActiveUtc = DateTime.UtcNow;
+            lastActiveUtc = TrustedTime.UtcNow;
 
             var economyGO = new GameObject("GameEconomy");
             economyGO.AddComponent<GameEconomy>().ApplyStartingState(StartingStateSettings.Get());
@@ -125,7 +126,7 @@ namespace Yoegoe
             EnsureOfferingsCatalog();
             CharacterCatalog.SetOfferings(offerings);
             ShopStock.SetCatalog(offerings);
-            ShopStock.EnsureFresh(DateTime.UtcNow);
+            ShopStock.EnsureFresh(TrustedTime.UtcNow);
 
             EnsureCamera();
             EnsureLight();
@@ -153,7 +154,7 @@ namespace Yoegoe
             // 누락/순서 문제로 Root가 남으면 풀스크린이 맵 클릭을 가로챈다.
             ForceCloseOverlayScreens();
             GameSaveBridge.TryLoadSimulateAndApply();
-            lastActiveUtc = DateTime.UtcNow;
+            lastActiveUtc = TrustedTime.UtcNow;
             worldReady = true;
             // 콜드스타트 순서: 출석 윷점 → (옥토끼 대사) → 기타 팝업 (Docs/00 §13)
             AttendanceScreen.TryOpenIfDue(hudFont);
@@ -167,7 +168,7 @@ namespace Yoegoe
         {
             if (!worldReady) return;
 
-            var now = DateTime.UtcNow;
+            var now = TrustedTime.UtcNow;
             double gap = (now - lastActiveUtc).TotalSeconds;
             lastActiveUtc = now;
 
@@ -212,7 +213,7 @@ namespace Yoegoe
         {
             if (!worldReady) return;
 
-            var now = DateTime.UtcNow;
+            var now = TrustedTime.UtcNow;
             double gap = (now - lastActiveUtc).TotalSeconds;
             lastActiveUtc = now;
 

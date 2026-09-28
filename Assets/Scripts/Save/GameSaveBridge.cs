@@ -26,7 +26,7 @@ namespace Yoegoe.Save
 
             GameSaveMigration.MigrateToCurrent(data);
 
-            var sim = OfflineSimulator.Simulate(data, DateTime.UtcNow);
+            var sim = OfflineSimulator.Simulate(data, TrustedTime.UtcNow);
             if (sim.SimulatedSeconds > 1f)
             {
                 Debug.Log($"[GameSaveBridge] 오프라인 따라잡기 {sim.SimulatedSeconds:F0}s " +
@@ -73,7 +73,7 @@ namespace Yoegoe.Save
             var data = new GameSaveData
             {
                 version = GameSaveMigration.CurrentVersion,
-                savedAtUtcTicks = DateTime.UtcNow.Ticks,
+                savedAtUtcTicks = TrustedTime.UtcNow.Ticks,
                 economy = new EconomySave
                 {
                     merit = BigNumberSave.From(GameEconomy.Instance.MeritPile),

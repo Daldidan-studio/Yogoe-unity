@@ -21,6 +21,14 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
+        public void DayKey_IsKstFixed_RegardlessOfDeviceTimezone()
+        {
+            // UTC 19:00 = KST 다음날 04:00 → 새 하루
+            Assert.AreEqual(20260928, Attendance.DayKeyFromUtc(new DateTime(2026, 9, 27, 19, 0, 0, DateTimeKind.Utc)));
+            Assert.AreEqual(20260927, Attendance.DayKeyFromUtc(new DateTime(2026, 9, 27, 18, 59, 0, DateTimeKind.Utc)));
+        }
+
+        [Test]
         public void Claim_OncePerDay_AdvancesDay()
         {
             Assert.IsTrue(Attendance.ShouldOpen(20260928));

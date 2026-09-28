@@ -172,7 +172,7 @@ namespace Yoegoe.Economy
             bool wasFull = YutToken >= YutTokenMax;
             YutToken -= amount;
             if (wasFull && YutToken < YutTokenMax)
-                YutTokenRegenNextUtcTicks = DateTime.UtcNow.Add(YutTokenRegenInterval).Ticks;
+                YutTokenRegenNextUtcTicks = TrustedTime.UtcNow.Add(YutTokenRegenInterval).Ticks;
             OnYutTokenChanged?.Invoke(YutToken);
             return true;
         }
@@ -394,7 +394,7 @@ namespace Yoegoe.Economy
             YutTokenMax = Mathf.Max(1, s.yutTokenMax);
             YutToken = Mathf.Clamp(s.startingYutToken, 0, YutTokenMax);
             YutTokenRegenNextUtcTicks = YutToken < YutTokenMax
-                ? DateTime.UtcNow.Add(YutTokenRegenInterval).Ticks
+                ? TrustedTime.UtcNow.Add(YutTokenRegenInterval).Ticks
                 : 0;
 
             OfferingCounts.Clear();

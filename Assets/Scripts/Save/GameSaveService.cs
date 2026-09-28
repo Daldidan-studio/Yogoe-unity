@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEngine;
+using Yoegoe.Core;
 
 namespace Yoegoe.Save
 {
@@ -28,7 +29,7 @@ namespace Yoegoe.Save
         public static void Save(GameSaveData data)
         {
             if (data == null) return;
-            data.savedAtUtcTicks = DateTime.UtcNow.Ticks;
+            data.savedAtUtcTicks = TrustedTime.UtcNow.Ticks;
             string json = JsonUtility.ToJson(data, prettyPrint: true);
 
 #if UNITY_WEBGL && !UNITY_EDITOR

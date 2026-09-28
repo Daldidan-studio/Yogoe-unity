@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Yoegoe.Characters;
 using Yoegoe.Data;
+using Yoegoe.Core;
 
 namespace Yoegoe.Economy
 {
@@ -37,7 +38,7 @@ namespace Yoegoe.Economy
             LeftOfferingId = leftId;
             RightOfferingId = rightId;
             NextRefreshUtcTicks = nextTicks;
-            EnsureFresh(DateTime.UtcNow);
+            EnsureFresh(TrustedTime.UtcNow);
         }
 
         public static void EnsureFresh(DateTime utcNow)

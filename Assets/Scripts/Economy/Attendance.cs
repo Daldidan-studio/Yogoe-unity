@@ -1,10 +1,11 @@
 using System;
+using Yoegoe.Core;
 
 namespace Yoegoe.Economy
 {
     /// <summary>
     /// 출석보상 윷점 (기획 18장) 진행 상태·규칙.
-    /// - '하루' = 로컬 새벽 4시 기준. 그날 처음 들어오면 팝업.
+    /// - '하루' = **KST 새벽 4시** 기준(기기 타임존 무관, 시각은 TrustedTime — 나중에 서버 시각). 그날 처음 들어오면 팝업.
     /// - 오늘 칸 수령 → 다음 날은 다음 칸. 7일차 다음은 1일차. 하루 걸러도 초기화 안 됨.
     /// - 수령하지 않고 닫아도 그날은 다시 안 뜬다(칸도 그대로).
     /// </summary>
@@ -29,14 +30,17 @@ namespace Yoegoe.Economy
             lastHandledDayKey = LastHandledDayKey;
         }
 
-        /// <summary>새벽 4시 이전은 전날로 친다.</summary>
-        public static int DayKey(DateTime local)
+        /// <summary>KST 벽시계 기준 날짜 키. 새벽 4시 이전은 전날로 친다.</summary>
+        public static int DayKey(DateTime kst)
         {
-            var d = local.AddHours(-ResetHour).Date;
+            var d = kst.AddHours(-ResetHour).Date;
             return d.Year * 10000 + d.Month * 100 + d.Day;
         }
 
-        public static int TodayKey => DayKey(DateTime.Now);
+        /// <summary>UTC 시각 → KST 날짜 키.</summary>
+        public static int DayKeyFromUtc(DateTime utc) => DayKey(utc + TrustedTime.KstOffset);
+
+        public static int TodayKey => DayKey(TrustedTime.KstNow);
 
         public static bool ShouldOpen(int todayKey) => LastHandledDayKey != todayKey;
 
