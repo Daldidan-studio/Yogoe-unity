@@ -500,8 +500,8 @@ namespace Yoegoe.UI
                         for (int i = 0; i < reward.Ingredients.Length; i++)
                         {
                             var id = reward.Ingredients[i];
-                            matchIngredientCounts.TryGetValue(id, out int cur);
-                            matchIngredientCounts[id] = cur + amount;
+                            matchIngredientCounts.TryGetValue(id, out int curIngredient);
+                            matchIngredientCounts[id] = curIngredient + amount;
                             TrackMatchLoot(YutSquareRewardKind.IngredientBundle, null, amount, id);
                             parts.Add(CookingRecipeCatalog.DisplayName(id));
                         }
@@ -513,8 +513,8 @@ namespace Yoegoe.UI
                 case YutSquareRewardKind.Charm:
                     {
                         var charm = reward.Charm;
-                        matchCharmCounts.TryGetValue(charm, out int cur);
-                        matchCharmCounts[charm] = cur + amount;
+                        matchCharmCounts.TryGetValue(charm, out int curCharm);
+                        matchCharmCounts[charm] = curCharm + amount;
                         TrackMatchLoot(YutSquareRewardKind.Charm, null, amount, default, charm);
                         string name = YutRewards.CharmDisplayName(charm);
                         miniGame.AddPlayLogEntry($"{name} {amount}개 획득.");
