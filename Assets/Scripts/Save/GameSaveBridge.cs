@@ -133,7 +133,8 @@ namespace Yoegoe.Save
                     stateTimer = a.Stats.StateTimer,
                     posX = a.transform.position.x,
                     posY = a.transform.position.y,
-                    occupiedPropId = propId
+                    occupiedPropId = propId,
+                    revealedPreferredOfferingIds = a.Stats.RevealedPreferredOfferingIds.ToArray()
                 };
             }
 
@@ -204,6 +205,7 @@ namespace Yoegoe.Save
                             ags.stateTimer,
                             new Vector3(ags.posX, ags.posY, a.transform.position.z),
                             occupy);
+                        a.Stats.SetRevealedPreferences(ags.revealedPreferredOfferingIds);
                         break;
                     }
                 }

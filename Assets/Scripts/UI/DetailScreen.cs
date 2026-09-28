@@ -68,6 +68,10 @@ namespace Yoegoe.UI
         private bool offeringDragActive;
         /// <summary>드래그 중 한 프레임이라도 드롭존 위였으면 터치 릴리즈 지터로 실패하지 않게.</summary>
         private bool feedDropHoverLatched;
+        /// <summary>드래그 중인 공양물 — 초상 위에서 선호 여부 말풍선(♥/💢) 힌트용.</summary>
+        private OfferingData draggedOffering;
+        private bool draggedPurified;
+        private EmoteBubble emoteBubble;
 
         struct CountBadge
         {
@@ -181,6 +185,7 @@ namespace Yoegoe.UI
                 StopCoroutine(portraitEvolveFx);
                 portraitEvolveFx = null;
             }
+            if (emoteBubble != null) emoteBubble.Hide();
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
             if (root != null) root.SetActive(false);
             currentAgent = null;
@@ -452,10 +457,12 @@ namespace Yoegoe.UI
 
         // ---------------- feed / drag ----------------
 
-        public void NotifyOfferingDragBegan()
+        public void NotifyOfferingDragBegan(OfferingData offering, bool purified)
         {
             offeringDragActive = true;
             feedDropHoverLatched = false;
+            draggedOffering = offering;
+            draggedPurified = purified;
             if (feedHintText != null)
                 feedHintText.text = "캐릭터 위에 놓아 공양하세요";
             SetPortraitDropHighlight(false);
@@ -466,12 +473,42 @@ namespace Yoegoe.UI
             bool over = IsOverFeedTarget(screenPos);
             if (over) feedDropHoverLatched = true;
             SetPortraitDropHighlight(over || feedDropHoverLatched);
+            UpdateEmoteHint(over);
+        }
+
+        /// <summary>
+        /// 초상 위로 공양물을 끌고 오면 표정 힌트: 선호면 ♥, 아니면 💢.
+        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 정화수·넋은 힌트 없음.
+        /// </summary>
+        void UpdateEmoteHint(bool over)
+        {
+            bool show = over
+                && offeringDragActive
+                && currentAgent != null
+                && currentAgent.Stats.Stage != GrowthStage.Neok
+                && draggedOffering != null
+                && !draggedPurified
+                && !IsPurified(draggedOffering);
+            if (!show)
+            {
+                if (emoteBubble != null) emoteBubble.Hide();
+                return;
+            }
+            if (emoteBubble == null)
+            {
+                if (portraitDropRt == null) return;
+                emoteBubble = EmoteBubble.Create(portraitDropRt);
+            }
+            emoteBubble.Show(IsPreferred(draggedOffering) ? EmoteBubble.Kind.Happy : EmoteBubble.Kind.Dislike);
         }
 
         public void NotifyOfferingDragEnded(bool accepted)
         {
             offeringDragActive = false;
             feedDropHoverLatched = false;
+            draggedOffering = null;
+            draggedPurified = false;
+            if (emoteBubble != null) emoteBubble.Hide();
             SetPortraitDropHighlight(false);
             if (feedHintText == null) return;
             if (accepted)
@@ -641,10 +678,14 @@ namespace Yoegoe.UI
             }
 
             currentAgent.ReceiveOffering(staminaGain, intimacyGain, kind);
+            // 선호 공양물은 실제로 먹여야 영구 공개(상세 표기·인벤 금테)
+            bool revealed = preferred && currentAgent.Stats.RevealPreference(offering.offeringId);
             PlayGainPopup(staminaGain, intimacyGain);
             RefreshStats();
             RefreshItemCounts();
-            if (clearedOfferingRequest)
+            if (revealed)
+                RebuildPreferredRow();
+            if (clearedOfferingRequest || revealed)
                 RebuildInventoryRow();
             if (currentAgent.Stats.Stage == GrowthStage.Hon)
                 GameSaveBridge.SaveFromWorld();
@@ -724,7 +765,10 @@ namespace Yoegoe.UI
                     foreach (var o in soPrefs)
                     {
                         if (o == null) continue;
-                        CreatePreferredChip(preferredRow, o.displayName, o.icon, o);
+                        if (currentAgent.Stats.IsPreferenceRevealed(o.offeringId))
+                            CreatePreferredChip(preferredRow, o.displayName, o.icon, o);
+                        else
+                            CreateHiddenPreferredChip(preferredRow);
                     }
                 }
                 return;
@@ -733,6 +777,11 @@ namespace Yoegoe.UI
             foreach (var p in prefs)
             {
                 if (p == null) continue;
+                if (!currentAgent.Stats.IsPreferenceRevealed(p.id))
+                {
+                    CreateHiddenPreferredChip(preferredRow);
+                    continue;
+                }
                 var resolved = CharacterCatalog.FindOffering(p.id);
                 string label = !string.IsNullOrEmpty(p.name) ? p.name : p.id;
                 CreatePreferredChip(preferredRow, label, resolved != null ? resolved.icon : null, resolved);
@@ -754,7 +803,8 @@ namespace Yoegoe.UI
                     if (offering == null || IsPurified(offering)) continue;
                     if (!string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
                         continue;
-                    CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: true);
+                    CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: true,
+                        goldFrame: IsRevealedPreferred(offering));
                 }
             }
 
@@ -765,7 +815,8 @@ namespace Yoegoe.UI
                 if (!string.IsNullOrEmpty(highlightOfferingId)
                     && string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
                     continue;
-                CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: false);
+                CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: false,
+                    goldFrame: IsRevealedPreferred(offering));
             }
         }
 
@@ -774,7 +825,28 @@ namespace Yoegoe.UI
             offeringCountBadges.RemoveAll(b => b.Label == null);
         }
 
-        private void CreatePreferredChip(Transform parent, string label, Sprite icon, OfferingData feedTarget, bool highlight = false)
+        bool IsRevealedPreferred(OfferingData offering) =>
+            offering != null && currentAgent != null
+            && currentAgent.Stats.IsPreferenceRevealed(offering.offeringId)
+            && IsPreferred(offering);
+
+        /// <summary>아직 먹여 보지 않은 선호 — 이름·아이콘 없이 "?" (드래그 불가).</summary>
+        private void CreateHiddenPreferredChip(Transform parent)
+        {
+            CreatePreferredChip(parent, "???", null, null);
+            var circle = parent.GetChild(parent.childCount - 1).Find("Circle");
+            if (circle == null) return;
+            var icon = circle.Find("Icon");
+            if (icon != null) icon.gameObject.SetActive(false);
+            var q = CreateText(circle, "?", F.title, TextAnchor.MiddleCenter);
+            q.color = C.textDark;
+            q.raycastTarget = false;
+            SetupRect(q.gameObject, circle, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+        }
+
+        private void CreatePreferredChip(Transform parent, string label, Sprite icon, OfferingData feedTarget, bool highlight = false,
+            bool goldFrame = false)
         {
             var itemGO = new GameObject("Pref_" + (label ?? "?"));
             itemGO.transform.SetParent(parent, false);
@@ -799,6 +871,12 @@ namespace Yoegoe.UI
             circleImg.color = highlight
                 ? C.offeringHighlight
                 : C.offeringIdle;
+            if (goldFrame)
+            {
+                var frame = circleGO.AddComponent<Outline>();
+                frame.effectColor = C.preferredGoldFrame;
+                frame.effectDistance = new Vector2(4f, -4f);
+            }
 
             var iconGO = new GameObject("Icon");
             SetupRect(iconGO, circleGO.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),

@@ -76,7 +76,7 @@ namespace Yoegoe.UI
 
             ghostRt.position = eventData.position;
             dragActive = true;
-            screen.NotifyOfferingDragBegan();
+            screen.NotifyOfferingDragBegan(offering, isPurifiedWater);
         }
 
         public void OnDrag(PointerEventData eventData)
