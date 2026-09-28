@@ -186,12 +186,20 @@ namespace Yoegoe.Characters
             if (!HasPendingMerit) return false;
             var collected = TakePendingMerit();
             GameEconomy.Instance.AddMerit(collected);
-            Vector3 fxPos = transform.position + Vector3.up * 0.4f;
-            if (spriteRenderer != null && spriteRenderer.sprite != null)
-                fxPos = new Vector3(transform.position.x, spriteRenderer.bounds.max.y + 0.15f, transform.position.z);
-            MeritCollectedAtWorld?.Invoke(fxPos);
+            MeritCollectedAtWorld?.Invoke(TopAnchorWorld(0.15f));
             return true;
         }
+
+        /// <summary>기물 스프라이트 윗변 중앙 + pad (연출·드래그 마커 위치).</summary>
+        public Vector3 TopAnchorWorld(float pad)
+        {
+            if (spriteRenderer != null && spriteRenderer.sprite != null)
+                return new Vector3(transform.position.x, spriteRenderer.bounds.max.y + pad, transform.position.z);
+            return transform.position + Vector3.up * (0.25f + pad);
+        }
+
+        /// <summary>드래그 중인 요괴가 지금 바로 앉을 수 있는 기물인지 (금색 ▼ 마커).</summary>
+        public bool CanSitNow(CharacterAgent agent) => IsBuilt && !IsOccupied && CanBeUsedBy(agent);
 
         /// <summary>더미만 비워 반환 (일괄 수거용 — HUD에 바로 넣지 않음).</summary>
         public BigNumber TakePendingMerit()

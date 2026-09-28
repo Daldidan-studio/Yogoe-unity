@@ -26,6 +26,7 @@ namespace Yoegoe.Characters
             lastPosition = transform.position;
             dragScaleBefore = transform.localScale;
             transform.localScale = dragScaleBefore * DragLiftScale;
+            PropDragMarkers.Show(this);
         }
 
         public void SetDragWorldPosition(Vector3 world)
@@ -45,6 +46,7 @@ namespace Yoegoe.Characters
         {
             if (!IsBeingDragged) return;
             IsBeingDragged = false;
+            PropDragMarkers.Hide();
             transform.localScale = dragScaleBefore.sqrMagnitude > 0.0001f ? dragScaleBefore : transform.localScale;
             lastPosition = transform.position;
 

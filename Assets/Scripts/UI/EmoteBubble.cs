@@ -1,11 +1,12 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Yoegoe.Core;
 
 namespace Yoegoe.UI
 {
     /// <summary>
     /// 상세화면 공양 드래그 힌트 말풍선 — 선호면 ♥(기쁨), 아니면 💢(싫음).
-    /// 표정 초상 아트가 나오기 전 임시 표현. 스프라이트는 코드로 그려 캐시한다(폰트에 이모지 글리프가 없어서).
+    /// 표정 초상 아트가 나오기 전 임시 표현. 스프라이트는 ProceduralSprite로 그려 캐시한다(폰트에 이모지 글리프가 없어서).
     /// </summary>
     public class EmoteBubble : MonoBehaviour
     {
@@ -88,37 +89,8 @@ namespace Yoegoe.UI
         static Sprite GetDislikeSprite() =>
             dislikeSprite != null ? dislikeSprite : (dislikeSprite = BuildSprite("Emote_Dislike", Kind.Dislike));
 
-        static Sprite BuildSprite(string name, Kind kind)
-        {
-            var tex = new Texture2D(TexSize, TexSize, TextureFormat.RGBA32, false)
-            {
-                name = name,
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear
-            };
-            var px = new Color[TexSize * TexSize];
-            // 2x2 슈퍼샘플로 가장자리 계단 완화
-            for (int y = 0; y < TexSize; y++)
-            {
-                for (int x = 0; x < TexSize; x++)
-                {
-                    Color acc = Color.clear;
-                    for (int sy = 0; sy < 2; sy++)
-                    for (int sx = 0; sx < 2; sx++)
-                    {
-                        var c = Sample(new Vector2(x + 0.25f + sx * 0.5f, y + 0.25f + sy * 0.5f), kind);
-                        acc += new Color(c.r * c.a, c.g * c.a, c.b * c.a, c.a);
-                    }
-                    acc /= 4f;
-                    px[y * TexSize + x] = acc.a > 0.0001f
-                        ? new Color(acc.r / acc.a, acc.g / acc.a, acc.b / acc.a, acc.a)
-                        : Color.clear;
-                }
-            }
-            tex.SetPixels(px);
-            tex.Apply(false, true);
-            return Sprite.Create(tex, new Rect(0, 0, TexSize, TexSize), new Vector2(0.5f, 0.5f), 100f);
-        }
+        static Sprite BuildSprite(string name, Kind kind) =>
+            ProceduralSprite.Build(name, TexSize, 100f, p => Sample(p, kind));
 
         static readonly Vector2 BubbleCenter = new Vector2(68f, 70f);
         const float BubbleRadius = 50f;
@@ -128,7 +100,7 @@ namespace Yoegoe.UI
         {
             // 원 + 좌하단 꼬리(초상 쪽을 가리킴)
             float circle = (p - BubbleCenter).magnitude - BubbleRadius;
-            float tail = SdTriangle(p, new Vector2(30f, 52f), new Vector2(54f, 28f), new Vector2(8f, 6f));
+            float tail = ProceduralSprite.SdTriangle(p, new Vector2(30f, 52f), new Vector2(54f, 28f), new Vector2(8f, 6f));
             float d = Mathf.Min(circle, tail);
             if (d > 0f) return Color.clear;
             if (d > -OutlineWidth) return Outline;
@@ -163,23 +135,6 @@ namespace Yoegoe.UI
                 if (Mathf.Abs(d.magnitude - radius) <= halfWidth) return true;
             }
             return false;
-        }
-
-        /// <summary>삼각형 부호 거리(내부 음수).</summary>
-        static float SdTriangle(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
-        {
-            Vector2 e0 = b - a, e1 = c - b, e2 = a - c;
-            Vector2 v0 = p - a, v1 = p - b, v2 = p - c;
-            Vector2 pq0 = v0 - e0 * Mathf.Clamp01(Vector2.Dot(v0, e0) / Vector2.Dot(e0, e0));
-            Vector2 pq1 = v1 - e1 * Mathf.Clamp01(Vector2.Dot(v1, e1) / Vector2.Dot(e1, e1));
-            Vector2 pq2 = v2 - e2 * Mathf.Clamp01(Vector2.Dot(v2, e2) / Vector2.Dot(e2, e2));
-            float sgn = Mathf.Sign(e0.x * e2.y - e0.y * e2.x);
-            float dx = Mathf.Min(Mathf.Min(pq0.sqrMagnitude, pq1.sqrMagnitude), pq2.sqrMagnitude);
-            float dy = Mathf.Min(Mathf.Min(
-                    sgn * (v0.x * e0.y - v0.y * e0.x),
-                    sgn * (v1.x * e1.y - v1.y * e1.x)),
-                sgn * (v2.x * e2.y - v2.y * e2.x));
-            return -Mathf.Sqrt(dx) * Mathf.Sign(dy);
         }
     }
 }

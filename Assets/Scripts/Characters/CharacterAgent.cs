@@ -72,6 +72,7 @@ namespace Yoegoe.Characters
         private void OnDisable()
         {
             ActiveAgents.Remove(this);
+            if (IsBeingDragged) PropDragMarkers.Hide();
             if (bubbleBg != null) Destroy(bubbleBg.gameObject);
             if (bubbleTextMesh != null) Destroy(bubbleTextMesh.gameObject);
             requests?.DestroyVisuals();
