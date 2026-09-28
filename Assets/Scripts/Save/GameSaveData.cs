@@ -96,6 +96,9 @@ namespace Yoegoe.Save
 
         /// <summary>공양물 인벤 (정화수 제외). null이면 구세이브 — StartingState 유지.</summary>
         public OfferingCountSave[] offerings;
+
+        /// <summary>요리 재료 개수 (CookingIngredientId 순서). null/빈 배열이면 구세이브 — 시작 재료 유지.</summary>
+        public int[] materials;
     }
 
     [Serializable]
@@ -117,6 +120,15 @@ namespace Yoegoe.Save
         public double baseProductionPerMinute = 100;
         public bool isEndingProp;
         public string ownerCharacterId;
+
+        /// <summary>자원 기물 보관 (물·엽전·재료 개수).</summary>
+        public int storedResources;
+        /// <summary>진행 중인 산출 주기 경과 초.</summary>
+        public float cycleProgressSeconds;
+        /// <summary>이번 만창 사이클 오버플로우 판정 완료(=정지) 여부.</summary>
+        public bool overflowJudged;
+        /// <summary>활터·약초밭 보관 재료 (CookingIngredientId 정수, 1개당 1칸).</summary>
+        public int[] pendingIngredients = Array.Empty<int>();
     }
 
     [Serializable]

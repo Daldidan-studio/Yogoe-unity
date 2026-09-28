@@ -12,6 +12,10 @@
     "characters": "python3 Tools/export_characters.py",
     "characters:csv": "python3 Tools/export_characters.py --csv",
     "characters:to-csv": "python3 Tools/export_characters.py --to-csv",
-    "characters:push": "python3 Tools/export_characters.py --push"
+    "characters:push": "python3 Tools/export_characters.py --push",
+    "props": "python3 Tools/export_props.py",
+    "props:csv": "python3 Tools/export_props.py --csv",
+    "props:to-csv": "python3 Tools/export_props.py --to-csv",
+    "props:push": "python3 Tools/export_props.py --push"
   }
 }

@@ -94,6 +94,7 @@ namespace Yoegoe.Save
             GiftBundle.CaptureToSave(out data.economy.giftMissStreak, out data.economy.giftFirstGrantDone, out data.economy.adRewardTickets);
             ShopStock.CaptureToSave(out data.economy.shopLeftOfferingId, out data.economy.shopRightOfferingId, out data.economy.shopNextRefreshUtcTicks);
             data.economy.offerings = CaptureOfferings(GameEconomy.Instance);
+            data.economy.materials = GameEconomy.Instance.CaptureMaterialCounts();
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -102,8 +103,13 @@ namespace Yoegoe.Save
             {
                 var p = props[i];
                 string id = p.data != null ? p.data.propId : p.name;
+                p.CaptureStorage(out int stored, out float cycleProgress, out bool judged, out int[] ingredients);
                 data.props[i] = new PropSave
                 {
+                    storedResources = stored,
+                    cycleProgressSeconds = cycleProgress,
+                    overflowJudged = judged,
+                    pendingIngredients = ingredients,
                     propId = id,
                     level = p.level,
                     isBuilt = p.IsBuilt,
@@ -166,6 +172,7 @@ namespace Yoegoe.Save
                         if (id != ps.propId) continue;
                         p.ApplySaveBuiltState(ps.isBuilt, ps.level);
                         p.SetPendingMeritFromSave(ps.pendingMerit.ToBigNumber());
+                        p.RestoreStorage(ps.storedResources, ps.cycleProgressSeconds, ps.overflowJudged, ps.pendingIngredients);
                         break;
                     }
                 }
@@ -249,6 +256,8 @@ namespace Yoegoe.Save
             // null = 구세이브(필드 없음) → StartingState 인벤 유지. 배열 있으면(빈 배열 포함) 통째 교체.
             if (e.offerings != null)
                 ApplyOfferings(GameEconomy.Instance, e.offerings);
+            if (e.materials != null && e.materials.Length > 0)
+                GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
         }

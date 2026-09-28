@@ -547,6 +547,7 @@ namespace Yoegoe
 
         private void CreateProp(PropData data, Vector3 pos, Color color)
         {
+            PropCatalog.ApplyTo(data); // 시트(props.json) 밸런스
             string name = !string.IsNullOrEmpty(data.displayName) ? data.displayName
                 : (!string.IsNullOrEmpty(data.propId) ? data.propId : "Prop");
             Sprite sprite = data.icon;

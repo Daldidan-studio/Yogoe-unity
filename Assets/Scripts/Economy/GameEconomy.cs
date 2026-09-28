@@ -316,6 +316,25 @@ namespace Yoegoe.Economy
             Debug.Log($"[GameEconomy] 요리 획득 {displayName} x{amount} ({kind}) id={productId}");
         }
 
+        /// <summary>세이브용: 재료 개수를 CookingIngredientId 순서 배열로.</summary>
+        public int[] CaptureMaterialCounts()
+        {
+            var arr = new int[(int)Yoegoe.Cooking.CookingIngredientId.Count];
+            for (int i = 0; i < arr.Length; i++)
+                MaterialCounts.TryGetValue(i, out arr[i]);
+            return arr;
+        }
+
+        /// <summary>세이브 로드: 재료 개수 통째로 교체.</summary>
+        public void ReplaceMaterialCounts(int[] counts)
+        {
+            MaterialCounts.Clear();
+            if (counts != null)
+                for (int i = 0; i < counts.Length && i < (int)Yoegoe.Cooking.CookingIngredientId.Count; i++)
+                    if (counts[i] > 0) MaterialCounts[i] = counts[i];
+            OnMaterialsChanged?.Invoke();
+        }
+
         public void SeedStartingMaterials(int each = 5)
         {
             MaterialCounts.Clear();

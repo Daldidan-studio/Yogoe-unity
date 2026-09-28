@@ -2,32 +2,32 @@ using System;
 using UnityEngine;
 using Yoegoe.Characters;
 using Yoegoe.Core;
+using Yoegoe.Data;
 
 namespace Yoegoe.Economy
 {
-    /// <summary>기물 구매·업그레이드 비용 (기획 8장).</summary>
+    /// <summary>기물 구매·업그레이드 비용 (기획 8장). 수치는 시트 props / prop_settings 탭.</summary>
     public static class PropEconomy
     {
-        public const double PurchaseBaseCost = 800;
-        public const double PurchaseCostGrowth = 1.4;
         public const double UpgradeBaseCost = 500;
         public const double UpgradeCostGrowth = 1.15;
 
-        /// <summary>n번째 구매 비용. n = PropsPurchasedCount + 1. 자릿수 반올림 적용.</summary>
+        /// <summary>n번째 구매 비용 = 시트 purchaseBaseCost × purchaseCostGrowth^(n−1). 자릿수 반올림 적용.</summary>
         public static BigNumber GetPurchaseCost(int purchaseOrderN)
         {
             int n = Math.Max(1, purchaseOrderN);
-            return RoundCost(PurchaseBaseCost * Math.Pow(PurchaseCostGrowth, n - 1));
+            var g = PropCatalog.Global;
+            return RoundCost(g.purchaseBaseCost * Math.Pow(g.purchaseCostGrowth, n - 1));
         }
 
         public static BigNumber GetNextPurchaseCost() =>
             GetPurchaseCost(GameEconomy.Instance.PropsPurchasedCount + 1);
 
         /// <summary>현재 레벨 L → L+1 업그레이드 비용: 500 × 1.15^(L−1). 자릿수 반올림 적용.</summary>
-        public static BigNumber GetUpgradeCost(int level)
+        public static BigNumber GetUpgradeCost(int level, double baseCost = UpgradeBaseCost, double growth = UpgradeCostGrowth)
         {
             int l = Math.Max(1, level);
-            return RoundCost(UpgradeBaseCost * Math.Pow(UpgradeCostGrowth, l - 1));
+            return RoundCost(baseCost * Math.Pow(growth, l - 1));
         }
 
         /// <summary>
@@ -50,7 +50,8 @@ namespace Yoegoe.Economy
         public static BigNumber GetUpgradeCost(PropSlot prop)
         {
             if (prop == null || !prop.IsBuilt) return BigNumber.Zero;
-            return GetUpgradeCost(prop.level);
+            if (prop.data == null) return GetUpgradeCost(prop.level);
+            return GetUpgradeCost(prop.level, prop.data.upgradeBaseCost, prop.data.upgradeCostMultiplier);
         }
 
         /// <summary>건립된 기물 중 업글 비용이 가장 싼 대상. 없으면 null.</summary>
@@ -76,7 +77,7 @@ namespace Yoegoe.Economy
 
         private static PropSlot ConsiderUpgradeCandidate(PropSlot p, PropSlot best, ref BigNumber bestCost)
         {
-            if (p == null || !p.IsBuilt) return best;
+            if (!CanUpgrade(p)) return best;
             var cost = GetUpgradeCost(p);
             if (best == null || cost < bestCost)
             {
@@ -96,9 +97,13 @@ namespace Yoegoe.Economy
             return true;
         }
 
+        /// <summary>건립됐고 레벨업 대상인지 (화덕은 시트 upgradable=FALSE).</summary>
+        public static bool CanUpgrade(PropSlot prop) =>
+            prop != null && prop.IsBuilt && (prop.data == null || prop.data.upgradable);
+
         public static bool TryUpgrade(PropSlot prop)
         {
-            if (prop == null || !prop.IsBuilt) return false;
+            if (!CanUpgrade(prop)) return false;
             var cost = GetUpgradeCost(prop);
             if (!GameEconomy.Instance.TrySpendMerit(cost)) return false;
             prop.level += 1;

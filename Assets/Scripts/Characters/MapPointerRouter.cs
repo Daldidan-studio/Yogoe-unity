@@ -378,7 +378,7 @@ namespace Yoegoe.Characters
 
                     case PressTarget.CollectibleProp:
                         CancelPendingMonologueTap();
-                        pressProp.TryCollectMerit();
+                        pressProp.TryCollect();
                         break;
 
                     case PressTarget.Character:

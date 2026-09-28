@@ -15,25 +15,33 @@ namespace Yoegoe.Economy
         /// 레벨당 "생산" 성장률이다 (<see cref="PropEconomy"/>와 혼동하지 말 것).</summary>
         public const double LevelGrowth = 1.1;
 
-        public static double LevelMultiplier(int level) =>
-            Math.Pow(LevelGrowth, Math.Max(1, level) - 1);
+        public static double LevelMultiplier(int level, double growth = LevelGrowth) =>
+            Math.Pow(growth, Math.Max(1, level) - 1);
 
         /// <summary>친밀도 보정 = 1 + 친밀도/100.</summary>
         public static double IntimacyMultiplier(float intimacy) => 1.0 + intimacy / 100.0;
 
-        /// <summary>주인이 자기 엔딩 기물에 앉으면 ×2.</summary>
-        public static double EndingMultiplier(bool isEndingProp, bool sameOwner) =>
-            isEndingProp && sameOwner ? 2.0 : 1.0;
+        /// <summary>주인이 자기 엔딩 기물에 앉으면 ×ownerMultiplier (시트 props.ownerMultiplier).</summary>
+        public static double EndingMultiplier(bool isEndingProp, bool sameOwner, double ownerMultiplier = 2.0) =>
+            isEndingProp && sameOwner ? ownerMultiplier : 1.0;
 
+        /// <summary>공덕 기물 분당 산출. 보정 on/off·배율은 시트 props 탭 값.</summary>
         public static double PerMinute(
             double baseProductionPerMinute, int level,
             float intimacy,
-            bool isEndingProp, bool sameOwner)
+            bool isEndingProp, bool sameOwner,
+            double levelGrowth = LevelGrowth, bool intimacyBonus = true, double ownerMultiplier = 2.0)
         {
             return baseProductionPerMinute
-                   * LevelMultiplier(level)
-                   * IntimacyMultiplier(intimacy)
-                   * EndingMultiplier(isEndingProp, sameOwner);
+                   * LevelMultiplier(level, levelGrowth)
+                   * (intimacyBonus ? IntimacyMultiplier(intimacy) : 1.0)
+                   * EndingMultiplier(isEndingProp, sameOwner, ownerMultiplier);
         }
+
+        /// <summary>공덕 더미 보관(만창) = 레벨 기준 분당 산출(보정 전) × capacityMinutes. 0 이하면 무제한.</summary>
+        public static double MeritCapacity(double baseProductionPerMinute, int level, double levelGrowth, float capacityMinutes) =>
+            capacityMinutes > 0f
+                ? baseProductionPerMinute * LevelMultiplier(level, levelGrowth) * capacityMinutes
+                : double.PositiveInfinity;
     }
 }
