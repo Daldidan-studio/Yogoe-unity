@@ -340,15 +340,14 @@ namespace Yoegoe
         }
 
         /// <summary>
-        /// Inspector에 offerings가 비어 있으면 StartingStateSettings 목록을 쓴다.
+        /// Inspector에 offerings가 비어 있으면 StartingStateSettings 목록을 쓰고,
+        /// 공양간 레시피 결과물(음식·공양물)을 합쳐 전체 카탈로그로 만든다.
         /// </summary>
         void EnsureOfferingsCatalog()
         {
-            if (offerings != null && offerings.Length > 0) return;
-
-            var fromStart = StartingStateSettings.Get()?.startingOfferings;
-            if (fromStart != null && fromStart.Length > 0)
-                offerings = fromStart;
+            if (offerings == null || offerings.Length == 0)
+                offerings = StartingStateSettings.Get()?.startingOfferings;
+            offerings = OfferingCatalog.Build(offerings);
         }
 
         static void ForceCloseOverlayScreens()

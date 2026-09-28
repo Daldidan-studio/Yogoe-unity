@@ -644,7 +644,7 @@ namespace Yoegoe.UI
                 {
                     int count = saved.pendingOfferingCounts[i];
                     if (count <= 0) continue;
-                    var offering = pool.FirstOrDefault(o => o != null && o.offeringId == saved.pendingOfferingIds[i]);
+                    var offering = FindSavedOffering(pool, saved.pendingOfferingIds[i]);
                     if (offering == null) continue;
                     matchOfferingCounts[offering] = count;
                     MergeLootEntry(pendingLoot, YutSquareRewardKind.Offering, offering, count);
@@ -674,7 +674,7 @@ namespace Yoegoe.UI
                 var pool = GetOfferingPool();
                 for (int i = 0; i < saved.specialOfferingNodeIds.Length && i < saved.specialOfferingIds.Length; i++)
                 {
-                    var offering = pool.FirstOrDefault(o => o.offeringId == saved.specialOfferingIds[i]);
+                    var offering = FindSavedOffering(pool, saved.specialOfferingIds[i]);
                     if (offering != null) specialOfferingByNode[saved.specialOfferingNodeIds[i]] = offering;
                 }
             }
@@ -1257,15 +1257,26 @@ namespace Yoegoe.UI
         /// <summary>공양물 칸에 배정할 후보 — 정화수 제외 전체 공양물 목록. 수동 루프로 필터링한다
         /// (LINQ .Where/.ToList를 새 조합에 처음 쓰면 IL2CPP WebGL에서 "null function"이 나던
         /// 문제 때문에 — 오늘 이미 두 번 겪었다).</summary>
+        /// <summary>공양물 칸·보물상자 풀 = 3차 공양물 24종 (OfferingCatalog.RandomPool).
+        /// 카탈로그가 아직 없으면(테스트 등) StartingState 목록으로 폴백.</summary>
         List<OfferingData> GetOfferingPool()
         {
-            var settings = StartingStateSettings.Get();
             var pool = new List<OfferingData>();
+            if (OfferingCatalog.RandomPool.Count > 0)
+            {
+                pool.AddRange(OfferingCatalog.RandomPool);
+                return pool;
+            }
+            var settings = StartingStateSettings.Get();
             if (settings.startingOfferings == null) return pool;
             foreach (var o in settings.startingOfferings)
                 if (o != null && o.kind != OfferingKind.PurifiedWater) pool.Add(o);
             return pool;
         }
+
+        /// <summary>세이브 복원용 — 풀에 없는(예전) 공양물 id도 전체 카탈로그에서 찾는다.</summary>
+        static OfferingData FindSavedOffering(List<OfferingData> pool, string id) =>
+            pool.FirstOrDefault(o => o != null && o.offeringId == id) ?? OfferingCatalog.Find(id);
 
         /// <summary>매치 시작 때 한 번 — 공양물 칸마다 공양물을 미리 뽑는다.
         /// 칸이 여럿이면 서로 다른 종류로 맞춘다(풀이 부족하면 그때만 중복 허용).</summary>

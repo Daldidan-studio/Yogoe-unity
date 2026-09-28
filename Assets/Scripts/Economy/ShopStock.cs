@@ -11,7 +11,8 @@ namespace Yoegoe.Economy
     {
         public const int OfferingPriceYeopjeon = 10;
         public const int HyangPriceYeopjeon = 20;
-        public static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(2);
+        /// <summary>진열 3시간마다 랜덤 교체 (3차 기획).</summary>
+        public static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(3);
 
         public enum Side { Left, Right }
         public enum BuyFail { None, NoStock, NotEnoughYeopjeon }
@@ -73,6 +74,20 @@ namespace Yoegoe.Economy
         static List<OfferingData> BuildCandidates(string excludeId)
         {
             var list = new List<OfferingData>();
+            // 3차: 진열은 공양물 24종에서 (음식·정화수 제외)
+            var poolSrc = OfferingCatalog.RandomPool;
+            if (poolSrc.Count > 0)
+            {
+                foreach (var o in poolSrc)
+                {
+                    if (o == null) continue;
+                    if (!string.IsNullOrEmpty(excludeId)
+                        && string.Equals(o.offeringId, excludeId, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    list.Add(o);
+                }
+                return list;
+            }
             var src = catalog;
             if (src == null || src.Length == 0)
             {
@@ -107,7 +122,7 @@ namespace Yoegoe.Economy
                         return o;
                 }
             }
-            return CharacterCatalog.FindOffering(id);
+            return OfferingCatalog.Find(id) ?? CharacterCatalog.FindOffering(id);
         }
 
         public static bool TryBuyOffering(Side side, out BuyFail fail)

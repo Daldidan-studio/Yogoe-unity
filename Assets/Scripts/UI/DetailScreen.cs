@@ -513,6 +513,13 @@ namespace Yoegoe.UI
             if (IsPurified(offering))
                 return OnFeedPurifiedWater();
 
+            // 기절은 상세에서 정화수로만 깨어난다(0→1)
+            if (currentAgent.Stats.State == ActionState.Fainted)
+            {
+                NotifyFeedBlocked("기절한 요괴는 정화수로만 깨어나요");
+                return false;
+            }
+
             bool preferred = IsPreferred(offering);
             var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
             int staminaGain = offering.ResolveStaminaGain(preferred);
@@ -521,10 +528,12 @@ namespace Yoegoe.UI
             bool hasRequest = currentAgent.Requests != null && currentAgent.Requests.HasOfferingRequest;
             bool staminaFull = currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f;
 
-            // 기력 풀: 친밀도 오르는 공양만 허용(음식은 기력만이라 막음)
-            if (staminaFull && !hasRequest && intimacyGain <= 0.0001f)
+            // 기력 풀: 기력은 최대에서 멈추고 친밀도만 오른다 — 횟수 제한 없음(수급이 제한).
+            // 음식(친밀도 0)이나 친밀도 100이면 아무것도 안 오르니 소모만 막는다.
+            if (staminaFull && !hasRequest
+                && (intimacyGain <= 0.0001f || currentAgent.Stats.Intimacy >= 100f - 0.001f))
             {
-                NotifyFeedBlocked("기력이 가득 찼어요");
+                NotifyFeedBlocked(intimacyGain <= 0.0001f ? "기력이 가득 찼어요" : "기력·친밀도가 모두 가득 찼어요");
                 return false;
             }
 
@@ -553,7 +562,8 @@ namespace Yoegoe.UI
             RefreshItemCounts();
             if (revealed)
                 RebuildPreferredRow();
-            if (clearedOfferingRequest || revealed)
+            bool ranOut = GameEconomy.Instance.GetOfferingCount(offering) <= 0;
+            if (clearedOfferingRequest || revealed || ranOut)
                 RebuildInventoryRow();
             GameSaveBridge.SaveFromWorld();
             return true;
@@ -680,10 +690,12 @@ namespace Yoegoe.UI
                 }
             }
 
+            // 음식 36·공양물 24 + 에셋 — 가진 것만 나열
             foreach (var offering in offerings)
             {
                 if (offering == null) continue;
                 if (IsPurified(offering)) continue;
+                if (GameEconomy.Instance == null || GameEconomy.Instance.GetOfferingCount(offering) <= 0) continue;
                 if (!string.IsNullOrEmpty(highlightOfferingId)
                     && string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
                     continue;

@@ -294,9 +294,13 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 공양 처리 (5-3/5-4). 공양물 종류별 수치 계산은 공양 시스템 쪽에서 하고 여기엔 최종값만 넘긴다.
+        /// 기절 중엔 정화수만 받는다(깨어남). 기력은 최대에서 멈추고 친밀도는 계속 오른다.
         /// </summary>
         public void ReceiveOffering(int staminaGain, float intimacyGain, OfferingKind kind = OfferingKind.General)
         {
+            if (Stats.State == ActionState.Fainted && kind != OfferingKind.PurifiedWater)
+                return;
+
             if (Stats.State == ActionState.Slumped)
                 MigrateSlumpedToPlaying(preserveExhaustTimer: Stats.Stamina <= 0f);
 
