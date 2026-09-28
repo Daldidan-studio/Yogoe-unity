@@ -171,7 +171,8 @@ namespace Yoegoe.Tests.EditMode
             agent.Stats.State = ActionState.Fainted;
             agent.Stats.Stamina = 0f;
 
-            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0.25f);
+            // 기절은 정화수로만 깨어난다
+            agent.ReceiveOffering(staminaGain: 1, intimacyGain: 0f, kind: OfferingKind.PurifiedWater);
 
             Assert.AreEqual(ActionState.Walking, agent.Stats.State);
         }

@@ -58,13 +58,22 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void FullStamina_PreferredOffering_OnlyIntimacyRises_Repeatedly()
+        public void FullStamina_PreferredOffering_StaminaStopsAtMax_IntimacyRises()
         {
-            for (int i = 0; i < 4; i++)
+            agent.ReceiveOffering(3, 5f, OfferingKind.Preferred);
+
+            Assert.AreEqual(55f, agent.Stats.Intimacy, 0.0001f);
+            Assert.AreEqual(75f, agent.Stats.Stamina, 0.0001f); // 먹일 때 최대(75)였으니 기력은 거기서 끝
+        }
+
+        [Test]
+        public void PreferredOffering_NoFeedLimit_IntimacyKeepsRising()
+        {
+            for (int i = 0; i < 20; i++)
                 agent.ReceiveOffering(3, 5f, OfferingKind.Preferred);
 
-            Assert.AreEqual(70f, agent.Stats.Intimacy, 0.0001f);
-            Assert.AreEqual(75f, agent.Stats.Stamina, 0.0001f); // 기력은 최대(75)에서 끝
+            Assert.AreEqual(100f, agent.Stats.Intimacy, 0.0001f);
+            Assert.LessOrEqual(agent.Stats.Stamina, agent.MaxStamina + 0.0001f);
         }
 
         [Test]
