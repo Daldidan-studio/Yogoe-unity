@@ -25,7 +25,6 @@ namespace Yoegoe.Data
         {
             public string id;
             public string displayName;
-            public string startingStage;
             public PreferredOffering[] preferredOfferings;
             public string endingPropId;
             public string detailDescription;
@@ -37,9 +36,6 @@ namespace Yoegoe.Data
 
             public bool TryParseId(out CharacterId characterId)
                 => Enum.TryParse(id, ignoreCase: true, out characterId);
-
-            public bool TryParseStage(out GrowthStage stage)
-                => Enum.TryParse(startingStage, ignoreCase: true, out stage);
 
             public string FormatPreferredNames()
             {
@@ -132,9 +128,6 @@ namespace Yoegoe.Data
 
             if (!string.IsNullOrEmpty(entry.displayName))
                 data.displayName = entry.displayName;
-
-            if (entry.TryParseStage(out var stage))
-                data.startingStage = stage;
 
             if (entry.detailDescription != null)
                 data.detailDescription = entry.detailDescription;

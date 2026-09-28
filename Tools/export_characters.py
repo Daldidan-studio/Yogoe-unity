@@ -2,7 +2,7 @@
 """캐릭터 기획 데이터: 구글 시트(3개 탭) ⇄ Assets/Resources/characters.json
 
 시트 = 윷 말풍선 시트(Tools/yut_bubbles_sheets.config.json 의 sheet_id)에 탭 3개:
-  characters             id, displayName, startingStage, endingPropId, detailDescription, note
+  characters             id, displayName, endingPropId, detailDescription, note
   character_preferences  character_id, offering_id, offering_name, note   (한 줄 = 선호 1개, 순서 = 표시 순서)
   character_lines        character_id, type, text_ko, note              (한 줄 = 대사 1개)
                          type: monologue(혼잣말) · request_thanks(음식 요구 완료) · request_gift(선물꾸러미 줄 때)
@@ -42,7 +42,7 @@ TAB_CHARACTERS = "characters"
 TAB_PREFS = "character_preferences"
 TAB_LINES = "character_lines"
 
-CHAR_HEADERS = ["id", "displayName", "startingStage", "endingPropId", "detailDescription", "note"]
+CHAR_HEADERS = ["id", "displayName", "endingPropId", "detailDescription", "note"]
 PREF_HEADERS = ["character_id", "offering_id", "offering_name", "note"]
 LINE_HEADERS = ["character_id", "type", "text_ko", "note"]
 
@@ -52,7 +52,6 @@ LINE_TYPES = {
     "request_thanks": "requestThanksLines",
     "request_gift": "requestGiftLines",
 }
-STAGES = {"Neok", "Hon"}
 
 
 # ---------------- 검증용 기준 데이터 ----------------
@@ -124,13 +123,9 @@ def rows_to_json(chars: list[dict], prefs: list[dict], lines: list[dict]) -> tup
             continue
         if valid_ids and cid not in valid_ids:
             errors.append(f"[{TAB_CHARACTERS}] {r['_row']}행: 알 수 없는 id '{cid}' (가능: {', '.join(valid_ids)})")
-        stage = r.get("startingStage", "")
-        if stage not in STAGES:
-            errors.append(f"[{TAB_CHARACTERS}] {r['_row']}행: startingStage 는 Neok/Hon ('{stage}')")
         entry = {
             "id": cid,
             "displayName": r.get("displayName", ""),
-            "startingStage": stage,
             "preferredOfferings": [],
             "endingPropId": r.get("endingPropId", ""),
             "detailDescription": r.get("detailDescription", ""),

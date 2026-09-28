@@ -14,7 +14,7 @@ namespace Yoegoe.Data
         [Tooltip("characters.json 이 소스. Apply 전 폴백.")]
         public string displayName;
 
-        [Tooltip("characters.json 이 소스.")]
+        [Tooltip("넋 단계는 기획에서 삭제됨 — 전부 혼. 고라니 SO만 레거시로 Neok(소환 직후 ApplyFreshNeokSummon이 혼으로).")]
         public GrowthStage startingStage;
 
         [Header("선호 공양물 — characters.json preferredOfferings 가 소스")]
