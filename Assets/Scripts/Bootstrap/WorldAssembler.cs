@@ -9,11 +9,14 @@ using Yoegoe.Debugging;
 namespace Yoegoe.Bootstrap
 {
     /// <summary>
-    /// Main 씬 월드 조립: 카메라·라이트·맵·기물·캐릭터.
-    /// Inspector 필드는 <see cref="Main"/>에 두고 여기로 넘긴다.
+    /// Main 씬 월드 배선: 카메라·맵·기물·캐릭터.
+    /// 맵·기물 셸은 씬 Prefab 인스턴스(Edit 모드에서 배치). 여기서는 바운드·상태만 연결한다.
     /// </summary>
     public static class WorldAssembler
     {
+        public const string OverviewName = "Background_Overview";
+        public const string PlayfieldName = "Background_Playfield";
+
         public struct Config
         {
             public ArtScaleSettings scale;
@@ -32,34 +35,23 @@ namespace Yoegoe.Bootstrap
             EnsureLight();
             EnsureEventSystem();
             EnsureMapPointerRouter();
-            CreateBackground(cfg);
+            EnsurePropManager();
 
-            var propManagerGO = new GameObject("PropManager");
-            propManagerGO.AddComponent<PropManager>();
+            WireMap(cfg);
+            WireSceneProps(cfg);
+            WireMeritWillow(cfg);
 
             float mapScale = Mathf.Max(0.01f, cfg.scale.mapScale);
-            SpawnPropsFromLayout(cfg, mapScale);
-
-            // 캐릭터 좌표도 PropLayout처럼 mapScale=1 기준 → 월드로 변환
+            // 캐릭터는 아직 런타임 스폰 (세이브가 좌표 복원)
             CreateCharacter("옥토끼", MapToWorld(new Vector3(-1f, 0.5f, 0), mapScale),
                 Color.white, cfg.oktoData, cfg.hudFont);
             CreateCharacter("삼족오", MapToWorld(new Vector3(0f, 0.5f, 0), mapScale),
                 Color.black, cfg.samjokOData, cfg.hudFont);
-            // 구미호: 잠금 슬롯(엽전 99) 해금 후 소환 — 시작 스폰 없음
         }
 
-        /// <summary>
-        /// PropLayoutSettings·시작 캐릭터 좌표는 mapScale=1(맵 로컬) 기준.
-        /// 배경 Transform 배율과 같이 곱해 월드 좌표로 만든다.
-        /// </summary>
         static Vector3 MapToWorld(Vector3 mapLocal, float mapScale) =>
             new Vector3(mapLocal.x * mapScale, mapLocal.y * mapScale, mapLocal.z);
 
-        /// <summary>
-        /// uGUI 버튼(슬롯 탭 등)이 반응하려면 EventSystem이 씬에 있어야 한다. 이 프로젝트는 새
-        /// Input System만 쓰도록 설정돼 있어서(Project Settings) 구식 StandaloneInputModule 대신
-        /// InputSystemUIInputModule을 붙인다.
-        /// </summary>
         static void EnsureEventSystem()
         {
             if (Object.FindAnyObjectByType<EventSystem>() != null) return;
@@ -89,10 +81,6 @@ namespace Yoegoe.Bootstrap
             cam.orthographicSize = scale.cameraOrthoSize;
         }
 
-        /// <summary>
-        /// 맵 탭/드래그·캐릭터 드래그 단일 라우터. CreateBackground보다 먼저 붙여 두고,
-        /// MapCameraDrag는 배경 생성 시 같은 카메라에 추가된다 (라우터가 Awake 이후 GetComponent).
-        /// </summary>
         static void EnsureMapPointerRouter()
         {
             var cam = Camera.main;
@@ -118,63 +106,110 @@ namespace Yoegoe.Bootstrap
             lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
         }
 
-        /// <summary>
-        /// 전체맵(섬) + 그 위 잔디 플레이필드.
-        /// 걷기는 잔디 bounds만, 카메라 패닝은 전체맵 기준.
-        /// </summary>
-        static void CreateBackground(Config cfg)
+        static void EnsurePropManager()
         {
-            float scale = Mathf.Max(0.01f, cfg.scale.mapScale);
+            if (PropManager.Instance != null) return;
+            if (Object.FindAnyObjectByType<PropManager>(FindObjectsInactive.Include) != null) return;
+            var go = new GameObject("PropManager");
+            go.AddComponent<PropManager>();
+        }
+
+        /// <summary>
+        /// 씬의 Background_* 를 찾아 걷기/패닝만 연결. 없으면 Main 스프라이트로 폴백 생성.
+        /// </summary>
+        static void WireMap(Config cfg)
+        {
+            var overviewGo = GameObject.Find(OverviewName);
+            var playfieldGo = GameObject.Find(PlayfieldName);
+
+            if (overviewGo == null && cfg.overviewBackgroundSprite != null)
+            {
+                Debug.LogWarning(
+                    $"[WorldAssembler] 씬에 {OverviewName} 없음 — 런타임 폴백 생성. " +
+                    "메뉴 Yoegoe/Place Map & Props In Main Scene 을 실행하세요.");
+                overviewGo = CreateBackgroundGo(OverviewName, cfg.overviewBackgroundSprite,
+                    cfg.overviewOffset * Mathf.Max(0.01f, cfg.scale.mapScale),
+                    cfg.scale.mapScale, cfg.scale.backgroundSort, z: 1f);
+            }
+
+            if (playfieldGo == null && cfg.playfieldSprite != null)
+            {
+                Debug.LogWarning(
+                    $"[WorldAssembler] 씬에 {PlayfieldName} 없음 — 런타임 폴백 생성. " +
+                    "메뉴 Yoegoe/Place Map & Props In Main Scene 을 실행하세요.");
+                playfieldGo = CreateBackgroundGo(PlayfieldName, cfg.playfieldSprite,
+                    Vector2.zero, cfg.scale.mapScale, cfg.scale.backgroundSort + 1, z: 0.9f);
+            }
+
+            var overviewSr = overviewGo != null ? overviewGo.GetComponent<SpriteRenderer>() : null;
+            var playfieldSr = playfieldGo != null ? playfieldGo.GetComponent<SpriteRenderer>() : null;
+            Sprite overview = overviewSr != null ? overviewSr.sprite : cfg.overviewBackgroundSprite;
+            Sprite playfield = playfieldSr != null ? playfieldSr.sprite : cfg.playfieldSprite;
+
+            if (playfieldGo != null && playfield != null)
+            {
+                var walkCol = playfieldGo.GetComponent<Collider2D>();
+                if (walkCol == null)
+                    walkCol = BuildPlayfieldWalkCollider(playfieldGo, playfield);
+
+                MapBounds.SetWalkArea(walkCol);
+                if (walkCol == null)
+                {
+                    float scale = playfieldGo.transform.lossyScale.x;
+                    if (TryGetSpriteWorldAabb(playfield, scale, out Vector2 walkMin, out Vector2 walkMax))
+                    {
+                        const float margin = 0.35f;
+                        MapBounds.SetBounds(
+                            new Vector2(walkMin.x + margin, walkMin.y + margin),
+                            new Vector2(walkMax.x - margin, walkMax.y - margin));
+                    }
+                }
+            }
+
+            WireCameraPan(cfg, overviewGo, overview, playfieldGo, playfield);
+        }
+
+        static GameObject CreateBackgroundGo(
+            string name, Sprite sprite, Vector2 posXy, float mapScale, int sort, float z)
+        {
+            float scale = Mathf.Max(0.01f, mapScale);
+            var go = new GameObject(name);
+            go.transform.position = new Vector3(posXy.x, posXy.y, z);
+            go.transform.localScale = new Vector3(scale, scale, 1f);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            sr.sortingOrder = sort;
+            return go;
+        }
+
+        static void WireCameraPan(
+            Config cfg,
+            GameObject overviewGo, Sprite overview,
+            GameObject playfieldGo, Sprite playfield)
+        {
             var cam = Camera.main;
-
-            // overviewOffset도 mapScale=1 기준 보정값 → 월드로 스케일
-            Vector2 overviewOffsetWorld = cfg.overviewOffset * scale;
-
-            Sprite overview = cfg.overviewBackgroundSprite;
-            if (overview != null)
-            {
-                var go = new GameObject("Background_Overview");
-                go.transform.position = new Vector3(overviewOffsetWorld.x, overviewOffsetWorld.y, 1f);
-                go.transform.localScale = new Vector3(scale, scale, 1f);
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = overview;
-                sr.sortingOrder = cfg.scale.backgroundSort;
-            }
-
-            Sprite playfield = cfg.playfieldSprite;
-            if (playfield == null) return;
-
-            var fieldGO = new GameObject("Background_Playfield");
-            fieldGO.transform.position = new Vector3(0f, 0f, 0.9f);
-            fieldGO.transform.localScale = new Vector3(scale, scale, 1f);
-            var fieldSr = fieldGO.AddComponent<SpriteRenderer>();
-            fieldSr.sprite = playfield;
-            fieldSr.sortingOrder = cfg.scale.backgroundSort + 1;
-
-            var walkCol = BuildPlayfieldWalkCollider(fieldGO, playfield);
-            MapBounds.SetWalkArea(walkCol);
-            if (walkCol == null)
-            {
-                if (!TryGetSpriteWorldAabb(playfield, scale, out Vector2 walkMin, out Vector2 walkMax))
-                    return;
-                const float margin = 0.35f;
-                MapBounds.SetBounds(
-                    new Vector2(walkMin.x + margin, walkMin.y + margin),
-                    new Vector2(walkMax.x - margin, walkMax.y - margin));
-            }
-
-            float fieldW = playfield.bounds.size.x * scale;
-            float fieldH = playfield.bounds.size.y * scale;
-
             if (cam == null || !cam.orthographic) return;
 
-            float panW = fieldW;
-            float panH = fieldH;
-            if (overview != null)
+            float panW = 0f, panH = 0f;
+            Vector2 panCenter = Vector2.zero;
+
+            if (overviewGo != null && overview != null)
             {
-                panW = overview.bounds.size.x * scale;
-                panH = overview.bounds.size.y * scale;
+                float sx = overviewGo.transform.lossyScale.x;
+                float sy = overviewGo.transform.lossyScale.y;
+                panW = overview.bounds.size.x * sx;
+                panH = overview.bounds.size.y * sy;
+                panCenter = new Vector2(overviewGo.transform.position.x, overviewGo.transform.position.y);
             }
+            else if (playfieldGo != null && playfield != null)
+            {
+                float sx = playfieldGo.transform.lossyScale.x;
+                float sy = playfieldGo.transform.lossyScale.y;
+                panW = playfield.bounds.size.x * sx;
+                panH = playfield.bounds.size.y * sy;
+                panCenter = new Vector2(playfieldGo.transform.position.x, playfieldGo.transform.position.y);
+            }
+            else return;
 
             float camHeight = cam.orthographicSize * 2f;
             float camWidth = camHeight * cam.aspect;
@@ -194,12 +229,9 @@ namespace Yoegoe.Bootstrap
                     cam.orthographicSize = newOrtho;
                     camHeight = cam.orthographicSize * 2f;
                     camWidth = camHeight * cam.aspect;
-                    halfExtraW = Mathf.Max(0f, panW / 2f - camWidth / 2f);
-                    halfExtraH = Mathf.Max(0f, panH / 2f - camHeight / 2f);
                 }
             }
 
-            Vector2 panCenter = overview != null ? overviewOffsetWorld : Vector2.zero;
             drag.SetContentRect(panCenter, panW * 0.5f, panH * 0.5f);
             drag.SetOrthoLimits(1.4f, Mathf.Max(cam.orthographicSize * 1.05f, cam.orthographicSize));
 
@@ -264,98 +296,82 @@ namespace Yoegoe.Bootstrap
             return true;
         }
 
-        // URP: CreatePrimitive 기본 머티리얼은 Built-in이라 핑크. 파이프라인 defaultMaterial 복제.
-        static Material CreateBaseMaterial()
+        /// <summary>씬 PropSlot만 사용. 없으면 PropLayoutSettings Prefab으로 폴백 스폰.</summary>
+        static void WireSceneProps(Config cfg)
         {
-            var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
-            if (rp != null && rp.defaultMaterial != null)
-                return new Material(rp.defaultMaterial);
-
-            var shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Standard")
-                         ?? Shader.Find("Sprites/Default")
-                         ?? Shader.Find("Unlit/Color");
-
-            if (shader == null)
+            var slots = Object.FindObjectsByType<PropSlot>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            if (slots != null && slots.Length > 0)
             {
-                Debug.LogError("[WorldAssembler] 사용 가능한 셰이더를 하나도 찾지 못했습니다. " +
-                                "머티리얼 없이 렌더러 기본값으로 진행합니다.");
-                return null;
+                for (int i = 0; i < slots.Length; i++)
+                    ConfigureProp(slots[i], cfg.scale);
+                return;
             }
 
-            return new Material(shader);
+            Debug.LogWarning(
+                "[WorldAssembler] 씬에 PropSlot이 없습니다 — PropLayoutSettings로 폴백 스폰. " +
+                "메뉴 Yoegoe/Place Map & Props In Main Scene 을 실행하세요.");
+            SpawnPropsFromLayoutFallback(cfg);
         }
 
-        static void ApplyUrpColor(Renderer renderer, Color color)
+        static void ConfigureProp(PropSlot slot, ArtScaleSettings scale)
         {
-            if (renderer == null) return;
-            var mat = CreateBaseMaterial();
-            if (mat == null) return;
-            mat.color = color;
-            renderer.material = mat;
+            if (slot == null) return;
+            if (slot.data != null)
+                PropCatalog.ApplyTo(slot.data);
+
+            var sr = slot.GetComponent<SpriteRenderer>();
+            if (sr != null)
+                sr.sortingOrder = scale.SortOrderForProp(slot.transform.position.y);
+
+            Sprite sprite = sr != null && sr.sprite != null
+                ? sr.sprite
+                : (slot.data != null ? slot.data.icon : null);
+            Sprite occupied = slot.data != null ? slot.data.occupiedByOwnerSprite : null;
+            slot.SetBuiltAppearance(sprite, Color.white, occupied);
+            bool prebuilt = slot.data != null && slot.data.isPrebuilt;
+            slot.ConfigureBuiltState(prebuilt);
         }
 
-        static void SpawnPropsFromLayout(Config cfg, float mapScale)
+        static void SpawnPropsFromLayoutFallback(Config cfg)
         {
             var layout = cfg.propLayout != null ? cfg.propLayout : PropLayoutSettings.Get();
             if (layout?.placements == null || layout.placements.Length == 0)
             {
-                Debug.LogError("[WorldAssembler] PropLayoutSettings 배치가 비어 있습니다. " +
-                               "Assets/Resources/PropLayoutSettings.asset 을 확인하세요.");
+                Debug.LogError("[WorldAssembler] PropLayoutSettings 배치가 비어 있습니다.");
                 return;
             }
 
+            float mapScale = Mathf.Max(0.01f, cfg.scale.mapScale);
             for (int i = 0; i < layout.placements.Length; i++)
             {
                 var place = layout.placements[i];
-                if (place?.data == null)
-                {
-                    Debug.LogWarning($"[WorldAssembler] PropLayoutSettings.placements[{i}] 에 PropData 가 없습니다.");
-                    continue;
-                }
-                CreateProp(place.data, MapToWorld(place.position, mapScale), place.fallbackColor, cfg.scale);
-            }
+                if (place?.data == null || place.prefab == null) continue;
 
-            if (MeritWillow.Instance == null)
-            {
-                var willowPos = MapToWorld(layout.willowPosition, mapScale);
-                MeritWillow.Create(willowPos, cfg.scale.SortOrderForProp(willowPos.y));
+                PropCatalog.ApplyTo(place.data);
+                string name = !string.IsNullOrEmpty(place.data.displayName)
+                    ? place.data.displayName
+                    : place.data.propId;
+                var slot = Object.Instantiate(place.prefab);
+                slot.gameObject.name = "Prop_" + name;
+                slot.transform.position = MapToWorld(place.position, mapScale);
+                if (slot.data == null) slot.data = place.data;
+                ConfigureProp(slot, cfg.scale);
             }
         }
 
-        static void CreateProp(PropData data, Vector3 pos, Color color, ArtScaleSettings scale)
+        static void WireMeritWillow(Config cfg)
         {
-            PropCatalog.ApplyTo(data);
-            string name = !string.IsNullOrEmpty(data.displayName) ? data.displayName
-                : (!string.IsNullOrEmpty(data.propId) ? data.propId : "Prop");
-            Sprite sprite = data.icon;
-            GameObject go;
+            if (MeritWillow.Instance != null) return;
 
-            if (sprite != null)
-            {
-                go = new GameObject("Prop_" + name);
-                go.transform.position = pos;
-                go.transform.localScale = Vector3.one * scale.propScale;
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = sprite;
-                sr.sortingOrder = scale.SortOrderForProp(pos.y);
-            }
-            else
-            {
-                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                go.name = "Prop_" + name;
-                go.transform.position = pos;
-                go.transform.localScale = Vector3.one * 0.8f;
-                var col = go.GetComponent<Collider>();
-                if (col != null) Object.Destroy(col);
+            var existing = Object.FindAnyObjectByType<MeritWillow>(FindObjectsInactive.Include);
+            if (existing != null) return;
 
-                ApplyUrpColor(go.GetComponent<Renderer>(), color);
-            }
-
-            var slot = go.AddComponent<PropSlot>();
-            slot.data = data;
-            slot.SetBuiltAppearance(sprite, color, data.occupiedByOwnerSprite);
-            slot.ConfigureBuiltState(data.isPrebuilt);
+            var layout = cfg.propLayout != null ? cfg.propLayout : PropLayoutSettings.Get();
+            float mapScale = Mathf.Max(0.01f, cfg.scale.mapScale);
+            Vector3 pos = layout != null
+                ? MapToWorld(layout.willowPosition, mapScale)
+                : Vector3.zero;
+            MeritWillow.Create(pos, cfg.scale.SortOrderForProp(pos.y));
         }
 
         static void CreateCharacter(string name, Vector3 pos, Color color, CharacterData realData, Font hudFont)

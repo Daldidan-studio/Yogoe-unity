@@ -1,16 +1,21 @@
 ---
-description: UI는 런타임 Build 금지, Prefab + 직렬화 참조 필수
+description: UI·맵·기물 Prefab 필수 (런타임 셸 조립 금지)
 alwaysApply: true
 ---
 
-# UI = Prefab 필수
+# Prefab 필수 — UI · 맵 · 기물
 
-새 화면·팝업·HUD·미니게임 UI를 만들거나 레이아웃을 바꿀 때:
+새 화면·팝업·HUD·미니게임 UI **또는 맵 배경·기물**을 만들거나 레이아웃/비주얼을 바꿀 때:
 
-1. **런타임으로 UI 트리를 `new GameObject` / `AddComponent`로 조립하지 않는다.** 셸은 Prefab.
-2. 에셋 경로: `Assets/Prefabs/UI/<Name>.prefab`
-3. Main 씬에 Prefab 인스턴스를 배치한다 (기본 비활성). 레이아웃은 Unity 에디터에서 Prefab을 직접 수정.
-4. 스크립트는 Prefab에 붙은 컴포넌트 + **직렬화된 참조**로만 동작. Play 모드에서 셸 생성 금지.
-5. 동적 콘텐츠(리스트 셀, 말풍선 등)만 코드 생성 허용. 셸·고정 레이아웃은 Prefab.
+1. **런타임으로 셸을 `new GameObject` / `AddComponent`로 조립하지 않는다.** 셸은 Prefab + Main 씬 인스턴스.
+2. 에셋 경로:
+   - UI: `Assets/Prefabs/UI/<Name>.prefab`
+   - 맵: `Assets/Prefabs/Map/<Name>.prefab`
+   - 기물: `Assets/Prefabs/Props/<Name>.prefab`
+3. Main 씬에 Prefab 인스턴스를 배치한다. **위치·스케일은 Scene 뷰에서 드래그** (Play 모드 배치 금지 — 저장 안 됨).
+4. 스크립트는 Prefab 컴포넌트 + **직렬화된 참조**로만 동작. Play에서는 바운드·상태 배선만.
+5. 동적 콘텐츠(리스트 셀, 말풍선, 수거 라벨 등)만 코드 생성 허용.
 
-참고 기존: `ShopScreen`, `DetailScreen`, `YutScreen`, `GameHud`, `GongyangganScreen`, `AttendanceScreen`.
+초기 배치: 메뉴 `Yoegoe/Place Map & Props In Main Scene`.  
+참고 UI: `ShopScreen`, `DetailScreen`, `YutScreen`, `GameHud`, `GongyangganScreen`, `AttendanceScreen`.  
+참고 맵/기물: `Background_Overview`, `Background_Playfield`, `Prop_*`.

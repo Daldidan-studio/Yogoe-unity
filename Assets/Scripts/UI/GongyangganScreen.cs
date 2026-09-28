@@ -317,7 +317,11 @@ public class GongyangganScreen : MonoBehaviour
             var cell = gridHost.Find($"Cell_{x}_{y}");
             if (cell == null) continue;
             cellImages[x, y] = cell.GetComponent<Image>();
-            cellLabels[x, y] = cell.Find("Text")?.GetComponent<Text>();
+            // Bake 구조: Cell/Text(래퍼)/Text(실제 UI.Text) — 래퍼에는 Text가 없음
+            var labelHost = cell.Find("Text");
+            cellLabels[x, y] = labelHost != null
+                ? labelHost.GetComponentInChildren<Text>(true)
+                : null;
             EnsureCellPointer(cell.gameObject, x, y);
         }
     }
@@ -389,9 +393,9 @@ public class GongyangganScreen : MonoBehaviour
         }
         if (root == null) return;
         var rt = root.transform;
-        if (titleText == null) titleText = rt.Find("Title/Text")?.GetComponent<Text>();
-        if (timerText == null) timerText = rt.Find("Timer/Text")?.GetComponent<Text>();
-        if (statusText == null) statusText = rt.Find("Status/Text")?.GetComponent<Text>();
+        if (titleText == null) titleText = FindUiText(rt, "Title/Text");
+        if (timerText == null) timerText = FindUiText(rt, "Timer/Text");
+        if (statusText == null) statusText = FindUiText(rt, "Status/Text");
         if (gridHost == null) gridHost = rt.Find("Grid");
         if (charmRail == null) charmRail = rt.Find("CharmRail");
         if (startButton == null) startButton = rt.Find("Start")?.GetComponent<Button>();
@@ -400,7 +404,14 @@ public class GongyangganScreen : MonoBehaviour
         if (closeButton == null) closeButton = rt.Find("Close")?.GetComponent<Button>();
         if (resultPopup == null) resultPopup = rt.Find("ResultPopup")?.gameObject;
         if (resultPopup != null && resultBody == null)
-            resultBody = resultPopup.transform.Find("Box/Body/Text")?.GetComponent<Text>();
+            resultBody = FindUiText(resultPopup.transform, "Box/Body/Text");
+    }
+
+    static Text FindUiText(Transform root, string path)
+    {
+        var t = root.Find(path);
+        if (t == null) return null;
+        return t.GetComponent<Text>() ?? t.GetComponentInChildren<Text>(true);
     }
 }
 

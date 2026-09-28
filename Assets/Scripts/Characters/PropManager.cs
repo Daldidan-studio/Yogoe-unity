@@ -16,6 +16,9 @@ namespace Yoegoe.Characters
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            // 씬에 미리 배치된 기물은 PropManager보다 먼저 OnEnable될 수 있어 여기서 재등록한다.
+            foreach (var slot in FindObjectsByType<PropSlot>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                Register(slot);
         }
 
         public void Register(PropSlot slot)

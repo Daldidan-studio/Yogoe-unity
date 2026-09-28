@@ -34,16 +34,17 @@ namespace Yoegoe.Bootstrap
             var detail = Object.FindAnyObjectByType<DetailScreen>(FindObjectsInactive.Include);
             if (detail == null)
             {
-                var detailGO = new GameObject("DetailScreen");
-                detailGO.SetActive(false);
-                detail = detailGO.AddComponent<DetailScreen>();
-                detailGO.SetActive(true);
+                Debug.LogError(
+                    "[UiAssembler] DetailScreen 프리팹 인스턴스가 씬에 없습니다. Main 씬에 Prefab 인스턴스를 배치하세요.");
             }
-            detail.font = cfg.hudFont;
-            detail.offerings = cfg.offerings;
-            detail.purifiedWaterIcon = cfg.purifiedWaterIcon;
-            if (!detail.gameObject.activeSelf)
-                detail.gameObject.SetActive(true);
+            else
+            {
+                detail.font = cfg.hudFont;
+                detail.offerings = cfg.offerings;
+                detail.purifiedWaterIcon = cfg.purifiedWaterIcon;
+                if (!detail.gameObject.activeSelf)
+                    detail.gameObject.SetActive(true);
+            }
 
             var purchaseGO = new GameObject("PropPurchasePopup");
             purchaseGO.SetActive(false);

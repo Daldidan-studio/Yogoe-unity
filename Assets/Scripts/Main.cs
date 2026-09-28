@@ -11,7 +11,7 @@ namespace Yoegoe
     /// <summary>
     /// Main 씬 진입점. 카메라·맵·기물·캐릭터·HUD를 조립한다.
     /// 화면 크기: ArtScaleSettings.asset / 시작 재화·스탯: StartingStateSettings.asset
-    /// 기물 밸런스: Data/Props/*.asset / 배치 좌표: PropLayoutSettings.asset
+    /// 기물 밸런스: Data/Props/*.asset / 비주얼·배치: Prefabs/Props + Main 씬
     /// UI 색·글자: UiStyleSettings.asset
     /// </summary>
     public class Main : MonoBehaviour
@@ -31,16 +31,16 @@ namespace Yoegoe
         [Tooltip("비워두면 Resources/ArtScaleSettings 를 자동으로 찾는다. 맵·캐릭터·기물 배율은 그 에셋 하나에서 바꾼다.")]
         public ArtScaleSettings artScale;
 
-        [Header("기물 배치 (여기 말고 PropLayoutSettings.asset에서 조절)")]
-        [Tooltip("비워두면 Resources/PropLayoutSettings 를 자동으로 찾는다.")]
+        [Header("기물 카탈로그 (배치는 Main 씬 Transform)")]
+        [Tooltip("Prefab 참조·FindByPropId·에디터 초기 배치용. 비워두면 Resources/PropLayoutSettings.")]
         public PropLayoutSettings propLayout;
 
-        [Header("맵 배경")]
-        [Tooltip("전체 맵(섬 전경). Background_IslandOverview")]
+        [Header("맵 배경 (씬 배치 후엔 Background_* Prefab이 소스)")]
+        [Tooltip("전체 맵(섬 전경). 에디터 초기 배치에 사용.")]
         public Sprite overviewBackgroundSprite;
-        [Tooltip("걷기 가능 잔디 레이어. Background_GrassField — 전체맵 위에 올림. 잔디 중심이 월드 원점.")]
+        [Tooltip("걷기 가능 잔디 레이어. 에디터 초기 배치에 사용.")]
         public Sprite playfieldSprite;
-        [Tooltip("전체맵 위치 보정(잔디=원점일 때 섬 잔디 정상과 맞추는 오프셋). mapScale=1 기준.")]
+        [Tooltip("전체맵 위치 보정(잔디=원점일 때). mapScale=1 기준. 초기 배치 메뉴에만 사용.")]
         public Vector2 overviewOffset = new Vector2(-0.05f, -0.32f);
 
         [Header("HUD (상단 재화 바 + 하단 슬롯바)")]
