@@ -95,6 +95,7 @@ namespace Yoegoe.Save
             data.economy.offerings = CaptureOfferings(GameEconomy.Instance);
             data.economy.materials = GameEconomy.Instance.CaptureMaterialCounts();
             data.economy.specialItems = GameEconomy.Instance.CaptureSpecialItemCounts();
+            Attendance.CaptureToSave(out data.economy.attendanceNextDayIndex, out data.economy.attendanceLastHandledDayKey);
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -262,6 +263,7 @@ namespace Yoegoe.Save
                 GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
+            Attendance.ResetFromSave(e.attendanceNextDayIndex, e.attendanceLastHandledDayKey);
         }
 
         static OfferingCountSave[] CaptureOfferings(GameEconomy eco)

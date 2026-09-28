@@ -155,6 +155,8 @@ namespace Yoegoe
             GameSaveBridge.TryLoadSimulateAndApply();
             lastActiveUtc = DateTime.UtcNow;
             worldReady = true;
+            // 콜드스타트 순서: 출석 윷점 → (옥토끼 대사) → 기타 팝업 (Docs/00 §13)
+            AttendanceScreen.TryOpenIfDue();
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             YogoeHideLoadingOverlay();
@@ -191,6 +193,7 @@ namespace Yoegoe
 
             // pause=false: Update 한 프레임이 오기 전에 포커스가 돌아올 수 있어 여기서도 정산.
             ApplyWallClockCatchUpIfNeeded();
+            if (worldReady) AttendanceScreen.TryOpenIfDue(); // 새벽 4시를 넘겨 복귀했으면 그날 첫 접속
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -202,6 +205,7 @@ namespace Yoegoe
             }
 
             ApplyWallClockCatchUpIfNeeded();
+            if (worldReady) AttendanceScreen.TryOpenIfDue();
         }
 
         private void ApplyWallClockCatchUpIfNeeded()

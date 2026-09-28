@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.UI;
 
@@ -28,9 +29,10 @@ namespace Yoegoe.Characters
         private const string FaintedBubbleText = "...";
 
         private bool CanShowMonologue =>
-            Stats.State == ActionState.Walking
+            !SpeechGate.YokaiSilenced
+            && (Stats.State == ActionState.Walking
             || Stats.State == ActionState.Playing
-            || Stats.State == ActionState.Staying;
+            || Stats.State == ActionState.Staying);
 
         private bool CanTapMonologue => CanShowMonologue;
 
@@ -166,7 +168,8 @@ namespace Yoegoe.Characters
         /// <summary>대사를 순서대로 표시한 뒤 onComplete 호출. 요구→꾸러미 연출용.</summary>
         public void ShowTempSpeechSequence(string[] lines, System.Action onComplete)
         {
-            if (lines == null || lines.Length == 0)
+            // 출석 윷점 옥토끼 대사 중엔 요괴 말풍선 없이 결과만 진행
+            if (lines == null || lines.Length == 0 || SpeechGate.YokaiSilenced)
             {
                 onComplete?.Invoke();
                 return;

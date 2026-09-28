@@ -16,6 +16,9 @@
     "props": "python3 Tools/export_props.py",
     "props:csv": "python3 Tools/export_props.py --csv",
     "props:to-csv": "python3 Tools/export_props.py --to-csv",
-    "props:push": "python3 Tools/export_props.py --push"
+    "props:push": "python3 Tools/export_props.py --push",
+    "attendance": "python3 Tools/export_attendance.py",
+    "attendance:csv": "python3 Tools/export_attendance.py --csv",
+    "attendance:push": "python3 Tools/export_attendance.py --push"
   }
 }
