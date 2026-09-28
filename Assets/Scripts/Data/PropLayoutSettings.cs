@@ -5,6 +5,7 @@ namespace Yoegoe.Data
 {
     /// <summary>
     /// 맵 기물 배치 (좌표·폴백 색). 밸런스·스프라이트는 각 PropData 에셋.
+    /// 좌표는 mapScale=1(맵 로컬) 기준 — ArtScaleSettings.mapScale 이 월드로 곱해진다.
     /// Assets/Resources/PropLayoutSettings.asset 하나만 바꾸면 된다.
     /// </summary>
     [CreateAssetMenu(fileName = "PropLayoutSettings", menuName = "Yoegoe/Prop Layout Settings")]

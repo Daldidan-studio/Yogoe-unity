@@ -14,7 +14,7 @@ namespace Yoegoe.Data
         public float cameraOrthoSize = 5f;
 
         [Header("맵")]
-        [Tooltip("배경 Transform 배율. 1 = 스프라이트 PPU 원본 월드 크기(cover 확대 없음).")]
+        [Tooltip("배경·기물 배치·시작 캐릭터 좌표에 공통으로 곱하는 배율. 1 = 원본. PropLayoutSettings 좌표는 이 값이 1일 때 기준으로 작성.")]
         public float mapScale = 1f;
 
         [Header("캐릭터")]

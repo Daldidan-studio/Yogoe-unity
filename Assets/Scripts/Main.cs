@@ -51,7 +51,7 @@ namespace Yoegoe
         public Sprite overviewBackgroundSprite;
         [Tooltip("걷기 가능 잔디 레이어. Background_GrassField — 전체맵 위에 올림. 잔디 중심이 월드 원점.")]
         public Sprite playfieldSprite;
-        [Tooltip("전체맵 위치 보정(잔디=원점일 때 섬 잔디 정상과 맞추는 오프셋).")]
+        [Tooltip("전체맵 위치 보정(잔디=원점일 때 섬 잔디 정상과 맞추는 오프셋). mapScale=1 기준.")]
         public Vector2 overviewOffset = new Vector2(-0.05f, -0.32f);
 
         [Header("HUD (상단 재화 바 + 하단 슬롯바)")]
@@ -139,12 +139,20 @@ namespace Yoegoe
 
             SpawnPropsFromLayout();
 
-            CreateCharacter("옥토끼", new Vector3(-1f, 0.5f, 0), Color.white, oktoData);
-            CreateCharacter("삼족오", new Vector3(0f, 0.5f, 0), Color.black, samjokOData);
+            float mapScale = Mathf.Max(0.01f, Scale.mapScale);
+            CreateCharacter("옥토끼", MapToWorld(new Vector3(-1f, 0.5f, 0), mapScale), Color.white, oktoData);
+            CreateCharacter("삼족오", MapToWorld(new Vector3(0f, 0.5f, 0), mapScale), Color.black, samjokOData);
             // 구미호: 잠금 슬롯(엽전 99) 해금 후 소환 — 시작 스폰 없음
 
             CreateHud();
         }
+
+        /// <summary>
+        /// PropLayoutSettings·시작 캐릭터 좌표는 mapScale=1(맵 로컬) 기준.
+        /// 배경 Transform 배율과 같이 곱해 월드 좌표로 만든다.
+        /// </summary>
+        static Vector3 MapToWorld(Vector3 mapLocal, float mapScale) =>
+            new Vector3(mapLocal.x * mapScale, mapLocal.y * mapScale, mapLocal.z);
 
         private IEnumerator Start()
         {
@@ -443,13 +451,15 @@ namespace Yoegoe
         {
             float scale = Mathf.Max(0.01f, Scale.mapScale);
             var cam = Camera.main;
+            // overviewOffset도 mapScale=1 기준 보정값 → 월드로 스케일
+            Vector2 overviewOffsetWorld = overviewOffset * scale;
 
             // 1) 전체 맵 (뒤)
             Sprite overview = overviewBackgroundSprite;
             if (overview != null)
             {
                 var go = new GameObject("Background_Overview");
-                go.transform.position = new Vector3(overviewOffset.x, overviewOffset.y, 1f);
+                go.transform.position = new Vector3(overviewOffsetWorld.x, overviewOffsetWorld.y, 1f);
                 go.transform.localScale = new Vector3(scale, scale, 1f);
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = overview;
@@ -520,7 +530,7 @@ namespace Yoegoe
             }
 
             // 전체맵이 overviewOffset만큼 밀렸으면 카메라 패닝 중심도 같이 이동
-            Vector2 panCenter = overview != null ? overviewOffset : Vector2.zero;
+            Vector2 panCenter = overview != null ? overviewOffsetWorld : Vector2.zero;
             drag.SetContentRect(panCenter, panW * 0.5f, panH * 0.5f);
             drag.SetOrthoLimits(1.4f, Mathf.Max(cam.orthographicSize * 1.05f, cam.orthographicSize));
 
@@ -612,6 +622,7 @@ namespace Yoegoe
                 return;
             }
 
+            float mapScale = Mathf.Max(0.01f, Scale.mapScale);
             for (int i = 0; i < layout.placements.Length; i++)
             {
                 var place = layout.placements[i];
@@ -620,12 +631,15 @@ namespace Yoegoe
                     Debug.LogWarning($"[Main] PropLayoutSettings.placements[{i}] 에 PropData 가 없습니다.");
                     continue;
                 }
-                CreateProp(place.data, place.position, place.fallbackColor);
+                CreateProp(place.data, MapToWorld(place.position, mapScale), place.fallbackColor);
             }
 
             // 공덕 버드나무 (7-4) — 임시 그림
             if (MeritWillow.Instance == null)
-                MeritWillow.Create(layout.willowPosition, Scale.SortOrderForProp(layout.willowPosition.y));
+            {
+                var willowPos = MapToWorld(layout.willowPosition, mapScale);
+                MeritWillow.Create(willowPos, Scale.SortOrderForProp(willowPos.y));
+            }
         }
 
         private void CreateProp(PropData data, Vector3 pos, Color color)
