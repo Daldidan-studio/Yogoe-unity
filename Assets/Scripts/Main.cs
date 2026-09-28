@@ -467,14 +467,23 @@ namespace Yoegoe
             fieldSr.sprite = playfield;
             fieldSr.sortingOrder = Scale.backgroundSort + 1;
 
+            // 걷기는 GrassField만. Overview는 카메라 패닝용(아래).
+            // PNG 사각형/AABB가 아니라 잔디 실루엣(Physics Shape) 안으로 Clamp.
+            var walkCol = BuildPlayfieldWalkCollider(fieldGO, playfield);
+            MapBounds.SetWalkArea(walkCol);
+            if (walkCol == null)
+            {
+                // 폴백: Tight 메시 AABB
+                if (!TryGetSpriteWorldAabb(playfield, scale, out Vector2 walkMin, out Vector2 walkMax))
+                    return;
+                const float margin = 0.35f;
+                MapBounds.SetBounds(
+                    new Vector2(walkMin.x + margin, walkMin.y + margin),
+                    new Vector2(walkMax.x - margin, walkMax.y - margin));
+            }
+
             float fieldW = playfield.bounds.size.x * scale;
             float fieldH = playfield.bounds.size.y * scale;
-            if (fieldW <= 0f || fieldH <= 0f) return;
-
-            const float margin = 0.35f;
-            MapBounds.SetBounds(
-                new Vector2(-fieldW / 2f + margin, -fieldH / 2f + margin),
-                new Vector2(fieldW / 2f - margin, fieldH / 2f - margin));
 
             if (cam == null || !cam.orthographic) return;
 
@@ -517,6 +526,71 @@ namespace Yoegoe
 
             var router = cam.GetComponent<Yoegoe.Characters.MapPointerRouter>();
             if (router != null) router.mapDrag = drag;
+        }
+
+        /// <summary>
+        /// GrassField 알파 실루엣 → PolygonCollider2D (트리거). 경로 좌표는 스프라이트 로컬,
+        /// 부모 scale이 월드로 키운다.
+        /// </summary>
+        private static Collider2D BuildPlayfieldWalkCollider(GameObject fieldGO, Sprite sprite)
+        {
+            if (fieldGO == null || sprite == null) return null;
+
+            int shapeCount = sprite.GetPhysicsShapeCount();
+            if (shapeCount <= 0) return null;
+
+            var col = fieldGO.AddComponent<PolygonCollider2D>();
+            col.isTrigger = true;
+            col.pathCount = shapeCount;
+
+            var path = new System.Collections.Generic.List<Vector2>(64);
+            for (int i = 0; i < shapeCount; i++)
+            {
+                path.Clear();
+                sprite.GetPhysicsShape(i, path);
+                col.SetPath(i, path);
+            }
+            return col;
+        }
+
+        /// <summary>
+        /// 스프라이트 Tight 메시 꼭짓점 AABB (월드, 원점 배치·균등 scale 가정).
+        /// vertices가 비면 rect bounds로 폴백.
+        /// </summary>
+        private static bool TryGetSpriteWorldAabb(Sprite sprite, float scale, out Vector2 min, out Vector2 max)
+        {
+            min = default;
+            max = default;
+            if (sprite == null || scale <= 0f) return false;
+
+            var verts = sprite.vertices;
+            if (verts != null && verts.Length > 0)
+            {
+                float minX = float.PositiveInfinity, minY = float.PositiveInfinity;
+                float maxX = float.NegativeInfinity, maxY = float.NegativeInfinity;
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    Vector2 v = verts[i] * scale;
+                    if (v.x < minX) minX = v.x;
+                    if (v.y < minY) minY = v.y;
+                    if (v.x > maxX) maxX = v.x;
+                    if (v.y > maxY) maxY = v.y;
+                }
+                if (minX < maxX && minY < maxY)
+                {
+                    min = new Vector2(minX, minY);
+                    max = new Vector2(maxX, maxY);
+                    return true;
+                }
+            }
+
+            Bounds b = sprite.bounds;
+            float hx = b.extents.x * scale;
+            float hy = b.extents.y * scale;
+            if (hx <= 0f || hy <= 0f) return false;
+            min = new Vector2(-hx, -hy);
+            max = new Vector2(hx, hy);
+            return true;
         }
 
         private static void ApplyUrpColor(Renderer renderer, Color color)
