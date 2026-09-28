@@ -7,7 +7,9 @@ namespace Yoegoe.Data
 {
     /// <summary>
     /// 캐릭터 기획 카탈로그. 소스: Resources/characters.json
-    /// 이름·선호공양·엔딩기물·설명·혼잣말은 JSON, 스프라이트는 CharacterData SO.
+    /// 이름·선호공양·엔딩기물·설명·대사는 JSON, 스프라이트는 CharacterData SO.
+    /// JSON은 직접 고치지 말고 구글 시트(characters / character_preferences / character_lines 탭)에서
+    /// `npm run characters` 로 생성한다 — Tools/export_characters.py.
     /// </summary>
     public static class CharacterCatalog
     {
@@ -28,6 +30,10 @@ namespace Yoegoe.Data
             public string endingPropId;
             public string detailDescription;
             public string[] monologueLines;
+            /// <summary>음식 요구 완료 시 대사. 비면 기본 대사.</summary>
+            public string[] requestThanksLines;
+            /// <summary>요구 완료 후 선물꾸러미를 줄 때 대사. 비면 기본 대사.</summary>
+            public string[] requestGiftLines;
 
             public bool TryParseId(out CharacterId characterId)
                 => Enum.TryParse(id, ignoreCase: true, out characterId);
@@ -95,6 +101,14 @@ namespace Yoegoe.Data
         }
 
         public static void SetOfferings(OfferingData[] offerings) => _offerings = offerings;
+
+        /// <summary>lines에서 하나 랜덤, 비어 있으면 fallback.</summary>
+        public static string PickLine(string[] lines, string fallback)
+        {
+            if (lines == null || lines.Length == 0) return fallback;
+            var line = lines[UnityEngine.Random.Range(0, lines.Length)];
+            return string.IsNullOrEmpty(line) ? fallback : line;
+        }
 
         public static bool TryGet(CharacterId id, out Entry entry)
         {

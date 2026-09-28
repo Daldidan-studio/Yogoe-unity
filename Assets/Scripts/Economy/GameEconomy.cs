@@ -491,16 +491,16 @@ namespace Yoegoe.Cooking
             Food("patteok", "팥떡", CookingIngredientId.Rice, CookingIngredientId.RedBean);
             Food("namulbap", "나물밥", CookingIngredientId.Rice, CookingIngredientId.Namul);
             Food("kkulteok", "꿀떡", CookingIngredientId.Rice, CookingIngredientId.Honey);
-            Food("gogijuk_bird", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Bird);
-            Food("gogijuk_boar", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Boar);
+            Food("gogijuk", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Bird);
+            Food("gogijuk", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Boar);
             Food("juak", "주악", CookingIngredientId.Rice, CookingIngredientId.Oil);
             Food("sujeonggwa", "수정과", CookingIngredientId.Fruit, CookingIngredientId.Herb);
             Food("dasik", "다식", CookingIngredientId.Fruit, CookingIngredientId.Honey);
-            Food("sanjeok_boar", "산적", CookingIngredientId.Namul, CookingIngredientId.Boar);
-            Food("sanjeok_bird", "산적", CookingIngredientId.Namul, CookingIngredientId.Bird);
+            Food("sanjeok", "산적", CookingIngredientId.Namul, CookingIngredientId.Boar);
+            Food("sanjeok", "산적", CookingIngredientId.Namul, CookingIngredientId.Bird);
             Food("hwajeon", "화전", CookingIngredientId.Namul, CookingIngredientId.Oil);
-            Food("yukpo_boar", "육포", CookingIngredientId.Honey, CookingIngredientId.Boar);
-            Food("yukpo_bird", "육포", CookingIngredientId.Honey, CookingIngredientId.Bird);
+            Food("yukpo", "육포", CookingIngredientId.Honey, CookingIngredientId.Boar);
+            Food("yukpo", "육포", CookingIngredientId.Honey, CookingIngredientId.Bird);
             Food("saengsungui", "생선구이", CookingIngredientId.Fish, CookingIngredientId.Oil);
             Food("dalgyalmar", "달걀말이", CookingIngredientId.Egg, CookingIngredientId.Oil);
             Food("saengsunjorim", "생선조림", CookingIngredientId.Chili, CookingIngredientId.Fish);
@@ -524,11 +524,11 @@ namespace Yoegoe.Cooking
             Off("baekseolgi", "백설기", CookingIngredientId.Rice, CookingIngredientId.Rice, CookingIngredientId.Water);
             Off("sinseollo", "신선로", CookingIngredientId.Boar, CookingIngredientId.Namul, CookingIngredientId.Water);
             Off("hanyak", "한약", CookingIngredientId.Herb, CookingIngredientId.Honey, CookingIngredientId.Herb);
-            // 생고기: 멧/새 아무 3개 — 조합 4종
-            Off("saenggogi_bbb", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Boar);
-            Off("saenggogi_bbd", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Bird);
-            Off("saenggogi_bdd", "생고기", CookingIngredientId.Boar, CookingIngredientId.Bird, CookingIngredientId.Bird);
-            Off("saenggogi_ddd", "생고기", CookingIngredientId.Bird, CookingIngredientId.Bird, CookingIngredientId.Bird);
+            // 생고기: 멧/새 아무 3개 — 조합 4종이지만 결과물 id는 하나
+            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Boar);
+            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Bird);
+            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Bird, CookingIngredientId.Bird);
+            Off("saenggogi", "생고기", CookingIngredientId.Bird, CookingIngredientId.Bird, CookingIngredientId.Bird);
             Off("yakju", "약주", CookingIngredientId.Rice, CookingIngredientId.Herb, CookingIngredientId.Water);
             Off("sikhye", "식혜", CookingIngredientId.Rice, CookingIngredientId.Honey, CookingIngredientId.Water);
             Off("kkotmakgeolli", "꽃막걸리", CookingIngredientId.Rice, CookingIngredientId.Water, CookingIngredientId.Namul);
@@ -562,6 +562,18 @@ namespace Yoegoe.Cooking
             if (!ByKey.ContainsKey(key))
                 ByKey[key] = r;
         }
+
+        /// <summary>조합별로 id가 갈려 있던 구세이브 id → 현재 결과물 id (예: saenggogi_bbb → saenggogi).</summary>
+        public static string CanonicalProductId(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return id;
+            foreach (var prefix in LegacyVariantPrefixes)
+                if (id.StartsWith(prefix + "_", StringComparison.Ordinal))
+                    return prefix;
+            return id;
+        }
+
+        static readonly string[] LegacyVariantPrefixes = { "saenggogi", "gogijuk", "sanjeok", "yukpo" };
 
         public static bool TryMatch(IList<CookingIngredientId> path, out CookingRecipe recipe)
         {

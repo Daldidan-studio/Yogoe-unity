@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using Yoegoe.Characters;
+using Yoegoe.Cooking;
 using Yoegoe.Save;
 
 namespace Yoegoe.Tests.EditMode
@@ -52,6 +53,16 @@ namespace Yoegoe.Tests.EditMode
             var json = JsonUtility.ToJson(new AgentSave { revealedPreferredOfferingIds = new[] { "sinseollo", "hwachae" } });
             var back = JsonUtility.FromJson<AgentSave>(json);
             CollectionAssert.AreEqual(new[] { "sinseollo", "hwachae" }, back.revealedPreferredOfferingIds);
+        }
+
+        [TestCase("saenggogi_bbb", "saenggogi")]
+        [TestCase("saenggogi_ddd", "saenggogi")]
+        [TestCase("gogijuk_bird", "gogijuk")]
+        [TestCase("maun_tteokbokki", "maun_tteokbokki")]
+        [TestCase("yakju", "yakju")]
+        public void LegacyVariantCookingIds_MapToOneProduct(string legacy, string expected)
+        {
+            Assert.AreEqual(expected, CookingRecipeCatalog.CanonicalProductId(legacy));
         }
     }
 }

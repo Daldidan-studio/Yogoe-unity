@@ -274,13 +274,20 @@ namespace Yoegoe.Save
 
         static void ApplyOfferings(GameEconomy eco, OfferingCountSave[] offerings)
         {
-            var buf = new List<KeyValuePair<string, int>>(offerings.Length);
+            // 구세이브의 조합별 id(saenggogi_bbb 등)는 하나로 합친다
+            var merged = new Dictionary<string, int>();
+            var order = new List<string>(offerings.Length);
             for (int i = 0; i < offerings.Length; i++)
             {
                 var o = offerings[i];
                 if (o == null || string.IsNullOrEmpty(o.offeringId) || o.count <= 0) continue;
-                buf.Add(new KeyValuePair<string, int>(o.offeringId, o.count));
+                string id = Yoegoe.Cooking.CookingRecipeCatalog.CanonicalProductId(o.offeringId);
+                if (!merged.ContainsKey(id)) { merged[id] = 0; order.Add(id); }
+                merged[id] += o.count;
             }
+            var buf = new List<KeyValuePair<string, int>>(order.Count);
+            foreach (var id in order)
+                buf.Add(new KeyValuePair<string, int>(id, merged[id]));
             eco.ReplaceOfferingCounts(buf);
         }
 
