@@ -38,9 +38,9 @@ namespace Yoegoe
         [Header("맵 배경 (씬 배치 후엔 Background_* Prefab이 소스)")]
         [Tooltip("전체 맵(섬 전경). 에디터 초기 배치에 사용.")]
         public Sprite overviewBackgroundSprite;
-        [Tooltip("걷기 가능 잔디 레이어. 에디터 초기 배치에 사용.")]
+        [Tooltip("걷기 가능 플레이필드 레이어. 에디터 초기 배치에 사용.")]
         public Sprite playfieldSprite;
-        [Tooltip("전체맵 위치 보정(잔디=원점일 때). mapScale=1 기준. 초기 배치 메뉴에만 사용.")]
+        [Tooltip("전체맵 위치 보정(플레이필드=원점일 때). mapScale=1 기준. 초기 배치 메뉴에만 사용.")]
         public Vector2 overviewOffset = new Vector2(-0.05f, -0.32f);
 
         [Header("HUD (상단 재화 바 + 하단 슬롯바)")]

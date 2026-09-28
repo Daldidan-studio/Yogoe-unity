@@ -3,16 +3,16 @@ using UnityEngine;
 namespace Yoegoe.Characters
 {
     /// <summary>
-    /// 캐릭터 걷기·배회 범위. Main이 GrassField로 SetBounds / SetWalkArea 한다.
+    /// 캐릭터 걷기·배회 범위. Main이 Playfield로 SetBounds / SetWalkArea 한다.
     /// IslandOverview는 카메라 패닝만 — 걷기와 무관.
-    /// WalkArea(잔디 실루엣 콜라이더)가 있으면 사각형 AABB가 아니라 그 안으로 Clamp/RandomPoint.
+    /// WalkArea(플레이필드 실루엣 콜라이더)가 있으면 사각형 AABB가 아니라 그 안으로 Clamp/RandomPoint.
     /// </summary>
     public static class MapBounds
     {
         public static Vector2 Min = new Vector2(-100f, -100f);
         public static Vector2 Max = new Vector2(100f, 100f);
 
-        /// <summary>잔디 불투명 실루엣. null이면 Min/Max 사각형만 사용.</summary>
+        /// <summary>플레이필드 실루엣. null이면 Min/Max 사각형만 사용.</summary>
         public static Collider2D WalkArea { get; private set; }
 
         public static void SetBounds(Vector2 min, Vector2 max)
