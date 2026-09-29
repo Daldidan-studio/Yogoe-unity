@@ -317,7 +317,7 @@ namespace Yoegoe.Bootstrap
         {
             if (slot == null) return;
             if (slot.data != null)
-                PropCatalog.ApplyTo(slot.data);
+                slot.data = PropCatalog.RuntimeCopy(slot.data); // 시트 값은 사본에만
 
             var sr = slot.GetComponent<SpriteRenderer>();
             if (sr != null)
@@ -347,15 +347,13 @@ namespace Yoegoe.Bootstrap
                 var place = layout.placements[i];
                 if (place?.data == null || place.prefab == null) continue;
 
-                PropCatalog.ApplyTo(place.data);
-                string name = !string.IsNullOrEmpty(place.data.displayName)
-                    ? place.data.displayName
-                    : place.data.propId;
                 var slot = Object.Instantiate(place.prefab);
-                slot.gameObject.name = "Prop_" + name;
                 slot.transform.position = MapToWorld(place.position, mapScale);
                 if (slot.data == null) slot.data = place.data;
                 ConfigureProp(slot, cfg.scale);
+                slot.gameObject.name = "Prop_" + (!string.IsNullOrEmpty(slot.data.displayName)
+                    ? slot.data.displayName
+                    : slot.data.propId);
             }
         }
 
@@ -378,8 +376,7 @@ namespace Yoegoe.Bootstrap
         {
             if (realData != null)
             {
-                CharacterCatalog.ApplyTo(realData);
-                CharacterSpawner.Spawn(realData, pos, color, hudFont);
+                CharacterSpawner.Spawn(CharacterCatalog.RuntimeCopy(realData), pos, color, hudFont);
                 return;
             }
 

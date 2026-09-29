@@ -102,8 +102,6 @@ namespace Yoegoe.UI
             root.SetActive(true);
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
-            if (agent.Data != null)
-                CharacterCatalog.ApplyTo(agent.Data);
 
             ApplyLayout();
             RefreshDescription();

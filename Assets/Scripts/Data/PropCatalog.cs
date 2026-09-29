@@ -119,10 +119,28 @@ namespace Yoegoe.Data
             return !string.IsNullOrEmpty(propId) && byId != null && byId.TryGetValue(propId, out entry);
         }
 
-        /// <summary>시트 값을 PropData에 덮어쓴다 (Main 기물 스폰 시).</summary>
-        public static void ApplyTo(PropData data)
+        /// <summary>
+        /// 에셋을 복제해 시트 값을 입힌 런타임 사본을 돌려준다 (기물 스폰 시). 에셋 파일은 건드리지 않는다 —
+        /// 원본에 직접 쓰면 에디터 플레이 중 값이 .asset에 저장돼 git 변경으로 섞인다.
+        /// </summary>
+        public static PropData RuntimeCopy(PropData source)
+        {
+            if (source == null) return null;
+            var copy = UnityEngine.Object.Instantiate(source);
+            copy.name = source.name;
+            ApplyTo(copy);
+            return copy;
+        }
+
+        /// <summary>시트 값을 덮어쓴다 — 런타임 사본에만 (에셋 원본이면 경고).</summary>
+        static void ApplyTo(PropData data)
         {
             if (data == null || !TryGet(data.propId, out var e)) return;
+#if UNITY_EDITOR
+            if (UnityEditor.AssetDatabase.Contains(data))
+                Debug.LogWarning($"[PropCatalog] 에셋 원본({data.name})에 시트 값을 덮어쓰려 했습니다 — RuntimeCopy를 쓰세요.");
+#endif
+
             if (!string.IsNullOrEmpty(e.displayName)) data.displayName = e.displayName;
             data.resourceType = e.ResourceType;
             data.baseProductionPerMinute = e.meritPerMinute;

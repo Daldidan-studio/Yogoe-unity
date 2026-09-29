@@ -122,9 +122,28 @@ namespace Yoegoe.Data
             return entry;
         }
 
+        /// <summary>
+        /// 에셋을 복제해 시트 값(이름·선호·설명·대사·엔딩기물)을 입힌 런타임 사본을 돌려준다 (요괴 스폰 시).
+        /// 에셋 파일은 건드리지 않는다.
+        /// </summary>
+        public static CharacterData RuntimeCopy(CharacterData source)
+        {
+            if (source == null) return null;
+            var copy = UnityEngine.Object.Instantiate(source);
+            copy.name = source.name;
+            ApplyTo(copy);
+            return copy;
+        }
+
+        /// <summary>시트 값을 덮어쓴다 — 런타임 사본·코드로 만든 스텁에만 (에셋 원본이면 경고).</summary>
         public static void ApplyTo(CharacterData data)
         {
             if (data == null) return;
+#if UNITY_EDITOR
+            if (UnityEditor.AssetDatabase.Contains(data))
+                Debug.LogWarning($"[CharacterCatalog] 에셋 원본({data.name})에 시트 값을 덮어쓰려 했습니다 — RuntimeCopy를 쓰세요.");
+#endif
+
             EnsureLoaded();
             if (!TryGet(data.id, out var entry) || entry == null) return;
 

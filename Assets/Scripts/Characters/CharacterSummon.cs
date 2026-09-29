@@ -27,14 +27,13 @@ namespace Yoegoe.Characters
         public static bool CanSummonGorani() =>
             !IsPresent(CharacterId.Gorani) && GameEconomy.Instance.Hyang >= HyangCost;
 
-        /// <summary>Resources/Characters/Gorani 또는 인자로 넘긴 에셋. characters.json 적용.</summary>
+        /// <summary>Resources/Characters/Gorani 또는 인자로 넘긴 에셋의 런타임 사본(characters.json 적용).</summary>
         public static CharacterData ResolveGoraniData(CharacterData overrideData = null)
         {
             var data = overrideData != null
                 ? overrideData
                 : Resources.Load<CharacterData>("Characters/Gorani");
-            if (data != null) CharacterCatalog.ApplyTo(data);
-            return data;
+            return CharacterCatalog.RuntimeCopy(data);
         }
 
         /// <summary>향을 소모하고 고라니를 기본 위치에 스폰. 연출 없이 쓸 때.</summary>
