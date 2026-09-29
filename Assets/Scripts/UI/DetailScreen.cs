@@ -462,103 +462,46 @@ namespace Yoegoe.UI
             portraitPanelHighlight.color = on ? C.portraitHighlight : C.portraitBg;
         }
 
-        private bool OnFeedPurifiedWater()
-        {
-            if (currentAgent == null) return false;
+        private bool OnFeedPurifiedWater() => ApplyFeedResult(currentAgent?.TryFeedWater(FindPurifiedWater()), null);
 
-            if (GameEconomy.Instance == null || GameEconomy.Instance.PurifiedWater < 1)
-            {
-                NotifyFeedBlocked("정화수가 없어요");
-                return false;
-            }
-
-            // 기력 풀이면 소모만 되고 변화가 없어 "안 먹힌다"로 보임 → 낭비 방지
-            if (currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f)
-            {
-                NotifyFeedBlocked("기력이 가득 찼어요");
-                return false;
-            }
-
-            if (!GameEconomy.Instance.TrySpendPurifiedWater(1))
-            {
-                NotifyFeedBlocked("정화수가 없어요");
-                return false;
-            }
-
-            var pw = FindPurifiedWater();
-            int gain = pw != null ? pw.ResolveStaminaGain(false) : 3;
-            // 기절 상태는 정화수 1개당 기력 1만 회복 (완전 회복 방지, 여러 번 먹여야 깨어남)
-            if (currentAgent.Stats.State == ActionState.Fainted) gain = 1;
-            currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
-            PlayGainPopup(gain, 0f);
-            RefreshStats();
-            RefreshItemCounts();
-            GameSaveBridge.SaveFromWorld();
-            return true;
-        }
-
+        /// <summary>공양 규칙은 CharacterAgent.TryFeed — 여기선 결과 문구·연출·갱신만.</summary>
         private bool OnFeed(OfferingData offering)
         {
             if (currentAgent == null || offering == null) return false;
+            return ApplyFeedResult(currentAgent.TryFeed(offering), offering);
+        }
 
-            if (IsPurified(offering))
-                return OnFeedPurifiedWater();
-
-            // 기절은 상세에서 정화수로만 깨어난다(0→1)
-            if (currentAgent.Stats.State == ActionState.Fainted)
+        bool ApplyFeedResult(FeedResult? maybe, OfferingData offering)
+        {
+            if (currentAgent == null || maybe == null) return false;
+            var r = maybe.Value;
+            if (!r.Success)
             {
-                NotifyFeedBlocked("기절한 요괴는 정화수로만 깨어나요");
+                NotifyFeedBlocked(FeedBlockMessage(r.Block, offering));
                 return false;
             }
 
-            bool preferred = IsPreferred(offering);
-            var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
-            int staminaGain = offering.ResolveStaminaGain(preferred);
-            float intimacyGain = offering.ResolveIntimacyGain(preferred);
-
-            bool hasRequest = currentAgent.Requests != null && currentAgent.Requests.HasOfferingRequest;
-            bool staminaFull = currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f;
-
-            // 기력 풀: 기력은 최대에서 멈추고 친밀도만 오른다 — 횟수 제한 없음(수급이 제한).
-            // 음식(친밀도 0)이나 친밀도 100이면 아무것도 안 오르니 소모만 막는다.
-            if (staminaFull && !hasRequest
-                && (intimacyGain <= 0.0001f || currentAgent.Stats.Intimacy >= 100f - 0.001f))
-            {
-                NotifyFeedBlocked(intimacyGain <= 0.0001f ? "기력이 가득 찼어요" : "기력·친밀도가 모두 가득 찼어요");
-                return false;
-            }
-
-            if (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendOffering(offering, 1))
-            {
-                NotifyFeedBlocked("공양물이 없어요");
-                return false;
-            }
-
-            bool clearedOfferingRequest = false;
-            if (currentAgent.Requests != null
-                && currentAgent.Requests.TryHandleFeed(offering, false, preferred,
-                    out int reqStamina, out float reqIntimacy, out _))
-            {
-                staminaGain = reqStamina;
-                intimacyGain = reqIntimacy;
-                if (intimacyGain > 0f) kind = OfferingKind.Preferred;
-                clearedOfferingRequest = true;
-            }
-
-            currentAgent.ReceiveOffering(staminaGain, intimacyGain, kind);
-            // 선호 공양물은 실제로 먹여야 영구 공개(상세 표기·인벤 금테)
-            bool revealed = preferred && currentAgent.Stats.RevealPreference(offering.offeringId);
-            PlayGainPopup(staminaGain, intimacyGain);
+            PlayGainPopup(r.StaminaGain, r.IntimacyGain);
             RefreshStats();
             RefreshItemCounts();
-            if (revealed)
+            if (r.PreferenceRevealed)
                 RebuildPreferredRow();
-            bool ranOut = GameEconomy.Instance.GetOfferingCount(offering) <= 0;
-            if (clearedOfferingRequest || revealed || ranOut)
+            bool ranOut = offering != null && GameEconomy.Instance != null
+                          && GameEconomy.Instance.GetOfferingCount(offering) <= 0;
+            if (r.RequestFulfilled || r.PreferenceRevealed || ranOut)
                 RebuildInventoryRow();
             GameSaveBridge.SaveFromWorld();
             return true;
         }
+
+        static string FeedBlockMessage(FeedBlock block, OfferingData offering) => block switch
+        {
+            FeedBlock.NoItem => offering == null || offering.IsPurifiedWater ? "정화수가 없어요" : "공양물이 없어요",
+            FeedBlock.StaminaFull => "기력이 가득 찼어요",
+            FeedBlock.StaminaAndIntimacyFull => "기력·친밀도가 모두 가득 찼어요",
+            FeedBlock.FaintedNeedsWater => "기절한 요괴는 정화수로만 깨어나요",
+            _ => "",
+        };
 
         void PlayGainPopup(int staminaGain, float intimacyGain)
         {
@@ -567,30 +510,10 @@ namespace Yoegoe.UI
             IntimacyHeartFx.PlayUi(rootCanvas.transform, portraitDropRt, intimacyGain);
         }
 
-        static bool IsPurified(OfferingData offering)
-        {
-            if (offering == null) return false;
-            return offering.kind == OfferingKind.PurifiedWater
-                || string.Equals(offering.offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);
-        }
+        static bool IsPurified(OfferingData offering) => offering != null && offering.IsPurifiedWater;
 
-        private bool IsPreferred(OfferingData offering)
-        {
-            if (offering == null || currentAgent?.Data == null) return false;
-            if (CharacterCatalog.TryGet(currentAgent.Data.id, out var entry) && entry?.preferredOfferings != null)
-            {
-                foreach (var p in entry.preferredOfferings)
-                {
-                    if (p != null && string.Equals(p.id, offering.offeringId, System.StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-            }
-            var prefs = currentAgent.Data.preferredOfferings;
-            if (prefs == null) return false;
-            foreach (var p in prefs)
-                if (p == offering) return true;
-            return false;
-        }
+        private bool IsPreferred(OfferingData offering) =>
+            currentAgent != null && currentAgent.IsPreferredOffering(offering);
 
         private OfferingData FindPurifiedWater()
         {
