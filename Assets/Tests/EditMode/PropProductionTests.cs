@@ -237,9 +237,9 @@ namespace Yoegoe.Tests.EditMode
         {
             var c = Mortar(true, 2.0);
             var st = new PropStorage.State();
-            // 보관 = 보정 전 100 × 30 = 3000, 분당 300(친100·주인) → 10분이면 가득
+            // 보관 = 보정 전 100 × 30 = 3000, 분당 400(친100 ×2 · 주인 ×2) → 7.5분이면 가득
             float worked = PropProduction.Produce(c, 1, 100f, true, 0, ref st, 3600f, () => 0.5f, null, out double add);
-            Assert.AreEqual(600f, worked, 0.5f);
+            Assert.AreEqual(450f, worked, 0.5f);
             Assert.AreEqual(3000.0, add, 0.5);
             Assert.IsTrue(PropProduction.IsHalted(c, 1, add, st));
         }
