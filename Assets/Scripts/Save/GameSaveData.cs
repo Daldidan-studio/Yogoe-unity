@@ -106,6 +106,9 @@ namespace Yoegoe.Save
         /// <summary>요리 재료 개수 (CookingIngredientId 순서). null/빈 배열이면 구세이브 — 시작 재료 유지.</summary>
         public int[] materials;
 
+        /// <summary>4번째 잠긴 슬롯을 엽전 99로 열었는지 (구미호 소환 자리).</summary>
+        public bool lockedSlotUnlocked;
+
         /// <summary>출석 윷점: 다음에 받을 칸(0=1일차), 마지막으로 처리한 날(yyyyMMdd, 새벽 4시 기준).</summary>
         public int attendanceNextDayIndex;
         public int attendanceLastHandledDayKey;

@@ -97,6 +97,7 @@ namespace Yoegoe.Save
             data.economy.specialItems = GameEconomy.Instance.CaptureSpecialItemCounts();
             data.economy.charms = GameEconomy.Instance.CaptureCharmCounts();
             Attendance.CaptureToSave(out data.economy.attendanceNextDayIndex, out data.economy.attendanceLastHandledDayKey);
+            data.economy.lockedSlotUnlocked = CharacterSummon.LockedSlotUnlocked;
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -224,21 +225,19 @@ namespace Yoegoe.Save
         }
 
         /// <summary>콜드스타트 시 세이브에 고라니가 있으면 월드에 스폰 (향 소모 없음).</summary>
+        /// <summary>콜드스타트 시 세이브에 있는 소환 요괴(고라니·구미호)를 월드에 스폰 (향 소모 없음).</summary>
         private static void EnsureMissingAgentsFromSave(AgentSave[] agents)
         {
             if (agents == null) return;
             foreach (var ags in agents)
             {
                 if (ags == null || string.IsNullOrEmpty(ags.characterId)) continue;
-                bool isGorani = ags.characterId == CharacterId.Gorani.ToString()
-                                || ags.characterId == "고라니";
-                if (!isGorani) continue;
-                if (CharacterSummon.IsPresent(CharacterId.Gorani)) continue;
-
-                CharacterSummon.SpawnGoraniForSaveRestore(
-                    null,
-                    null,
-                    new Vector3(ags.posX, ags.posY, 0f));
+                CharacterId id;
+                if (ags.characterId == nameof(CharacterId.Gorani) || ags.characterId == "고라니") id = CharacterId.Gorani;
+                else if (ags.characterId == nameof(CharacterId.Gumiho) || ags.characterId == "구미호") id = CharacterId.Gumiho;
+                else continue;
+                if (CharacterSummon.IsPresent(id)) continue;
+                CharacterSummon.SpawnForSaveRestore(id, null, new Vector3(ags.posX, ags.posY, 0f));
             }
         }
 
@@ -269,6 +268,7 @@ namespace Yoegoe.Save
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
             Attendance.ResetFromSave(e.attendanceNextDayIndex, e.attendanceLastHandledDayKey);
+            CharacterSummon.ResetFromSave(e.lockedSlotUnlocked);
         }
 
         static OfferingCountSave[] CaptureOfferings(GameEconomy eco)

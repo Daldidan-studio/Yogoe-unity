@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using Yoegoe.Bootstrap;
+using Yoegoe.Characters;
 using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
@@ -77,6 +78,9 @@ namespace Yoegoe
             economyGO.AddComponent<GameEconomy>().ApplyStartingState(StartingStateSettings.Get());
 
             CharacterCatalog.EnsureLoaded();
+            // 소환 대상 에셋 (3번째 슬롯 고라니 · 잠긴 4번째 슬롯 구미호)
+            CharacterSummon.RegisterData(CharacterId.Gorani, goraniData);
+            CharacterSummon.RegisterData(CharacterId.Gumiho, gumihoData);
             offerings = UiAssembler.EnsureOfferingsCatalog(offerings);
             CharacterCatalog.SetOfferings(offerings);
             ShopStock.SetCatalog(offerings);

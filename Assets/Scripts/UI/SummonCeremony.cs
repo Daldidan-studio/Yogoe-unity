@@ -24,16 +24,15 @@ namespace Yoegoe.UI
             if (Instance == this) Instance = null;
         }
 
-        public bool TryPlay()
+        public bool TryPlay(CharacterId target = CharacterId.Gorani)
         {
-            if (CharacterSummon.IsPresent(CharacterId.Gorani)) return false;
-            if (!CharacterSummon.CanSummonGorani()) return false;
+            if (!CharacterSummon.CanSummon(target)) return false;
             if (!isActiveAndEnabled) return false;
-            StartCoroutine(PlayRoutine());
+            StartCoroutine(PlayRoutine(target));
             return true;
         }
 
-        IEnumerator PlayRoutine()
+        IEnumerator PlayRoutine(CharacterId target)
         {
             CeremonyGate.Begin();
 
@@ -68,7 +67,8 @@ namespace Yoegoe.UI
                 yield break;
             }
 
-            var agent = CharacterSummon.SpawnGorani(goraniData, font, start);
+            var agent = CharacterSummon.Spawn(target, font, start,
+                target == CharacterId.Gorani ? goraniData : null);
             if (agent == null)
             {
                 GameEconomy.Instance.AddHyang(CharacterSummon.HyangCost);

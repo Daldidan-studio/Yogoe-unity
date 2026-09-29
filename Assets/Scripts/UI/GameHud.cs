@@ -63,7 +63,9 @@ namespace Yoegoe.UI
         private class SlotChip
         {
             public CharacterAgent Agent;
+            /// <summary>요괴가 아닌 칸(빈 소환 슬롯·잠긴 슬롯).</summary>
             public bool IsSummonSlot;
+            public ExtraSlot Extra;
             public Text NameText;
             public Text StatusTagText;
             public GameObject StatusTagRoot;
@@ -298,31 +300,31 @@ namespace Yoegoe.UI
             }
         }
 
+        /// <summary>요괴 칩 뒤에 붙는 칸 (기획 2·9장: 3번째 빈 슬롯 → 고라니, 4번째 잠긴 칸 → 엽전 99 → 구미호).</summary>
+        private enum ExtraSlot { None, SummonGorani, Locked, SummonGumiho }
+
+        static readonly List<ExtraSlot> desiredExtras = new List<ExtraSlot>(3);
+
+        static List<ExtraSlot> DesiredExtraSlots()
+        {
+            desiredExtras.Clear();
+            if (!CharacterSummon.IsPresent(CharacterId.Gorani)) desiredExtras.Add(ExtraSlot.SummonGorani);
+            if (!CharacterSummon.LockedSlotUnlocked) desiredExtras.Add(ExtraSlot.Locked);
+            else if (!CharacterSummon.IsPresent(CharacterId.Gumiho)) desiredExtras.Add(ExtraSlot.SummonGumiho);
+            return desiredExtras;
+        }
+
         private void RefreshSlotBar()
         {
-            bool wantSummonSlot = !CharacterSummon.IsPresent(CharacterId.Gorani);
-            int expected = CharacterAgent.All.Count + (wantSummonSlot ? 1 : 0);
-            bool mismatched = slotChips.Count != expected;
-            if (!mismatched)
+            var extras = DesiredExtraSlots();
+            int agentCount = CharacterAgent.All.Count;
+            bool mismatched = slotChips.Count != agentCount + extras.Count;
+            for (int i = 0; !mismatched && i < slotChips.Count; i++)
             {
-                int agentIdx = 0;
-                for (int i = 0; i < slotChips.Count; i++)
-                {
-                    var chip = slotChips[i];
-                    if (chip.IsSummonSlot)
-                    {
-                        if (!wantSummonSlot) { mismatched = true; break; }
-                        continue;
-                    }
-                    if (agentIdx >= CharacterAgent.All.Count
-                        || chip.Agent != CharacterAgent.All[agentIdx])
-                    {
-                        mismatched = true;
-                        break;
-                    }
-                    agentIdx++;
-                }
-                if (!mismatched && agentIdx != CharacterAgent.All.Count) mismatched = true;
+                var chip = slotChips[i];
+                mismatched = i < agentCount
+                    ? chip.IsSummonSlot || chip.Agent != CharacterAgent.All[i]
+                    : !chip.IsSummonSlot || chip.Extra != extras[i - agentCount];
             }
             if (mismatched) RebuildSlotBar();
 
@@ -514,13 +516,15 @@ namespace Yoegoe.UI
                 });
             }
 
-            if (!CharacterSummon.IsPresent(CharacterId.Gorani))
-                AddEmptySummonSlot();
+            foreach (var extra in DesiredExtraSlots())
+                AddExtraSlot(extra);
         }
 
-        private void AddEmptySummonSlot()
+        private void AddExtraSlot(ExtraSlot extra)
         {
-            var chipGO = new GameObject("Slot_Summon");
+            bool locked = extra == ExtraSlot.Locked;
+            var summonTarget = extra == ExtraSlot.SummonGumiho ? CharacterId.Gumiho : CharacterId.Gorani;
+            var chipGO = new GameObject(locked ? "Slot_Locked" : "Slot_Summon");
             var chipRt = SetupRect(chipGO, slotBarRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(160, 100));
             var chipLayout = chipGO.AddComponent<LayoutElement>();
@@ -528,13 +532,15 @@ namespace Yoegoe.UI
             chipLayout.preferredHeight = 100;
 
             var bg = chipGO.AddComponent<Image>();
-            bg.color = C.hudSummonChip;
+            bg.color = locked ? C.hudSummonChip * new Color(0.6f, 0.6f, 0.6f, 1f) : C.hudSummonChip;
 
             var button = chipGO.AddComponent<Button>();
             button.targetGraphic = bg;
             button.onClick.AddListener(() =>
             {
-                if (SummonPopup.Instance != null) SummonPopup.Instance.Open();
+                if (SummonPopup.Instance == null) return;
+                if (locked) SummonPopup.Instance.OpenUnlock();
+                else SummonPopup.Instance.Open(summonTarget);
             });
 
             var nameGO = new GameObject("Name");
@@ -546,12 +552,14 @@ namespace Yoegoe.UI
             nameText.alignment = TextAnchor.MiddleCenter;
             nameText.color = C.hudSummonName;
             nameText.raycastTarget = false;
-            nameText.text = "+ 소환";
+            nameText.text = locked ? "잠김\n엽전 " + CharacterSummon.LockedSlotYeopjeonCost : "+ 소환";
+            if (locked) nameText.color = C.hudSummonName * new Color(0.75f, 0.75f, 0.75f, 1f);
 
             slotChips.Add(new SlotChip
             {
                 Agent = null,
                 IsSummonSlot = true,
+                Extra = extra,
                 NameText = nameText
             });
         }

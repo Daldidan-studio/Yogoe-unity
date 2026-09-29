@@ -6,7 +6,10 @@ using Yoegoe.Economy;
 
 namespace Yoegoe.UI
 {
-    /// <summary>빈 캐릭터 슬롯 탭 → 고라니 소환 확인 (기획 9-1).</summary>
+    /// <summary>
+    /// 빈 캐릭터 슬롯 탭 → 소환 확인 (기획 9-1: 3번째 = 고라니, 4번째 = 구미호).
+    /// 잠긴 4번째 슬롯 탭 → '엽전 99개로 열 수 있다' 안내 + 열기.
+    /// </summary>
     public class SummonPopup : MonoBehaviour
     {
         public static SummonPopup Instance { get; private set; }
@@ -23,6 +26,10 @@ namespace Yoegoe.UI
         static readonly Color SummonEnabled = new Color(0.3f, 0.5f, 0.55f, 1f);
         static readonly Color SummonDisabled = new Color(0.25f, 0.25f, 0.28f, 1f);
 
+        enum Mode { Summon, Unlock }
+        Mode mode;
+        CharacterId target = CharacterId.Gorani;
+
         void Awake() => Instance = this;
 
         void Start()
@@ -36,11 +43,27 @@ namespace Yoegoe.UI
             if (Instance == this) Instance = null;
         }
 
-        public void Open()
+        /// <summary>빈 슬롯 소환 확인. target: 3번째 슬롯 고라니, 4번째(연 뒤) 구미호.</summary>
+        public void Open(CharacterId summonTarget = CharacterId.Gorani)
         {
-            if (CharacterSummon.IsPresent(CharacterId.Gorani)) return;
+            if (!CharacterSummon.HasOpenSlotFor(summonTarget) || CharacterSummon.IsPresent(summonTarget)) return;
             EnsureBuilt();
-            titleText.text = "향 3개를 피워 요괴를 부르시겠습니까?";
+            mode = Mode.Summon;
+            target = summonTarget;
+            titleText.text = "향 " + CharacterSummon.HyangCost + "개를 피워 요괴를 부르시겠습니까?";
+            if (summonButtonLabel != null) summonButtonLabel.text = "부르기";
+            RefreshAffordState();
+            root.SetActive(true);
+        }
+
+        /// <summary>잠긴 4번째 슬롯: 엽전 99개로 열 수 있다는 안내 + 열기.</summary>
+        public void OpenUnlock()
+        {
+            if (CharacterSummon.LockedSlotUnlocked) return;
+            EnsureBuilt();
+            mode = Mode.Unlock;
+            titleText.text = "잠긴 자리입니다.\n엽전 " + CharacterSummon.LockedSlotYeopjeonCost + "개로 열 수 있어요.";
+            if (summonButtonLabel != null) summonButtonLabel.text = "열기";
             RefreshAffordState();
             root.SetActive(true);
         }
@@ -52,10 +75,22 @@ namespace Yoegoe.UI
 
         void RefreshAffordState()
         {
-            bool can = CharacterSummon.CanSummonGorani();
-            costText.text = can
-                ? "향 " + CharacterSummon.HyangCost + "개 소모 (보유 " + GameEconomy.Instance.Hyang + ")"
-                : "향이 부족합니다 (필요 " + CharacterSummon.HyangCost + ", 보유 " + GameEconomy.Instance.Hyang + ")";
+            bool can;
+            if (mode == Mode.Unlock)
+            {
+                int have = GameEconomy.Instance.Yeopjeon;
+                can = have >= CharacterSummon.LockedSlotYeopjeonCost;
+                costText.text = can
+                    ? "엽전 " + CharacterSummon.LockedSlotYeopjeonCost + "개 소모 (보유 " + have + ")"
+                    : "엽전이 부족합니다 (필요 " + CharacterSummon.LockedSlotYeopjeonCost + ", 보유 " + have + ")";
+            }
+            else
+            {
+                can = CharacterSummon.CanSummon(target);
+                costText.text = can
+                    ? "향 " + CharacterSummon.HyangCost + "개 소모 (보유 " + GameEconomy.Instance.Hyang + ")"
+                    : "향이 부족합니다 (필요 " + CharacterSummon.HyangCost + ", 보유 " + GameEconomy.Instance.Hyang + ")";
+            }
             if (summonButtonImage != null)
                 summonButtonImage.color = can ? SummonEnabled : SummonDisabled;
             if (summonButtonLabel != null)
@@ -66,13 +101,25 @@ namespace Yoegoe.UI
 
         void OnSummonClicked()
         {
-            if (CharacterSummon.IsPresent(CharacterId.Gorani))
+            if (mode == Mode.Unlock)
+            {
+                if (CharacterSummon.TryUnlockLockedSlot())
+                {
+                    Close();
+                    Yoegoe.Save.GameSaveBridge.SaveFromWorld();
+                }
+                else
+                    RefreshAffordState(); // 엽전 부족 — 안내 유지
+                return;
+            }
+
+            if (CharacterSummon.IsPresent(target))
             {
                 Close();
                 return;
             }
 
-            if (!CharacterSummon.CanSummonGorani())
+            if (!CharacterSummon.CanSummon(target))
             {
                 Close();
                 if (ShopScreen.Instance != null) ShopScreen.Instance.Open();
@@ -80,11 +127,11 @@ namespace Yoegoe.UI
             }
 
             Close();
-            if (SummonCeremony.Instance != null && SummonCeremony.Instance.TryPlay())
+            if (SummonCeremony.Instance != null && SummonCeremony.Instance.TryPlay(target))
                 return;
 
             // 연출 호스트 없으면 즉시 소환 폴백
-            var agent = CharacterSummon.TrySummonGorani(goraniData, font);
+            var agent = CharacterSummon.TrySummon(target, font, target == CharacterId.Gorani ? goraniData : null);
             if (agent == null)
                 Debug.LogWarning("[SummonPopup] 소환 실패");
             else
