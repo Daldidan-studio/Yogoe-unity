@@ -16,7 +16,10 @@ namespace Yoegoe.Economy
         public static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(3);
 
         public enum Side { Left, Right }
-        public enum BuyFail { None, NoStock, NotEnoughYeopjeon }
+        public enum BuyFail { None, NoStock, NotEnoughYeopjeon, NotEnoughMerit }
+
+        /// <summary>진열 리셋 비용 = 떡절구 현재 분당 산출 × 이 분 (12장 '5분치 공덕').</summary>
+        public const float RerollMeritMinutes = 5f;
 
         public static string LeftOfferingId { get; private set; }
         public static string RightOfferingId { get; private set; }
@@ -153,6 +156,45 @@ namespace Yoegoe.Economy
                 return false;
             }
             GameEconomy.Instance.AddHyang(1);
+            return true;
+        }
+
+        /// <summary>진열 리셋 비용 = 분당 산출 × 5 (소수는 올림).</summary>
+        public static BigNumber RerollCost(double meritPerMinute) =>
+            meritPerMinute > 0 ? (BigNumber)Math.Ceiling(meritPerMinute * RerollMeritMinutes) : BigNumber.Zero;
+
+        /// <summary>
+        /// 떡절구 현재 분당 산출 — 앉은 요괴·친밀도와 무관하게 레벨 기준(보정 전).
+        /// 공덕 기물(엔딩기물)이 여럿이면 가장 높은 값(엔딩기물은 떡절구 레벨을 따른다).
+        /// </summary>
+        public static double MortarMeritPerMinute()
+        {
+            double best = 0;
+            if (PropManager.Instance == null) return best;
+            foreach (var p in PropManager.Instance.All)
+                if (p != null && p.IsBuilt && p.ResourceType == PropResourceType.Merit)
+                    best = Math.Max(best, p.GetBaseProductionThisLevel());
+            return best;
+        }
+
+        public static BigNumber GetRerollCost() => RerollCost(MortarMeritPerMinute());
+
+        /// <summary>5분치 공덕을 내고 좌우 공양물을 새로 뽑는다(3시간 타이머도 다시 시작).</summary>
+        public static bool TryRerollWithMerit(DateTime utcNow, out BuyFail fail)
+        {
+            fail = BuyFail.None;
+            var cost = GetRerollCost();
+            if (cost.Mantissa == 0)
+            {
+                fail = BuyFail.NoStock; // 떡절구가 없으면 리셋 불가
+                return false;
+            }
+            if (!GameEconomy.Instance.TrySpendMerit(cost))
+            {
+                fail = BuyFail.NotEnoughMerit;
+                return false;
+            }
+            ForceReroll(utcNow);
             return true;
         }
 

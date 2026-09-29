@@ -130,6 +130,16 @@ namespace Yoegoe.UI
         {
             if (currencyText == null || GameEconomy.Instance == null) return;
             currencyText.text = $"엽전 {GameEconomy.Instance.Yeopjeon}   공덕 {GameEconomy.Instance.MeritPile.ToDisplayString()}";
+            RefreshRerollLabel();
+        }
+
+        /// <summary>리셋 버튼 글자에 현재 비용(떡절구 분당 × 5).</summary>
+        void RefreshRerollLabel()
+        {
+            var label = root != null ? root.transform.Find("Reroll/Text")?.GetComponent<Text>() : null;
+            if (label == null) return;
+            var cost = ShopStock.GetRerollCost();
+            label.text = cost.Mantissa == 0 ? "진열 바꾸기" : "진열 바꾸기 · 공덕 " + cost.ToDisplayString();
         }
 
         void OnImugiTapped()
@@ -181,6 +191,21 @@ namespace Yoegoe.UI
                 SetDialogue("돈을 더 모아와라.");
         }
 
+        /// <summary>5분치 공덕으로 진열 바꾸기 (12장).</summary>
+        void OnReroll()
+        {
+            if (ShopStock.TryRerollWithMerit(TrustedTime.UtcNow, out var fail))
+            {
+                SetDialogue("새 물건을 꺼내 왔다.");
+                RefreshSlots();
+                RefreshCurrencyBar();
+                GameSaveBridge.SaveFromWorld();
+                return;
+            }
+            if (fail == ShopStock.BuyFail.NotEnoughMerit)
+                SetDialogue("돈을 더 모아와라.");
+        }
+
         void OnBuyHyang()
         {
             if (ShopStock.TryBuyHyang(out var fail))
@@ -227,6 +252,7 @@ namespace Yoegoe.UI
             BindButton(root.transform.Find("LeftFood/PriceBuy"), OnBuyLeft);
             BindButton(root.transform.Find("RightFood/PriceBuy"), OnBuyRight);
             BindButton(root.transform.Find("Hyang/PriceBuy"), OnBuyHyang);
+            BindButton(root.transform.Find("Reroll"), OnReroll);
             BindButton(root.transform.Find("Close"), Close);
 
             for (int i = 0; i < Packages.Length; i++)
