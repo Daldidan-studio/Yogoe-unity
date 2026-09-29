@@ -151,7 +151,7 @@ namespace Yoegoe.Tests.EditMode
         public void Well_ProducesWater_TapCollectsIntoWallet()
         {
             MakeProp(PropResourceType.PurifiedWater, 30f, 6);
-            prop.ProduceWhileStaying(3 * 1800f, 0);
+            prop.ProduceWhileStaying(3 * 1800f, 0f, false);
 
             Assert.AreEqual(3, prop.StoredResources);
             Assert.IsTrue(prop.TryCollect());
@@ -167,7 +167,7 @@ namespace Yoegoe.Tests.EditMode
             for (int i = 0; i < (int)CookingIngredientId.Count; i++)
                 before += economy.GetMaterialCount((CookingIngredientId)i);
 
-            prop.ProduceWhileStaying(4 * 1200f, 0);
+            prop.ProduceWhileStaying(4 * 1200f, 0f, false);
             Assert.AreEqual(4, prop.PendingIngredients.Count);
             prop.TryCollect();
 
@@ -196,7 +196,7 @@ namespace Yoegoe.Tests.EditMode
         {
             MakeProp(PropResourceType.Yeopjeon, 60f, 1);
             // 1개(60분) + 판정 사이클(60분) 이후엔 멈춘다
-            float worked = prop.ProduceWhileStaying(10 * 3600f, 0);
+            float worked = prop.ProduceWhileStaying(10 * 3600f, 0f, false);
             Assert.IsTrue(prop.IsStorageHalted);
             Assert.AreEqual(2 * 3600f, worked, 0.01f);
         }
@@ -208,10 +208,61 @@ namespace Yoegoe.Tests.EditMode
             data.baseProductionPerMinute = 100;
             data.meritCapacityMinutes = 30f;
 
-            float worked = prop.ProduceWhileStaying(3600f, 100);
+            float worked = prop.ProduceWhileStaying(3600f, 0f, false);
             Assert.AreEqual(1800f, worked, 0.5f);
             Assert.AreEqual(3000.0, prop.PendingMerit.ToDouble(), 0.5);
             Assert.IsTrue(prop.IsStorageHalted);
+        }
+
+        // ---------------- PropProduction (온라인·오프라인 공용 규칙) ----------------
+
+        static PropProduction.Config Mortar(bool intimacyBonus, double owner) => new PropProduction.Config
+        {
+            Type = PropResourceType.Merit, MeritPerMinute = 100, LevelGrowth = 1.1,
+            MeritCapacityMinutes = 30f, IntimacyBonus = intimacyBonus, OwnerMultiplier = owner,
+        };
+
+        [Test]
+        public void MeritPerMinute_AppliesSheetFlags()
+        {
+            // 3차 시트: 친밀도 보정 없음 · 주인 ×1
+            Assert.AreEqual(110.0, PropProduction.MeritPerMinute(Mortar(false, 1.0), 2, 50f, true), 0.0001);
+            // 보정 켜면: 110 × 1.5 × 2
+            Assert.AreEqual(330.0, PropProduction.MeritPerMinute(Mortar(true, 2.0), 2, 50f, true), 0.0001);
+            Assert.AreEqual(165.0, PropProduction.MeritPerMinute(Mortar(true, 2.0), 2, 50f, false), 0.0001);
+        }
+
+        [Test]
+        public void Produce_Merit_StopsAtCapacity_CapIgnoresBonuses()
+        {
+            var c = Mortar(true, 2.0);
+            var st = new PropStorage.State();
+            // 보관 = 보정 전 100 × 30 = 3000, 분당 300(친100·주인) → 10분이면 가득
+            float worked = PropProduction.Produce(c, 1, 100f, true, 0, ref st, 3600f, () => 0.5f, null, out double add);
+            Assert.AreEqual(600f, worked, 0.5f);
+            Assert.AreEqual(3000.0, add, 0.5);
+            Assert.IsTrue(PropProduction.IsHalted(c, 1, add, st));
+        }
+
+        [Test]
+        public void Produce_None_WorksWithoutOutput()
+        {
+            var st = new PropStorage.State();
+            float worked = PropProduction.Produce(default, 1, 0f, false, 0, ref st, 100f, () => 0.5f, null, out double add);
+            Assert.AreEqual(100f, worked);
+            Assert.AreEqual(0.0, add);
+        }
+
+        [Test]
+        public void Config_PrefersSheet_ThenAsset()
+        {
+            var asset = ScriptableObject.CreateInstance<PropData>();
+            asset.propId = "옹달샘";
+            asset.resourceType = PropResourceType.Merit; // 시트가 이긴다
+            Assert.AreEqual(PropResourceType.PurifiedWater, PropProduction.Config.Resolve("옹달샘", asset).Type);
+            asset.propId = "시트에_없는_기물";
+            Assert.AreEqual(PropResourceType.Merit, PropProduction.Config.Resolve(asset.propId, asset).Type);
+            UnityEngine.Object.DestroyImmediate(asset);
         }
 
         // ---------------- 오프라인 ----------------

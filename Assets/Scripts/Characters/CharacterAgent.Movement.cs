@@ -229,7 +229,7 @@ namespace Yoegoe.Characters
 
             // 기물이 만창에 닿으면 그 시점까지만 일한 것으로 친다
             float worked = currentProp != null
-                ? currentProp.ProduceWhileStaying(slice, GetProductionPerMinuteIfStaying())
+                ? currentProp.ProduceWhileStaying(slice, Stats.Intimacy, currentProp.IsOwnerOnEndingProp(this))
                 : slice;
             if (worked <= 0f && currentProp != null && currentProp.IsStorageHalted)
                 return 0.0001f; // 다음 구간에서 정지 분기로
@@ -254,24 +254,7 @@ namespace Yoegoe.Characters
         public double GetProductionPerMinuteIfStaying()
         {
             if (Stats.State != ActionState.Staying || currentProp == null) return 0;
-            return currentProp.GetBaseProductionThisLevel()
-                   * GetIntimacyCorrection()
-                   * GetEndingPropCorrection();
-        }
-
-        /// <summary>7-1: 친밀도 보정. 온라인/오프라인 공통 공식은 <see cref="ProductionFormula"/> 참고.</summary>
-        private double GetIntimacyCorrection() =>
-            currentProp != null && currentProp.data != null && !currentProp.data.intimacyBonus
-                ? 1.0
-                : ProductionFormula.IntimacyMultiplier(Stats.Intimacy);
-
-        /// <summary>7-1: 엔딩 기물 보정 (MVP: 옥토끼–떡절구). 공식은 <see cref="ProductionFormula"/> 참고.</summary>
-        private double GetEndingPropCorrection()
-        {
-            if (currentProp == null || currentProp.data == null || Data == null) return 1.0;
-            bool sameOwner = currentProp.data.owner == Data.id;
-            return ProductionFormula.EndingMultiplier(currentProp.data.isEndingProp, sameOwner,
-                currentProp.data.ownerMultiplier);
+            return currentProp.MeritPerMinuteFor(this);
         }
 
         /// <summary>전용 점유 아트 표시 중에는 캐릭터 스프라이트를 숨긴다.</summary>

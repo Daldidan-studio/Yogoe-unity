@@ -38,12 +38,14 @@ namespace Yoegoe.Characters
         /// <summary>활터·약초밭: 보관 중인 재료(1개당 1칸, 뽑힌 순서).</summary>
         readonly List<int> pendingIngredients = new List<int>();
 
-        public PropResourceType ResourceType => data != null ? data.resourceType : PropResourceType.None;
-        public bool IsResourceProp =>
-            ResourceType == PropResourceType.PurifiedWater || ResourceType == PropResourceType.Yeopjeon
-            || ResourceType == PropResourceType.Hunt || ResourceType == PropResourceType.Gather;
+        /// <summary>생산 설정 — 시트(props.json) 우선, 없으면 PropData. 규칙은 <see cref="PropProduction"/>.</summary>
+        public PropProduction.Config ProductionConfig =>
+            data != null ? PropProduction.Config.Resolve(data.propId, data) : default;
+
+        public PropResourceType ResourceType => data != null ? ProductionConfig.Type : PropResourceType.None;
+        public bool IsResourceProp => PropProduction.IsResource(ResourceType);
         public int StoredResources => storage.Stored;
-        public int ResourceCapacity => data != null ? PropStorage.Capacity(data.baseCapacity, level) : 0;
+        public int ResourceCapacity => data != null ? PropProduction.ResourceCapacity(ProductionConfig, level) : 0;
         public bool HasPendingResources => IsBuilt && IsResourceProp && storage.Stored > 0;
         /// <summary>탭 수거할 게 있는지 (공덕 더미 또는 자원 보관).</summary>
         public bool HasPendingCollectible => HasPendingMerit || HasPendingResources;
@@ -67,20 +69,21 @@ namespace Yoegoe.Characters
         float nextPetalAt = 20f;
 
         /// <summary>만창 — 앉아 있어도 생산·기력소모 정지.</summary>
-        public bool IsStorageHalted
-        {
-            get
-            {
-                if (!IsBuilt || data == null) return false;
-                if (IsResourceProp) return PropStorage.IsHalted(storage, ResourceCapacity);
-                if (ResourceType == PropResourceType.Merit)
-                    return PendingMerit.ToDouble() >= MeritCapacity - 0.0001;
-                return false;
-            }
-        }
+        public bool IsStorageHalted =>
+            IsBuilt && data != null
+            && PropProduction.IsHalted(ProductionConfig, level, PendingMerit.ToDouble(), storage);
 
         public double MeritCapacity => data == null ? double.PositiveInfinity
-            : ProductionFormula.MeritCapacity(data.baseProductionPerMinute, level, data.levelGrowth, data.meritCapacityMinutes);
+            : PropProduction.MeritCapacity(ProductionConfig, level);
+
+        /// <summary>이 요괴가 자기 엔딩기물에 앉았는지 (주인 배율 대상).</summary>
+        public bool IsOwnerOnEndingProp(CharacterAgent agent) =>
+            data != null && data.isEndingProp && agent != null && agent.Data != null && data.owner == agent.Data.id;
+
+        /// <summary>앉은 요괴 기준 분당 공덕 (공덕 기물 아니면 0).</summary>
+        public double MeritPerMinuteFor(CharacterAgent agent) =>
+            !IsBuilt || data == null || agent == null ? 0
+                : PropProduction.MeritPerMinute(ProductionConfig, level, agent.Stats.Intimacy, IsOwnerOnEndingProp(agent));
 
         private TextMesh pileLabel;
         private TextMesh lockLabel;
@@ -244,52 +247,35 @@ namespace Yoegoe.Characters
         }
 
         /// <summary>
-        /// 앉은 요괴가 dt초 머무는 동안의 생산. 반환 = 실제로 일한 초(이만큼만 기력이 닳는다).
-        /// 만창이면 0. meritPerMinute는 보정까지 끝난 공덕 분당 산출(공덕 기물만 사용).
+        /// 앉은 요괴가 dt초 머무는 동안의 생산 (규칙은 <see cref="PropProduction.Produce"/> — 오프라인과 동일).
+        /// 반환 = 실제로 일한 초(이만큼만 기력이 닳는다). 만창이면 0.
         /// </summary>
-        public float ProduceWhileStaying(float dt, double meritPerMinute)
+        public float ProduceWhileStaying(float dt, float intimacy, bool ownerOnEndingProp)
         {
             if (!IsBuilt || data == null || dt <= 0f) return dt;
-            switch (ResourceType)
+            float worked = PropProduction.Produce(ProductionConfig, level, intimacy, ownerOnEndingProp,
+                PendingMerit.ToDouble(), ref storage, dt, () => UnityEngine.Random.value,
+                code =>
+                {
+                    pendingIngredients.Add(code);
+                    if (PropCatalog.IsSpecialCode(code) && Occupant != null) goldenFinder = Occupant;
+                },
+                out double meritAdded);
+
+            if (meritAdded > 0)
             {
-                case PropResourceType.Merit:
+                AddToMeritPile(meritAdded);
+                // 가끔 공덕꽃잎이 버드나무로 날아가 붙는다 (연출)
+                petalTimer += worked;
+                if (petalTimer >= nextPetalAt && worked < 60f)
                 {
-                    if (meritPerMinute <= 0) return dt;
-                    double cap = MeritCapacity;
-                    double room = double.IsInfinity(cap) ? double.MaxValue : cap - PendingMerit.ToDouble();
-                    if (room <= 0.0001) return 0f;
-                    float worked = (float)Math.Min(dt, room / meritPerMinute * 60.0);
-                    AddToMeritPile(meritPerMinute / 60.0 * worked);
-                    // 가끔 공덕꽃잎이 버드나무로 날아가 붙는다 (연출)
-                    petalTimer += worked;
-                    if (petalTimer >= nextPetalAt && worked < 60f)
-                    {
-                        petalTimer = 0f;
-                        nextPetalAt = UnityEngine.Random.Range(15f, 35f);
-                        if (MeritWillow.Instance != null)
-                            MeritWillow.Instance.LaunchPetalFrom(TopAnchorWorld(0.05f));
-                    }
-                    return worked;
+                    petalTimer = 0f;
+                    nextPetalAt = UnityEngine.Random.Range(15f, 35f);
+                    if (MeritWillow.Instance != null)
+                        MeritWillow.Instance.LaunchPetalFrom(TopAnchorWorld(0.05f));
                 }
-                case PropResourceType.PurifiedWater:
-                case PropResourceType.Yeopjeon:
-                case PropResourceType.Hunt:
-                case PropResourceType.Gather:
-                {
-                    var type = ResourceType;
-                    return PropStorage.Advance(ref storage, data.cycleMinutes * 60f, ResourceCapacity,
-                        PropStorage.OverflowChance(level), dt, () => UnityEngine.Random.value,
-                        () =>
-                        {
-                            if (type != PropResourceType.Hunt && type != PropResourceType.Gather) return;
-                            int code = PropCatalog.RollDrop(type, UnityEngine.Random.value);
-                            pendingIngredients.Add(code);
-                            if (PropCatalog.IsSpecialCode(code) && Occupant != null) goldenFinder = Occupant;
-                        });
-                }
-                default:
-                    return dt; // 화덕 등 — 산출 없음, 기력은 평소대로
             }
+            return worked;
         }
 
         /// <summary>버드나무 등 기물 밖에서 공덕을 수거했을 때 같은 꽃잎 연출을 띄운다.</summary>
@@ -467,12 +453,9 @@ namespace Yoegoe.Characters
             return stage;
         }
 
-        public double GetBaseProductionThisLevel()
-        {
-            if (!IsBuilt || data == null) return 0;
-            if (data.resourceType != PropResourceType.Merit) return 0;
-            return data.baseProductionPerMinute * ProductionFormula.LevelMultiplier(level, data.levelGrowth);
-        }
+        /// <summary>레벨 기준 분당 공덕(보정 전). 공덕 기물이 아니면 0.</summary>
+        public double GetBaseProductionThisLevel() =>
+            IsBuilt && data != null ? PropProduction.BaseMeritPerMinute(ProductionConfig, level) : 0;
 
         public bool CanBeUsedBy(CharacterAgent agent)
         {
