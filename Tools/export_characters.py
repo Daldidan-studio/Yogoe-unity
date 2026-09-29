@@ -36,7 +36,7 @@ JSON_PATH = ROOT / "Assets" / "Resources" / "characters.json"
 SHEETS_DIR = ROOT / "Tools" / "sheets"
 CONFIG_PATH = ROOT / "Tools" / "yut_bubbles_sheets.config.json"
 ENUMS_PATH = ROOT / "Assets" / "Scripts" / "Data" / "Enums.cs"
-RECIPES_PATH = ROOT / "Assets" / "Scripts" / "Economy" / "GameEconomy.cs"
+RECIPES_PATH = ROOT / "Assets" / "Scripts" / "Cooking" / "CookingRecipeCatalog.cs"
 OFFERING_ASSETS = ROOT / "Assets" / "Data" / "Offerings"
 
 TAB_CHARACTERS = "characters"

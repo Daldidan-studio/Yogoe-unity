@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 JSON_PATH = ROOT / "Assets" / "Resources" / "props.json"
 SHEETS_DIR = ROOT / "Tools" / "sheets"
 PROP_ASSETS = ROOT / "Assets" / "Data" / "Props"
-ECONOMY_CS = ROOT / "Assets" / "Scripts" / "Economy" / "GameEconomy.cs"
+ECONOMY_CS = ROOT / "Assets" / "Scripts" / "Cooking" / "CookingTypes.cs"  # CookingIngredientId
 ENUMS_CS = ROOT / "Assets" / "Scripts" / "Data" / "Enums.cs"
 
 TAB_PROPS = "props"
