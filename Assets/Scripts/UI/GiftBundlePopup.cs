@@ -14,7 +14,6 @@ namespace Yoegoe.UI
         public static GiftBundlePopup Instance { get; private set; }
 
         public Font font;
-        public OfferingData[] offerings;
         public Sprite closedChestSprite;
         public Sprite openChestSprite;
 

@@ -46,7 +46,7 @@ namespace Yoegoe.Minigames.Yut
     public static class YutRewards
     {
         /// <summary>재료보따리 — 랜덤 재료 개수(광고 2배 시 ×배수).</summary>
-        public const int IngredientBundleCount = 3;
+        public const int IngredientBundleCount = Yoegoe.Economy.IngredientDraw.BundleCount;
 
         /// <summary>특수 칸 — "그냥 받기" / "광고 보고 2배".</summary>
         public const int SquareRewardBase = 1;

@@ -107,7 +107,6 @@ namespace Yoegoe.Bootstrap
             giftGO.SetActive(false);
             var gift = giftGO.AddComponent<GiftBundlePopup>();
             gift.font = cfg.hudFont;
-            gift.offerings = cfg.offerings;
             giftGO.SetActive(true);
 
             var batchGO = new GameObject("BatchCollectPopup");

@@ -197,16 +197,5 @@ namespace Yoegoe.Economy
             ForceReroll(utcNow);
             return true;
         }
-
-        public static double GetCurrentProductionPerMinute()
-        {
-            double sum = 0;
-            foreach (var agent in CharacterAgent.All)
-            {
-                if (agent == null) continue;
-                sum += agent.GetProductionPerMinuteIfStaying();
-            }
-            return sum;
-        }
     }
 }
