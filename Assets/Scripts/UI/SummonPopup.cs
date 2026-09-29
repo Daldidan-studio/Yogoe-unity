@@ -127,15 +127,16 @@ namespace Yoegoe.UI
             }
 
             Close();
+            // 절차는 CharacterSummon.TrySummon 하나 — 여기선 지금 보이는 화면에 맞는 연출만 고른다.
+            // 윷 화면이 열려 있으면 맵 연출(월드)은 가려지므로 윷 화면 연출로.
+            if (YutScreen.Instance != null && YutScreen.Instance.IsOpen && YutScreen.Instance.PlaySummon(target))
+                return;
             if (SummonCeremony.Instance != null && SummonCeremony.Instance.TryPlay(target))
                 return;
 
             // 연출 호스트 없으면 즉시 소환 폴백
-            var agent = CharacterSummon.TrySummon(target, font, target == CharacterId.Gorani ? goraniData : null);
-            if (agent == null)
+            if (CharacterSummon.TrySummon(target, font, target == CharacterId.Gorani ? goraniData : null) == null)
                 Debug.LogWarning("[SummonPopup] 소환 실패");
-            else
-                Yoegoe.Save.GameSaveBridge.SaveFromWorld();
         }
 
         void EnsureBuilt()

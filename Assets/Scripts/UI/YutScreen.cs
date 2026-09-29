@@ -168,7 +168,11 @@ namespace Yoegoe.UI
         Action pendingConfirmYes;
         Action pendingConfirmNo;
 
-        void Awake() => Instance = this;
+        void Awake()
+        {
+            Instance = this;
+            CharacterSummon.Summoned += OnCharacterSummoned;
+        }
 
         void Start()
         {
@@ -181,6 +185,7 @@ namespace Yoegoe.UI
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            CharacterSummon.Summoned -= OnCharacterSummoned;
         }
 
         public void Open()
@@ -1000,9 +1005,9 @@ namespace Yoegoe.UI
                 roster.Add(new YutMiniGame.RosterEntry(p.Id, p.DisplayName, stamina, intimacy, PositionLabelFor(p),
                     waitingInSlot));
             }
-            // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다. 고라니를 아직 안 불렀으면
-            // "소환하기" 슬롯을 안내한다.
-            bool showExtraSlot = !CharacterSummon.IsPresent(CharacterId.Gorani);
+            // 지금 키우는(소환된) 요괴 수만큼만 말을 쓸 수 있다. 빈 슬롯(고라니, 연 4번째 슬롯의 구미호)이
+            // 있으면 "소환하기" 슬롯을 안내한다 — 대상은 CharacterSummon.NextSummonTarget.
+            bool showExtraSlot = CharacterSummon.NextSummonTarget(out _);
             // 대기말을 슬롯에 붙이려면 로스터 칩이 먼저 있어야 한다.
             miniGame.ShowRoster(roster, showExtraSlot, showExtraSlot ? "소환하기" : null,
                 showExtraSlot ? OnSummonSlotTapped : (Action)null);
@@ -1034,26 +1039,48 @@ namespace Yoegoe.UI
             }
         }
 
+        /// <summary>로스터 [소환하기] — 맵과 같은 확인 창(SummonPopup)·같은 절차(CharacterSummon)를 쓴다.
+        /// 확인하면 SummonPopup이 윷 화면이 열려 있는 걸 보고 <see cref="PlaySummon"/>으로 연출을 넘긴다.</summary>
         void OnSummonSlotTapped()
         {
-            if (CharacterSummon.IsPresent(CharacterId.Gorani)) return;
+            if (!CharacterSummon.NextSummonTarget(out var target)) return;
+            if (SummonPopup.Instance != null) SummonPopup.Instance.Open(target);
+        }
 
-            if (!CharacterSummon.CanSummonGorani())
+        bool summonPresenting;
+
+        /// <summary>윷 화면용 소환 연출 (맵 SummonCeremony는 월드라 윷 패널에 가려진다). 시작하면 true.</summary>
+        public bool PlaySummon(CharacterId target)
+        {
+            if (!CharacterSummon.CanSummon(target) || !isActiveAndEnabled) return false;
+            StartCoroutine(SummonCeremonyRoutine(target));
+            return true;
+        }
+
+        /// <summary>어디서 소환됐든(맵·윷) 진행 중인 매치에 바로 대기 말로 합류 — 소환 즉시 말로 쓸 수 있다.</summary>
+        void OnCharacterSummoned(CharacterAgent agent)
+        {
+            if (agent == null) return;
+            if (match != null && !match.IsEnded)
             {
-                ShowNotice($"향이 부족합니다 (필요 {CharacterSummon.HyangCost}, 보유 {GameEconomy.Instance.Hyang}).", null);
-                return;
+                string id = agent.Data != null ? agent.Data.id.ToString() : agent.name;
+                string name = agent.Data != null && !string.IsNullOrEmpty(agent.Data.displayName)
+                    ? agent.Data.displayName
+                    : agent.name;
+                if (match.TryAddPlayerPiece(id, name))
+                    teamById[id] = agent;
             }
-
-            ShowConfirm($"향 {CharacterSummon.HyangCost}개를 피워 요괴를 부르시겠습니까?", "부르기", "취소",
-                () => StartCoroutine(SummonCeremonyRoutine()), null);
+            // 윷 화면 연출 중이면 아이콘이 슬롯에 떨어진 뒤 갱신(슬롯이 먼저 사라지지 않게)
+            if (IsOpen && !summonPresenting) HandlePiecesChanged();
         }
 
         /// <summary>메인 화면 소환 연출(암전 → 요괴 등장)과 같은 느낌을, 윷 화면 안에서 직접
         /// 재현한다 — SummonCeremony는 월드 스페이스 연출이라 윷 화면의 불투명 패널에
         /// 가려져 안 보인다(SummonPopup과 같은 문제). 대신 화면을 어둡게 했다 밝히면서 그
         /// 사이에 요괴를 소환해 "슬롯에 요괴가 들어오는" 느낌만 살린다.</summary>
-        IEnumerator SummonCeremonyRoutine()
+        IEnumerator SummonCeremonyRoutine(CharacterId target)
         {
+            summonPresenting = true;
             CeremonyGate.Begin();
             var dimGo = new GameObject("SummonDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             dimGo.transform.SetParent(root.transform, false);
@@ -1073,13 +1100,14 @@ namespace Yoegoe.UI
                 yield return null;
             }
 
-            var agent = CharacterSummon.TrySummonGorani(null, font);
+            // 절차(향·스폰·초기화·저장·매치 합류 이벤트)는 CharacterSummon.TrySummon
+            var agent = CharacterSummon.TrySummon(target, font);
 
             // 소환된 요괴 아이콘이 화면 위에서 로스터의 "소환하기" 슬롯 자리로 떨어져 안착하는 연출 —
             // dimGo의 자식으로 붙여서 암전 위에 확실히 보이게 한다(YutMiniGame 쪽에 붙이면
             // 암전 오버레이보다 그리기 순서가 앞서서 안 보였다).
             if (agent != null)
-                yield return PlaySummonDrop(dimGo.transform);
+                yield return PlaySummonDrop(dimGo.transform, agent);
             else
                 yield return new WaitForSecondsRealtime(0.4f);
 
@@ -1093,22 +1121,12 @@ namespace Yoegoe.UI
             }
             Destroy(dimGo);
             CeremonyGate.End();
+            summonPresenting = false;
 
             if (agent == null)
             {
                 ShowNotice("소환에 실패했습니다.", null);
                 yield break;
-            }
-
-            // 소환 즉시 말로 쓸 수 있으니 진행 중인 매치에도 바로 대기 말로 합류시킨다.
-            if (match != null && !match.IsEnded)
-            {
-                string id = agent.Data != null ? agent.Data.id.ToString() : agent.name;
-                string name = agent.Data != null && !string.IsNullOrEmpty(agent.Data.displayName)
-                    ? agent.Data.displayName
-                    : agent.name;
-                if (match.TryAddPlayerPiece(id, name))
-                    teamById[id] = agent;
             }
 
             HandlePiecesChanged();
@@ -1117,7 +1135,7 @@ namespace Yoegoe.UI
 
         /// <summary>소환된 요괴 아이콘을 화면 위쪽에서 로스터의 "소환하기" 슬롯 위치까지 떨어뜨린다.
         /// 슬롯 위치를 못 구하면(레이아웃 준비 전 등) 화면 중앙으로 대신 떨어뜨린다.</summary>
-        IEnumerator PlaySummonDrop(Transform parent)
+        IEnumerator PlaySummonDrop(Transform parent, CharacterAgent summoned)
         {
             var go = new GameObject("SummonDrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(parent, false);
@@ -1125,8 +1143,7 @@ namespace Yoegoe.UI
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(64f, 64f);
             var img = go.GetComponent<Image>();
-            var gorani = CharacterSummon.Find(CharacterId.Gorani);
-            var sprite = gorani != null ? CharacterSpawner.FirstSprite(gorani.Data) : null;
+            var sprite = summoned != null ? CharacterSpawner.FirstSprite(summoned.Data) : null;
             if (sprite != null)
             {
                 img.sprite = sprite;
@@ -1135,7 +1152,7 @@ namespace Yoegoe.UI
             }
             else
             {
-                img.color = CharacterSummon.GoraniPlaceholderColor; // 아트 없을 때 폴백
+                img.color = CharacterSummon.PlaceholderColor; // 아트 없을 때 폴백
             }
 
             Vector3? slotPos = miniGame != null ? miniGame.GetSummonSlotWorldPosition() : null;

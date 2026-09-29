@@ -68,5 +68,31 @@ namespace Yoegoe.Tests.EditMode
             Assert.IsFalse(CharacterSummon.CanSummon(CharacterId.Gumiho));
             Assert.IsFalse(CharacterSummon.CanSummon(CharacterId.Gorani));
         }
+
+        [Test]
+        public void NextTarget_IsGoraniFirst_EvenAfterUnlock()
+        {
+            Assert.IsTrue(CharacterSummon.NextSummonTarget(out var t1));
+            Assert.AreEqual(CharacterId.Gorani, t1);
+            CharacterSummon.TryUnlockLockedSlot(eco);
+            Assert.IsTrue(CharacterSummon.NextSummonTarget(out var t2));
+            Assert.AreEqual(CharacterId.Gorani, t2); // 고라니가 없으면 3번째 슬롯부터
+        }
+
+        [Test]
+        public void TrySummon_WithoutHyang_SpendsNothing_NoEvent()
+        {
+            eco.TrySpendHyang(3);
+            int raised = 0;
+            System.Action<CharacterAgent> h = _ => raised++;
+            CharacterSummon.Summoned += h;
+            try
+            {
+                Assert.IsNull(CharacterSummon.TrySummon(CharacterId.Gorani, null));
+                Assert.AreEqual(0, eco.Hyang);
+                Assert.AreEqual(0, raised);
+            }
+            finally { CharacterSummon.Summoned -= h; }
+        }
     }
 }

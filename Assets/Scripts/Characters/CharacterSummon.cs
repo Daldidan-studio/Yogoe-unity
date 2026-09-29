@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Yoegoe.Data;
@@ -6,7 +7,8 @@ using Yoegoe.Economy;
 namespace Yoegoe.Characters
 {
     /// <summary>
-    /// 요괴 소환 (기획 9장). UI와 분리된 규칙·스폰만 담당.
+    /// 요괴 소환 (기획 9장) — 소환 절차의 단일 소스. UI는 확인 창(SummonPopup)과 연출만 담당하고
+    /// 대상 결정·향 차감·스폰·초기화·저장은 전부 여기(<see cref="TrySummon"/>)를 거친다.
     /// - 3번째 빈 슬롯 → 향 3 → 고라니 고정
     /// - 4번째 잠긴 슬롯 → 엽전 99로 열기 → 향 3 → 구미호 확정
     /// 소환 즉시 친밀도 0·기력 1.
@@ -19,10 +21,6 @@ namespace Yoegoe.Characters
 
         public static readonly Vector3 DefaultSpawn = new Vector3(0f, -0.2f, 0f);
         public static readonly Color PlaceholderColor = new Color(0.45f, 0.85f, 1f, 1f);
-
-        // 예전 이름 (윷 화면 등)
-        public static Vector3 DefaultGoraniSpawn => DefaultSpawn;
-        public static Color GoraniPlaceholderColor => PlaceholderColor;
 
         /// <summary>4번째 슬롯을 엽전으로 열었는지 (세이브).</summary>
         public static bool LockedSlotUnlocked { get; private set; }
@@ -66,23 +64,47 @@ namespace Yoegoe.Characters
         public static bool HasOpenSlotFor(CharacterId id) =>
             id == CharacterId.Gorani || (id == CharacterId.Gumiho && LockedSlotUnlocked);
 
+        /// <summary>소환이 끝난 직후 (맵·윷 어디서 불렀든). 윷 화면은 진행 중인 매치에 합류시킨다.</summary>
+        public static event Action<CharacterAgent> Summoned;
+
+        /// <summary>빈 슬롯에 올 요괴: 고라니가 없으면 고라니, 있으면 연 4번째 슬롯의 구미호. 없으면 false.</summary>
+        public static bool NextSummonTarget(out CharacterId id)
+        {
+            foreach (var candidate in new[] { CharacterId.Gorani, CharacterId.Gumiho })
+            {
+                if (HasOpenSlotFor(candidate) && !IsPresent(candidate))
+                {
+                    id = candidate;
+                    return true;
+                }
+            }
+            id = default;
+            return false;
+        }
+
         public static bool CanSummon(CharacterId id) =>
             HasOpenSlotFor(id) && !IsPresent(id)
             && GameEconomy.Instance != null && GameEconomy.Instance.Hyang >= HyangCost;
 
-        /// <summary>향을 소모하고 기본 위치에 스폰. 연출 없이 쓸 때.</summary>
-        public static CharacterAgent TrySummon(CharacterId id, Font bubbleFont, CharacterData overrideData = null)
+        /// <summary>
+        /// 소환 한 번의 전 과정: 향 차감 → 스폰(pos, 기본 위치) → 실패 시 환불 → 친밀도 0·기력 1 → 저장 → Summoned.
+        /// 연출(맵 SummonCeremony·윷 화면)은 이 결과 요괴를 받아 움직이기만 한다.
+        /// </summary>
+        public static CharacterAgent TrySummon(CharacterId id, Font bubbleFont, CharacterData overrideData = null,
+            Vector3? pos = null)
         {
             if (!CanSummon(id)) return null;
             if (!GameEconomy.Instance.TrySpendHyang(HyangCost)) return null;
 
-            var agent = Spawn(id, bubbleFont, DefaultSpawn, overrideData);
+            var agent = Spawn(id, bubbleFont, pos ?? DefaultSpawn, overrideData);
             if (agent == null)
             {
                 GameEconomy.Instance.AddHyang(HyangCost);
                 return null;
             }
             agent.ApplyFreshSummon();
+            Yoegoe.Save.GameSaveBridge.SaveFromWorld();
+            Summoned?.Invoke(agent);
             return agent;
         }
 
@@ -119,17 +141,5 @@ namespace Yoegoe.Characters
             return null;
         }
 
-        // ---------------- 고라니 전용 (예전 호출부 호환) ----------------
-
-        public static bool CanSummonGorani() => CanSummon(CharacterId.Gorani);
-
-        public static CharacterData ResolveGoraniData(CharacterData overrideData = null) =>
-            ResolveData(CharacterId.Gorani, overrideData);
-
-        public static CharacterAgent TrySummonGorani(CharacterData goraniData, Font bubbleFont) =>
-            TrySummon(CharacterId.Gorani, bubbleFont, goraniData);
-
-        public static CharacterAgent SpawnGorani(CharacterData goraniData, Font bubbleFont, Vector3 pos) =>
-            Spawn(CharacterId.Gorani, bubbleFont, pos, goraniData);
     }
 }
