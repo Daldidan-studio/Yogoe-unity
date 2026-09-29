@@ -1,13 +1,11 @@
 using UnityEngine;
-using Yoegoe.Data;
+using Yoegoe.Cooking;
 
 namespace Yoegoe.Economy
 {
-    /// <summary>10장 선물꾸러미 판정. 유저 공용 카운터(요괴별 아님).</summary>
+    /// <summary>10장 선물꾸러미 판정·내용물(요리재료 3개). 유저 공용 카운터(요괴별 아님).</summary>
     public static class GiftBundle
     {
-        public enum ContentKind { Offering, PurifiedWater, AdTicket }
-
         /// <summary>연속 빈손 횟수. 4면 다음은 확정.</summary>
         public static int MissStreak { get; private set; }
 
@@ -70,85 +68,16 @@ namespace Yoegoe.Economy
             return false;
         }
 
-        public static ContentKind RollContent()
-        {
-            float r = Random.value;
-            if (r < 0.25f) return ContentKind.Offering;
-            if (r < 0.75f) return ContentKind.PurifiedWater;
-            return ContentKind.AdTicket;
-        }
+        /// <summary>꾸러미 내용물 [확정] — 요리재료 랜덤 3개 (채집/사냥 50% → 7-3 확률표).</summary>
+        public static CookingIngredientId[] RollContents() => IngredientDraw.Roll(IngredientDraw.BundleCount);
 
-        /// <summary>
-        /// 꾸러미 내용 지급. specificOffering이 있으면 공양물 종류를 고정(광고 하나 더용).
-        /// grantedOffering은 Offering일 때 실제 지급된 공양물(폴백 시 null).
-        /// </summary>
-        public static void Grant(
-            ContentKind kind,
-            OfferingData[] catalog,
-            out string displayName,
-            out Sprite icon,
-            out OfferingData grantedOffering,
-            OfferingData specificOffering = null)
+        /// <summary>재료를 인벤토리에 넣는다. displayName = "쌀, 새알, 꿀".</summary>
+        public static void Grant(CookingIngredientId[] ingredients, out string displayName)
         {
-            displayName = "";
-            icon = null;
-            grantedOffering = null;
-            switch (kind)
-            {
-                case ContentKind.PurifiedWater:
-                    GameEconomy.Instance.AddPurifiedWater(1);
-                    displayName = "정화수 x1";
-                    if (catalog != null)
-                    {
-                        foreach (var o in catalog)
-                        {
-                            if (o != null && o.kind == OfferingKind.PurifiedWater)
-                            {
-                                icon = o.icon;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-                case ContentKind.AdTicket:
-                    AdTickets++;
-                    displayName = "광고 보상권 x1";
-                    break;
-                default:
-                    var pick = specificOffering != null && specificOffering.kind != OfferingKind.PurifiedWater
-                        ? specificOffering
-                        : PickRandomOffering(catalog);
-                    if (pick != null)
-                    {
-                        GameEconomy.Instance.AddOffering(pick, 1);
-                        displayName = (string.IsNullOrEmpty(pick.displayName) ? pick.offeringId : pick.displayName) + " x1";
-                        icon = pick.icon;
-                        grantedOffering = pick;
-                    }
-                    else
-                    {
-                        GameEconomy.Instance.AddPurifiedWater(1);
-                        displayName = "정화수 x1";
-                    }
-                    break;
-            }
-        }
-
-        static OfferingData PickRandomOffering(OfferingData[] catalog)
-        {
-            // 3차: 공양물 24종에서 (음식 제외)
-            var pool = OfferingCatalog.RandomPool;
-            if (pool.Count > 0) return pool[Random.Range(0, pool.Count)];
-            if (catalog == null || catalog.Length == 0) return null;
-            int guard = 0;
-            while (guard++ < 24)
-            {
-                var o = catalog[Random.Range(0, catalog.Length)];
-                if (o == null) continue;
-                if (o.kind == OfferingKind.PurifiedWater) continue;
-                return o;
-            }
-            return null;
+            displayName = IngredientDraw.Describe(ingredients);
+            if (ingredients == null || GameEconomy.Instance == null) return;
+            foreach (var id in ingredients)
+                GameEconomy.Instance.AddMaterial(id, 1);
         }
     }
 }

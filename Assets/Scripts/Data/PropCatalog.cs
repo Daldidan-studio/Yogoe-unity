@@ -137,21 +137,30 @@ namespace Yoegoe.Data
             if (e.upgradeCostMultiplier > 0) data.upgradeCostMultiplier = e.upgradeCostMultiplier;
         }
 
-        /// <summary>활터(Hunt)·약초밭(Gather) 1개 뽑기 (시트 prop_drop_tables 가중치). 반환 = 드롭 코드.</summary>
-        public static int RollDrop(PropResourceType table, float random01)
+        /// <summary>활터(Hunt)·약초밭(Gather) 1개 뽑기 (시트 prop_drop_tables 가중치). 반환 = 드롭 코드.
+        /// includeSpecial=false면 황금쌀·황금꿀을 빼고 나머지 가중치로 뽑는다(요리재료만).</summary>
+        public static int RollDrop(PropResourceType table, float random01, bool includeSpecial = true)
         {
             EnsureLoaded();
             if (drops == null || !drops.TryGetValue(table, out var list) || list.Count == 0)
                 return (int)CookingIngredientId.Rice;
             float total = 0f;
-            foreach (var (_, w) in list) total += w;
+            int last = -1;
+            foreach (var (code, w) in list)
+            {
+                if (!includeSpecial && IsSpecialCode(code)) continue;
+                total += w;
+                last = code;
+            }
+            if (last < 0) return (int)CookingIngredientId.Rice;
             float r = Mathf.Min(Mathf.Clamp01(random01) * total, total - 0.0001f);
             foreach (var (code, w) in list)
             {
+                if (!includeSpecial && IsSpecialCode(code)) continue;
                 if (r < w) return code;
                 r -= w;
             }
-            return list[list.Count - 1].code;
+            return last;
         }
     }
 }

@@ -76,16 +76,9 @@ namespace Yoegoe.Minigames.Yut
         public static CookingCharmType RollFinishCharm() =>
             FinishCharmPool[UnityEngine.Random.Range(0, FinishCharmPool.Length)];
 
-        /// <summary>재료보따리 — 물 제외 12종에서 복원 추출.</summary>
-        public static CookingIngredientId[] RollIngredientBundle(int count = IngredientBundleCount)
-        {
-            int n = Mathf.Max(0, count);
-            var result = new CookingIngredientId[n];
-            int max = (int)CookingIngredientId.Count;
-            for (int i = 0; i < n; i++)
-                result[i] = (CookingIngredientId)UnityEngine.Random.Range(1, max); // 0=Water 제외
-            return result;
-        }
+        /// <summary>재료보따리 — 선물꾸러미와 같은 추첨(채집/사냥 50% → 7-3 확률표). IngredientDraw 참고.</summary>
+        public static CookingIngredientId[] RollIngredientBundle(int count = IngredientBundleCount) =>
+            Yoegoe.Economy.IngredientDraw.Roll(count);
 
         /// <summary>
         /// 보물상자 — 공양물 50% · 광고보상권 30% · 향 5% · 엽전 3개 15%.
