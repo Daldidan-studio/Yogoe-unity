@@ -119,17 +119,28 @@ namespace Yoegoe.Tests.EditMode
         public void Nagari_RelocksOnlyThisRoundsDiscoveries()
         {
             CookingCodex.Discover("kimchi"); // 예전에 발견
-            eco.AddMaterial(CookingIngredientId.Rice, 1);
-            eco.AddMaterial(CookingIngredientId.RedBean, 1);
-            eco.AddMaterial(CookingIngredientId.Fruit, 2); // 판이 바로 끝나지 않게 곶감 재료
+            eco.AddMaterial(CookingIngredientId.Fruit, 12); // 과실 2 = 곶감, 12개면 곶감을 만들어도 판이 남는다
             var session = new CookingSession();
             session.Prepare(CookingCharmType.None);
             Assert.IsTrue(session.StartRound());
-            Assume.That(CompleteRiceBean(session), "판 배치가 연결되지 않으면(드묾) 건너뜀");
-            Assume.That(!session.Finished, "남은 판이 막혔으면 건너뜀");
+
+            // 붙어 있는 과실 두 칸으로 곶감
+            bool made = false;
+            for (int y = 0; y < CookingSession.GridSize && !made; y++)
+            for (int x = 0; x < CookingSession.GridSize - 1 && !made; x++)
+            {
+                if (session.Grid[x, y] != CookingIngredientId.Fruit || session.Grid[x + 1, y] != CookingIngredientId.Fruit) continue;
+                session.TryBeginPath(x, y);
+                session.TryExtendPath(x + 1, y);
+                session.EndPath();
+                made = true;
+            }
+            Assert.IsTrue(made, "과실 12개가 아래 세 줄에 깔리면 가로로 붙은 쌍이 반드시 있다");
+            Assert.IsTrue(CookingCodex.IsDiscovered("gotgam"));
+            Assert.IsFalse(session.Finished);
 
             session.CancelNagari();
-            Assert.IsFalse(CookingCodex.IsDiscovered("patteok"), "이번 판 발견은 다시 잠김");
+            Assert.IsFalse(CookingCodex.IsDiscovered("gotgam"), "이번 판 발견은 다시 잠김");
             Assert.IsTrue(CookingCodex.IsDiscovered("kimchi"), "예전 발견은 유지");
         }
 
