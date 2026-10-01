@@ -33,10 +33,7 @@ namespace Yoegoe.Data
         /// <summary>요구·도감에서 같은 음식으로 볼 id — 황금음식이면 원래 음식 id.</summary>
         public string BaseId => string.IsNullOrEmpty(baseOfferingId) ? offeringId : baseOfferingId;
 
-        /// <summary>물인지 — kind 또는 id로 판정(구 에셋 호환).</summary>
-        public bool IsWater =>
-            kind == OfferingKind.Water
-            || string.Equals(offeringId, "water", System.StringComparison.OrdinalIgnoreCase);
+        public bool IsWater => kind == OfferingKind.Water;
 
         public int ResolveStaminaGain(bool isPreferred)
         {

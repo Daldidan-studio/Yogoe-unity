@@ -20,8 +20,6 @@ namespace Yoegoe.Data
             public PropSlot prefab;
             [Tooltip("에디터 초기 배치용 맵 로컬 좌표 (mapScale=1 기준). 씬 배치 후엔 씬 Transform 우선.")]
             public Vector3 position;
-            [Tooltip("레거시 폴백 색.")]
-            public Color fallbackColor = new Color(0.5f, 0.5f, 0.5f, 1f);
         }
 
         public Placement[] placements;

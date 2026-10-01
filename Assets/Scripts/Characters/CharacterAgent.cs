@@ -171,11 +171,6 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Walking: TickWalking(dt); break;
                 case ActionState.Staying: TickStaying(dt); break;
-                case ActionState.Slumped:
-                    // 구세이브 호환: 주저앉기 → 기력0 놀기로 즉시 이관
-                    MigrateSlumpedToPlaying();
-                    TickPlaying(dt);
-                    break;
                 case ActionState.Fainted: /* 외부(공양)에서만 깨어남 */ break;
                 case ActionState.Playing: TickPlaying(dt); break;
             }
@@ -211,10 +206,6 @@ namespace Yoegoe.Characters
                 {
                     case ActionState.Staying:
                         remaining -= TickStayingSlice(remaining);
-                        break;
-                    case ActionState.Slumped:
-                        MigrateSlumpedToPlaying();
-                        remaining -= TickPlayingSlice(remaining);
                         break;
                     case ActionState.Playing:
                         remaining -= TickPlayingSlice(remaining);
@@ -261,12 +252,6 @@ namespace Yoegoe.Characters
 
             Stats.Intimacy = intimacy;
             Stats.Stamina = stamina;
-            // 구세이브 Slumped → Playing(기력0 쉬기). 점유는 놀기 규칙상 해제.
-            if (state == ActionState.Slumped)
-            {
-                state = ActionState.Playing;
-                occupyProp = null;
-            }
             Stats.State = state;
             Stats.StateTimer = stateTimer;
             Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
@@ -304,9 +289,6 @@ namespace Yoegoe.Characters
             if (Stats.State == ActionState.Fainted && kind != OfferingKind.Water)
                 return;
 
-            if (Stats.State == ActionState.Slumped)
-                MigrateSlumpedToPlaying(preserveExhaustTimer: Stats.Stamina <= 0f);
-
             float max = MaxStamina;
             Stats.Stamina = Mathf.Min(max, Stats.Stamina + Mathf.Max(0, staminaGain));
             Stats.Intimacy = Mathf.Min(100f, Stats.Intimacy + intimacyGain);
@@ -322,19 +304,6 @@ namespace Yoegoe.Characters
                 // 기력0 놀기에서 회복되면 기절 타이머 리셋
                 Stats.StateTimer = 0f;
             }
-        }
-
-        /// <summary>구 주저앉기 → 놀기. 점유 해제. preserveExhaustTimer면 기절까지 경과 유지.</summary>
-        void MigrateSlumpedToPlaying(bool preserveExhaustTimer = true)
-        {
-            if (Stats.State != ActionState.Slumped) return;
-            float timer = Stats.StateTimer;
-            LeaveCurrentProp();
-            Stats.State = ActionState.Playing;
-            if (preserveExhaustTimer && Stats.Stamina <= 0f)
-                Stats.StateTimer = timer;
-            else
-                Stats.StateTimer = 0f;
         }
 
         public void BindSpriteRenderer(SpriteRenderer sr)
@@ -357,7 +326,6 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Walking: c = Color.green; break;
                 case ActionState.Staying: c = Color.blue; break;
-                case ActionState.Slumped:
                 case ActionState.Playing: c = new Color(1f, 0.45f, 0.85f); break;
                 case ActionState.Fainted: c = Color.red; break;
                 default: c = Color.white; break;

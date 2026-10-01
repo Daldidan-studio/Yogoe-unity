@@ -17,14 +17,13 @@ namespace Yoegoe.Minigames.Yut
         public const int Bang = 22;   // 방 - 중앙 교차점
 
         /// <summary>
-        /// 특수 칸 종류. Docs/00 §11: 재료보따리1 · 물1 · 엽전2 · 보물상자1.
-        /// enum 값 2는 구세이브의 Offering과 동일 슬롯 — 로드 시 재료보따리로 취급.
+        /// 특수 칸 종류. Docs/00 §11: 재료보따리1 · 물1 · 엽전2 · 보물상자1. (번호는 세이브에 저장되므로 고정)
         /// </summary>
         public enum SpecialSquareKind
         {
             None = 0,
             Coin = 1,
-            IngredientBag = 2, // 구 Offering(2)과 같은 값
+            IngredientBag = 2,
             Treasure = 3,
             Water = 4,
         }

@@ -33,15 +33,6 @@ namespace Yoegoe.UI
                 squareKinds.Add((int)kind);
             }
 
-            var offeringNodeIds = new List<int>();
-            var offeringIds = new List<string>();
-            foreach (var kv in specialOfferingByNode)
-            {
-                if (kv.Value == null) continue;
-                offeringNodeIds.Add(kv.Key);
-                offeringIds.Add(kv.Value.offeringId);
-            }
-
             challenge.WriteSave(out int challengeKind, out bool challengeCompleted, out bool challengeFailed, out int challengeStreak);
 
             var pendingOfferingIds = new List<string>();
@@ -77,8 +68,6 @@ namespace Yoegoe.UI
                 opponentPiece = ToPieceSave(match.OpponentPiece),
                 specialSquareNodeIds = squareNodeIds.ToArray(),
                 specialSquareKinds = squareKinds.ToArray(),
-                specialOfferingNodeIds = offeringNodeIds.ToArray(),
-                specialOfferingIds = offeringIds.ToArray(),
                 challengeKind = challengeKind,
                 challengeCompleted = challengeCompleted,
                 challengeFailed = challengeFailed,
@@ -236,16 +225,6 @@ namespace Yoegoe.UI
                 kinds[saved.specialSquareNodeIds[i]] = (YutBoardLayout.SpecialSquareKind)saved.specialSquareKinds[i];
             YutBoardLayout.RestoreSpecialSquares(kinds);
 
-            specialOfferingByNode.Clear();
-            if (saved.specialOfferingNodeIds != null && saved.specialOfferingIds != null)
-            {
-                var pool = GetOfferingPool();
-                for (int i = 0; i < saved.specialOfferingNodeIds.Length && i < saved.specialOfferingIds.Length; i++)
-                {
-                    var offering = FindSavedOffering(pool, saved.specialOfferingIds[i]);
-                    if (offering != null) specialOfferingByNode[saved.specialOfferingNodeIds[i]] = offering;
-                }
-            }
         }
 
         static void ApplyPieceSave(YutPiece piece, YutPieceSave save)

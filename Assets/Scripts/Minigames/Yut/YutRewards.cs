@@ -53,7 +53,7 @@ namespace Yoegoe.Minigames.Yut
         public const int SquareRewardAdMultiplier = 2;
         public const float SquareRewardAdWatchSeconds = 0.8f;
 
-        /// <summary>보물상자 윷 토큰은 더 이상 나오지 않음(구 세이브·도전 호환용 상수 유지).</summary>
+        /// <summary>윷 토큰 보상이 평소 상한을 넘어 쌓일 수 있는 최대치 (보물상자 확률표엔 지금 토큰이 없음).</summary>
         public const int YutTokenHardCap = 7;
 
         /// <summary>매 판 도전과제 — 완료 시 보물상자 개수(한 번에 개봉, 광고 2배 없음).</summary>

@@ -37,13 +37,13 @@ namespace Yoegoe.Cooking
         /// <summary>발견 수 — 발견 기록엔 레시피 결과물 id만 들어간다(Discover·ResetFromSave에서 거름).</summary>
         public static int DiscoveredCount => discovered.Count;
 
-        /// <summary>황금음식("bap_golden")·구세이브 조합 id도 원래 결과물 id로.</summary>
+        /// <summary>황금음식("bap_golden")은 원래 결과물 id로.</summary>
         public static string Canonical(string id)
         {
             if (string.IsNullOrEmpty(id)) return id;
             if (id.EndsWith(Yoegoe.Data.OfferingCatalog.GoldenSuffix, StringComparison.OrdinalIgnoreCase))
                 id = id.Substring(0, id.Length - Yoegoe.Data.OfferingCatalog.GoldenSuffix.Length);
-            return CookingRecipeCatalog.CanonicalProductId(id);
+            return id;
         }
 
         public static bool IsProduct(string id) => ProductIds.Contains(Canonical(id));

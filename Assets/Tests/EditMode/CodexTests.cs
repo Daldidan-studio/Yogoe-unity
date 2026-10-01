@@ -97,15 +97,6 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void OldSave_SeedsFromOwnedDishes()
-        {
-            eco.AddOffering(OfferingCatalog.Find("patteok"), 2);
-            GameSaveBridge.RestoreCodex(null, eco);
-            Assert.IsTrue(CookingCodex.IsDiscovered("patteok"));
-            Assert.AreEqual(1, CookingCodex.DiscoveredCount);
-        }
-
-        [Test]
         public void ComboText_ListsEveryCombination()
         {
             Assert.AreEqual("쌀 + 팥", CookingCodex.ComboText("patteok"));

@@ -116,7 +116,6 @@ namespace Yoegoe.Save
                     level = p.level,
                     isBuilt = p.IsBuilt,
                     pendingMerit = BigNumberSave.From(p.PendingMerit),
-                    baseProductionPerMinute = p.data != null ? p.data.baseProductionPerMinute : 100,
                     isEndingProp = p.data != null && p.data.isEndingProp,
                     ownerCharacterId = p.data != null ? p.data.owner.ToString() : ""
                 };
@@ -194,7 +193,7 @@ namespace Yoegoe.Save
                     {
                         if (a == null || a.Data == null) continue;
                         string cid = a.Data.id.ToString();
-                        if (cid != ags.characterId && a.Data.displayName != ags.characterId) continue;
+                        if (cid != ags.characterId) continue;
 
                         PropSlot occupy = null;
                         if (!string.IsNullOrEmpty(ags.occupiedPropId))
@@ -233,8 +232,8 @@ namespace Yoegoe.Save
             {
                 if (ags == null || string.IsNullOrEmpty(ags.characterId)) continue;
                 CharacterId id;
-                if (ags.characterId == nameof(CharacterId.Gorani) || ags.characterId == "고라니") id = CharacterId.Gorani;
-                else if (ags.characterId == nameof(CharacterId.Gumiho) || ags.characterId == "구미호") id = CharacterId.Gumiho;
+                if (ags.characterId == nameof(CharacterId.Gorani)) id = CharacterId.Gorani;
+                else if (ags.characterId == nameof(CharacterId.Gumiho)) id = CharacterId.Gumiho;
                 else continue;
                 if (CharacterSummon.IsPresent(id)) continue;
                 CharacterSummon.SpawnForSaveRestore(id, bubbleFont, new Vector3(ags.posX, ags.posY, 0f));
@@ -254,40 +253,15 @@ namespace Yoegoe.Save
                 e.yutTokenMax,
                 e.propsPurchasedCount,
                 e.yutTokenRegenNextUtcTicks);
-            // null = 구세이브(필드 없음) → StartingState 인벤 유지. 배열 있으면(빈 배열 포함) 통째 교체.
-            if (e.offerings != null)
-                ApplyOfferings(GameEconomy.Instance, e.offerings);
-            if (e.materials != null && e.materials.Length > 0)
-                GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
-            if (e.specialItems != null && e.specialItems.Length > 0)
-                GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
-            if (e.charms != null && e.charms.Length > 0)
-                GameEconomy.Instance.ReplaceCharmCounts(e.charms);
-            else
-                GameEconomy.Instance.ReplaceCharmCounts(null);
+            ApplyOfferings(GameEconomy.Instance, e.offerings);
+            GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
+            GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
+            GameEconomy.Instance.ReplaceCharmCounts(e.charms);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
             Attendance.ResetFromSave(e.attendanceNextDayIndex, e.attendanceLastHandledDayKey);
             CharacterSummon.ResetFromSave(e.lockedSlotUnlocked);
-            RestoreCodex(e.codexDiscovered, GameEconomy.Instance);
-        }
-
-        /// <summary>요리책 복원. 구세이브(null)는 지금 가진 음식·공양물을 발견한 것으로 친다.</summary>
-        public static void RestoreCodex(string[] discovered, GameEconomy eco)
-        {
-            if (discovered != null)
-            {
-                Yoegoe.Cooking.CookingCodex.ResetFromSave(discovered);
-                return;
-            }
-            var owned = new List<string>();
-            if (eco != null)
-            {
-                var buf = new List<KeyValuePair<string, int>>(16);
-                eco.CaptureOfferingCounts(buf);
-                foreach (var kv in buf) owned.Add(kv.Key);
-            }
-            Yoegoe.Cooking.CookingCodex.ResetFromSave(owned);
+            Yoegoe.Cooking.CookingCodex.ResetFromSave(e.codexDiscovered);
         }
 
         static OfferingCountSave[] CaptureOfferings(GameEconomy eco)
@@ -309,20 +283,11 @@ namespace Yoegoe.Save
 
         static void ApplyOfferings(GameEconomy eco, OfferingCountSave[] offerings)
         {
-            // 구세이브의 조합별 id(saenggogi_bbb 등)는 하나로 합친다
-            var merged = new Dictionary<string, int>();
-            var order = new List<string>(offerings.Length);
-            for (int i = 0; i < offerings.Length; i++)
-            {
-                var o = offerings[i];
-                if (o == null || string.IsNullOrEmpty(o.offeringId) || o.count <= 0) continue;
-                string id = Yoegoe.Cooking.CookingRecipeCatalog.CanonicalProductId(o.offeringId);
-                if (!merged.ContainsKey(id)) { merged[id] = 0; order.Add(id); }
-                merged[id] += o.count;
-            }
-            var buf = new List<KeyValuePair<string, int>>(order.Count);
-            foreach (var id in order)
-                buf.Add(new KeyValuePair<string, int>(id, merged[id]));
+            var buf = new List<KeyValuePair<string, int>>();
+            if (offerings != null)
+                foreach (var o in offerings)
+                    if (o != null && !string.IsNullOrEmpty(o.offeringId) && o.count > 0)
+                        buf.Add(new KeyValuePair<string, int>(o.offeringId, o.count));
             eco.ReplaceOfferingCounts(buf);
         }
 

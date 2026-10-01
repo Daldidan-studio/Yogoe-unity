@@ -46,8 +46,6 @@ namespace Yoegoe.Save
                 foreach (var agent in data.agents)
                 {
                     if (agent == null) continue;
-                    if (agent.state == ActionState.Slumped)
-                        MigrateSlumped(agent);
                     SimulateAgent(agent, data, elapsed);
                 }
             }
@@ -67,10 +65,6 @@ namespace Yoegoe.Save
                 {
                     case ActionState.Staying:
                         used = SimulateStaying(agent, data, remaining);
-                        break;
-                    case ActionState.Slumped:
-                        MigrateSlumped(agent);
-                        used = SimulatePlaying(agent, remaining);
                         break;
                     case ActionState.Fainted:
                         return;
@@ -154,11 +148,9 @@ namespace Yoegoe.Save
             return prop != null && prop.isBuilt ? prop : null;
         }
 
-        /// <summary>시트(props.json) 설정. 없으면 구세이브 호환(분당 산출이 있으면 공덕 기물).</summary>
+        /// <summary>시트(props.json) 설정 — 시트가 정본. 시트에 없는 기물은 생산 없음.</summary>
         static PropProduction.Config ConfigFor(PropSave prop) =>
-            PropCatalog.TryGet(prop.propId, out var e)
-                ? PropProduction.Config.From(e)
-                : PropProduction.Config.Legacy(prop.baseProductionPerMinute);
+            PropCatalog.TryGet(prop.propId, out var e) ? PropProduction.Config.From(e) : default;
 
         static PropStorage.State ToState(PropSave prop) => new PropStorage.State
         {
@@ -200,14 +192,6 @@ namespace Yoegoe.Save
                 if (p != null && p.propId == propId) return p;
             }
             return null;
-        }
-
-        private static void MigrateSlumped(AgentSave agent)
-        {
-            agent.state = ActionState.Playing;
-            agent.stamina = 0f;
-            agent.occupiedPropId = "";
-            // stateTimer 유지 → 기절까지 이어짐
         }
 
         private static void EnterPlayingExhausted(AgentSave agent)

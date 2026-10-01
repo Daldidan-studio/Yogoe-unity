@@ -14,7 +14,6 @@ namespace Yoegoe.Minigames.Yut
         void ShowNotice(string message, Action onOk);
         void ShowRewardChoice(string message, Action onPlain, Action onAd, Sprite icon = null);
         Coroutine StartRoutine(IEnumerator routine);
-        OfferingData TryGetOfferingForNode(int nodeId);
         IReadOnlyList<OfferingData> GetTreasureOfferingPool();
         string ApplySquareRewardToEconomy(YutSquareReward reward, int multiplier);
         void ClearConsumedSpecialSquareAt(int nodeId);

@@ -245,11 +245,9 @@ namespace Yoegoe.Characters
             if (worked <= 0f && currentProp != null && currentProp.IsStorageHalted)
                 return 0.0001f; // 다음 구간에서 정지 분기로
 
-            float staminaBefore = Stats.Stamina;
             Stats.StateTimer += worked;
             Stats.Stamina -= worked * drain;
             if (Stats.Stamina < 0f) Stats.Stamina = 0f;
-            Requests.NotifyStaminaDrain(staminaBefore, Stats.Stamina);
             slice = worked > 0f ? worked : slice;
 
             if (Stats.Stamina <= 0f)

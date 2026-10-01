@@ -389,7 +389,7 @@ namespace Yoegoe.UI
             if (chip.StatusTagBg != null) chip.StatusTagBg.color = badge.Color;
         }
 
-        /// <summary>7-2: 옥토끼 슬롯 위 앱 재시작 일괄 수거.</summary>
+        /// <summary>옥토끼 슬롯 위 일괄 수거 버튼 — 버드나무 만땅 팝업에서 받지 않은 대기분.</summary>
         private static void RefreshBatchButton(SlotChip chip)
         {
             if (chip.BatchButtonRoot == null || chip.BatchButtonLabel == null) return;
@@ -566,7 +566,7 @@ namespace Yoegoe.UI
 
         private void OnBatchCollectClicked(RectTransform from)
         {
-            // 구세이브 일괄 대기분만. 공덕 더미는 이제 버드나무에서 수거한다.
+            // 버드나무 만땅 팝업을 받지 않고 닫은 일괄 대기분
             if (!GameEconomy.Instance.HasPendingBatchMerit) return;
             if (BatchCollectPopup.Instance != null)
                 BatchCollectPopup.Instance.Open(from);

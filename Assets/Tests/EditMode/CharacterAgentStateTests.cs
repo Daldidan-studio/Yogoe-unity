@@ -150,22 +150,6 @@ namespace Yoegoe.Tests.EditMode
         // ---------------- Fainted / Playing@0 (ReceiveOffering) ----------------
 
         [Test]
-        public void ReceiveOffering_MigratesSlumpedToPlaying()
-        {
-            agent.TrySitOnProp(prop);
-            agent.Stats.State = ActionState.Slumped;
-            agent.Stats.Stamina = 0f;
-            agent.Stats.Intimacy = 50f; // max = 75, 게인 30이 클램프 없이 그대로 반영되도록 여유를 둠
-
-            agent.ReceiveOffering(staminaGain: 30, intimacyGain: 0f);
-
-            // 구 Slumped → Playing 이관 후 기력만 회복 (기절 기상과 달리 Walking 강제 아님)
-            Assert.AreEqual(ActionState.Playing, agent.Stats.State);
-            Assert.AreEqual(30f, agent.Stats.Stamina, 0.01f);
-            Assert.IsFalse(prop.IsOccupied);
-        }
-
-        [Test]
         public void ReceiveOffering_WakesFaintedAgent()
         {
             agent.Stats.State = ActionState.Fainted;

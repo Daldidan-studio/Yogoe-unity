@@ -52,9 +52,6 @@ namespace Yoegoe.Characters
             UpdateVisualPositions();
         }
 
-        /// <summary>레거시 훅. 주기 타이머로 대체됨.</summary>
-        public void NotifyStaminaDrain(float before, float after) { }
-
         void ScheduleNextCheck()
         {
             NextRequestCheckAt = Time.time + Random.Range(RequestIntervalMin, RequestIntervalMax);

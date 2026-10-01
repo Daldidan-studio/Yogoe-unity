@@ -100,9 +100,6 @@ namespace Yoegoe.Save
             try
             {
                 if (File.Exists(FilePath)) File.Delete(FilePath);
-                // 과거에 잘못 저장된 파일명도 함께 제거
-                string legacy = Path.Combine(Application.persistentDataPath, "games_save_v1.json");
-                if (File.Exists(legacy)) File.Delete(legacy);
             }
             catch { /* ignore */ }
 #endif

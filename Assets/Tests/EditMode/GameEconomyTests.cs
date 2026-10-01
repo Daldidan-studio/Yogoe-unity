@@ -21,7 +21,6 @@ namespace Yoegoe.Tests.EditMode
 
             settings = ScriptableObject.CreateInstance<StartingStateSettings>();
             settings.startingIntimacy = 50f;
-            settings.startingStamina = 100f;
             settings.startingMerit = 1000;
             settings.startingYeopjeon = 0;
             settings.startingHyang = 3;

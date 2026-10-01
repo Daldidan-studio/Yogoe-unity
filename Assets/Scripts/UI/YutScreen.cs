@@ -33,11 +33,6 @@ namespace Yoegoe.UI
         void IYutSquareRewardHost.ShowRewardChoice(string message, Action onPlain, Action onAd, Sprite icon)
             => ShowRewardChoice(message, onPlain, onAd, icon);
         Coroutine IYutSquareRewardHost.StartRoutine(IEnumerator routine) => StartCoroutine(routine);
-        OfferingData IYutSquareRewardHost.TryGetOfferingForNode(int nodeId)
-        {
-            specialOfferingByNode.TryGetValue(nodeId, out var offering);
-            return offering;
-        }
         IReadOnlyList<OfferingData> IYutSquareRewardHost.GetTreasureOfferingPool() => GetOfferingPool();
         string IYutSquareRewardHost.ApplySquareRewardToEconomy(YutSquareReward reward, int multiplier)
             => ApplySquareRewardToEconomy(reward, multiplier);
@@ -128,9 +123,6 @@ namespace Yoegoe.UI
 
         /// <summary>매 판 도전과제 — 배너·완료 보상(보물상자 ×3)은 Presenter가 담당.</summary>
         readonly YutChallengePresenter challenge = new YutChallengePresenter();
-
-        /// <summary>구세이브 호환용(공양물 칸 내용). 신규 특수칸엔 재료보따리만 쓰므로 비어 있음.</summary>
-        readonly Dictionary<int, OfferingData> specialOfferingByNode = new Dictionary<int, OfferingData>();
 
         /// <summary>"광고 보고 말 되살리기" 팝업이 떠 있는 동안 이무기 보너스 턴 진행을 멈춘다.</summary>
         bool awaitingReviveChoice;
@@ -257,7 +249,6 @@ namespace Yoegoe.UI
             pendingLoot.Clear();
             // 완주 후 새 판 — 정산 구간 종료. 연출용 presentable·allow 플래그는 Close까지 유지.
             grantRewardsToEconomyNow = false;
-            specialOfferingByNode.Clear();
             challenge.StartNew(match.PlayerPieces.Count, this);
             root.SetActive(true);
             IsOpen = true;

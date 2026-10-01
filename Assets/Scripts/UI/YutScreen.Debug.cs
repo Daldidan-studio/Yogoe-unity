@@ -121,10 +121,6 @@ namespace Yoegoe.UI
             Debug.Log($"[Yut QA] 특수칸 Presenter ({SquareRewardQaLabel(kind)}) — 받기/광고 선택까지 자동 진행 후 정지");
         }
 
-        /// <summary>하위 호환 — 보물상자 Presenter QA.</summary>
-        public void DebugStartTreasureRewardQa() =>
-            DebugStartSquareRewardQa(YutBoardLayout.SpecialSquareKind.Treasure);
-
         static string SquareRewardQaLabel(YutBoardLayout.SpecialSquareKind kind) => kind switch
         {
             YutBoardLayout.SpecialSquareKind.Coin => "엽전",

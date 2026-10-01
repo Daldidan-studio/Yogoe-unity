@@ -326,11 +326,6 @@ namespace Yoegoe.Minigames.Yut
                 return;
             }
 
-            // 예전에 텍스트만 쓰던 Items 노드는 치운다
-            var legacy = east.Find("Items");
-            if (legacy != null)
-                Destroy(legacy.gameObject);
-
             var existing = east.Find("ItemIcons");
             if (existing != null)
             {

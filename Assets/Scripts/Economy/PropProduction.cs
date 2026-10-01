@@ -50,16 +50,6 @@ namespace Yoegoe.Economy
                 BaseCapacity = d.baseCapacity,
             };
 
-            /// <summary>시트에 없는 구세이브 기물: 분당 산출이 있으면 공덕 기물(예전 규칙 — 보관 무제한·보정 있음).</summary>
-            public static Config Legacy(double baseProductionPerMinute) => new Config
-            {
-                Type = baseProductionPerMinute > 0 ? PropResourceType.Merit : PropResourceType.None,
-                MeritPerMinute = baseProductionPerMinute,
-                LevelGrowth = ProductionFormula.LevelGrowth,
-                IntimacyBonus = true,
-                OwnerMultiplier = 2.0,
-            };
-
             /// <summary>propId로 시트(props.json) 값을 쓰고, 없으면 fallback.</summary>
             public static Config Resolve(string propId, PropData fallbackData)
             {

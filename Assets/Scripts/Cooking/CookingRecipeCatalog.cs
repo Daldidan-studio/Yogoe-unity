@@ -91,18 +91,6 @@ namespace Yoegoe.Cooking
                 ByKey[key] = r;
         }
 
-        /// <summary>조합별로 id가 갈려 있던 구세이브 id → 현재 결과물 id (예: saenggogi_bbb → saenggogi).</summary>
-        public static string CanonicalProductId(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return id;
-            foreach (var prefix in LegacyVariantPrefixes)
-                if (id.StartsWith(prefix + "_", StringComparison.Ordinal))
-                    return prefix;
-            return id;
-        }
-
-        static readonly string[] LegacyVariantPrefixes = { "saenggogi", "gogijuk", "sanjeok", "yukpo" };
-
         public static bool TryMatch(IList<CookingIngredientId> path, out CookingRecipe recipe)
         {
             Ensure();

@@ -9,7 +9,7 @@ namespace Yoegoe.Save
     [Serializable]
     public class GameSaveData
     {
-        /// <summary>구세이브(필드 자체가 없던 시절)를 로드하면 1로 채워진다 — 마이그레이션 기준값.
+        /// <summary>버전 필드가 없는 세이브를 로드하면 1로 채워진다 — 마이그레이션 기준값.
         /// 새 세이브의 실제 버전 스탬프는 GameSaveBridge.CaptureFromWorld가 GameSaveMigration.CurrentVersion으로 찍는다.</summary>
         public int version = 1;
 
@@ -38,10 +38,8 @@ namespace Yoegoe.Save
         public int[] specialSquareNodeIds = Array.Empty<int>();
         public int[] specialSquareKinds = Array.Empty<int>();
         /// <summary>공양물 칸마다 무슨 공양물이 배정됐는지(offeringId) — 위와 같은 이유로 병렬 배열.</summary>
-        public int[] specialOfferingNodeIds = Array.Empty<int>();
-        public string[] specialOfferingIds = Array.Empty<string>();
 
-        /// <summary>매 판 도전과제. kind &lt; 0 이면 구세이브(과제 없음).</summary>
+        /// <summary>매 판 도전과제. kind &lt; 0 이면 과제 없음.</summary>
         public int challengeKind = -1;
         public bool challengeCompleted;
         public bool challengeFailed;
@@ -86,7 +84,7 @@ namespace Yoegoe.Save
         public int water;
         public int yutToken;
         public int yutTokenMax = 5;
-        /// <summary>다음 윷 토큰 충전 예정 UTC ticks (2·10장: 30분마다 1개). 0이면 구세이브/충전 대기 없음.</summary>
+        /// <summary>다음 윷 토큰 충전 예정 UTC ticks (2·10장: 30분마다 1개). 0이면 충전 대기 없음.</summary>
         public long yutTokenRegenNextUtcTicks;
         /// <summary>플레이어가 구매한 기물 수 (prebuilt 제외). 다음 구매 비용 n = 이 값+1.</summary>
         public int propsPurchasedCount;
@@ -100,10 +98,10 @@ namespace Yoegoe.Save
         public string shopRightOfferingId = "";
         public long shopNextRefreshUtcTicks;
 
-        /// <summary>공양물 인벤 (물 제외). null이면 구세이브 — StartingState 유지.</summary>
+        /// <summary>공양물·음식 인벤 (물 제외).</summary>
         public OfferingCountSave[] offerings;
 
-        /// <summary>요리 재료 개수 (CookingIngredientId 순서). null/빈 배열이면 구세이브 — 시작 재료 유지.</summary>
+        /// <summary>요리 재료 개수 (CookingIngredientId 순서, 물 칸은 0 — 물은 water).</summary>
         public int[] materials;
 
         /// <summary>4번째 잠긴 슬롯을 엽전 99로 열었는지 (구미호 소환 자리).</summary>
@@ -116,10 +114,10 @@ namespace Yoegoe.Save
         /// <summary>특수 수집품 개수 (SpecialItemId 순서 — 황금쌀·황금꿀).</summary>
         public int[] specialItems;
 
-        /// <summary>요리 부적 개수 (CookingCharmType 순서). null/빈이면 구세이브 — 0으로.</summary>
+        /// <summary>요리 부적 개수 (CookingCharmType 순서).</summary>
         public int[] charms;
 
-        /// <summary>요리책 발견한 결과물 id. null = 구세이브 → 가진 음식·공양물로 채운다.</summary>
+        /// <summary>요리책 발견한 결과물 id.</summary>
         public string[] codexDiscovered;
     }
 
@@ -135,11 +133,9 @@ namespace Yoegoe.Save
     {
         public string propId;
         public int level = 1;
-        /// <summary>건립 여부. 구세이브에 필드 없으면 true로 취급(기본값).</summary>
+        /// <summary>건립 여부.</summary>
         public bool isBuilt = true;
         public BigNumberSave pendingMerit = new BigNumberSave();
-        /// <summary>오프라인 생산 계산용 (저장 시점 스냅샷).</summary>
-        public double baseProductionPerMinute = 100;
         public bool isEndingProp;
         public string ownerCharacterId;
 
@@ -165,7 +161,7 @@ namespace Yoegoe.Save
         public float posY;
         /// <summary>앉아/점유 중인 기물 propId. 없으면 빈 문자열.</summary>
         public string occupiedPropId;
-        /// <summary>먹여서 공개된 선호 공양물 offeringId. 구세이브엔 없음 → 빈 배열(전부 비공개).</summary>
+        /// <summary>먹여서 공개된 선호 공양물 offeringId.</summary>
         public string[] revealedPreferredOfferingIds = Array.Empty<string>();
         /// <summary>황금음식 버프 끝나는 UTC ticks (0 = 없음).</summary>
         public long goldenBuffEndsUtcTicks;

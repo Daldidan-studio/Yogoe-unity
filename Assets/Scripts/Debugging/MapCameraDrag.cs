@@ -78,20 +78,6 @@ namespace Yoegoe.Debugging
             cam.transform.position = ClampCenter(cam.transform.position);
         }
 
-        /// <summary>구 API 호환 — 현재 ortho 기준 min/max 중심을 콘텐츠로 역산하지 않고 그대로 쓴다.</summary>
-        public void SetBounds(Vector2 min, Vector2 max)
-        {
-            panCenter = (min + max) * 0.5f;
-            // 현재 뷰를 고려해 대략적인 콘텐츠 반경 복원
-            if (cam == null) cam = GetComponent<Camera>();
-            float camH = cam != null ? cam.orthographicSize * 2f : 10f;
-            float camW = cam != null ? camH * cam.aspect : 10f;
-            contentHalfW = (max.x - min.x) * 0.5f + camW * 0.5f;
-            contentHalfH = (max.y - min.y) * 0.5f + camH * 0.5f;
-            boundsSet = true;
-            RefreshPanLimits();
-        }
-
         public void SetOrthoLimits(float min, float max)
         {
             minOrtho = Mathf.Max(0.5f, min);

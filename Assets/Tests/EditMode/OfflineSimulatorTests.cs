@@ -18,7 +18,7 @@ namespace Yoegoe.Tests.EditMode
                 savedAtUtcTicks = savedAtUtc.Ticks,
                 props = new[]
                 {
-                    new PropSave { propId = "prop1", isBuilt = true, baseProductionPerMinute = 60 }
+                    new PropSave { propId = "떡절구", isBuilt = true } // 시트 props 의 공덕 기물
                 },
                 agents = new[]
                 {
@@ -28,7 +28,7 @@ namespace Yoegoe.Tests.EditMode
                         stamina = 100f,
                         intimacy = 0f,
                         state = ActionState.Staying,
-                        occupiedPropId = "prop1"
+                        occupiedPropId = "떡절구"
                     }
                 }
             };
@@ -101,20 +101,6 @@ namespace Yoegoe.Tests.EditMode
             data.agents[0].stamina = 0f;
             data.agents[0].occupiedPropId = "";
             data.agents[0].stateTimer = 18f * 60f * 60f - 10f; // 기절까지 10초 남음
-
-            OfflineSimulator.Simulate(data, now);
-
-            Assert.AreEqual(ActionState.Fainted, data.agents[0].state);
-        }
-
-        [Test]
-        public void Simulate_LegacySlumped_MigratesThenFaintsWhenPastThreshold()
-        {
-            var now = DateTime.UtcNow;
-            var data = MakeSave(now.AddSeconds(-100));
-            data.agents[0].state = ActionState.Slumped;
-            data.agents[0].stamina = 0f;
-            data.agents[0].stateTimer = 18f * 60f * 60f - 10f;
 
             OfflineSimulator.Simulate(data, now);
 

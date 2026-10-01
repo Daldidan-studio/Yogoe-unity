@@ -263,9 +263,6 @@ namespace Yoegoe.UI
         static OfferingData FindSavedOffering(List<OfferingData> pool, string id) =>
             pool.FirstOrDefault(o => o != null && o.offeringId == id) ?? OfferingCatalog.Find(id);
 
-        /// <summary>구 공양물 칸 배정 — 재료보따리로 바뀐 뒤엔 비운다.</summary>
-        void AssignSpecialOfferings() => specialOfferingByNode.Clear();
-
         /// <summary>
         /// 말이 특수 칸에 도착했을 때 — 칸 종류에 맞는 보상 팝업은 Presenter가 띄운다.
         /// </summary>
@@ -277,7 +274,6 @@ namespace Yoegoe.UI
         {
             if (nodeId < 0) return;
             YutBoardLayout.ClearSpecialSquare(nodeId);
-            specialOfferingByNode.Remove(nodeId);
             ApplySpecialSquareVisuals();
         }
 

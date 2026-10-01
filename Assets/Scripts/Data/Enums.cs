@@ -1,7 +1,8 @@
 namespace Yoegoe.Data
 {
     /// <summary>행동 상태 5종 (기획서 6-2). 룰: Docs/06_행동룰.md</summary>
-    public enum ActionState { Walking, Staying, Slumped, Fainted, Playing } // Slumped=구세이브 호환(런타임은 Playing으로 이관)
+    // 번호는 세이브에 정수로 저장되므로 고정 (2 = 삭제된 주저앉기)
+    public enum ActionState { Walking = 0, Staying = 1, Fainted = 3, Playing = 4 }
 
     /// <summary>기물 산출물 (Docs/00 §6-1). 시트 props.resourceType.</summary>
     public enum PropResourceType { None, Merit, Water, Yeopjeon, Hunt, Gather }

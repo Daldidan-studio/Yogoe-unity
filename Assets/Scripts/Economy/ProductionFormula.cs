@@ -8,8 +8,8 @@ namespace Yoegoe.Economy
     /// </summary>
     public static class ProductionFormula
     {
-        /// <summary>구세이브 기본 레벨당 생산 성장률(시트 props.levelGrowth가 우선). 8장: 500 × 1.15^(L-1)은
-        /// 업그레이드 "비용"이고, 이건 별개인 레벨당 "생산" 성장률이다 (<see cref="PropEconomy"/>와 혼동하지 말 것).</summary>
+        /// <summary>레벨당 "생산" 성장률 기본값 (시트 props.levelGrowth가 우선). 8장 500 × 1.15^(L-1)은 업그레이드 "비용"이라
+        /// 별개다 (<see cref="PropEconomy"/>와 혼동하지 말 것).</summary>
         public const double LevelGrowth = 1.1;
 
         public static double LevelMultiplier(int level, double growth = LevelGrowth) =>
