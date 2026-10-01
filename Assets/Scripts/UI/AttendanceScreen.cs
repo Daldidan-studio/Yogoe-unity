@@ -152,12 +152,12 @@ namespace Yoegoe.UI
             int[] results = { a, b, c };
             var panel = (RectTransform)throwPanel.transform;
             var land = throwLandZone != null ? throwLandZone : panel;
+            // 18장: 윷놀이에서 이무기가 던지는 연출 — 윷가락이 빠르게 흔들리다 결과 면을 드러낸다 (3번)
+            ClearSticks();
+            var stickImages = YutMiniGame.CreateStickRow(land, sticks);
             for (int t = 0; t < Throws; t++)
             {
-                ClearSticks();
-                // 윷놀이와 같은 던지기 연출 (YutMiniGame.ThrowSticks) — 아래 가운데에서 던져 착지 영역에 떨어진다
-                var origin = new Vector2(0f, -panel.rect.height * 0.45f);
-                yield return YutMiniGame.ThrowSticks(this, panel, origin, land, ToThrowResult(results[t]), 0.75f, sticks);
+                yield return YutMiniGame.ShakeRevealSticks(stickImages, ToThrowResult(results[t]));
                 throwResultTexts[t].text = Attendance.ThrowName(results[t]);
                 yield return new WaitForSecondsRealtime(0.6f);
             }

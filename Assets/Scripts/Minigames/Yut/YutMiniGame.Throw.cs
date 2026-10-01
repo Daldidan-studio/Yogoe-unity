@@ -204,19 +204,31 @@ namespace Yoegoe.Minigames.Yut
             EnsureBoard();
             if (_miniThrowContainer == null) yield break;
 
-            var frontStates = DetermineFrontStates(result);
             _miniThrowContainer.SetActive(true);
-            for (int i = 0; i < 4; i++)
-                ApplyStickFace(_miniThrowSticks[i], front: true, isBaekdoStick: i == 0);
+            yield return ShakeRevealSticks(_miniThrowSticks, result);
+            yield return new WaitForSecondsRealtime(0.5f);
 
-            const float shakeDuration = 0.35f;
+            _miniThrowContainer.SetActive(false);
+        }
+
+        /// <summary>
+        /// 이무기 던지기 연출 (윷놀이·출석 윷점 공용): 윷가락 4개가 잠깐 빠르게 흔들리다 결과에 맞는 앞/뒷면을 드러낸다.
+        /// sticks = 0번이 빽도 가락인 4개.
+        /// </summary>
+        public static IEnumerator ShakeRevealSticks(Image[] sticks, YutThrowResult result, float shakeSeconds = 0.35f)
+        {
+            EnsureStickSprites();
+            var frontStates = DetermineFrontStates(result);
+            for (int i = 0; i < 4; i++)
+                ApplyStickFace(sticks[i], front: true, isBaekdoStick: i == 0);
+
             float t = 0f;
-            while (t < shakeDuration)
+            while (t < shakeSeconds)
             {
                 t += Time.unscaledDeltaTime;
                 for (int i = 0; i < 4; i++)
                 {
-                    var rt = _miniThrowSticks[i].rectTransform;
+                    var rt = sticks[i].rectTransform;
                     rt.localRotation = Quaternion.Euler(0, 0, Mathf.Sin((Time.unscaledTime + i) * 28f) * 12f);
                 }
                 yield return null;
@@ -224,12 +236,33 @@ namespace Yoegoe.Minigames.Yut
 
             for (int i = 0; i < 4; i++)
             {
-                ApplyStickFace(_miniThrowSticks[i], frontStates[i], isBaekdoStick: i == 0);
-                _miniThrowSticks[i].rectTransform.localRotation = Quaternion.identity;
+                ApplyStickFace(sticks[i], frontStates[i], isBaekdoStick: i == 0);
+                sticks[i].rectTransform.localRotation = Quaternion.identity;
             }
-            yield return new WaitForSecondsRealtime(0.5f);
+        }
 
-            _miniThrowContainer.SetActive(false);
+        /// <summary>parent 가운데에 윷가락 4개를 가로로 세운다 (동적 콘텐츠). sticksOut에 RectTransform을 담는다.</summary>
+        public static Image[] CreateStickRow(RectTransform parent, RectTransform[] sticksOut,
+            float stickWidth = 22f, float stickHeight = 110f, float spacing = 52f)
+        {
+            EnsureStickSprites();
+            var imgs = new Image[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var go = new GameObject($"YutStick{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(parent, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(stickWidth, stickHeight);
+                rt.anchoredPosition = new Vector2((i - 1.5f) * spacing, 0f);
+                imgs[i] = go.GetComponent<Image>();
+                imgs[i].raycastTarget = false;
+                imgs[i].preserveAspect = true;
+                ApplyStickFace(imgs[i], front: true, isBaekdoStick: i == 0);
+                sticksOut[i] = rt;
+            }
+            return imgs;
         }
 
         /// <summary>
