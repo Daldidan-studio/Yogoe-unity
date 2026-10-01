@@ -20,7 +20,7 @@ namespace Yoegoe.Data
         public int startingYeopjeon = 100;
         public int startingHyang = 2;
         [Tooltip("물. 시작 0.")]
-        public int startingPurifiedWater = 0;
+        public int startingWater = 0;
         public int startingYutToken = 5;
         public int yutTokenMax = 5;
 

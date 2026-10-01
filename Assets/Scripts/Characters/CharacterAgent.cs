@@ -300,7 +300,7 @@ namespace Yoegoe.Characters
         /// </summary>
         public void ReceiveOffering(int staminaGain, float intimacyGain, OfferingKind kind = OfferingKind.General)
         {
-            if (Stats.State == ActionState.Fainted && kind != OfferingKind.PurifiedWater)
+            if (Stats.State == ActionState.Fainted && kind != OfferingKind.Water)
                 return;
 
             if (Stats.State == ActionState.Slumped)

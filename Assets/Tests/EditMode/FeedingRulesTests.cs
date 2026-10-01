@@ -29,7 +29,7 @@ namespace Yoegoe.Tests.EditMode
             eco = ecoGO.AddComponent<GameEconomy>();
             eco.BecomeInstance();
             var settings = ScriptableObject.CreateInstance<StartingStateSettings>();
-            settings.startingPurifiedWater = 0;
+            settings.startingWater = 0;
             eco.ApplyStartingState(settings);
 
             agentGO = new GameObject("Agent");
@@ -43,7 +43,7 @@ namespace Yoegoe.Tests.EditMode
             food = Make("bap", OfferingKind.Food);
             offering = Make("yukjeon", OfferingKind.General);
             preferred = Make("sinseollo", OfferingKind.General);
-            water = Make("purifiedwater", OfferingKind.PurifiedWater);
+            water = Make("water", OfferingKind.Water);
         }
 
         [TearDown]
@@ -79,7 +79,7 @@ namespace Yoegoe.Tests.EditMode
             agent.Stats.State = ActionState.Fainted;
             agent.Stats.Stamina = 0f;
             eco.AddOffering(offering, 1);
-            eco.AddPurifiedWater(1);
+            eco.AddWater(1);
 
             Assert.AreEqual(FeedBlock.FaintedNeedsWater, agent.TryFeed(offering, eco).Block);
             Assert.AreEqual(1, eco.GetOfferingCount(offering)); // 소모 안 됨
@@ -97,7 +97,7 @@ namespace Yoegoe.Tests.EditMode
             agent.Stats.Stamina = 75f;
             eco.AddOffering(food, 1);
             eco.AddOffering(offering, 1);
-            eco.AddPurifiedWater(1);
+            eco.AddWater(1);
 
             Assert.AreEqual(FeedBlock.StaminaFull, agent.TryFeed(food, eco).Block);
             Assert.AreEqual(FeedBlock.StaminaFull, agent.TryFeedWater(water, eco).Block);
@@ -135,10 +135,10 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void Water_GivesThree_WhenAwake()
         {
-            eco.AddPurifiedWater(2);
+            eco.AddWater(2);
             var r = agent.TryFeedWater(water, eco);
             Assert.AreEqual(3, r.StaminaGain);
-            Assert.AreEqual(1, eco.PurifiedWater);
+            Assert.AreEqual(1, eco.Water);
         }
     }
 }

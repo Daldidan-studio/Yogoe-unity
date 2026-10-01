@@ -129,20 +129,20 @@ namespace Yoegoe.Economy
         }
 
         // ---------------- 물 (구 정화수) ----------------
-        // 공양(기력·기절 회복)과 요리 재료 '물'이 같은 재고. 이름(PurifiedWater)은 세이브·시트 호환으로 유지.
-        public int PurifiedWater { get; private set; }
-        public event Action<int> OnPurifiedWaterChanged;
-        public void AddPurifiedWater(int amount)
+        // 공양(기력·기절 회복)과 요리 재료 '물'이 같은 재고. 이름(Water)은 세이브·시트 호환으로 유지.
+        public int Water { get; private set; }
+        public event Action<int> OnWaterChanged;
+        public void AddWater(int amount)
         {
-            PurifiedWater += amount;
-            OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            Water += amount;
+            OnWaterChanged?.Invoke(Water);
             OnMaterialsChanged?.Invoke();
         }
-        public bool TrySpendPurifiedWater(int amount)
+        public bool TrySpendWater(int amount)
         {
-            if (amount < 0 || PurifiedWater < amount) return false;
-            PurifiedWater -= amount;
-            OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            if (amount < 0 || Water < amount) return false;
+            Water -= amount;
+            OnWaterChanged?.Invoke(Water);
             OnMaterialsChanged?.Invoke();
             return true;
         }
@@ -326,7 +326,7 @@ namespace Yoegoe.Economy
             PropsPurchasedCount = 0;
             Yeopjeon = s.startingYeopjeon;
             Hyang = s.startingHyang;
-            PurifiedWater = s.startingPurifiedWater;
+            Water = s.startingWater;
             YutTokenMax = Mathf.Max(1, s.yutTokenMax);
             YutToken = Mathf.Clamp(s.startingYutToken, 0, YutTokenMax);
             YutTokenRegenNextUtcTicks = YutToken < YutTokenMax
@@ -340,7 +340,7 @@ namespace Yoegoe.Economy
                 foreach (var o in s.startingOfferings)
                 {
                     if (o == null) continue;
-                    if (o.kind == OfferingKind.PurifiedWater) continue; // 물은 재화 칸
+                    if (o.kind == OfferingKind.Water) continue; // 물은 재화 칸
                     AddOffering(o, each);
                 }
             }
@@ -354,7 +354,7 @@ namespace Yoegoe.Economy
             OnPropsPurchasedCountChanged?.Invoke();
             OnYeopjeonChanged?.Invoke(Yeopjeon);
             OnHyangChanged?.Invoke(Hyang);
-            OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            OnWaterChanged?.Invoke(Water);
             OnYutTokenChanged?.Invoke(YutToken);
             GiftBundle.ResetFromSave(0, false, 0);
             ShopStock.ResetFromSave("", "", 0);
@@ -362,7 +362,7 @@ namespace Yoegoe.Economy
 
         /// <summary>세이브 스냅샷으로 재화를 덮어쓴다. 공양물 인벤은 ReplaceOfferingCounts로 별도 복원.</summary>
         public void ApplySaveSnapshot(BigNumber merit, BigNumber pendingBatch,
-            int yeopjeon, int hyang, int purifiedWater, int yutToken, int yutTokenMax,
+            int yeopjeon, int hyang, int water, int yutToken, int yutTokenMax,
             int propsPurchasedCount = 0, long yutTokenRegenNextUtcTicks = 0)
         {
             MeritPile = merit;
@@ -370,7 +370,7 @@ namespace Yoegoe.Economy
             PropsPurchasedCount = Math.Max(0, propsPurchasedCount);
             Yeopjeon = yeopjeon;
             Hyang = hyang;
-            PurifiedWater = purifiedWater;
+            Water = water;
             YutTokenMax = Mathf.Max(1, yutTokenMax);
             YutToken = Mathf.Clamp(yutToken, 0, YutTokenMax);
             // 0(구세이브·미기록)이면 EnsureYutTokenFresh가 다음 틱에 알아서 새 카운트다운을 시작한다.
@@ -381,7 +381,7 @@ namespace Yoegoe.Economy
             OnPropsPurchasedCountChanged?.Invoke();
             OnYeopjeonChanged?.Invoke(Yeopjeon);
             OnHyangChanged?.Invoke(Hyang);
-            OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            OnWaterChanged?.Invoke(Water);
             OnYutTokenChanged?.Invoke(YutToken);
         }
 

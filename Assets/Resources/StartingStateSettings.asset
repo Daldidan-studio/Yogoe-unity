@@ -17,7 +17,7 @@ MonoBehaviour:
   startingMerit: 1000
   startingYeopjeon: 100
   startingHyang: 2
-  startingPurifiedWater: 0
+  startingWater: 0
   startingYutToken: 5
   yutTokenMax: 5
   startingOfferings:

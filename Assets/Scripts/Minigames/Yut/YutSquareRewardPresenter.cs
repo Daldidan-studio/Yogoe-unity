@@ -76,8 +76,8 @@ namespace Yoegoe.Minigames.Yut
                     ShowTreasureChoice(host);
                     return;
 
-                case YutBoardLayout.SpecialSquareKind.PurifiedWater:
-                    pendingReward = new YutSquareReward(YutSquareRewardKind.PurifiedWater, null, 1);
+                case YutBoardLayout.SpecialSquareKind.Water:
+                    pendingReward = new YutSquareReward(YutSquareRewardKind.Water, null, 1);
                     message = "물 칸 발견!\n물을 얻을 수 있어요.";
                     break;
 
@@ -176,8 +176,8 @@ namespace Yoegoe.Minigames.Yut
             {
                 case YutSquareRewardKind.Yeopjeon:
                     return YutMiniGame.YeopjeonIcon();
-                case YutSquareRewardKind.PurifiedWater:
-                    return YutMiniGame.PurifiedWaterIcon();
+                case YutSquareRewardKind.Water:
+                    return YutMiniGame.WaterIcon();
                 case YutSquareRewardKind.Offering:
                     return reward.Offering != null ? reward.Offering.icon : null;
                 case YutSquareRewardKind.IngredientBundle:

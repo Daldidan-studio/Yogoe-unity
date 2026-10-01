@@ -22,7 +22,7 @@ namespace Yoegoe.UI.EditorTools
         static void SquareIngredientBag() => RunSquare(YutBoardLayout.SpecialSquareKind.IngredientBag);
 
         [MenuItem(SquareRoot + "물 칸 → 받기/광고", false, 172)]
-        static void SquarePurifiedWater() => RunSquare(YutBoardLayout.SpecialSquareKind.PurifiedWater);
+        static void SquareWater() => RunSquare(YutBoardLayout.SpecialSquareKind.Water);
 
         [MenuItem(SquareRoot + "보물상자 → 내용확인→받기/광고", false, 173)]
         static void SquareTreasure() => RunSquare(YutBoardLayout.SpecialSquareKind.Treasure);

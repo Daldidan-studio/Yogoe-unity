@@ -96,14 +96,14 @@ namespace Yoegoe.Characters
         public void ClearAll() => ClearOfferingRequest();
 
         /// <summary>상세에서 급여. true면 처리 완료(호출측에서 인벤 차감·리프레시).</summary>
-        public bool TryHandleFeed(OfferingData offering, bool isPurified, bool isPreferred,
+        public bool TryHandleFeed(OfferingData offering, bool isWater, bool isPreferred,
             out int staminaGain, out float intimacyGain, out bool fulfilledRequest)
         {
             staminaGain = offering != null ? offering.ResolveStaminaGain(isPreferred) : 3;
             intimacyGain = offering != null ? offering.ResolveIntimacyGain(isPreferred) : 0f;
             fulfilledRequest = false;
 
-            if (isPurified || !HasOfferingRequest)
+            if (isWater || !HasOfferingRequest)
                 return false;
 
             bool matches = offering != null && OfferingRequest != null

@@ -281,7 +281,7 @@ namespace Yoegoe.Characters
         {
             switch (type)
             {
-                case PropResourceType.PurifiedWater: return "물";
+                case PropResourceType.Water: return "물";
                 case PropResourceType.Yeopjeon: return "엽전";
                 default: return "재료";
             }

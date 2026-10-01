@@ -130,7 +130,7 @@ namespace Yoegoe.UI
             YutBoardLayout.SpecialSquareKind.Coin => "엽전",
             YutBoardLayout.SpecialSquareKind.IngredientBag => "재료보따리",
             YutBoardLayout.SpecialSquareKind.Treasure => "보물상자",
-            YutBoardLayout.SpecialSquareKind.PurifiedWater => "물",
+            YutBoardLayout.SpecialSquareKind.Water => "물",
             _ => kind.ToString(),
         };
 
@@ -218,7 +218,7 @@ namespace Yoegoe.UI
                 { 9, YutBoardLayout.SpecialSquareKind.Coin },
                 { 12, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 { 14, YutBoardLayout.SpecialSquareKind.Treasure },
-                { 16, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+                { 16, YutBoardLayout.SpecialSquareKind.Water },
             };
             YutBoardLayout.RestoreSpecialSquares(kinds);
 
@@ -321,7 +321,7 @@ namespace Yoegoe.UI
                 { 9, YutBoardLayout.SpecialSquareKind.Coin },
                 { 12, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 { 14, YutBoardLayout.SpecialSquareKind.Treasure },
-                { 16, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+                { 16, YutBoardLayout.SpecialSquareKind.Water },
             };
             YutBoardLayout.RestoreSpecialSquares(kinds);
 
@@ -366,7 +366,7 @@ namespace Yoegoe.UI
                 YutBoardLayout.SpecialSquareKind.Coin,
                 YutBoardLayout.SpecialSquareKind.IngredientBag,
                 YutBoardLayout.SpecialSquareKind.Treasure,
-                YutBoardLayout.SpecialSquareKind.PurifiedWater,
+                YutBoardLayout.SpecialSquareKind.Water,
             };
             for (int i = 0; i < extraKinds.Length && i < extras.Length; i++)
             {

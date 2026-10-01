@@ -26,7 +26,7 @@ namespace Yoegoe.UI
 
         [Header("주입 (Main)")]
         public Font font;
-        public Sprite purifiedWaterIcon;
+        public Sprite waterIcon;
         public DetailScreen detailScreen;
 
         [Header("셸 (Prefab/씬 — 비어 있으면 Play 시 코드 조립)")]
@@ -35,7 +35,7 @@ namespace Yoegoe.UI
         [SerializeField] RectTransform meritTextRt;
         [SerializeField] Text yeopjeonText;
         [SerializeField] Text hyangText;
-        [SerializeField] Text purifiedWaterText;
+        [SerializeField] Text waterText;
         [SerializeField] Text yutTokenText;
         [SerializeField] Button yutTokenPlusButton;
         [SerializeField] Button tempResetButton;
@@ -98,7 +98,7 @@ namespace Yoegoe.UI
         private const float MeritCountDuration = 1.35f;
         private int lastYeopjeon = int.MinValue;
         private int lastHyang = int.MinValue;
-        private int lastPurifiedWater = int.MinValue;
+        private int lastWater = int.MinValue;
         private int lastYutToken = int.MinValue;
         private int lastYutTokenMax = int.MinValue;
         private string lastUpgradeName;
@@ -219,7 +219,7 @@ namespace Yoegoe.UI
             {
                 YutSquareRewardKind.Yeopjeon => ChipRt(yeopjeonText),
                 YutSquareRewardKind.Hyang => ChipRt(hyangText),
-                YutSquareRewardKind.PurifiedWater => ChipRt(purifiedWaterText),
+                YutSquareRewardKind.Water => ChipRt(waterText),
                 YutSquareRewardKind.YutToken => ChipRt(yutTokenText),
                 _ => meritTextRt != null ? meritTextRt : ChipRt(yeopjeonText),
             };
@@ -286,10 +286,10 @@ namespace Yoegoe.UI
                 lastHyang = eco.Hyang;
                 hyangText.text = "향 " + lastHyang;
             }
-            if (purifiedWaterText != null && eco.PurifiedWater != lastPurifiedWater)
+            if (waterText != null && eco.Water != lastWater)
             {
-                lastPurifiedWater = eco.PurifiedWater;
-                purifiedWaterText.text = "물 " + lastPurifiedWater;
+                lastWater = eco.Water;
+                waterText.text = "물 " + lastWater;
             }
             if (yutTokenText != null
                 && (eco.YutToken != lastYutToken || eco.YutTokenMax != lastYutTokenMax))

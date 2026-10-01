@@ -87,7 +87,7 @@ namespace Yoegoe.Characters
             SpecialItemId? golden = null;
             switch (type)
             {
-                case PropResourceType.PurifiedWater: GameEconomy.Instance.AddPurifiedWater(n); break;
+                case PropResourceType.Water: GameEconomy.Instance.AddWater(n); break;
                 case PropResourceType.Yeopjeon: GameEconomy.Instance.AddYeopjeon(n); break;
                 default:
                     foreach (var code in pendingIngredients)

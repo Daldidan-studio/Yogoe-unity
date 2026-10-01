@@ -46,12 +46,12 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void Fainted_PurifiedWater_WakesWithOneStamina()
+        public void Fainted_Water_WakesWithOneStamina()
         {
             agent.Stats.State = ActionState.Fainted;
             agent.Stats.Stamina = 0f;
 
-            agent.ReceiveOffering(1, 0f, OfferingKind.PurifiedWater);
+            agent.ReceiveOffering(1, 0f, OfferingKind.Water);
 
             Assert.AreNotEqual(ActionState.Fainted, agent.Stats.State);
             Assert.AreEqual(1f, agent.Stats.Stamina, 0.0001f);

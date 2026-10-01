@@ -142,7 +142,7 @@ namespace Yoegoe.UI
         readonly Dictionary<CookingIngredientId, int> matchIngredientCounts = new Dictionary<CookingIngredientId, int>();
         readonly Dictionary<CookingCharmType, int> matchCharmCounts = new Dictionary<CookingCharmType, int>();
         int matchYeopjeonTotal;
-        int matchPurifiedWaterTotal;
+        int matchWaterTotal;
         int matchHyangTotal;
         int matchAdTicketTotal;
         int matchYutTokenTotal;
@@ -250,7 +250,7 @@ namespace Yoegoe.UI
             matchIngredientCounts.Clear();
             matchCharmCounts.Clear();
             matchYeopjeonTotal = 0;
-            matchPurifiedWaterTotal = 0;
+            matchWaterTotal = 0;
             matchHyangTotal = 0;
             matchAdTicketTotal = 0;
             matchYutTokenTotal = 0;
@@ -533,8 +533,8 @@ namespace Yoegoe.UI
                     case YutBoardLayout.SpecialSquareKind.Treasure:
                         icons[nodeId] = Resources.Load<Sprite>("UI/GiftChest_Closed");
                         break;
-                    case YutBoardLayout.SpecialSquareKind.PurifiedWater:
-                        icons[nodeId] = YutMiniGame.PurifiedWaterIcon();
+                    case YutBoardLayout.SpecialSquareKind.Water:
+                        icons[nodeId] = YutMiniGame.WaterIcon();
                         break;
                 }
             }
@@ -625,8 +625,8 @@ namespace Yoegoe.UI
                     return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateIngredientBag);
                 case YutBoardLayout.SpecialSquareKind.Coin:
                     return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateCoin);
-                case YutBoardLayout.SpecialSquareKind.PurifiedWater:
-                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidatePurifiedWater);
+                case YutBoardLayout.SpecialSquareKind.Water:
+                    return YutBubbleCatalog.Get(YutBubbleCatalog.Ids.CandidateWater);
             }
 
             if (match.OpponentPiece.OnBoard && match.OpponentPiece.NodeId == c.DestinationNode)

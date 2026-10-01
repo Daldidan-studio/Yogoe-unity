@@ -83,8 +83,8 @@ namespace Yoegoe.UI
                 case YutSquareRewardKind.Yeopjeon:
                     GameEconomy.Instance.AddYeopjeon(amount);
                     break;
-                case YutSquareRewardKind.PurifiedWater:
-                    GameEconomy.Instance.AddPurifiedWater(amount);
+                case YutSquareRewardKind.Water:
+                    GameEconomy.Instance.AddWater(amount);
                     break;
                 case YutSquareRewardKind.Hyang:
                     GameEconomy.Instance.AddHyang(amount);
@@ -120,8 +120,8 @@ namespace Yoegoe.UI
                     icon = YutMiniGame.YeopjeonIcon();
                     label = "엽전";
                     break;
-                case YutSquareRewardKind.PurifiedWater:
-                    icon = YutMiniGame.PurifiedWaterIcon();
+                case YutSquareRewardKind.Water:
+                    icon = YutMiniGame.WaterIcon();
                     label = "물";
                     break;
                 case YutSquareRewardKind.Hyang:
@@ -200,7 +200,7 @@ namespace Yoegoe.UI
                 YutBoardLayout.SpecialSquareKind.Coin,
                 YutBoardLayout.SpecialSquareKind.IngredientBag,
                 YutBoardLayout.SpecialSquareKind.Treasure,
-                YutBoardLayout.SpecialSquareKind.PurifiedWater,
+                YutBoardLayout.SpecialSquareKind.Water,
             };
             for (int k = 0; k < kinds.Length; k++)
             {
@@ -255,7 +255,7 @@ namespace Yoegoe.UI
             var settings = StartingStateSettings.Get();
             if (settings.startingOfferings == null) return pool;
             foreach (var o in settings.startingOfferings)
-                if (o != null && o.kind != OfferingKind.PurifiedWater) pool.Add(o);
+                if (o != null && o.kind != OfferingKind.Water) pool.Add(o);
             return pool;
         }
 
@@ -339,12 +339,12 @@ namespace Yoegoe.UI
                     Label = "엽전",
                 });
             }
-            if (matchPurifiedWaterTotal > 0)
+            if (matchWaterTotal > 0)
             {
                 items.Add(new YutMiniGame.CollectedItemView
                 {
-                    Icon = YutMiniGame.PurifiedWaterIcon(),
-                    Count = matchPurifiedWaterTotal,
+                    Icon = YutMiniGame.WaterIcon(),
+                    Count = matchWaterTotal,
                     Label = "물",
                 });
             }
@@ -402,7 +402,7 @@ namespace Yoegoe.UI
                 parts.Add($"{kv.Key.displayName} {kv.Value}개");
             }
             if (matchYeopjeonTotal > 0) parts.Add($"엽전 {matchYeopjeonTotal}개");
-            if (matchPurifiedWaterTotal > 0) parts.Add($"물 {matchPurifiedWaterTotal}개");
+            if (matchWaterTotal > 0) parts.Add($"물 {matchWaterTotal}개");
             if (matchHyangTotal > 0) parts.Add($"향 {matchHyangTotal}개");
             if (matchAdTicketTotal > 0) parts.Add($"광고보상권 {matchAdTicketTotal}개");
             if (matchYutTokenTotal > 0) parts.Add($"윷 토큰 {matchYutTokenTotal}개");
@@ -465,9 +465,9 @@ namespace Yoegoe.UI
                     TrackMatchLoot(YutSquareRewardKind.Yeopjeon, null, amount);
                     miniGame.AddPlayLogEntry($"엽전 {amount}개 획득.");
                     return $"엽전 {amount}개";
-                case YutSquareRewardKind.PurifiedWater:
-                    matchPurifiedWaterTotal += amount;
-                    TrackMatchLoot(YutSquareRewardKind.PurifiedWater, null, amount);
+                case YutSquareRewardKind.Water:
+                    matchWaterTotal += amount;
+                    TrackMatchLoot(YutSquareRewardKind.Water, null, amount);
                     miniGame.AddPlayLogEntry($"물 {amount}개 획득.");
                     return $"물 {amount}개";
                 case YutSquareRewardKind.Hyang:

@@ -21,7 +21,7 @@ namespace Yoegoe.UI
         [Header("주입 (Main)")]
         public Font font;
         public OfferingData[] offerings;
-        public Sprite purifiedWaterIcon;
+        public Sprite waterIcon;
 
         [Header("셸 (Prefab — 필수)")]
         [SerializeField] GameObject root;
@@ -48,8 +48,8 @@ namespace Yoegoe.UI
         [SerializeField] GameObject inventoryPanel;
         [SerializeField] RectTransform inventoryRow;
         [SerializeField] Text feedHintText;
-        [SerializeField] Text purifiedCountText;
-        [SerializeField] CanvasGroup purifiedDragGroup;
+        [SerializeField] Text waterCountText;
+        [SerializeField] CanvasGroup waterDragGroup;
         [SerializeField] Button dimCloseButton;
         [SerializeField] Button closeButton;
         [SerializeField] Button inventoryButton;
@@ -66,14 +66,14 @@ namespace Yoegoe.UI
         private bool feedDropHoverLatched;
         /// <summary>드래그 중인 공양물 — 초상 위에서 선호 여부 말풍선(♥/💢) 힌트용.</summary>
         private OfferingData draggedOffering;
-        private bool draggedPurified;
+        private bool draggedWater;
         private EmoteBubble emoteBubble;
 
         struct CountBadge
         {
             public Text Label;
             public OfferingData Offering;
-            public bool PurifiedWater;
+            public bool Water;
         }
 
         // 색·글자 크기: Resources/UiStyleSettings.asset
@@ -134,11 +134,11 @@ namespace Yoegoe.UI
                 }
             }
 
-            if (purifiedDragGroup != null)
+            if (waterDragGroup != null)
             {
-                purifiedDragGroup.alpha = 1f;
-                purifiedDragGroup.blocksRaycasts = true;
-                purifiedDragGroup.interactable = true;
+                waterDragGroup.alpha = 1f;
+                waterDragGroup.blocksRaycasts = true;
+                waterDragGroup.interactable = true;
             }
 
             if (feedHintText != null)
@@ -176,7 +176,7 @@ namespace Yoegoe.UI
             if (HasPrefabShell)
             {
                 if (portraitRt != null) portraitBaseScale = portraitRt.localScale;
-                EnsurePurifiedCountBadgeRegistered();
+                EnsureWaterCountBadgeRegistered();
                 return;
             }
 
@@ -214,11 +214,11 @@ namespace Yoegoe.UI
                 inventoryButton.onClick.AddListener(ToggleInventory);
             }
 
-            RebindPurifiedDragItem();
-            EnsurePurifiedCountBadgeRegistered();
+            RebindWaterDragItem();
+            EnsureWaterCountBadgeRegistered();
         }
 
-        void RebindPurifiedDragItem()
+        void RebindWaterDragItem()
         {
             if (root == null) return;
             var chip = root.transform.Find("Dialog/BottomBar/Action_물");
@@ -227,33 +227,33 @@ namespace Yoegoe.UI
             var drag = chip.GetComponentInChildren<OfferingDragItem>(true);
             if (drag == null) return;
 
-            var pw = FindPurifiedWater();
-            Sprite icon = purifiedWaterIcon;
+            var pw = FindWater();
+            Sprite icon = waterIcon;
             if (icon == null && pw != null) icon = pw.icon;
-            drag.Configure(this, pw, purified: true, icon);
+            drag.Configure(this, pw, isWater: true, icon);
         }
 
-        void EnsurePurifiedCountBadgeRegistered()
+        void EnsureWaterCountBadgeRegistered()
         {
-            if (purifiedCountText == null && root != null)
+            if (waterCountText == null && root != null)
             {
                 var badge = root.transform.Find("Dialog/BottomBar/Action_물/IconBox/CountBadge");
                 if (badge != null)
-                    purifiedCountText = badge.GetComponentInChildren<Text>(true);
+                    waterCountText = badge.GetComponentInChildren<Text>(true);
             }
 
-            if (purifiedCountText == null) return;
+            if (waterCountText == null) return;
             for (int i = 0; i < offeringCountBadges.Count; i++)
             {
-                if (offeringCountBadges[i].PurifiedWater && offeringCountBadges[i].Label == purifiedCountText)
+                if (offeringCountBadges[i].Water && offeringCountBadges[i].Label == waterCountText)
                     return;
             }
 
             offeringCountBadges.Add(new CountBadge
             {
-                Label = purifiedCountText,
+                Label = waterCountText,
                 Offering = null,
-                PurifiedWater = true
+                Water = true
             });
         }
 
@@ -300,15 +300,15 @@ namespace Yoegoe.UI
 
         private void RefreshItemCounts()
         {
-            if (purifiedCountText != null)
-                purifiedCountText.text = "x" + GameEconomy.Instance.PurifiedWater;
+            if (waterCountText != null)
+                waterCountText.text = "x" + GameEconomy.Instance.Water;
 
             for (int i = 0; i < offeringCountBadges.Count; i++)
             {
                 var b = offeringCountBadges[i];
                 if (b.Label == null) continue;
-                int n = b.PurifiedWater
-                    ? GameEconomy.Instance.PurifiedWater
+                int n = b.Water
+                    ? GameEconomy.Instance.Water
                     : GameEconomy.Instance.GetOfferingCount(b.Offering);
                 b.Label.text = "x" + n;
             }
@@ -340,12 +340,12 @@ namespace Yoegoe.UI
 
         // ---------------- feed / drag ----------------
 
-        public void NotifyOfferingDragBegan(OfferingData offering, bool purified)
+        public void NotifyOfferingDragBegan(OfferingData offering, bool isWater)
         {
             offeringDragActive = true;
             feedDropHoverLatched = false;
             draggedOffering = offering;
-            draggedPurified = purified;
+            draggedWater = isWater;
             if (feedHintText != null)
                 feedHintText.text = "캐릭터 위에 놓아 공양하세요";
             SetPortraitDropHighlight(false);
@@ -369,8 +369,8 @@ namespace Yoegoe.UI
                 && offeringDragActive
                 && currentAgent != null
                 && draggedOffering != null
-                && !draggedPurified
-                && !IsPurified(draggedOffering);
+                && !draggedWater
+                && !IsWaterOffering(draggedOffering);
             if (!show)
             {
                 if (emoteBubble != null) emoteBubble.Hide();
@@ -389,7 +389,7 @@ namespace Yoegoe.UI
             offeringDragActive = false;
             feedDropHoverLatched = false;
             draggedOffering = null;
-            draggedPurified = false;
+            draggedWater = false;
             if (emoteBubble != null) emoteBubble.Hide();
             SetPortraitDropHighlight(false);
             if (feedHintText == null) return;
@@ -413,7 +413,7 @@ namespace Yoegoe.UI
 
         static string DefaultFeedHint() => "물·공양물을 드래그해 캐릭터에게 먹이세요";
 
-        public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
+        public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool water)
         {
             bool overNow = IsOverFeedTarget(screenPos);
             if (!overNow && !feedDropHoverLatched)
@@ -428,8 +428,8 @@ namespace Yoegoe.UI
                 return false;
             }
 
-            if (purifiedWater || (offering != null && IsPurified(offering)))
-                return OnFeedPurifiedWater();
+            if (water || (offering != null && IsWaterOffering(offering)))
+                return OnFeedWater();
             if (offering == null) return false;
             return OnFeed(offering);
         }
@@ -460,7 +460,7 @@ namespace Yoegoe.UI
             portraitPanelHighlight.color = on ? C.portraitHighlight : C.portraitBg;
         }
 
-        private bool OnFeedPurifiedWater() => ApplyFeedResult(currentAgent?.TryFeedWater(FindPurifiedWater()), null);
+        private bool OnFeedWater() => ApplyFeedResult(currentAgent?.TryFeedWater(FindWater()), null);
 
         /// <summary>공양 규칙은 CharacterAgent.TryFeed — 여기선 결과 문구·연출·갱신만.</summary>
         private bool OnFeed(OfferingData offering)
@@ -494,7 +494,7 @@ namespace Yoegoe.UI
 
         static string FeedBlockMessage(FeedBlock block, OfferingData offering) => block switch
         {
-            FeedBlock.NoItem => offering == null || offering.IsPurifiedWater ? "물이 없어요" : "공양물이 없어요",
+            FeedBlock.NoItem => offering == null || offering.IsWater ? "물이 없어요" : "공양물이 없어요",
             FeedBlock.StaminaFull => "기력이 가득 찼어요",
             FeedBlock.StaminaAndIntimacyFull => "기력·친밀도가 모두 가득 찼어요",
             FeedBlock.FaintedNeedsWater => "기절한 요괴는 물로만 깨어나요",
@@ -508,20 +508,20 @@ namespace Yoegoe.UI
             IntimacyHeartFx.PlayUi(rootCanvas.transform, portraitDropRt, intimacyGain);
         }
 
-        static bool IsPurified(OfferingData offering) => offering != null && offering.IsPurifiedWater;
+        static bool IsWaterOffering(OfferingData offering) => offering != null && offering.IsWater;
 
         private bool IsPreferred(OfferingData offering) =>
             currentAgent != null && currentAgent.IsPreferredOffering(offering);
 
-        private OfferingData FindPurifiedWater()
+        private OfferingData FindWater()
         {
             if (offerings == null) return null;
             foreach (var o in offerings)
             {
                 if (o == null) continue;
-                if (IsPurified(o)) return o;
+                if (IsWaterOffering(o)) return o;
             }
-            return CharacterCatalog.FindOffering("purifiedwater");
+            return CharacterCatalog.FindOffering("water");
         }
 
         private void ToggleInventory()
@@ -595,7 +595,7 @@ namespace Yoegoe.UI
             {
                 foreach (var offering in offerings)
                 {
-                    if (offering == null || IsPurified(offering)) continue;
+                    if (offering == null || IsWaterOffering(offering)) continue;
                     if (!string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
                         continue;
                     CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: true,
@@ -607,7 +607,7 @@ namespace Yoegoe.UI
             foreach (var offering in offerings)
             {
                 if (offering == null) continue;
-                if (IsPurified(offering)) continue;
+                if (IsWaterOffering(offering)) continue;
                 if (GameEconomy.Instance == null || GameEconomy.Instance.GetOfferingCount(offering) <= 0) continue;
                 if (!string.IsNullOrEmpty(highlightOfferingId)
                     && string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
@@ -690,8 +690,8 @@ namespace Yoegoe.UI
             if (feedTarget != null)
             {
                 var drag = circleGO.AddComponent<OfferingDragItem>();
-                drag.Configure(this, feedTarget, IsPurified(feedTarget), icon != null ? icon : feedTarget.icon);
-                AttachCountBadge(circleGO.transform, feedTarget, purified: false);
+                drag.Configure(this, feedTarget, IsWaterOffering(feedTarget), icon != null ? icon : feedTarget.icon);
+                AttachCountBadge(circleGO.transform, feedTarget, isWater: false);
             }
 
             var tagGO = new GameObject("Tag");
@@ -707,7 +707,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
         }
 
-        Text AttachCountBadge(Transform iconParent, OfferingData offering, bool purified)
+        Text AttachCountBadge(Transform iconParent, OfferingData offering, bool isWater)
         {
             var badgeGO = new GameObject("CountBadge");
             SetupRect(badgeGO, iconParent, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
@@ -718,8 +718,8 @@ namespace Yoegoe.UI
             int n = 0;
             if (GameEconomy.Instance != null)
             {
-                n = purified
-                    ? GameEconomy.Instance.PurifiedWater
+                n = isWater
+                    ? GameEconomy.Instance.Water
                     : GameEconomy.Instance.GetOfferingCount(offering);
             }
             var text = CreateText(badgeGO.transform, "x" + n, F.caption, TextAnchor.MiddleCenter);
@@ -730,7 +730,7 @@ namespace Yoegoe.UI
             {
                 Label = text,
                 Offering = offering,
-                PurifiedWater = purified
+                Water = isWater
             });
             return text;
         }

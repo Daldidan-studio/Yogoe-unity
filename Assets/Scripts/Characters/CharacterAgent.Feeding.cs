@@ -70,14 +70,14 @@ namespace Yoegoe.Characters
         public FeedResult TryFeedWater(OfferingData waterData = null, GameEconomy economy = null)
         {
             var eco = economy != null ? economy : GameEconomy.Instance;
-            if (eco == null || eco.PurifiedWater < 1) return new FeedResult(FeedBlock.NoItem);
+            if (eco == null || eco.Water < 1) return new FeedResult(FeedBlock.NoItem);
             if (IsStaminaFull) return new FeedResult(FeedBlock.StaminaFull);
-            if (!eco.TrySpendPurifiedWater(1)) return new FeedResult(FeedBlock.NoItem);
+            if (!eco.TrySpendWater(1)) return new FeedResult(FeedBlock.NoItem);
 
             int gain = Stats.State == ActionState.Fainted
                 ? 1
                 : waterData != null ? waterData.ResolveStaminaGain(false) : 3;
-            ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
+            ReceiveOffering(gain, 0f, OfferingKind.Water);
             return new FeedResult(FeedBlock.None, gain);
         }
 
@@ -91,7 +91,7 @@ namespace Yoegoe.Characters
         public FeedResult TryFeed(OfferingData offering, GameEconomy economy = null)
         {
             if (offering == null) return new FeedResult(FeedBlock.NoItem);
-            if (offering.IsPurifiedWater) return TryFeedWater(offering, economy);
+            if (offering.IsWater) return TryFeedWater(offering, economy);
             if (Stats.State == ActionState.Fainted) return new FeedResult(FeedBlock.FaintedNeedsWater);
 
             var eco = economy != null ? economy : GameEconomy.Instance;

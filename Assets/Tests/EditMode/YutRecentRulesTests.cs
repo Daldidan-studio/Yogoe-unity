@@ -156,7 +156,7 @@ namespace Yoegoe.Tests.EditMode
             Assert.AreEqual(2, counts[YutBoardLayout.SpecialSquareKind.Coin]);
             Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.IngredientBag]);
             Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.Treasure]);
-            Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
+            Assert.AreEqual(1, counts[YutBoardLayout.SpecialSquareKind.Water]);
             Assert.AreEqual(5, OccupiedSpecialNodes().Count);
         }
 
@@ -169,7 +169,7 @@ namespace Yoegoe.Tests.EditMode
                 { 2, YutBoardLayout.SpecialSquareKind.Coin },
                 { 3, YutBoardLayout.SpecialSquareKind.IngredientBag },
                 { 4, YutBoardLayout.SpecialSquareKind.Treasure },
-                { 6, YutBoardLayout.SpecialSquareKind.PurifiedWater },
+                { 6, YutBoardLayout.SpecialSquareKind.Water },
             });
             YutBoardLayout.ClearSpecialSquare(1); // 소진
 
@@ -177,7 +177,7 @@ namespace Yoegoe.Tests.EditMode
             Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.Coin]);
             Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.IngredientBag]);
             Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.Treasure]);
-            Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
+            Assert.AreEqual(1, beforeKinds[YutBoardLayout.SpecialSquareKind.Water]);
 
             Random.InitState(7);
             YutBoardLayout.ReshuffleRemainingSpecialSquares();
@@ -186,7 +186,7 @@ namespace Yoegoe.Tests.EditMode
             Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.Coin], afterKinds[YutBoardLayout.SpecialSquareKind.Coin]);
             Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.IngredientBag], afterKinds[YutBoardLayout.SpecialSquareKind.IngredientBag]);
             Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.Treasure], afterKinds[YutBoardLayout.SpecialSquareKind.Treasure]);
-            Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.PurifiedWater], afterKinds[YutBoardLayout.SpecialSquareKind.PurifiedWater]);
+            Assert.AreEqual(beforeKinds[YutBoardLayout.SpecialSquareKind.Water], afterKinds[YutBoardLayout.SpecialSquareKind.Water]);
             Assert.AreEqual(4, OccupiedSpecialNodes().Count);
 
             foreach (int node in OccupiedSpecialNodes())

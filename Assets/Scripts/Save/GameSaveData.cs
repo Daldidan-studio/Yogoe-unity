@@ -50,7 +50,7 @@ namespace Yoegoe.Save
         /// <summary>이번 매치에서 모았지만 아직 완주 전이라 경제에 안 넣은 재화.
         /// 중도 나가기·앱 재시작 후에도 이어가려면 저장해야 한다.</summary>
         public int pendingYeopjeon;
-        public int pendingPurifiedWater;
+        public int pendingWater;
         public int pendingHyang;
         public int pendingAdTicket;
         public int pendingYutToken;
@@ -83,7 +83,7 @@ namespace Yoegoe.Save
         public BigNumberSave pendingBatchMerit = new BigNumberSave();
         public int yeopjeon;
         public int hyang;
-        public int purifiedWater;
+        public int water;
         public int yutToken;
         public int yutTokenMax = 5;
         /// <summary>다음 윷 토큰 충전 예정 UTC ticks (2·10장: 30분마다 1개). 0이면 구세이브/충전 대기 없음.</summary>

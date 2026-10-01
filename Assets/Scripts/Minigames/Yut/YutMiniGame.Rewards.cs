@@ -209,15 +209,15 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>물 아이콘. 카탈로그 OfferingData, 없으면 Resources 폴백.</summary>
-        public static Sprite PurifiedWaterIcon()
+        public static Sprite WaterIcon()
         {
-            if (_purifiedWaterIcon != null) return _purifiedWaterIcon;
-            var offering = CharacterCatalog.FindOffering("purifiedwater");
+            if (_waterIcon != null) return _waterIcon;
+            var offering = CharacterCatalog.FindOffering("water");
             if (offering != null && offering.icon != null)
-                _purifiedWaterIcon = offering.icon;
-            if (_purifiedWaterIcon == null)
-                _purifiedWaterIcon = Resources.Load<Sprite>("UI/Currency/PurifiedWater");
-            return _purifiedWaterIcon;
+                _waterIcon = offering.icon;
+            if (_waterIcon == null)
+                _waterIcon = Resources.Load<Sprite>("UI/Currency/Water");
+            return _waterIcon;
         }
 
         /// <summary>보물상자를 연 상태 아이콘. 보상 팝업에서 "상자에서 뭐가 나왔는지" 보여줄 때 쓴다.</summary>

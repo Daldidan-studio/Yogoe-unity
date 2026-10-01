@@ -453,7 +453,7 @@ namespace Yoegoe.Minigames.Yut
 
         Transform _collectedItemsRoot;
         static Sprite _yeopjeonIcon;
-        static Sprite _purifiedWaterIcon;
+        static Sprite _waterIcon;
         static Sprite _treasureChestOpenIcon;
         static Sprite _ingredientBagIcon;
 

@@ -14,10 +14,10 @@ namespace Yoegoe.Economy
         readonly Dictionary<int, int> MaterialCounts = new Dictionary<int, int>();
         public event Action OnMaterialsChanged;
 
-        /// <summary>요리 재료 개수. 물은 따로 쌓지 않고 물 재화(<see cref="PurifiedWater"/>)를 그대로 쓴다.</summary>
+        /// <summary>요리 재료 개수. 물은 따로 쌓지 않고 물 재화(<see cref="Water"/>)를 그대로 쓴다.</summary>
         public int GetMaterialCount(Yoegoe.Cooking.CookingIngredientId id)
         {
-            if (id == Yoegoe.Cooking.CookingIngredientId.Water) return PurifiedWater;
+            if (id == Yoegoe.Cooking.CookingIngredientId.Water) return Water;
             return MaterialCounts.TryGetValue((int)id, out int n) ? n : 0;
         }
 
@@ -26,8 +26,8 @@ namespace Yoegoe.Economy
             if (amount == 0) return;
             if (id == Yoegoe.Cooking.CookingIngredientId.Water)
             {
-                if (amount > 0) AddPurifiedWater(amount);
-                else TrySpendPurifiedWater(Math.Min(-amount, PurifiedWater));
+                if (amount > 0) AddWater(amount);
+                else TrySpendWater(Math.Min(-amount, Water));
                 return;
             }
             int key = (int)id;
@@ -39,7 +39,7 @@ namespace Yoegoe.Economy
         public bool TrySpendMaterial(Yoegoe.Cooking.CookingIngredientId id, int amount)
         {
             if (amount < 0) return false;
-            if (id == Yoegoe.Cooking.CookingIngredientId.Water) return TrySpendPurifiedWater(amount);
+            if (id == Yoegoe.Cooking.CookingIngredientId.Water) return TrySpendWater(amount);
             int key = (int)id;
             MaterialCounts.TryGetValue(key, out int cur);
             if (cur < amount) return false;

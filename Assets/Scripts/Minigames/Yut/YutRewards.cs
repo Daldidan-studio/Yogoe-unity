@@ -14,7 +14,7 @@ namespace Yoegoe.Minigames.Yut
         Hyang,
         AdTicket,
         YutToken,
-        PurifiedWater,
+        Water,
         IngredientBundle,
         Charm,
     }
@@ -107,7 +107,7 @@ namespace Yoegoe.Minigames.Yut
             switch (reward.Kind)
             {
                 case YutSquareRewardKind.Yeopjeon: return $"엽전 {amount}개";
-                case YutSquareRewardKind.PurifiedWater: return $"물 {amount}개";
+                case YutSquareRewardKind.Water: return $"물 {amount}개";
                 case YutSquareRewardKind.Hyang: return $"향 {amount}개";
                 case YutSquareRewardKind.AdTicket: return $"광고보상권 {amount}개";
                 case YutSquareRewardKind.YutToken: return $"윷 토큰 {amount}개";

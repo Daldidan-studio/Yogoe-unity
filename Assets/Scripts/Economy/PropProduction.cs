@@ -69,7 +69,7 @@ namespace Yoegoe.Economy
         }
 
         public static bool IsResource(PropResourceType t) =>
-            t == PropResourceType.PurifiedWater || t == PropResourceType.Yeopjeon
+            t == PropResourceType.Water || t == PropResourceType.Yeopjeon
             || t == PropResourceType.Hunt || t == PropResourceType.Gather;
 
         /// <summary>공덕 기물의 레벨 기준 분당 산출(보정 전). 공덕 기물이 아니면 0.</summary>

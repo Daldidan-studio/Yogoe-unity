@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2d27ba7d5feb242e997869930f91e4da, type: 3}
-  m_Name: PurifiedWater
+  m_Name: Water
   m_EditorClassIdentifier: 
-  offeringId: purifiedwater
+  offeringId: water
   displayName: 물
   kind: 2
   icon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}

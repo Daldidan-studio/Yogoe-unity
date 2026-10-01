@@ -84,7 +84,7 @@ namespace Yoegoe.UI
                 challengeFailed = challengeFailed,
                 challengeStreak = challengeStreak,
                 pendingYeopjeon = matchYeopjeonTotal,
-                pendingPurifiedWater = matchPurifiedWaterTotal,
+                pendingWater = matchWaterTotal,
                 pendingHyang = matchHyangTotal,
                 pendingAdTicket = matchAdTicketTotal,
                 pendingYutToken = matchYutTokenTotal,
@@ -164,15 +164,15 @@ namespace Yoegoe.UI
             matchIngredientCounts.Clear();
             matchCharmCounts.Clear();
             matchYeopjeonTotal = Mathf.Max(0, saved.pendingYeopjeon);
-            matchPurifiedWaterTotal = Mathf.Max(0, saved.pendingPurifiedWater);
+            matchWaterTotal = Mathf.Max(0, saved.pendingWater);
             matchHyangTotal = Mathf.Max(0, saved.pendingHyang);
             matchAdTicketTotal = Mathf.Max(0, saved.pendingAdTicket);
             matchYutTokenTotal = Mathf.Max(0, saved.pendingYutToken);
 
             if (matchYeopjeonTotal > 0)
                 MergeLootEntry(pendingLoot, YutSquareRewardKind.Yeopjeon, null, matchYeopjeonTotal);
-            if (matchPurifiedWaterTotal > 0)
-                MergeLootEntry(pendingLoot, YutSquareRewardKind.PurifiedWater, null, matchPurifiedWaterTotal);
+            if (matchWaterTotal > 0)
+                MergeLootEntry(pendingLoot, YutSquareRewardKind.Water, null, matchWaterTotal);
             if (matchHyangTotal > 0)
                 MergeLootEntry(pendingLoot, YutSquareRewardKind.Hyang, null, matchHyangTotal);
             if (matchAdTicketTotal > 0)

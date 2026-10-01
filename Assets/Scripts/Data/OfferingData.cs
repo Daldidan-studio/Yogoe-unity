@@ -23,21 +23,21 @@ namespace Yoegoe.Data
         public int shopPriceYeopjeon = 10;
 
         /// <summary>물인지 — kind 또는 id로 판정(구 에셋 호환).</summary>
-        public bool IsPurifiedWater =>
-            kind == OfferingKind.PurifiedWater
-            || string.Equals(offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);
+        public bool IsWater =>
+            kind == OfferingKind.Water
+            || string.Equals(offeringId, "water", System.StringComparison.OrdinalIgnoreCase);
 
         public int ResolveStaminaGain(bool isPreferred)
         {
             if (staminaGain > 0) return staminaGain;
-            if (kind == OfferingKind.PurifiedWater) return 3;
+            if (kind == OfferingKind.Water) return 3;
             if (kind == OfferingKind.Food) return 8;
             return 3; // 공양물·선호
         }
 
         public float ResolveIntimacyGain(bool isPreferred)
         {
-            if (kind == OfferingKind.PurifiedWater || kind == OfferingKind.Food) return 0f;
+            if (kind == OfferingKind.Water || kind == OfferingKind.Food) return 0f;
             if (isPreferred) return intimacyGain > 0f ? intimacyGain : 5f;
             return intimacyGain > 0f ? intimacyGain : 2f;
         }

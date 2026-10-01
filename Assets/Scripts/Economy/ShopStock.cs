@@ -102,7 +102,7 @@ namespace Yoegoe.Economy
             {
                 var o = src[i];
                 if (o == null) continue;
-                if (o.kind == OfferingKind.PurifiedWater) continue;
+                if (o.kind == OfferingKind.Water) continue;
                 if (string.IsNullOrEmpty(o.offeringId)) continue;
                 if (!string.IsNullOrEmpty(excludeId)
                     && string.Equals(o.offeringId, excludeId, StringComparison.OrdinalIgnoreCase))

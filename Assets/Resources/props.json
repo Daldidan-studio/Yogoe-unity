@@ -18,7 +18,7 @@
     {
       "propId": "옹달샘",
       "displayName": "옹달샘",
-      "resourceType": "PurifiedWater",
+      "resourceType": "Water",
       "cycleMinutes": 30.0,
       "meritPerMinute": 0.0,
       "levelGrowth": 1.0,

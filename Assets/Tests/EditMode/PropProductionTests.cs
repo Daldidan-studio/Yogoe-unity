@@ -83,7 +83,7 @@ namespace Yoegoe.Tests.EditMode
         public void Catalog_HasSpecValues()
         {
             Assert.IsTrue(PropCatalog.TryGet("옹달샘", out var well));
-            Assert.AreEqual(PropResourceType.PurifiedWater, well.ResourceType);
+            Assert.AreEqual(PropResourceType.Water, well.ResourceType);
             Assert.AreEqual(30f, well.cycleMinutes, 0.001f);
             Assert.AreEqual(6, well.baseCapacity);
 
@@ -123,7 +123,7 @@ namespace Yoegoe.Tests.EditMode
             economy = economyGO.AddComponent<GameEconomy>();
             economy.BecomeInstance();
             var settings = ScriptableObject.CreateInstance<StartingStateSettings>();
-            settings.startingPurifiedWater = 0;
+            settings.startingWater = 0;
             settings.startingYeopjeon = 0;
             economy.ApplyStartingState(settings);
 
@@ -150,12 +150,12 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void Well_ProducesWater_TapCollectsIntoWallet()
         {
-            MakeProp(PropResourceType.PurifiedWater, 30f, 6);
+            MakeProp(PropResourceType.Water, 30f, 6);
             prop.ProduceWhileStaying(3 * 1800f, 0f, false);
 
             Assert.AreEqual(3, prop.StoredResources);
             Assert.IsTrue(prop.TryCollect());
-            Assert.AreEqual(3, economy.PurifiedWater);
+            Assert.AreEqual(3, economy.Water);
             Assert.AreEqual(0, prop.StoredResources);
         }
 
@@ -259,7 +259,7 @@ namespace Yoegoe.Tests.EditMode
             var asset = ScriptableObject.CreateInstance<PropData>();
             asset.propId = "옹달샘";
             asset.resourceType = PropResourceType.Merit; // 시트가 이긴다
-            Assert.AreEqual(PropResourceType.PurifiedWater, PropProduction.Config.Resolve("옹달샘", asset).Type);
+            Assert.AreEqual(PropResourceType.Water, PropProduction.Config.Resolve("옹달샘", asset).Type);
             asset.propId = "시트에_없는_기물";
             Assert.AreEqual(PropResourceType.Merit, PropProduction.Config.Resolve(asset.propId, asset).Type);
             UnityEngine.Object.DestroyImmediate(asset);

@@ -1148,7 +1148,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yoegoe.Runtime::Yoegoe.UI.OfferingDragItem
   screen: {fileID: 8152856328742818326}
   offering: {fileID: 0}
-  isPurifiedWater: 1
+  isWater: 1
   dragIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
 --- !u!1 &2075648702413045988
 GameObject:
@@ -2741,7 +2741,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yoegoe.Runtime::Yoegoe.UI.DetailScreen
   font: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
   offerings: []
-  purifiedWaterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
+  waterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
   root: {fileID: 5598410016800837643}
   rootCanvas: {fileID: 3651418267666063958}
   portraitImage: {fileID: 2592276697643879457}
@@ -2765,8 +2765,8 @@ MonoBehaviour:
   inventoryPanel: {fileID: 6599498703347033900}
   inventoryRow: {fileID: 7964996035728381562}
   feedHintText: {fileID: 5493995814678825675}
-  purifiedCountText: {fileID: 6228389337322758058}
-  purifiedDragGroup: {fileID: 2968828155303287447}
+  waterCountText: {fileID: 6228389337322758058}
+  waterDragGroup: {fileID: 2968828155303287447}
   dimCloseButton: {fileID: 735521280683339708}
   closeButton: {fileID: 2980788801645563142}
   inventoryButton: {fileID: 5855901110718323321}

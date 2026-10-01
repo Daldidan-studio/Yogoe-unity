@@ -26,13 +26,13 @@ namespace Yoegoe.Minigames.Yut
             Coin = 1,
             IngredientBag = 2, // 구 Offering(2)과 같은 값
             Treasure = 3,
-            PurifiedWater = 4,
+            Water = 4,
         }
 
         const int SpecialCoinCount = 2;
         const int SpecialIngredientBagCount = 1;
         const int SpecialTreasureCount = 1;
-        const int SpecialPurifiedWaterCount = 1;
+        const int SpecialWaterCount = 1;
 
         static readonly Dictionary<int, SpecialSquareKind> specialSquareKinds = new();
 
@@ -62,8 +62,8 @@ namespace Yoegoe.Minigames.Yut
                 specialSquareKinds[candidates[idx]] = SpecialSquareKind.IngredientBag;
             for (int i = 0; i < SpecialTreasureCount && idx < candidates.Count; i++, idx++)
                 specialSquareKinds[candidates[idx]] = SpecialSquareKind.Treasure;
-            for (int i = 0; i < SpecialPurifiedWaterCount && idx < candidates.Count; i++, idx++)
-                specialSquareKinds[candidates[idx]] = SpecialSquareKind.PurifiedWater;
+            for (int i = 0; i < SpecialWaterCount && idx < candidates.Count; i++, idx++)
+                specialSquareKinds[candidates[idx]] = SpecialSquareKind.Water;
 
             return specialSquareKinds;
         }

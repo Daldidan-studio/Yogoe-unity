@@ -18,7 +18,7 @@ namespace Yoegoe.Tests.EditMode
             var copy = PropCatalog.RuntimeCopy(src);
 
             Assert.AreNotSame(src, copy);
-            Assert.AreEqual(PropResourceType.PurifiedWater, copy.resourceType);
+            Assert.AreEqual(PropResourceType.Water, copy.resourceType);
             Assert.AreEqual(6, copy.baseCapacity);
             Assert.AreEqual(PropResourceType.Merit, src.resourceType);
             Assert.AreEqual("옛 이름", src.displayName);

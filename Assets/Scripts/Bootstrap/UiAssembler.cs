@@ -13,7 +13,7 @@ namespace Yoegoe.Bootstrap
         public struct Config
         {
             public Font hudFont;
-            public Sprite purifiedWaterIcon;
+            public Sprite waterIcon;
             public OfferingData[] offerings;
             public CharacterData goraniData;
         }
@@ -41,7 +41,7 @@ namespace Yoegoe.Bootstrap
             {
                 detail.font = cfg.hudFont;
                 detail.offerings = cfg.offerings;
-                detail.purifiedWaterIcon = cfg.purifiedWaterIcon;
+                detail.waterIcon = cfg.waterIcon;
                 if (!detail.gameObject.activeSelf)
                     detail.gameObject.SetActive(true);
             }
@@ -131,7 +131,7 @@ namespace Yoegoe.Bootstrap
             }
 
             hud.font = cfg.hudFont;
-            hud.purifiedWaterIcon = cfg.purifiedWaterIcon;
+            hud.waterIcon = cfg.waterIcon;
             hud.detailScreen = detail;
             if (!hud.gameObject.activeSelf)
                 hud.gameObject.SetActive(true);
