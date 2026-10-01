@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using Yoegoe.Characters;
@@ -77,12 +78,16 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void Catalog_RegistersEveryRecipeProduct_AndPoolIs24Offerings()
+        public void Catalog_RegistersEveryRecipeProduct_AndPoolIsAllOfferings()
         {
             var all = OfferingCatalog.Build(null);
 
-            Assert.AreEqual(36 + 24 + 36, all.Length); // 음식 36 · 공양물 24 · 황금음식 36
-            Assert.AreEqual(24, OfferingCatalog.RandomPool.Count);
+            // 레시피 결과물마다 1개 + 음식마다 황금음식 1개, 랜덤 풀 = 공양물 전부 (지금 36 · 24 · 36)
+            var products = Yoegoe.Cooking.CookingRecipeCatalog.Recipes
+                .GroupBy(r => r.Id).Select(g => g.First()).ToList();
+            int foods = products.Count(r => r.Kind == Yoegoe.Cooking.CookingResultKind.Food);
+            Assert.AreEqual(products.Count + foods, all.Length);
+            Assert.AreEqual(products.Count - foods, OfferingCatalog.RandomPool.Count);
             foreach (var o in OfferingCatalog.RandomPool)
                 Assert.AreEqual(OfferingKind.General, o.kind, o.offeringId);
             Assert.IsNotNull(OfferingCatalog.Find("sinseollo"));

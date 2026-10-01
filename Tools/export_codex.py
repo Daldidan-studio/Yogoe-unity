@@ -4,7 +4,7 @@
 시트 = 윷 말풍선 시트(Tools/yut_bubbles_sheets.config.json 의 sheet_id)의 탭 1개:
   codex  section, id, name, combo, description, note
          한 줄 = 도감 칸 1개 (재료 15 · 음식 36 · 공양물 24). 게임에 들어가는 건 description 뿐.
-         id·name·combo 는 코드(공양간 레시피)에서 만든 참고용 — id 는 바꾸지 마세요.
+         id·name·combo 는 레시피(recipes 탭)에서 만든 참고용 — id 는 바꾸지 마세요.
 
 사용법:
   python3 Tools/export_codex.py            # 시트 → codex.json   (npm run codex)
@@ -17,48 +17,29 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from export_characters import load_config, push_tab, read_csv_text, write_csv  # noqa: E402
 from export_yut_bubbles import fetch_sheet_csv  # noqa: E402
+from recipes_data import INGREDIENTS as _INGREDIENTS, KIND_KO, combo_text, products  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 JSON_PATH = ROOT / "Assets" / "Resources" / "codex.json"
-RECIPES_CS = ROOT / "Assets" / "Scripts" / "Cooking" / "CookingRecipeCatalog.cs"
 CSV_PATH = ROOT / "Tools" / "sheets" / "codex.csv"
 
 TAB = "codex"
 HEADERS = ["section", "id", "name", "combo", "description", "note"]
 
-# CookingIngredientId 순서 + 특수 수집품 (CodexScreen 재료 칸 순서와 같다)
-INGREDIENTS = [
-    ("Water", "물"), ("Chili", "고추"), ("Rice", "쌀"), ("RedBean", "팥"), ("Fruit", "과실"),
-    ("Namul", "산나물"), ("Herb", "약재"), ("Honey", "꿀"), ("Boar", "멧돼지고기"), ("Bird", "새고기"),
-    ("Fish", "물고기"), ("Egg", "새알"), ("Oil", "기름"), ("GoldenRice", "황금쌀"), ("GoldenHoney", "황금꿀"),
-]
-ING_NAME = dict(INGREDIENTS)
+# 재료 칸 = CookingIngredientId 순서 + 특수 수집품 (CodexScreen 재료 칸 순서와 같다)
+INGREDIENTS = _INGREDIENTS + [("GoldenRice", "황금쌀"), ("GoldenHoney", "황금꿀")]
 
 
 def recipe_rows() -> list[dict]:
-    """CookingRecipeCatalog.cs 의 Food(...)/Off(...) → 결과물별 한 줄 (조합 여러 개면 ' / ')."""
-    src = RECIPES_CS.read_text(encoding="utf-8")
-    order: list[str] = []
-    info: dict[str, dict] = {}
-    for kind, pid, name, args in re.findall(r'\b(Food|Off)\("(\w+)", "([^"]+)", ([^;]*)\);', src):
-        ings = [ING_NAME[a] for a in re.findall(r"CookingIngredientId\.(\w+)", args)]
-        combo = " + ".join(sorted(ings, key=lambda n: list(ING_NAME.values()).index(n)))
-        if pid not in info:
-            order.append(pid)
-            info[pid] = {"section": "음식" if kind == "Food" else "공양물", "id": pid, "name": name, "combos": []}
-        info[pid]["combos"].append(combo)
-    rows = []
-    for pid in order:
-        r = info[pid]
-        rows.append({"section": r["section"], "id": pid, "name": r["name"], "combo": " / ".join(r["combos"])})
-    return rows
+    """recipes.json(시트 recipes 탭) → 결과물별 한 줄 (조합 여러 개면 ' / ')."""
+    return [{"section": KIND_KO[p["kind"]], "id": p["id"], "name": p["name"],
+             "combo": " / ".join(combo_text(c) for c in p["combos"])} for p in products()]
 
 
 def all_rows() -> list[dict]:

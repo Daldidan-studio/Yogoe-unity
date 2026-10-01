@@ -40,12 +40,44 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void Total_Is60_Foods36_Offerings24()
+        public void Total_IsDistinctRecipeProducts()
         {
-            Assert.AreEqual(60, CookingCodex.Total);
-            int foods = CookingCodex.ProductIds.Count(id =>
-                CookingCodex.TryGetRecipe(id, out var r) && r.Kind == CookingResultKind.Food);
-            Assert.AreEqual(36, foods);
+            // 수집 수 = 레시피 결과물 수 (시트 recipes 탭 — 지금 60 = 음식 36 + 공양물 24)
+            var distinct = CookingRecipeCatalog.Recipes.Select(r => r.Id).Distinct().Count();
+            Assert.AreEqual(distinct, CookingCodex.Total);
+            Assert.Greater(CookingCodex.Total, 0);
+        }
+
+        [Test]
+        public void RecipesJson_FollowsRules()
+        {
+            // 음식 = 재료 2, 공양물 = 재료 3, 같은 조합이 두 요리에 없음
+            var seen = new System.Collections.Generic.Dictionary<string, string>();
+            foreach (var r in CookingRecipeCatalog.Recipes)
+            {
+                Assert.AreEqual(r.Kind == CookingResultKind.Food ? 2 : 3, r.Ingredients.Length, r.Id);
+                string key = string.Join(",", r.Ingredients);
+                if (seen.TryGetValue(key, out var other)) Assert.AreEqual(other, r.Id, "같은 조합: " + key);
+                seen[key] = r.Id;
+            }
+        }
+
+        [Test]
+        public void Catalog_LoadsFromJson_SheetEditsChangeMatching()
+        {
+            try
+            {
+                CookingRecipeCatalog.LoadFromJson(
+                    "{\"recipes\":[{\"id\":\"newdish\",\"name\":\"새요리\",\"kind\":\"Food\",\"ingredients\":[\"Rice\",\"Fish\"]}," +
+                    "{\"id\":\"bad\",\"name\":\"잘못\",\"kind\":\"Food\",\"ingredients\":[\"Rice\",\"Nope\"]}]}");
+                Assert.IsTrue(CookingRecipeCatalog.TryMatch(new[] { CookingIngredientId.Fish, CookingIngredientId.Rice }, out var r));
+                Assert.AreEqual("newdish", r.Id);
+                Assert.AreEqual(1, CookingCodex.Total, "잘못된 재료 줄은 건너뜀");
+            }
+            finally
+            {
+                CookingRecipeCatalog.LoadFromJson(Resources.Load<TextAsset>(CookingRecipeCatalog.ResourcePath).text);
+            }
         }
 
         [Test]

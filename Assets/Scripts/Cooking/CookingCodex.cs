@@ -5,7 +5,7 @@ using System.Linq;
 namespace Yoegoe.Cooking
 {
     /// <summary>
-    /// 요리책(도감) 발견 기록 (19장). 수집 수 = 음식 36 + 공양물 24 = <b>60</b> (같은 결과물의 다른 조합은 하나).
+    /// 요리책(도감) 발견 기록 (19장). 수집 수 = 레시피 결과물 수(지금 음식 36 + 공양물 24 = <b>60</b>, 시트 recipes 탭) — 같은 결과물의 다른 조합은 하나.
     /// 요리판에서 처음 완성하면 발견. 나가리를 쓰면 그 판에서 새로 발견한 것만 다시 잠근다.
     /// 황금음식은 원래 음식과 같은 칸. 세이브: <see cref="CaptureToSave"/> / <see cref="ResetFromSave"/>.
     /// </summary>
@@ -13,6 +13,7 @@ namespace Yoegoe.Cooking
     {
         static readonly HashSet<string> discovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         static List<string> productIds;
+        static int productIdsVersion = -1;
 
         public static event Action Changed;
 
@@ -21,10 +22,12 @@ namespace Yoegoe.Cooking
         {
             get
             {
-                if (productIds != null) return productIds;
+                var recipes = CookingRecipeCatalog.Recipes;
+                if (productIds != null && productIdsVersion == CookingRecipeCatalog.Version) return productIds;
+                productIdsVersion = CookingRecipeCatalog.Version;
                 productIds = new List<string>();
                 var seen = new HashSet<string>();
-                foreach (var r in CookingRecipeCatalog.Recipes)
+                foreach (var r in recipes)
                     if (seen.Add(r.Id)) productIds.Add(r.Id);
                 return productIds;
             }

@@ -1,0 +1,625 @@
+{
+  "recipes": [
+    {
+      "id": "bap",
+      "name": "밥",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Rice"
+      ]
+    },
+    {
+      "id": "kimchi",
+      "name": "김치",
+      "kind": "Food",
+      "ingredients": [
+        "Chili",
+        "Namul"
+      ]
+    },
+    {
+      "id": "sanchae",
+      "name": "산채",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Namul"
+      ]
+    },
+    {
+      "id": "yakcha",
+      "name": "약차",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Herb"
+      ]
+    },
+    {
+      "id": "kkulmul",
+      "name": "꿀물",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Honey"
+      ]
+    },
+    {
+      "id": "suyuk",
+      "name": "수육",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Boar"
+      ]
+    },
+    {
+      "id": "baeksuk",
+      "name": "백숙",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Bird"
+      ]
+    },
+    {
+      "id": "saengsunjjim",
+      "name": "생선찜",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Fish"
+      ]
+    },
+    {
+      "id": "salmedegg",
+      "name": "삶은 달걀",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Egg"
+      ]
+    },
+    {
+      "id": "patjuk",
+      "name": "팥죽",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "RedBean"
+      ]
+    },
+    {
+      "id": "patteok",
+      "name": "팥떡",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "RedBean"
+      ]
+    },
+    {
+      "id": "namulbap",
+      "name": "나물밥",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "Namul"
+      ]
+    },
+    {
+      "id": "kkulteok",
+      "name": "꿀떡",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "Honey"
+      ]
+    },
+    {
+      "id": "gogijuk",
+      "name": "고기죽",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "Bird"
+      ]
+    },
+    {
+      "id": "gogijuk",
+      "name": "고기죽",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "Boar"
+      ]
+    },
+    {
+      "id": "juak",
+      "name": "주악",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "Oil"
+      ]
+    },
+    {
+      "id": "sujeonggwa",
+      "name": "수정과",
+      "kind": "Food",
+      "ingredients": [
+        "Fruit",
+        "Herb"
+      ]
+    },
+    {
+      "id": "dasik",
+      "name": "다식",
+      "kind": "Food",
+      "ingredients": [
+        "Fruit",
+        "Honey"
+      ]
+    },
+    {
+      "id": "sanjeok",
+      "name": "산적",
+      "kind": "Food",
+      "ingredients": [
+        "Namul",
+        "Boar"
+      ]
+    },
+    {
+      "id": "sanjeok",
+      "name": "산적",
+      "kind": "Food",
+      "ingredients": [
+        "Namul",
+        "Bird"
+      ]
+    },
+    {
+      "id": "hwajeon",
+      "name": "화전",
+      "kind": "Food",
+      "ingredients": [
+        "Namul",
+        "Oil"
+      ]
+    },
+    {
+      "id": "yukpo",
+      "name": "육포",
+      "kind": "Food",
+      "ingredients": [
+        "Honey",
+        "Boar"
+      ]
+    },
+    {
+      "id": "yukpo",
+      "name": "육포",
+      "kind": "Food",
+      "ingredients": [
+        "Honey",
+        "Bird"
+      ]
+    },
+    {
+      "id": "saengsungui",
+      "name": "생선구이",
+      "kind": "Food",
+      "ingredients": [
+        "Fish",
+        "Oil"
+      ]
+    },
+    {
+      "id": "dalgyalmar",
+      "name": "달걀말이",
+      "kind": "Food",
+      "ingredients": [
+        "Egg",
+        "Oil"
+      ]
+    },
+    {
+      "id": "saengsunjorim",
+      "name": "생선조림",
+      "kind": "Food",
+      "ingredients": [
+        "Chili",
+        "Fish"
+      ]
+    },
+    {
+      "id": "jeyuk",
+      "name": "제육볶음",
+      "kind": "Food",
+      "ingredients": [
+        "Chili",
+        "Boar"
+      ]
+    },
+    {
+      "id": "saegui",
+      "name": "새구이",
+      "kind": "Food",
+      "ingredients": [
+        "Bird",
+        "Oil"
+      ]
+    },
+    {
+      "id": "samgyeopsal",
+      "name": "삼겹살구이",
+      "kind": "Food",
+      "ingredients": [
+        "Boar",
+        "Oil"
+      ]
+    },
+    {
+      "id": "gotgam",
+      "name": "곶감",
+      "kind": "Food",
+      "ingredients": [
+        "Fruit",
+        "Fruit"
+      ]
+    },
+    {
+      "id": "saengchae",
+      "name": "생채",
+      "kind": "Food",
+      "ingredients": [
+        "Namul",
+        "Namul"
+      ]
+    },
+    {
+      "id": "yeot",
+      "name": "엿",
+      "kind": "Food",
+      "ingredients": [
+        "Honey",
+        "Honey"
+      ]
+    },
+    {
+      "id": "jeonggwa",
+      "name": "정과",
+      "kind": "Food",
+      "ingredients": [
+        "Herb",
+        "Honey"
+      ]
+    },
+    {
+      "id": "gwasilcha",
+      "name": "과실차",
+      "kind": "Food",
+      "ingredients": [
+        "Water",
+        "Fruit"
+      ]
+    },
+    {
+      "id": "dalgyaljuk",
+      "name": "달걀죽",
+      "kind": "Food",
+      "ingredients": [
+        "Rice",
+        "Egg"
+      ]
+    },
+    {
+      "id": "gyeranjjim",
+      "name": "계란찜",
+      "kind": "Food",
+      "ingredients": [
+        "Egg",
+        "Egg"
+      ]
+    },
+    {
+      "id": "donggeurangttaeng",
+      "name": "동그랑떙",
+      "kind": "Food",
+      "ingredients": [
+        "Boar",
+        "Egg"
+      ]
+    },
+    {
+      "id": "yanggaeng",
+      "name": "양갱",
+      "kind": "Food",
+      "ingredients": [
+        "Honey",
+        "RedBean"
+      ]
+    },
+    {
+      "id": "sseunyak",
+      "name": "쓴약",
+      "kind": "Food",
+      "ingredients": [
+        "Herb",
+        "Herb"
+      ]
+    },
+    {
+      "id": "yukjeon",
+      "name": "육전",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Egg",
+        "Oil"
+      ]
+    },
+    {
+      "id": "samgyetang",
+      "name": "삼계탕",
+      "kind": "Offering",
+      "ingredients": [
+        "Bird",
+        "Herb",
+        "Water"
+      ]
+    },
+    {
+      "id": "baekseolgi",
+      "name": "백설기",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Rice",
+        "Water"
+      ]
+    },
+    {
+      "id": "sinseollo",
+      "name": "신선로",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Namul",
+        "Water"
+      ]
+    },
+    {
+      "id": "hanyak",
+      "name": "한약",
+      "kind": "Offering",
+      "ingredients": [
+        "Herb",
+        "Honey",
+        "Herb"
+      ]
+    },
+    {
+      "id": "saenggogi",
+      "name": "생고기",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Boar",
+        "Boar"
+      ]
+    },
+    {
+      "id": "saenggogi",
+      "name": "생고기",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Boar",
+        "Bird"
+      ]
+    },
+    {
+      "id": "saenggogi",
+      "name": "생고기",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Bird",
+        "Bird"
+      ]
+    },
+    {
+      "id": "saenggogi",
+      "name": "생고기",
+      "kind": "Offering",
+      "ingredients": [
+        "Bird",
+        "Bird",
+        "Bird"
+      ]
+    },
+    {
+      "id": "yakju",
+      "name": "약주",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Herb",
+        "Water"
+      ]
+    },
+    {
+      "id": "sikhye",
+      "name": "식혜",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Honey",
+        "Water"
+      ]
+    },
+    {
+      "id": "kkotmakgeolli",
+      "name": "꽃막걸리",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Water",
+        "Namul"
+      ]
+    },
+    {
+      "id": "yakgwa",
+      "name": "약과",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Honey",
+        "Oil"
+      ]
+    },
+    {
+      "id": "yaksik",
+      "name": "약식",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Fruit",
+        "Honey"
+      ]
+    },
+    {
+      "id": "songpyeon",
+      "name": "송편",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "RedBean",
+        "Water"
+      ]
+    },
+    {
+      "id": "tteokguk",
+      "name": "떡국",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Bird",
+        "Water"
+      ]
+    },
+    {
+      "id": "bibimbap",
+      "name": "비빔밥",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Namul",
+        "Egg"
+      ]
+    },
+    {
+      "id": "gujeolpan",
+      "name": "구절판",
+      "kind": "Offering",
+      "ingredients": [
+        "Namul",
+        "Boar",
+        "Egg"
+      ]
+    },
+    {
+      "id": "galbijjim",
+      "name": "갈비찜",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Fruit",
+        "Water"
+      ]
+    },
+    {
+      "id": "saegogigangjeong",
+      "name": "새고기강정",
+      "kind": "Offering",
+      "ingredients": [
+        "Bird",
+        "Chili",
+        "Oil"
+      ]
+    },
+    {
+      "id": "hwachae",
+      "name": "화채",
+      "kind": "Offering",
+      "ingredients": [
+        "Fruit",
+        "Honey",
+        "Water"
+      ]
+    },
+    {
+      "id": "yukgaejang",
+      "name": "육개장",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Namul",
+        "Chili"
+      ]
+    },
+    {
+      "id": "maun_tteokbokki",
+      "name": "매운 떡볶음",
+      "kind": "Offering",
+      "ingredients": [
+        "Rice",
+        "Chili",
+        "Honey"
+      ]
+    },
+    {
+      "id": "maeuntang",
+      "name": "매운탕",
+      "kind": "Offering",
+      "ingredients": [
+        "Fish",
+        "Chili",
+        "Water"
+      ]
+    },
+    {
+      "id": "gochujangbulgogi",
+      "name": "고추장불고기",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Chili",
+        "Honey"
+      ]
+    },
+    {
+      "id": "dakgalbi",
+      "name": "닭갈비",
+      "kind": "Offering",
+      "ingredients": [
+        "Bird",
+        "Chili",
+        "Namul"
+      ]
+    },
+    {
+      "id": "kimchijeon",
+      "name": "김치전",
+      "kind": "Offering",
+      "ingredients": [
+        "Chili",
+        "Namul",
+        "Oil"
+      ]
+    }
+  ]
+}

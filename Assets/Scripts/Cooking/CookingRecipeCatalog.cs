@@ -6,100 +6,70 @@ using UnityEngine;
 
 namespace Yoegoe.Cooking
 {
-    /// <summary>부록 A 레시피. 재료 순서는 무시(정렬 키 비교).</summary>
+    /// <summary>
+    /// 공양간 레시피. 정본 = 시트 recipes 탭 → Resources/recipes.json (npm run recipes) — 기획자가 조합을 바꾼다.
+    /// 재료 순서는 무시(정렬 키 비교). 같은 결과물 id의 여러 줄 = 다른 조합.
+    /// </summary>
     public static class CookingRecipeCatalog
     {
         static readonly Dictionary<string, CookingRecipe> ByKey = new Dictionary<string, CookingRecipe>();
         static readonly List<CookingRecipe> All = new List<CookingRecipe>();
         static bool loaded;
 
+        public const string ResourcePath = "recipes";
+        /// <summary>레시피를 다시 읽을 때마다 +1 (도감 칸 목록 캐시 무효화용).</summary>
+        public static int Version { get; private set; }
+
         public static IReadOnlyList<CookingRecipe> Recipes
         {
             get { Ensure(); return All; }
         }
 
+        [Serializable] class RecipeRow { public string id; public string name; public string kind; public string[] ingredients; }
+        [Serializable] class RecipeFile { public RecipeRow[] recipes; }
+
         public static void Ensure()
         {
             if (loaded) return;
             loaded = true;
-
-            // —— 음식 36 (재료 2) ——
-            Food("bap", "밥", CookingIngredientId.Water, CookingIngredientId.Rice);
-            Food("kimchi", "김치", CookingIngredientId.Chili, CookingIngredientId.Namul);
-            Food("sanchae", "산채", CookingIngredientId.Water, CookingIngredientId.Namul);
-            Food("yakcha", "약차", CookingIngredientId.Water, CookingIngredientId.Herb);
-            Food("kkulmul", "꿀물", CookingIngredientId.Water, CookingIngredientId.Honey);
-            Food("suyuk", "수육", CookingIngredientId.Water, CookingIngredientId.Boar);
-            Food("baeksuk", "백숙", CookingIngredientId.Water, CookingIngredientId.Bird);
-            Food("saengsunjjim", "생선찜", CookingIngredientId.Water, CookingIngredientId.Fish);
-            Food("salmedegg", "삶은 달걀", CookingIngredientId.Water, CookingIngredientId.Egg);
-            Food("patjuk", "팥죽", CookingIngredientId.Water, CookingIngredientId.RedBean);
-            Food("patteok", "팥떡", CookingIngredientId.Rice, CookingIngredientId.RedBean);
-            Food("namulbap", "나물밥", CookingIngredientId.Rice, CookingIngredientId.Namul);
-            Food("kkulteok", "꿀떡", CookingIngredientId.Rice, CookingIngredientId.Honey);
-            Food("gogijuk", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Bird);
-            Food("gogijuk", "고기죽", CookingIngredientId.Rice, CookingIngredientId.Boar);
-            Food("juak", "주악", CookingIngredientId.Rice, CookingIngredientId.Oil);
-            Food("sujeonggwa", "수정과", CookingIngredientId.Fruit, CookingIngredientId.Herb);
-            Food("dasik", "다식", CookingIngredientId.Fruit, CookingIngredientId.Honey);
-            Food("sanjeok", "산적", CookingIngredientId.Namul, CookingIngredientId.Boar);
-            Food("sanjeok", "산적", CookingIngredientId.Namul, CookingIngredientId.Bird);
-            Food("hwajeon", "화전", CookingIngredientId.Namul, CookingIngredientId.Oil);
-            Food("yukpo", "육포", CookingIngredientId.Honey, CookingIngredientId.Boar);
-            Food("yukpo", "육포", CookingIngredientId.Honey, CookingIngredientId.Bird);
-            Food("saengsungui", "생선구이", CookingIngredientId.Fish, CookingIngredientId.Oil);
-            Food("dalgyalmar", "달걀말이", CookingIngredientId.Egg, CookingIngredientId.Oil);
-            Food("saengsunjorim", "생선조림", CookingIngredientId.Chili, CookingIngredientId.Fish);
-            Food("jeyuk", "제육볶음", CookingIngredientId.Chili, CookingIngredientId.Boar);
-            Food("saegui", "새구이", CookingIngredientId.Bird, CookingIngredientId.Oil);
-            Food("samgyeopsal", "삼겹살구이", CookingIngredientId.Boar, CookingIngredientId.Oil);
-            Food("gotgam", "곶감", CookingIngredientId.Fruit, CookingIngredientId.Fruit);
-            Food("saengchae", "생채", CookingIngredientId.Namul, CookingIngredientId.Namul);
-            Food("yeot", "엿", CookingIngredientId.Honey, CookingIngredientId.Honey);
-            Food("jeonggwa", "정과", CookingIngredientId.Herb, CookingIngredientId.Honey);
-            Food("gwasilcha", "과실차", CookingIngredientId.Water, CookingIngredientId.Fruit);
-            Food("dalgyaljuk", "달걀죽", CookingIngredientId.Rice, CookingIngredientId.Egg);
-            Food("gyeranjjim", "계란찜", CookingIngredientId.Egg, CookingIngredientId.Egg);
-            Food("donggeurangttaeng", "동그랑떙", CookingIngredientId.Boar, CookingIngredientId.Egg);
-            Food("yanggaeng", "양갱", CookingIngredientId.Honey, CookingIngredientId.RedBean);
-            Food("sseunyak", "쓴약", CookingIngredientId.Herb, CookingIngredientId.Herb);
-
-            // —— 공양물 24 (재료 3) ——
-            Off("yukjeon", "육전", CookingIngredientId.Boar, CookingIngredientId.Egg, CookingIngredientId.Oil);
-            Off("samgyetang", "삼계탕", CookingIngredientId.Bird, CookingIngredientId.Herb, CookingIngredientId.Water);
-            Off("baekseolgi", "백설기", CookingIngredientId.Rice, CookingIngredientId.Rice, CookingIngredientId.Water);
-            Off("sinseollo", "신선로", CookingIngredientId.Boar, CookingIngredientId.Namul, CookingIngredientId.Water);
-            Off("hanyak", "한약", CookingIngredientId.Herb, CookingIngredientId.Honey, CookingIngredientId.Herb);
-            // 생고기: 멧/새 아무 3개 — 조합 4종이지만 결과물 id는 하나
-            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Boar);
-            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Boar, CookingIngredientId.Bird);
-            Off("saenggogi", "생고기", CookingIngredientId.Boar, CookingIngredientId.Bird, CookingIngredientId.Bird);
-            Off("saenggogi", "생고기", CookingIngredientId.Bird, CookingIngredientId.Bird, CookingIngredientId.Bird);
-            Off("yakju", "약주", CookingIngredientId.Rice, CookingIngredientId.Herb, CookingIngredientId.Water);
-            Off("sikhye", "식혜", CookingIngredientId.Rice, CookingIngredientId.Honey, CookingIngredientId.Water);
-            Off("kkotmakgeolli", "꽃막걸리", CookingIngredientId.Rice, CookingIngredientId.Water, CookingIngredientId.Namul);
-            Off("yakgwa", "약과", CookingIngredientId.Rice, CookingIngredientId.Honey, CookingIngredientId.Oil);
-            Off("yaksik", "약식", CookingIngredientId.Rice, CookingIngredientId.Fruit, CookingIngredientId.Honey);
-            Off("songpyeon", "송편", CookingIngredientId.Rice, CookingIngredientId.RedBean, CookingIngredientId.Water);
-            Off("tteokguk", "떡국", CookingIngredientId.Rice, CookingIngredientId.Bird, CookingIngredientId.Water);
-            Off("bibimbap", "비빔밥", CookingIngredientId.Rice, CookingIngredientId.Namul, CookingIngredientId.Egg);
-            Off("gujeolpan", "구절판", CookingIngredientId.Namul, CookingIngredientId.Boar, CookingIngredientId.Egg);
-            Off("galbijjim", "갈비찜", CookingIngredientId.Boar, CookingIngredientId.Fruit, CookingIngredientId.Water);
-            Off("saegogigangjeong", "새고기강정", CookingIngredientId.Bird, CookingIngredientId.Chili, CookingIngredientId.Oil);
-            Off("hwachae", "화채", CookingIngredientId.Fruit, CookingIngredientId.Honey, CookingIngredientId.Water);
-            Off("yukgaejang", "육개장", CookingIngredientId.Boar, CookingIngredientId.Namul, CookingIngredientId.Chili);
-            Off("maun_tteokbokki", "매운 떡볶음", CookingIngredientId.Rice, CookingIngredientId.Chili, CookingIngredientId.Honey);
-            Off("maeuntang", "매운탕", CookingIngredientId.Fish, CookingIngredientId.Chili, CookingIngredientId.Water);
-            Off("gochujangbulgogi", "고추장불고기", CookingIngredientId.Boar, CookingIngredientId.Chili, CookingIngredientId.Honey);
-            Off("dakgalbi", "닭갈비", CookingIngredientId.Bird, CookingIngredientId.Chili, CookingIngredientId.Namul);
-            Off("kimchijeon", "김치전", CookingIngredientId.Chili, CookingIngredientId.Namul, CookingIngredientId.Oil);
+            var asset = Resources.Load<TextAsset>(ResourcePath);
+            if (asset == null)
+            {
+                Debug.LogError("[CookingRecipeCatalog] Resources/recipes.json 이 없습니다 — npm run recipes");
+                return;
+            }
+            LoadFromJson(asset.text);
         }
 
-        static void Food(string id, string name, params CookingIngredientId[] ings)
-            => Add(new CookingRecipe(id, name, CookingResultKind.Food, ings));
-
-        static void Off(string id, string name, params CookingIngredientId[] ings)
-            => Add(new CookingRecipe(id, name, CookingResultKind.Offering, ings));
+        /// <summary>recipes.json 내용으로 다시 채운다 (테스트·핫리로드). 잘못된 줄은 건너뛰고 로그.</summary>
+        public static void LoadFromJson(string json)
+        {
+            loaded = true;
+            Version++;
+            All.Clear();
+            ByKey.Clear();
+            var file = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<RecipeFile>(json);
+            if (file?.recipes == null) return;
+            foreach (var row in file.recipes)
+            {
+                if (row == null || string.IsNullOrEmpty(row.id) || row.ingredients == null) continue;
+                if (!Enum.TryParse(row.kind, true, out CookingResultKind kind))
+                {
+                    Debug.LogError($"[CookingRecipeCatalog] {row.id}: kind '{row.kind}' 를 모름");
+                    continue;
+                }
+                var ings = new CookingIngredientId[row.ingredients.Length];
+                bool ok = row.ingredients.Length >= 2;
+                for (int i = 0; i < ings.Length && ok; i++)
+                    ok = Enum.TryParse(row.ingredients[i], true, out ings[i]) && ings[i] != CookingIngredientId.Count;
+                if (!ok)
+                {
+                    Debug.LogError($"[CookingRecipeCatalog] {row.id}: 재료 '{string.Join(",", row.ingredients)}' 를 모름");
+                    continue;
+                }
+                Add(new CookingRecipe(row.id, string.IsNullOrEmpty(row.name) ? row.id : row.name, kind, ings));
+            }
+        }
 
         static void Add(CookingRecipe r)
         {

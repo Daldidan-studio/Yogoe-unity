@@ -37,7 +37,6 @@ JSON_PATH = ROOT / "Assets" / "Resources" / "characters.json"
 SHEETS_DIR = ROOT / "Tools" / "sheets"
 CONFIG_PATH = ROOT / "Tools" / "yut_bubbles_sheets.config.json"
 ENUMS_PATH = ROOT / "Assets" / "Scripts" / "Data" / "Enums.cs"
-RECIPES_PATH = ROOT / "Assets" / "Scripts" / "Cooking" / "CookingRecipeCatalog.cs"
 OFFERING_ASSETS = ROOT / "Assets" / "Data" / "Offerings"
 
 TAB_CHARACTERS = "characters"
@@ -66,11 +65,11 @@ def known_character_ids() -> list[str]:
 
 
 def known_offering_ids() -> dict[str, str]:
-    """공양간 레시피(Food/Off) + 공양물 에셋 offeringId → 이름."""
+    """공양간 레시피(recipes.json) + 공양물 에셋 offeringId → 이름."""
+    from recipes_data import load_recipes
     ids: dict[str, str] = {}
-    src = RECIPES_PATH.read_text(encoding="utf-8")
-    for m in re.finditer(r'\b(?:Food|Off)\("([^"]+)",\s*"([^"]+)"', src):
-        ids[m.group(1)] = m.group(2)
+    for r in load_recipes():  # recipes.json (시트 recipes 탭)
+        ids.setdefault(r["id"], r["name"])
     for p in OFFERING_ASSETS.glob("*.asset"):
         text = p.read_text(encoding="utf-8")
         oid = re.search(r"\n\s*offeringId:\s*(\S+)", text)
