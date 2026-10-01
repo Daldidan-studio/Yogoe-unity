@@ -123,7 +123,7 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void FinishCharm_IsInventoryPool()
         {
-            // 완주 보상 = 사전 부적 5종 균등 (나가리·정화수 광고 2배 모델 폐기).
+            // 완주 보상 = 사전 부적 5종 균등 (나가리·물 광고 2배 모델 폐기).
             for (int i = 0; i < 20; i++)
             {
                 var c = YutRewards.RollFinishCharm();

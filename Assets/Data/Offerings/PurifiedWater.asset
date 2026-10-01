@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PurifiedWater
   m_EditorClassIdentifier: 
   offeringId: purifiedwater
-  displayName: 정화수
+  displayName: 물
   kind: 2
   icon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
   staminaGain: 3

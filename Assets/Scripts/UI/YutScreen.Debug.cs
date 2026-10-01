@@ -130,7 +130,7 @@ namespace Yoegoe.UI
             YutBoardLayout.SpecialSquareKind.Coin => "엽전",
             YutBoardLayout.SpecialSquareKind.IngredientBag => "재료보따리",
             YutBoardLayout.SpecialSquareKind.Treasure => "보물상자",
-            YutBoardLayout.SpecialSquareKind.PurifiedWater => "정화수",
+            YutBoardLayout.SpecialSquareKind.PurifiedWater => "물",
             _ => kind.ToString(),
         };
 

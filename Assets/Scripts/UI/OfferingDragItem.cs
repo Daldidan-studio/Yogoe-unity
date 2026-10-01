@@ -7,7 +7,7 @@ using Yoegoe.Economy;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 상세화면 공양물/정화수 드래그. 본문(초상·정보) 위에 놓으면 DetailScreen이 급여 처리.
+    /// 상세화면 공양물/물 드래그. 본문(초상·정보) 위에 놓으면 DetailScreen이 급여 처리.
     /// </summary>
     public class OfferingDragItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
@@ -40,7 +40,7 @@ namespace Yoegoe.UI
             {
                 if (GameEconomy.Instance == null || GameEconomy.Instance.PurifiedWater < 1)
                 {
-                    screen.NotifyFeedBlocked("정화수가 없어요");
+                    screen.NotifyFeedBlocked("물이 없어요");
                     return;
                 }
             }

@@ -25,7 +25,7 @@ namespace Yoegoe.Minigames.Yut
     }
 
     /// <summary>
-    /// 특수 칸(엽전/재료보따리/보물상자/정화수) 발견 → 확인/2배 선택 → 지급·비행.
+    /// 특수 칸(엽전/재료보따리/보물상자/물) 발견 → 확인/2배 선택 → 지급·비행.
     /// 재화 적용·보드 칸 소모는 Host, 이 클래스는 대기 상태와 팝업 흐름만.
     /// </summary>
     public sealed class YutSquareRewardPresenter
@@ -78,7 +78,7 @@ namespace Yoegoe.Minigames.Yut
 
                 case YutBoardLayout.SpecialSquareKind.PurifiedWater:
                     pendingReward = new YutSquareReward(YutSquareRewardKind.PurifiedWater, null, 1);
-                    message = "정화수 칸 발견!\n정화수를 얻을 수 있어요.";
+                    message = "물 칸 발견!\n물을 얻을 수 있어요.";
                     break;
 
                 default:

@@ -21,7 +21,7 @@ namespace Yoegoe.UI.EditorTools
         [MenuItem(SquareRoot + "재료보따리 칸 → 받기/광고", false, 171)]
         static void SquareIngredientBag() => RunSquare(YutBoardLayout.SpecialSquareKind.IngredientBag);
 
-        [MenuItem(SquareRoot + "정화수 칸 → 받기/광고", false, 172)]
+        [MenuItem(SquareRoot + "물 칸 → 받기/광고", false, 172)]
         static void SquarePurifiedWater() => RunSquare(YutBoardLayout.SpecialSquareKind.PurifiedWater);
 
         [MenuItem(SquareRoot + "보물상자 → 내용확인→받기/광고", false, 173)]
@@ -74,7 +74,7 @@ namespace Yoegoe.UI.EditorTools
 
         [MenuItem(SquareRoot + "엽전 칸 → 받기/광고", true)]
         [MenuItem(SquareRoot + "재료보따리 칸 → 받기/광고", true)]
-        [MenuItem(SquareRoot + "정화수 칸 → 받기/광고", true)]
+        [MenuItem(SquareRoot + "물 칸 → 받기/광고", true)]
         [MenuItem(SquareRoot + "보물상자 → 내용확인→받기/광고", true)]
         [MenuItem(ChallengeRoot + "모 2연속 → 보물상자×3", true)]
         [MenuItem(ChallengeRoot + "빽도 2연속 → 보물상자×3", true)]

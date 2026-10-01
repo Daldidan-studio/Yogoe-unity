@@ -122,7 +122,7 @@ namespace Yoegoe.UI
                     break;
                 case YutSquareRewardKind.PurifiedWater:
                     icon = YutMiniGame.PurifiedWaterIcon();
-                    label = "정화수";
+                    label = "물";
                     break;
                 case YutSquareRewardKind.Hyang:
                     label = "향";
@@ -231,7 +231,7 @@ namespace Yoegoe.UI
                 ApplySpecialSquareVisuals();
         }
 
-        /// <summary>보드 위 특수 칸마다 무슨 보상인지 아이콘을 입힌다 — 엽전·재료보따리·정화수는
+        /// <summary>보드 위 특수 칸마다 무슨 보상인지 아이콘을 입힌다 — 엽전·재료보따리·물은
         /// 내용물을, 보물상자 칸은 안이 뭔지 숨기고 상자 아이콘만 보여준다.</summary>
         void ApplySpecialSquareVisuals()
         {
@@ -239,7 +239,7 @@ namespace Yoegoe.UI
             miniGame.RefreshSpecialSquareVisuals(BuildSpecialSquareIcons());
         }
 
-        /// <summary>공양물 칸에 배정할 후보 — 정화수 제외 전체 공양물 목록. 수동 루프로 필터링한다
+        /// <summary>공양물 칸에 배정할 후보 — 물 제외 전체 공양물 목록. 수동 루프로 필터링한다
         /// (LINQ .Where/.ToList를 새 조합에 처음 쓰면 IL2CPP WebGL에서 "null function"이 나던
         /// 문제 때문에 — 오늘 이미 두 번 겪었다).</summary>
         /// <summary>공양물 칸·보물상자 풀 = 3차 공양물 24종 (OfferingCatalog.RandomPool).
@@ -345,7 +345,7 @@ namespace Yoegoe.UI
                 {
                     Icon = YutMiniGame.PurifiedWaterIcon(),
                     Count = matchPurifiedWaterTotal,
-                    Label = "정화수",
+                    Label = "물",
                 });
             }
             if (matchHyangTotal > 0)
@@ -402,7 +402,7 @@ namespace Yoegoe.UI
                 parts.Add($"{kv.Key.displayName} {kv.Value}개");
             }
             if (matchYeopjeonTotal > 0) parts.Add($"엽전 {matchYeopjeonTotal}개");
-            if (matchPurifiedWaterTotal > 0) parts.Add($"정화수 {matchPurifiedWaterTotal}개");
+            if (matchPurifiedWaterTotal > 0) parts.Add($"물 {matchPurifiedWaterTotal}개");
             if (matchHyangTotal > 0) parts.Add($"향 {matchHyangTotal}개");
             if (matchAdTicketTotal > 0) parts.Add($"광고보상권 {matchAdTicketTotal}개");
             if (matchYutTokenTotal > 0) parts.Add($"윷 토큰 {matchYutTokenTotal}개");
@@ -468,8 +468,8 @@ namespace Yoegoe.UI
                 case YutSquareRewardKind.PurifiedWater:
                     matchPurifiedWaterTotal += amount;
                     TrackMatchLoot(YutSquareRewardKind.PurifiedWater, null, amount);
-                    miniGame.AddPlayLogEntry($"정화수 {amount}개 획득.");
-                    return $"정화수 {amount}개";
+                    miniGame.AddPlayLogEntry($"물 {amount}개 획득.");
+                    return $"물 {amount}개";
                 case YutSquareRewardKind.Hyang:
                     matchHyangTotal += amount;
                     TrackMatchLoot(YutSquareRewardKind.Hyang, null, amount);

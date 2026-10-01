@@ -6,7 +6,7 @@ using Yoegoe.Data;
 namespace Yoegoe.Tests.EditMode
 {
     /// <summary>
-    /// 공양 규칙: 기절은 정화수로만 깨어남(0→1) / 기력 최대면 기력은 멈추고 친밀도만 오름.
+    /// 공양 규칙: 기절은 물로만 깨어남(0→1) / 기력 최대면 기력은 멈추고 친밀도만 오름.
     /// 공양물 카탈로그: 공양간 레시피 결과물이 전부 등록되고, 랜덤 풀은 공양물 24종.
     /// </summary>
     public class OfferingRulesTests

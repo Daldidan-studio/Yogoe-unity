@@ -78,7 +78,7 @@ namespace Yoegoe.Economy
         static List<OfferingData> BuildCandidates(string excludeId)
         {
             var list = new List<OfferingData>();
-            // 3차: 진열은 공양물 24종에서 (음식·정화수 제외)
+            // 3차: 진열은 공양물 24종에서 (음식·물 제외)
             var poolSrc = OfferingCatalog.RandomPool;
             if (poolSrc.Count > 0)
             {

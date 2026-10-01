@@ -1893,7 +1893,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uC815\uD654\uC218\xB7\uACF5\uC591\uBB3C\uC744 \uB4DC\uB798\uADF8\uD574
+  m_Text: "\uBB3C\xB7\uACF5\uC591\uBB3C\uC744 \uB4DC\uB798\uADF8\uD574
     \uCE90\uB9AD\uD130\uC5D0\uAC8C \uBA39\uC774\uC138\uC694"
 --- !u!1 &3312510964810726800
 GameObject:
@@ -2693,7 +2693,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uC815\uD654\uC218"
+  m_Text: "\uBB3C"
 --- !u!1 &5281153465306559483
 GameObject:
   m_ObjectHideFlags: 0
@@ -4140,7 +4140,7 @@ GameObject:
   - component: {fileID: 1495641893609482573}
   - component: {fileID: 8206575550052053810}
   m_Layer: 0
-  m_Name: "Action_\uC815\uD654\uC218"
+  m_Name: "Action_\uBB3C"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

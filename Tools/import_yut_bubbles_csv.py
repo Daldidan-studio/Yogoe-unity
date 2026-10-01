@@ -71,7 +71,7 @@ DEFAULT_NOTES = {
     "candidate.treasure": "후보 말 보물칸",
     "candidate.offering": "후보 말 공양물칸",
     "candidate.coin": "후보 말 엽전칸",
-    "candidate.purified_water": "후보 말 정화수칸",
+    "candidate.purified_water": "후보 말 물 칸",
     "candidate.capture": "후보 말 이무기 잡기",
     "candidate.stack": "후보 말 업기 — {ally}",
     "candidate.finish": "후보 말 완주",

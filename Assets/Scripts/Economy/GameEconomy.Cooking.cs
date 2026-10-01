@@ -14,14 +14,22 @@ namespace Yoegoe.Economy
         readonly Dictionary<int, int> MaterialCounts = new Dictionary<int, int>();
         public event Action OnMaterialsChanged;
 
+        /// <summary>요리 재료 개수. 물은 따로 쌓지 않고 물 재화(<see cref="PurifiedWater"/>)를 그대로 쓴다.</summary>
         public int GetMaterialCount(Yoegoe.Cooking.CookingIngredientId id)
         {
+            if (id == Yoegoe.Cooking.CookingIngredientId.Water) return PurifiedWater;
             return MaterialCounts.TryGetValue((int)id, out int n) ? n : 0;
         }
 
         public void AddMaterial(Yoegoe.Cooking.CookingIngredientId id, int amount)
         {
             if (amount == 0) return;
+            if (id == Yoegoe.Cooking.CookingIngredientId.Water)
+            {
+                if (amount > 0) AddPurifiedWater(amount);
+                else TrySpendPurifiedWater(Math.Min(-amount, PurifiedWater));
+                return;
+            }
             int key = (int)id;
             MaterialCounts.TryGetValue(key, out int cur);
             MaterialCounts[key] = Math.Max(0, cur + amount);
@@ -31,6 +39,7 @@ namespace Yoegoe.Economy
         public bool TrySpendMaterial(Yoegoe.Cooking.CookingIngredientId id, int amount)
         {
             if (amount < 0) return false;
+            if (id == Yoegoe.Cooking.CookingIngredientId.Water) return TrySpendPurifiedWater(amount);
             int key = (int)id;
             MaterialCounts.TryGetValue(key, out int cur);
             if (cur < amount) return false;
@@ -50,7 +59,7 @@ namespace Yoegoe.Economy
             Debug.Log($"[GameEconomy] 요리 획득 {displayName} x{amount} ({kind}) id={productId}");
         }
 
-        /// <summary>세이브용: 재료 개수를 CookingIngredientId 순서 배열로.</summary>
+        /// <summary>세이브용: 재료 개수를 CookingIngredientId 순서 배열로. 물 칸은 항상 0(물 재화로 따로 저장).</summary>
         public int[] CaptureMaterialCounts()
         {
             var arr = new int[(int)Yoegoe.Cooking.CookingIngredientId.Count];
@@ -65,7 +74,7 @@ namespace Yoegoe.Economy
             MaterialCounts.Clear();
             if (counts != null)
                 for (int i = 0; i < counts.Length && i < (int)Yoegoe.Cooking.CookingIngredientId.Count; i++)
-                    if (counts[i] > 0) MaterialCounts[i] = counts[i];
+                    if (counts[i] > 0 && i != (int)Yoegoe.Cooking.CookingIngredientId.Water) MaterialCounts[i] = counts[i];
             OnMaterialsChanged?.Invoke();
         }
 
@@ -138,7 +147,7 @@ namespace Yoegoe.Economy
             for (int i = 0; i < (int)Yoegoe.Cooking.CookingIngredientId.Count; i++)
             {
                 var id = (Yoegoe.Cooking.CookingIngredientId)i;
-                if (id == Yoegoe.Cooking.CookingIngredientId.Water) continue; // 물은 옹달샘
+                if (id == Yoegoe.Cooking.CookingIngredientId.Water) continue; // 물은 물 재화(옹달샘)
                 MaterialCounts[i] = each;
             }
             OnMaterialsChanged?.Invoke();

@@ -22,7 +22,7 @@ namespace Yoegoe.Data
         [Tooltip("엽전 가격. 물은 0.")]
         public int shopPriceYeopjeon = 10;
 
-        /// <summary>정화수(물)인지 — kind 또는 id로 판정(구 에셋 호환).</summary>
+        /// <summary>물인지 — kind 또는 id로 판정(구 에셋 호환).</summary>
         public bool IsPurifiedWater =>
             kind == OfferingKind.PurifiedWater
             || string.Equals(offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);

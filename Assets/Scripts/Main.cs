@@ -48,7 +48,7 @@ namespace Yoegoe
         [Tooltip("한글 표시용 폰트. 비워두면 유니티 기본 폰트로 나오는데 한글이 깨질 수 있음 " +
                  "(Assets/Fonts/DOSGothic.ttf 연결 권장 — 프로젝트에 이미 있는 한글 폰트).")]
         public Font hudFont;
-        [Tooltip("정화수 재화 칩에 쓸 아이콘 (Assets/Art/Offerings/Offering_PurifiedWater 연결 권장).")]
+        [Tooltip("물 재화 칩에 쓸 아이콘 (Assets/Art/Offerings/Offering_PurifiedWater 연결 권장).")]
         public Sprite purifiedWaterIcon;
         [Tooltip("상세화면 하단 급여 바에 나열할 공양물 전체 목록 (Assets/Data/Offerings/*.asset 전부 연결).")]
         public OfferingData[] offerings;

@@ -289,7 +289,7 @@ namespace Yoegoe.UI
             if (purifiedWaterText != null && eco.PurifiedWater != lastPurifiedWater)
             {
                 lastPurifiedWater = eco.PurifiedWater;
-                purifiedWaterText.text = "정화수 " + lastPurifiedWater;
+                purifiedWaterText.text = "물 " + lastPurifiedWater;
             }
             if (yutTokenText != null
                 && (eco.YutToken != lastYutToken || eco.YutTokenMax != lastYutTokenMax))

@@ -208,7 +208,7 @@ namespace Yoegoe.Minigames.Yut
             return _yeopjeonIcon;
         }
 
-        /// <summary>정화수 아이콘. 카탈로그 OfferingData, 없으면 Resources 폴백.</summary>
+        /// <summary>물 아이콘. 카탈로그 OfferingData, 없으면 Resources 폴백.</summary>
         public static Sprite PurifiedWaterIcon()
         {
             if (_purifiedWaterIcon != null) return _purifiedWaterIcon;
@@ -302,7 +302,7 @@ namespace Yoegoe.Minigames.Yut
             Destroy(flyRoot);
         }
 
-        /// <summary>동(東) 구역 — 이번 매치에서 특수 칸으로 모은 것들(공양물·정화수·엽전)을
+        /// <summary>동(東) 구역 — 이번 매치에서 특수 칸으로 모은 것들(공양물·물·엽전)을
         /// 아이콘+개수로 보여준다. YutScreen이 재화를 지급할 때마다 최신 목록을 넘겨준다.</summary>
         public void ShowCollectedItems(IReadOnlyList<CollectedItemView> items)
         {
@@ -342,7 +342,7 @@ namespace Yoegoe.Minigames.Yut
             var go = new GameObject("ItemIcons", typeof(RectTransform));
             go.transform.SetParent(east, false);
             var rt = go.GetComponent<RectTransform>();
-            // 동 구역 상단 절반 — 공양물·정화수·엽전. 하단 절반은 완주 말.
+            // 동 구역 상단 절반 — 공양물·물·엽전. 하단 절반은 완주 말.
             ApplyEastHalfAnchors(rt, upperHalf: true);
 
             var grid = go.AddComponent<GridLayoutGroup>();

@@ -13,8 +13,8 @@ using Yoegoe.Cooking;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
-    /// 레이아웃은 Prefab만 사용. 선호·인벤토리 칩은 항상 코드로 갱신. 정화수·공양물은 드래그해서 본문에 놓아 먹인다.
+    /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 물·선호공양·인벤토리.
+    /// 레이아웃은 Prefab만 사용. 선호·인벤토리 칩은 항상 코드로 갱신. 물·공양물은 드래그해서 본문에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
     {
@@ -221,7 +221,7 @@ namespace Yoegoe.UI
         void RebindPurifiedDragItem()
         {
             if (root == null) return;
-            var chip = root.transform.Find("Dialog/BottomBar/Action_정화수");
+            var chip = root.transform.Find("Dialog/BottomBar/Action_물");
             if (chip == null) return;
 
             var drag = chip.GetComponentInChildren<OfferingDragItem>(true);
@@ -237,7 +237,7 @@ namespace Yoegoe.UI
         {
             if (purifiedCountText == null && root != null)
             {
-                var badge = root.transform.Find("Dialog/BottomBar/Action_정화수/IconBox/CountBadge");
+                var badge = root.transform.Find("Dialog/BottomBar/Action_물/IconBox/CountBadge");
                 if (badge != null)
                     purifiedCountText = badge.GetComponentInChildren<Text>(true);
             }
@@ -361,7 +361,7 @@ namespace Yoegoe.UI
 
         /// <summary>
         /// 초상 위로 공양물을 끌고 오면 표정 힌트: 선호면 ♥, 아니면 💢.
-        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 정화수는 힌트 없음.
+        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 물은 힌트 없음.
         /// </summary>
         void UpdateEmoteHint(bool over)
         {
@@ -411,7 +411,7 @@ namespace Yoegoe.UI
                 feedHintText.text = reason;
         }
 
-        static string DefaultFeedHint() => "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+        static string DefaultFeedHint() => "물·공양물을 드래그해 캐릭터에게 먹이세요";
 
         public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
         {
@@ -494,10 +494,10 @@ namespace Yoegoe.UI
 
         static string FeedBlockMessage(FeedBlock block, OfferingData offering) => block switch
         {
-            FeedBlock.NoItem => offering == null || offering.IsPurifiedWater ? "정화수가 없어요" : "공양물이 없어요",
+            FeedBlock.NoItem => offering == null || offering.IsPurifiedWater ? "물이 없어요" : "공양물이 없어요",
             FeedBlock.StaminaFull => "기력이 가득 찼어요",
             FeedBlock.StaminaAndIntimacyFull => "기력·친밀도가 모두 가득 찼어요",
-            FeedBlock.FaintedNeedsWater => "기절한 요괴는 정화수로만 깨어나요",
+            FeedBlock.FaintedNeedsWater => "기절한 요괴는 물로만 깨어나요",
             _ => "",
         };
 

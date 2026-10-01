@@ -128,15 +128,22 @@ namespace Yoegoe.Economy
             return true;
         }
 
-        // ---------------- 정화수 ----------------
+        // ---------------- 물 (구 정화수) ----------------
+        // 공양(기력·기절 회복)과 요리 재료 '물'이 같은 재고. 이름(PurifiedWater)은 세이브·시트 호환으로 유지.
         public int PurifiedWater { get; private set; }
         public event Action<int> OnPurifiedWaterChanged;
-        public void AddPurifiedWater(int amount) { PurifiedWater += amount; OnPurifiedWaterChanged?.Invoke(PurifiedWater); }
+        public void AddPurifiedWater(int amount)
+        {
+            PurifiedWater += amount;
+            OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            OnMaterialsChanged?.Invoke();
+        }
         public bool TrySpendPurifiedWater(int amount)
         {
             if (amount < 0 || PurifiedWater < amount) return false;
             PurifiedWater -= amount;
             OnPurifiedWaterChanged?.Invoke(PurifiedWater);
+            OnMaterialsChanged?.Invoke();
             return true;
         }
 
@@ -207,7 +214,7 @@ namespace Yoegoe.Economy
             if (changed) OnYutTokenChanged?.Invoke(YutToken);
         }
 
-        // ---------------- 공양물 인벤토리 (정화수 제외) ----------------
+        // ---------------- 공양물 인벤토리 (물 제외) ----------------
         private readonly Dictionary<string, int> OfferingCounts = new Dictionary<string, int>();
         public event Action OnOfferingsChanged;
 
@@ -333,7 +340,7 @@ namespace Yoegoe.Economy
                 foreach (var o in s.startingOfferings)
                 {
                     if (o == null) continue;
-                    if (o.kind == OfferingKind.PurifiedWater) continue; // 정화수는 재화 칸
+                    if (o.kind == OfferingKind.PurifiedWater) continue; // 물은 재화 칸
                     AddOffering(o, each);
                 }
             }

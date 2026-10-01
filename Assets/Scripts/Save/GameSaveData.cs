@@ -100,7 +100,7 @@ namespace Yoegoe.Save
         public string shopRightOfferingId = "";
         public long shopNextRefreshUtcTicks;
 
-        /// <summary>공양물 인벤 (정화수 제외). null이면 구세이브 — StartingState 유지.</summary>
+        /// <summary>공양물 인벤 (물 제외). null이면 구세이브 — StartingState 유지.</summary>
         public OfferingCountSave[] offerings;
 
         /// <summary>요리 재료 개수 (CookingIngredientId 순서). null/빈 배열이면 구세이브 — 시작 재료 유지.</summary>

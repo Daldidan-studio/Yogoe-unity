@@ -46,7 +46,7 @@ namespace Yoegoe.Minigames.Yut
 
         /// <summary>
         /// 매 윷판(매치)마다 새로 뽑는다 — 참(0)과 이름 있는 칸(모·뒷모·찌모·방)은 제외하고
-        /// 엽전 2칸 + 재료보따리 1칸 + 보물상자 1칸 + 정화수 1칸을 무작위로 배정한다.
+        /// 엽전 2칸 + 재료보따리 1칸 + 보물상자 1칸 + 물 1칸을 무작위로 배정한다.
         /// </summary>
         public static IReadOnlyDictionary<int, SpecialSquareKind> RegenerateSpecialSquares()
         {

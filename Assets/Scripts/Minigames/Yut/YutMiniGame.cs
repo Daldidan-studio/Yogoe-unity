@@ -368,7 +368,7 @@ namespace Yoegoe.Minigames.Yut
         {
             if (pad == null) return;
             pad.color = YutBoardLayout.IsSpecialReward(nodeId)
-                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/재료보따리/보물상자/정화수
+                ? new Color(0.35f, 0.55f, 0.85f, 0.9f) // 특수 칸 — 엽전/재료보따리/보물상자/물
                 : IsWaypoint(nodeId)
                     ? new Color(0.7f, 0.55f, 0.3f, 0.85f)
                     : new Color(0.35f, 0.32f, 0.28f, 0.9f);

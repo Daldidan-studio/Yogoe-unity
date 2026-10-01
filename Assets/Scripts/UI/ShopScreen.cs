@@ -42,7 +42,7 @@ namespace Yoegoe.UI
                 Id = "intro1",
                 Name = "입문 패키지",
                 PriceLabel = "₩1,500",
-                Contents = "엽전 50\n향 1\n정화수 5"
+                Contents = "엽전 50\n향 1\n물 5"
             },
             new PackageDef
             {
@@ -56,7 +56,7 @@ namespace Yoegoe.UI
                 Id = "intro3",
                 Name = "풍요 패키지",
                 PriceLabel = "₩9,900",
-                Contents = "엽전 500\n향 5\n정화수 20"
+                Contents = "엽전 500\n향 5\n물 20"
             }
         };
 
