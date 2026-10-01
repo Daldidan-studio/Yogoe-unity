@@ -177,7 +177,7 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>윷 토큰(하트) 바로 왼쪽의 [+] — 놀이판 안에서도 토큰을 충전/구매할 수 있게.
-        /// 실제 구매 로직(엽전/광고)은 YutScreen이 여는 YutTokenShopPopup이 담당하고, 여기선
+        /// 실제 구매 로직(엽전/광고)은 YutScreen이 여는 DualActionPopup이 담당하고, 여기선
         /// 탭 이벤트만 올려보낸다(YutMiniGame은 재화를 모른다).</summary>
         void EnsureTokenPlusButton()
         {

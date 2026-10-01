@@ -545,7 +545,7 @@ namespace Yoegoe.UI
             if (rewardRoot != null && rewardRoot.activeSelf) return true;
             if (choiceRoot != null && choiceRoot.activeSelf) return true;
             if (reviveRoot != null && reviveRoot.activeSelf) return true;
-            if (confirmRoot != null && confirmRoot.activeSelf) return true;
+            if (ConfirmPopup.Instance != null && ConfirmPopup.Instance.IsOpen) return true;
             return false;
         }
 
@@ -605,9 +605,9 @@ namespace Yoegoe.UI
                 return true;
             }
 
-            if (confirmRoot != null && confirmRoot.activeSelf)
+            if (ConfirmPopup.Instance != null && ConfirmPopup.Instance.IsOpen)
             {
-                OnConfirmNoClicked();
+                ConfirmPopup.Dismiss();
                 return true;
             }
 
@@ -739,7 +739,7 @@ namespace Yoegoe.UI
             if (choiceRoot != null) choiceRoot.SetActive(false);
             if (rewardRoot != null) rewardRoot.SetActive(false);
             if (reviveRoot != null) reviveRoot.SetActive(false);
-            if (confirmRoot != null) confirmRoot.SetActive(false);
+            ConfirmPopup.Dismiss();
             if (miniGame != null) miniGame.ClearCandidates();
         }
 #endif

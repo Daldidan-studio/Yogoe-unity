@@ -70,10 +70,6 @@ namespace Yoegoe.UI
         [SerializeField] Text reviveText;
         [SerializeField] Button reviveYesButton;
         [SerializeField] Button reviveNoButton;
-        [SerializeField] GameObject confirmRoot;
-        [SerializeField] Text confirmText;
-        [SerializeField] Button confirmYesButton;
-        [SerializeField] Button confirmNoButton;
 
         const float ReviveAdWatchSeconds = 0.8f;
 
@@ -157,8 +153,6 @@ namespace Yoegoe.UI
         Action pendingRewardAd;
         Action pendingReviveYes;
         Action pendingReviveNo;
-        Action pendingConfirmYes;
-        Action pendingConfirmNo;
 
         void Awake()
         {
@@ -344,6 +338,7 @@ namespace Yoegoe.UI
             if (choiceRoot != null) choiceRoot.SetActive(false);
             if (rewardRoot != null) rewardRoot.SetActive(false);
             if (reviveRoot != null) reviveRoot.SetActive(false);
+            ConfirmPopup.Dismiss();
             if (miniGame != null) miniGame.Hide();
             if (root != null) root.SetActive(false);
             IsOpen = false;
@@ -444,7 +439,7 @@ namespace Yoegoe.UI
 
         IEnumerator ReviveAdRoutine()
         {
-            // 실제 광고 SDK가 붙기 전까지 BatchCollectPopup과 동일한 짧은 지연으로 시청을 흉내낸다.
+            // 실제 광고 SDK가 붙기 전까지 DualActionPopup과 동일한 짧은 지연으로 시청을 흉내낸다.
             yield return new WaitForSecondsRealtime(ReviveAdWatchSeconds);
 
             if (match != null && pendingReviveSnapshots != null && match.ReviveCapturedPieces(pendingReviveSnapshots))
@@ -976,7 +971,7 @@ namespace Yoegoe.UI
         /// 화면 안에서도 그대로 연다.</summary>
         void HandleBuyTokensPressed()
         {
-            if (YutTokenShopPopup.Instance != null) YutTokenShopPopup.Instance.Open();
+            if (DualActionPopup.Instance != null) DualActionPopup.Instance.OpenYutTokenShop();
         }
 
         void HandlePiecesChanged()
@@ -1304,7 +1299,6 @@ namespace Yoegoe.UI
             var rootRt = (RectTransform)root.transform;
             if (rewardRoot == null) BuildRewardPanel(rootRt);
             if (reviveRoot == null) BuildRevivePanel(rootRt);
-            if (confirmRoot == null) BuildConfirmPanel(rootRt);
         }
 
         void WireRuntimeListeners()
@@ -1370,18 +1364,6 @@ namespace Yoegoe.UI
             {
                 reviveNoButton.onClick.RemoveAllListeners();
                 reviveNoButton.onClick.AddListener(OnReviveNoClicked);
-            }
-
-            if (confirmYesButton != null)
-            {
-                confirmYesButton.onClick.RemoveAllListeners();
-                confirmYesButton.onClick.AddListener(OnConfirmYesClicked);
-            }
-
-            if (confirmNoButton != null)
-            {
-                confirmNoButton.onClick.RemoveAllListeners();
-                confirmNoButton.onClick.AddListener(OnConfirmNoClicked);
             }
         }
 

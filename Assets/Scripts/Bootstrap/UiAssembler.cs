@@ -46,18 +46,14 @@ namespace Yoegoe.Bootstrap
                     detail.gameObject.SetActive(true);
             }
 
+            // ConfirmPopup Prefab을 쓰는 확인 흐름 — 셸 없이 로직만 올림.
             var purchaseGO = new GameObject("PropPurchasePopup");
-            purchaseGO.SetActive(false);
-            var purchase = purchaseGO.AddComponent<PropPurchasePopup>();
-            purchase.font = cfg.hudFont;
-            purchaseGO.SetActive(true);
+            purchaseGO.AddComponent<PropPurchasePopup>();
 
             var summonGO = new GameObject("SummonPopup");
-            summonGO.SetActive(false);
             var summon = summonGO.AddComponent<SummonPopup>();
             summon.font = cfg.hudFont;
             summon.goraniData = cfg.goraniData;
-            summonGO.SetActive(true);
 
             var ceremonyGO = new GameObject("SummonCeremony");
             var ceremony = ceremonyGO.AddComponent<SummonCeremony>();
@@ -109,17 +105,11 @@ namespace Yoegoe.Bootstrap
             gift.font = cfg.hudFont;
             giftGO.SetActive(true);
 
-            var batchGO = new GameObject("BatchCollectPopup");
-            batchGO.SetActive(false);
-            var batch = batchGO.AddComponent<BatchCollectPopup>();
-            batch.font = cfg.hudFont;
-            batchGO.SetActive(true);
-
-            var yutShopGO = new GameObject("YutTokenShopPopup");
-            yutShopGO.SetActive(false);
-            var yutShop = yutShopGO.AddComponent<YutTokenShopPopup>();
-            yutShop.font = cfg.hudFont;
-            yutShopGO.SetActive(true);
+            var dualGO = new GameObject("DualActionPopup");
+            dualGO.SetActive(false);
+            var dual = dualGO.AddComponent<DualActionPopup>();
+            dual.font = cfg.hudFont;
+            dualGO.SetActive(true);
 
             var hud = Object.FindAnyObjectByType<GameHud>(FindObjectsInactive.Include);
             if (hud == null)
@@ -153,6 +143,9 @@ namespace Yoegoe.Bootstrap
 
             var attendance = Object.FindAnyObjectByType<AttendanceScreen>(FindObjectsInactive.Include);
             if (attendance != null) attendance.Close();
+
+            ConfirmPopup.Dismiss();
+            if (DualActionPopup.Instance != null) DualActionPopup.Instance.Close();
         }
     }
 }

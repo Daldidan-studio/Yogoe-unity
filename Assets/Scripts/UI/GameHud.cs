@@ -130,9 +130,9 @@ namespace Yoegoe.UI
         /// <summary>버드나무 만땅 탭: 광고 2배 / 그냥 받기 (공덕은 일괄 대기분으로 옮겨진 상태).</summary>
         void HandleWillowFullTapped(Vector3 worldPos)
         {
-            if (BatchCollectPopup.Instance != null)
+            if (DualActionPopup.Instance != null)
             {
-                BatchCollectPopup.Instance.OpenFromWorld(worldPos);
+                DualActionPopup.Instance.OpenBatchFromWorld(worldPos);
                 return;
             }
             var before = GameEconomy.Instance.MeritPile;
@@ -568,8 +568,8 @@ namespace Yoegoe.UI
         {
             // 버드나무 만땅 팝업을 받지 않고 닫은 일괄 대기분
             if (!GameEconomy.Instance.HasPendingBatchMerit) return;
-            if (BatchCollectPopup.Instance != null)
-                BatchCollectPopup.Instance.Open(from);
+            if (DualActionPopup.Instance != null)
+                DualActionPopup.Instance.OpenBatch(from);
             else
                 ClaimBatchWithoutPopup(from);
         }
@@ -798,7 +798,7 @@ namespace Yoegoe.UI
                 yutTokenPlusButton.onClick.RemoveAllListeners();
                 yutTokenPlusButton.onClick.AddListener(() =>
                 {
-                    if (YutTokenShopPopup.Instance != null) YutTokenShopPopup.Instance.Open();
+                    if (DualActionPopup.Instance != null) DualActionPopup.Instance.OpenYutTokenShop();
                 });
             }
 
@@ -882,7 +882,7 @@ namespace Yoegoe.UI
             trigger.triggers.Add(exit);
         }
 
-        /// <summary>윷 토큰 칩 옆 작은 [+] — 눌러 YutTokenShopPopup(엽전 구매/광고 충전)을 연다.</summary>
+        /// <summary>윷 토큰 칩 옆 작은 [+] — 눌러 DualActionPopup 윷 토큰 상점(엽전 구매/광고 충전)을 연다.</summary>
         Button CreateYutTokenPlusButton(Transform parent)
         {
             const float size = 40f;

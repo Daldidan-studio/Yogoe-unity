@@ -12,8 +12,15 @@ namespace Yoegoe.Characters
         public const float OfferingDurationSeconds = 60f;
         public const float RequestIntervalMin = 3f * 60f;
         public const float RequestIntervalMax = 5f * 60f;
-        /// <summary>기력 ≤ 최대 − 이 값 이면 요구 후보 구간.</summary>
-        public const float StaminaRequestMargin = 25f;
+        /// <summary>기력 구간에 처음 들어왔을 때(소환·로드 포함) 첫 체크까지.</summary>
+        public const float EnterBandCheckMin = 0f;
+        public const float EnterBandCheckMax = 10f;
+        /// <summary>
+        /// 기력 ≤ 최대 − 이 값 이면 요구 후보.
+        /// 음식 1회 회복(+8) 기준 — 예전 +25 잔재가 아님.
+        /// 고라니 소환(1/25)도 바로 후보.
+        /// </summary>
+        public const float StaminaRequestMargin = 8f;
 
         public static event System.Action<string> GiftBundleAwarded;
 
@@ -25,6 +32,7 @@ namespace Yoegoe.Characters
 
         SpriteRenderer offeringIcon;
         readonly CharacterAgent owner;
+        bool wasInLowStaminaBand;
 
         const string DefaultThanksLine = "너무 맛있어. 고마워.";
         const string DefaultGiftLine = "이거… 챙겨뒀어.";
@@ -32,23 +40,48 @@ namespace Yoegoe.Characters
         public CharacterRequestState(CharacterAgent agent)
         {
             owner = agent;
-            ScheduleNextCheck();
+            wasInLowStaminaBand = InLowStaminaBand();
+            // 소환 직후(기력 1/25) 등은 3~5분을 기다리지 않고 곧 체크
+            if (wasInLowStaminaBand) ScheduleSoonCheck();
+            else ScheduleNextCheck();
         }
 
+        /// <summary>
+        /// 매 프레임 CharacterAgent.Update()에서 호출된다.
+        /// dt = 이번 프레임에 흐른 시간(초). 현재 로직에서는 직접 쓰지 않고
+        /// Time.time(게임 시작 후 누적 시간)으로 만료·인터벌을 판단한다.
+        /// </summary>
         public void Tick(float dt)
         {
+            // ── 1. 요구 만료 체크 ──────────────────────────────────────────
+            // 음식 요구가 있는데 만료 시각(OfferingExpireAt)이 지났으면 제거한다.
+            // OfferingExpireAt = 요구 생성 시각 + 60초(OfferingDurationSeconds)
             if (HasOfferingRequest && Time.time >= OfferingExpireAt)
                 ClearOfferingRequest();
 
+            bool inBand = InLowStaminaBand();
+            // 풀피 → 저기력으로 들어오는 순간에도 곧 한 번 체크
+            if (inBand && !wasInLowStaminaBand && !HasOfferingRequest)
+                ScheduleSoonCheck();
+            wasInLowStaminaBand = inBand;
+
+            // ── 2. 새 음식 요구 생성 체크 ─────────────────────────────────
+            // 아래 조건을 모두 만족할 때만 새 요구를 만든다:
+            //   ① 현재 요구가 없을 것 (!HasOfferingRequest)
+            //   ② 기절 상태가 아닐 것  (CanSpawnOfferingRequest)
+            //   ③ 기력 ≤ 최대 − 8 (음식 +8 기준, InLowStaminaBand)
+            //   ④ 다음 체크 시각이 됐을 것 (구간 진입 직후 0~10초 / 이후 3~5분)
             if (!HasOfferingRequest
                 && CanSpawnOfferingRequest()
-                && InLowStaminaBand()
+                && inBand
                 && Time.time >= NextRequestCheckAt)
             {
-                TryStartOfferingRequest();
-                ScheduleNextCheck();
+                TryStartOfferingRequest(); // 음식 결정 + 머리 위 아이콘 표시
+                ScheduleNextCheck();       // 다음 체크 시각을 3~5분 뒤로 예약
             }
 
+            // ── 3. 머리 위 아이콘 위치 갱신 ──────────────────────────────
+            // 캐릭터가 이동하므로 매 프레임 아이콘 위치를 캐릭터 머리 위로 맞춘다.
             UpdateVisualPositions();
         }
 
@@ -57,9 +90,14 @@ namespace Yoegoe.Characters
             NextRequestCheckAt = Time.time + Random.Range(RequestIntervalMin, RequestIntervalMax);
         }
 
+        void ScheduleSoonCheck()
+        {
+            NextRequestCheckAt = Time.time + Random.Range(EnterBandCheckMin, EnterBandCheckMax);
+        }
+
         bool InLowStaminaBand()
         {
-            if (owner == null) return false;
+            if (owner == null || owner.Stats == null) return false;
             return owner.Stats.Stamina <= owner.MaxStamina - StaminaRequestMargin + 0.001f;
         }
 

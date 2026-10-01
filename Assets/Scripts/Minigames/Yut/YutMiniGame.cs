@@ -36,7 +36,7 @@ namespace Yoegoe.Minigames.Yut
         /// 속도 기반 — 던지는 연출(아치 높이·회전·착지 퍼짐)에만 쓰고 결과 확률엔 영향 없다.</summary>
         public event Action<float> OnThrowPressed;
         public event Action OnLeavePressed;
-        /// <summary>윷 토큰(하트) 옆 [+] 버튼 — YutScreen이 YutTokenShopPopup을 연다.</summary>
+        /// <summary>윷 토큰(하트) 옆 [+] 버튼 — YutScreen이 DualActionPopup 윷 토큰 상점을 연다.</summary>
         public event Action OnBuyTokensPressed;
         /// <summary>FlashCandidates로 보드 위에 띄운 후보 중 하나를 유저가 탭했을 때 — 그 요괴 id와
         /// (갈림길 후보였다면) 지름길을 골랐는지 여부.</summary>

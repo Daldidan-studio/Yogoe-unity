@@ -7967,10 +7967,6 @@ MonoBehaviour:
   reviveText: {fileID: 2931425338055813893}
   reviveYesButton: {fileID: 9219929356370348855}
   reviveNoButton: {fileID: 1653946739334231082}
-  confirmRoot: {fileID: 749935053063030043}
-  confirmText: {fileID: 9011743626246169638}
-  confirmYesButton: {fileID: 4203471366668088418}
-  confirmNoButton: {fileID: 3419127155629441805}
 --- !u!1 &8786145991940872308
 GameObject:
   m_ObjectHideFlags: 0

@@ -7,7 +7,7 @@ using Yoegoe.Economy;
 namespace Yoegoe.Characters
 {
     /// <summary>
-    /// 요괴 소환 (기획 9장) — 소환 절차의 단일 소스. UI는 확인 창(SummonPopup)과 연출만 담당하고
+    /// 요괴 소환 (기획 9장) — 소환 절차의 단일 소스. UI는 확인 창(SummonPopup→ConfirmPopup)과 연출만 담당하고
     /// 대상 결정·향 차감·스폰·초기화·저장은 전부 여기(<see cref="TrySummon"/>)를 거친다.
     /// - 3번째 빈 슬롯 → 향 3 → 고라니 고정
     /// - 4번째 잠긴 슬롯 → 엽전 99로 열기 → 향 3 → 구미호 확정

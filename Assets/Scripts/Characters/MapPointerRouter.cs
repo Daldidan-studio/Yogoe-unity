@@ -34,7 +34,7 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 잠긴 기물 탭·자물쇠 위 앉히기 시도 → 구매 팝업 요청.
-        /// 두 번째 인자는 건설 후 앉힐 요괴(탭이면 null). UI(PropPurchasePopup)가 구독한다.
+        /// 두 번째 인자는 건설 후 앉힐 요괴(탭이면 null). UI(PropPurchasePopup→ConfirmPopup)가 구독한다.
         /// </summary>
         public static event System.Action<PropSlot, CharacterAgent> PropPurchaseRequested;
 
