@@ -65,6 +65,7 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void Catalog_LoadsFromJson_SheetEditsChangeMatching()
         {
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("bad: 재료"));
             try
             {
                 CookingRecipeCatalog.LoadFromJson(
