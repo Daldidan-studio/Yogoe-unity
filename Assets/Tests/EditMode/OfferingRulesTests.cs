@@ -81,7 +81,7 @@ namespace Yoegoe.Tests.EditMode
         {
             var all = OfferingCatalog.Build(null);
 
-            Assert.AreEqual(36 + 24, all.Length);
+            Assert.AreEqual(36 + 24 + 36, all.Length); // 음식 36 · 공양물 24 · 황금음식 36
             Assert.AreEqual(24, OfferingCatalog.RandomPool.Count);
             foreach (var o in OfferingCatalog.RandomPool)
                 Assert.AreEqual(OfferingKind.General, o.kind, o.offeringId);
