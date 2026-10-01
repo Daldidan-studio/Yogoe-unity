@@ -39,6 +39,11 @@ namespace Yoegoe.Cooking
         public readonly List<(CookingRecipe recipe, int count, bool golden)> Results = new List<(CookingRecipe, int, bool)>();
         /// <summary>판에 올라간 재료(황금 칸은 쌀·꿀로). 시작(<see cref="StartRound"/>) 때 인벤에서 차감된다 — 미리보기 중엔 차감 전.</summary>
         public readonly List<CookingIngredientId> SpentOnBoard = new List<CookingIngredientId>();
+        /// <summary>이번 판에서 처음 발견한 레시피(결과물 id) — 결과창 금색, 나가리면 다시 잠금.</summary>
+        public readonly List<string> NewlyDiscovered = new List<string>();
+        /// <summary>판이 끝날 때 판에 남은 재료 — 결과창 '스러진 재료'(회수 부적이면 '회수한 재료').</summary>
+        public readonly List<BoardItem> Leftover = new List<BoardItem>();
+
         /// <summary>판에 올라간 황금쌀·황금꿀 개수 (SpentOnBoard의 쌀·꿀 중 이만큼은 특수 수집품에서 뺀다).</summary>
         readonly Dictionary<SpecialItemId, int> goldenOnBoard = new Dictionary<SpecialItemId, int>();
 
@@ -80,6 +85,8 @@ namespace Yoegoe.Cooking
             Results.Clear();
             SpentOnBoard.Clear();
             goldenOnBoard.Clear();
+            NewlyDiscovered.Clear();
+            Leftover.Clear();
             path.Clear();
             ClairvoyanceActive = false;
             TimeLeft = ResolveLimit(charm);
@@ -211,6 +218,10 @@ namespace Yoegoe.Cooking
         }
 
         /// <summary>판 시작 — 판에 올라간 재료를 이때 인벤에서 뺀다. 인벤이 그사이 줄어 모자라면 false(아무것도 안 뺌).</summary>
+        /// <summary>지금 판에서 만들 수 있는 요리 (상태 줄 — 발견한 건 이름, 아직 못 본 건 '?').</summary>
+        public List<CookingRecipe> MakeableNow() =>
+            Grid == null ? new List<CookingRecipe>() : CookingRecipeCatalog.CompletableRecipes(Grid, AllowDiagonal);
+
         public bool StartRound()
         {
             if (!CanStart) return false;
@@ -346,6 +357,7 @@ namespace Yoegoe.Cooking
                 int mult = PreCharm == CookingCharmType.Double ? 2 : 1;
                 // 황금쌀·황금꿀이 들어간 음식 = 황금음식 (공양물은 황금 버전 없음 — 일반으로)
                 AddResult(recipe, mult, anyGolden && recipe.Kind == CookingResultKind.Food);
+                if (CookingCodex.Discover(recipe.Id)) NewlyDiscovered.Add(recipe.Id);
                 for (int i = 0; i < path.Count; i++)
                 {
                     var (px, py) = path[i];
@@ -454,6 +466,9 @@ namespace Yoegoe.Cooking
             }
             SpentOnBoard.Clear();
             goldenOnBoard.Clear();
+            // 그 판에서 새로 발견한 레시피는 도감에서 다시 잠긴다 (이미 예전에 발견한 건 유지)
+            foreach (var id in NewlyDiscovered) CookingCodex.Forget(id);
+            NewlyDiscovered.Clear();
             EndRound(timeUp: false, nagari: true);
         }
 
@@ -465,8 +480,12 @@ namespace Yoegoe.Cooking
             path.Clear();
 
             var eco = Yoegoe.Economy.GameEconomy.Instance;
+            Leftover.Clear();
             if (!nagari)
             {
+                for (int y = 0; y < GridSize; y++)
+                for (int x = 0; x < GridSize; x++)
+                    if (Grid[x, y].HasValue) Leftover.Add(new BoardItem(Grid[x, y].Value, Golden[x, y]));
                 if (PreCharm == CookingCharmType.Recycle && eco != null)
                 {
                     // 남은 재료 반환

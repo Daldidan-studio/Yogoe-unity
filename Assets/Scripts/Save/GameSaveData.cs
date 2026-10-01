@@ -118,6 +118,9 @@ namespace Yoegoe.Save
 
         /// <summary>요리 부적 개수 (CookingCharmType 순서). null/빈이면 구세이브 — 0으로.</summary>
         public int[] charms;
+
+        /// <summary>요리책 발견한 결과물 id. null = 구세이브 → 가진 음식·공양물로 채운다.</summary>
+        public string[] codexDiscovered;
     }
 
     [Serializable]

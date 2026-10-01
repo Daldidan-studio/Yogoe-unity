@@ -27,6 +27,11 @@ public class GongyangganScreen : MonoBehaviour
     [SerializeField] Button closeButton;
     [SerializeField] GameObject resultPopup;
     [SerializeField] Text resultBody;
+    // 요리책(19장) — Prefab 이름으로 바인딩
+    [SerializeField] Button codexButton;
+    [SerializeField] Text codexButtonLabel;
+    [SerializeField] Text makeableText;
+    [SerializeField] Button rekindleButton;
 
     readonly Image[,] cellImages = new Image[CookingSession.GridSize, CookingSession.GridSize];
     readonly Text[,] cellLabels = new Text[CookingSession.GridSize, CookingSession.GridSize];
@@ -94,7 +99,8 @@ public class GongyangganScreen : MonoBehaviour
 
     void Update()
     {
-        if (session != null && root != null && root.activeInHierarchy)
+        // 요리책을 여는 동안 타이머는 멈춘다 (19장)
+        if (session != null && root != null && root.activeInHierarchy && !CodexScreen.IsShowing)
             session.Tick(Time.unscaledDeltaTime);
     }
 
@@ -168,6 +174,16 @@ public class GongyangganScreen : MonoBehaviour
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(Close);
+        }
+        if (codexButton != null)
+        {
+            codexButton.onClick.RemoveAllListeners();
+            codexButton.onClick.AddListener(() => CodexScreen.Instance?.Open());
+        }
+        if (rekindleButton != null)
+        {
+            rekindleButton.onClick.RemoveAllListeners();
+            rekindleButton.onClick.AddListener(OnRekindle);
         }
         if (resultPopup != null)
         {
@@ -266,23 +282,80 @@ public class GongyangganScreen : MonoBehaviour
             yes: "광고 보고 +15초", no: "그만하기");
     }
 
+    /// <summary>결과창 (19장): 이번에 만든 요리 · 새로 얻은 레시피(금색) · 스러진 재료(회수 부적이면 회수한 재료).</summary>
+    /// <summary>상태 줄 '지금 만들 수 있는 요리' — 발견한 요리는 이름, 아직 못 본 건 '?' (19장).</summary>
+    public static string MakeableLine(CookingSession s)
+    {
+        if (s == null || s.Finished) return "";
+        var list = s.MakeableNow();
+        if (list.Count == 0) return "만들 수 있는 요리 없음";
+        var names = new System.Collections.Generic.List<string>();
+        int unknown = 0;
+        foreach (var r in list)
+        {
+            if (CookingCodex.IsDiscovered(r.Id)) names.Add(r.DisplayName);
+            else unknown++;
+        }
+        for (int i = 0; i < unknown; i++) names.Add("?");
+        return "만들 수 있는 요리: " + string.Join(" · ", names);
+    }
+
     void OnRoundEnded()
     {
         if (resultPopup == null || resultBody == null || session == null) return;
-        var sb = new System.Text.StringBuilder();
-        if (session.Results.Count == 0)
-            sb.Append("이번 판 획득 없음");
-        else
-        {
-            sb.AppendLine("획득:");
-            foreach (var (recipe, count, golden) in session.Results)
-                sb.AppendLine(golden
-                    ? $"· <color=#FFD54A>황금 {recipe.DisplayName}</color> x{count}"
-                    : $"· {recipe.DisplayName} x{count}");
-        }
-        resultBody.text = sb.ToString();
+        resultBody.text = BuildResultText(session);
         resultPopup.SetActive(true);
         RefreshView();
+    }
+
+    public static string BuildResultText(CookingSession s)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("이번에 만든 요리");
+        if (s.Results.Count == 0)
+            sb.AppendLine("· 없음");
+        foreach (var (recipe, count, golden) in s.Results)
+            sb.AppendLine(golden
+                ? $"· <color=#FFD54A>황금 {recipe.DisplayName}</color> x{count}"
+                : $"· {recipe.DisplayName} x{count}");
+
+        if (s.NewlyDiscovered.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("새로 얻은 레시피");
+            foreach (var id in s.NewlyDiscovered)
+                if (CookingCodex.TryGetRecipe(id, out var r))
+                    sb.AppendLine($"<color=#FFD54A>· {r.DisplayName}</color>");
+        }
+
+        if (s.Leftover.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine(s.PreCharm == CookingCharmType.Recycle ? "회수한 재료" : "스러진 재료");
+            var counts = new System.Collections.Generic.Dictionary<string, int>();
+            var order = new System.Collections.Generic.List<string>();
+            foreach (var item in s.Leftover)
+            {
+                string name = (item.Golden ? "황금" : "") + CookingRecipeCatalog.DisplayName(item.Id);
+                if (!counts.ContainsKey(name)) { counts[name] = 0; order.Add(name); }
+                counts[name]++;
+            }
+            var parts = new System.Collections.Generic.List<string>();
+            foreach (var name in order) parts.Add($"{name} {counts[name]}");
+            sb.AppendLine(string.Join(" · ", parts));
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>'다시 지피다' — 같은 부적(남아 있으면)으로 새 판을 깔고 바로 시작 절차(재료 부족 확인 포함).</summary>
+    void OnRekindle()
+    {
+        if (resultPopup != null) resultPopup.SetActive(false);
+        if (selectedCharm != CookingCharmType.None
+            && (GameEconomy.Instance == null || GameEconomy.Instance.GetCharmCount(selectedCharm) <= 0))
+            selectedCharm = CookingCharmType.None;
+        RebuildSession();
+        OnStart();
     }
 
     void RefreshView()
@@ -304,6 +377,8 @@ public class GongyangganScreen : MonoBehaviour
                 : session.Finished ? $"끝 · {charm}"
                 : $"준비 · 재료 {session.MaterialsOnBoard}개 · {charm}";
         }
+        if (codexButtonLabel != null) codexButtonLabel.text = "요리책 " + CodexScreen.RateShort;
+        if (makeableText != null) makeableText.text = MakeableLine(session);
         if (nagariButton != null)
             nagariButton.gameObject.SetActive(session.ShowNagari);
         if (extendButton != null)
@@ -482,6 +557,11 @@ public class GongyangganScreen : MonoBehaviour
         if (resultPopup == null) resultPopup = rt.Find("ResultPopup")?.gameObject;
         if (resultPopup != null && resultBody == null)
             resultBody = FindUiText(resultPopup.transform, "Box/Body/Text");
+        if (codexButton == null) codexButton = rt.Find("CodexButton")?.GetComponent<Button>();
+        if (codexButtonLabel == null) codexButtonLabel = FindUiText(rt, "CodexButton/Label");
+        if (makeableText == null) makeableText = FindUiText(rt, "Makeable");
+        if (resultPopup != null && rekindleButton == null)
+            rekindleButton = resultPopup.transform.Find("Box/Rekindle")?.GetComponent<Button>();
     }
 
     static Text FindUiText(Transform root, string path)

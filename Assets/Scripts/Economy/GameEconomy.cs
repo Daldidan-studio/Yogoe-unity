@@ -357,6 +357,7 @@ namespace Yoegoe.Economy
             OnWaterChanged?.Invoke(Water);
             OnYutTokenChanged?.Invoke(YutToken);
             GiftBundle.ResetFromSave(0, false, 0);
+            Yoegoe.Cooking.CookingCodex.ResetFromSave(null);
             ShopStock.ResetFromSave("", "", 0);
         }
 

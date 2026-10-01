@@ -150,7 +150,25 @@ namespace Yoegoe.Cooking
         /// <summary>현재 남은 칸으로 완성 가능한 레시피가 하나라도 있으면 true.</summary>
         public static bool AnyCompletable(CookingIngredientId?[,] grid, bool diagonal)
         {
+            foreach (var _ in EnumerateCompletable(grid, diagonal)) return true;
+            return false;
+        }
+
+        /// <summary>현재 판에서 만들 수 있는 레시피 (결과물 id 기준 중복 없이) — 상태 줄 '지금 만들 수 있는 요리'.</summary>
+        public static List<CookingRecipe> CompletableRecipes(CookingIngredientId?[,] grid, bool diagonal)
+        {
+            var list = new List<CookingRecipe>();
+            var seen = new HashSet<string>();
+            foreach (var r in EnumerateCompletable(grid, diagonal))
+                if (seen.Add(r.Id)) list.Add(r);
+            return list;
+        }
+
+        /// <summary>연결된 2~3칸 조합 중 레시피가 되는 것 (같은 레시피가 여러 번 나올 수 있음).</summary>
+        static IEnumerable<CookingRecipe> EnumerateCompletable(CookingIngredientId?[,] grid, bool diagonal)
+        {
             Ensure();
+            if (grid == null) yield break;
             int w = grid.GetLength(0);
             int h = grid.GetLength(1);
             var cells = new List<(int x, int y, CookingIngredientId id)>();
@@ -160,7 +178,7 @@ namespace Yoegoe.Cooking
                 if (grid[x, y].HasValue)
                     cells.Add((x, y, grid[x, y].Value));
             }
-            if (cells.Count < 2) return false;
+            if (cells.Count < 2) yield break;
 
             // 2~3칸 부분집합 + 연결성 검사 (작아서 전수 OK)
             for (int i = 0; i < cells.Count; i++)
@@ -168,20 +186,19 @@ namespace Yoegoe.Cooking
             {
                 var two = new[] { cells[i].id, cells[j].id };
                 Array.Sort(two);
-                if (ByKey.ContainsKey(KeyOf(two))
+                if (ByKey.TryGetValue(KeyOf(two), out var r2)
                     && IsConnected(new[] { cells[i], cells[j] }, diagonal))
-                    return true;
+                    yield return r2;
 
                 for (int k = j + 1; k < cells.Count; k++)
                 {
                     var three = new[] { cells[i].id, cells[j].id, cells[k].id };
                     Array.Sort(three);
-                    if (ByKey.ContainsKey(KeyOf(three))
+                    if (ByKey.TryGetValue(KeyOf(three), out var r3)
                         && IsConnected(new[] { cells[i], cells[j], cells[k] }, diagonal))
-                        return true;
+                        yield return r3;
                 }
             }
-            return false;
         }
 
         static bool IsConnected((int x, int y, CookingIngredientId id)[] nodes, bool diagonal)

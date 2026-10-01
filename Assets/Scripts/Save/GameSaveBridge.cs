@@ -97,6 +97,7 @@ namespace Yoegoe.Save
             data.economy.specialItems = GameEconomy.Instance.CaptureSpecialItemCounts();
             data.economy.charms = GameEconomy.Instance.CaptureCharmCounts();
             Attendance.CaptureToSave(out data.economy.attendanceNextDayIndex, out data.economy.attendanceLastHandledDayKey);
+            data.economy.codexDiscovered = Yoegoe.Cooking.CookingCodex.CaptureToSave();
             data.economy.lockedSlotUnlocked = CharacterSummon.LockedSlotUnlocked;
 
             // Props
@@ -271,6 +272,25 @@ namespace Yoegoe.Save
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
             Attendance.ResetFromSave(e.attendanceNextDayIndex, e.attendanceLastHandledDayKey);
             CharacterSummon.ResetFromSave(e.lockedSlotUnlocked);
+            RestoreCodex(e.codexDiscovered, GameEconomy.Instance);
+        }
+
+        /// <summary>요리책 복원. 구세이브(null)는 지금 가진 음식·공양물을 발견한 것으로 친다.</summary>
+        public static void RestoreCodex(string[] discovered, GameEconomy eco)
+        {
+            if (discovered != null)
+            {
+                Yoegoe.Cooking.CookingCodex.ResetFromSave(discovered);
+                return;
+            }
+            var owned = new List<string>();
+            if (eco != null)
+            {
+                var buf = new List<KeyValuePair<string, int>>(16);
+                eco.CaptureOfferingCounts(buf);
+                foreach (var kv in buf) owned.Add(kv.Key);
+            }
+            Yoegoe.Cooking.CookingCodex.ResetFromSave(owned);
         }
 
         static OfferingCountSave[] CaptureOfferings(GameEconomy eco)
