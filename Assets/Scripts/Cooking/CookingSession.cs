@@ -13,6 +13,10 @@ namespace Yoegoe.Cooking
         public const int EmptyCellCount = 5;
         public const float BaseSeconds = 15f;
         public const float AdExtendSeconds = 15f;
+        /// <summary>판에 올라가는 재료 최대 개수(25칸 − 빈칸 5). 이보다 적으면 시작 전 확인 팝업.</summary>
+        public const int FullBoardMaterials = GridSize * GridSize - EmptyCellCount;
+        /// <summary>이보다 적으면 어떤 레시피도 못 만들어 시작 불가.</summary>
+        public const int MinMaterialsToCook = 2;
 
         public CookingIngredientId?[,] Grid { get; private set; }
         public bool[,] Locked { get; private set; }
@@ -28,7 +32,11 @@ namespace Yoegoe.Cooking
         public float ClairvoyanceLeft { get; private set; }
 
         public readonly List<(CookingRecipe recipe, int count)> Results = new List<(CookingRecipe, int)>();
+        /// <summary>판에 올라간 재료. 시작(<see cref="StartRound"/>) 때 인벤에서 차감된다 — 미리보기 중엔 차감 전.</summary>
         public readonly List<CookingIngredientId> SpentOnBoard = new List<CookingIngredientId>();
+        public int MaterialsOnBoard => SpentOnBoard.Count;
+        public bool IsShortBoard => MaterialsOnBoard < FullBoardMaterials;
+        public bool CanStart => !Running && !Finished && MaterialsOnBoard >= MinMaterialsToCook;
 
         readonly List<(int x, int y)> path = new List<(int, int)>();
         public IReadOnlyList<(int x, int y)> Path => path;
@@ -58,8 +66,8 @@ namespace Yoegoe.Cooking
             _ => BaseSeconds
         };
 
-        /// <summary>한 번도 완성 못 하는 판이 나오지 않도록, 풀리는 배치가 나올 때까지 재시도한다
-        /// (인벤토리 자체는 다시 뽑지 않고 위치만 재배치 — 실제 재료 소모는 최종 배치 확정 후 1회).</summary>
+        /// <summary>한 번도 완성 못 하는 판이 나오지 않도록, 풀리는 배치가 나올 때까지 재시도한다.
+        /// 여기서는 배치(미리보기)만 — 인벤 차감은 <see cref="StartRound"/>에서 1회.</summary>
         const int DealBoardMaxAttempts = 30;
 
         void DealBoard()
@@ -69,24 +77,11 @@ namespace Yoegoe.Cooking
 
             for (int attempt = 0; attempt < DealBoardMaxAttempts; attempt++)
             {
-                var grid = new CookingIngredientId?[GridSize, GridSize];
-                var empties = new HashSet<int>();
-                while (empties.Count < EmptyCellCount)
-                    empties.Add(UnityEngine.Random.Range(0, GridSize * GridSize));
-
                 var pool = BuildMaterialPool();
+                var grid = LayoutBoard(pool, UnityEngine.Random.Range);
                 var spent = new List<CookingIngredientId>();
-                int pi = 0;
-                for (int y = 0; y < GridSize; y++)
-                for (int x = 0; x < GridSize; x++)
-                {
-                    int idx = y * GridSize + x;
-                    if (empties.Contains(idx)) continue;
-                    if (pi >= pool.Count) break;
-                    var id = pool[pi++];
-                    grid[x, y] = id;
-                    spent.Add(id);
-                }
+                foreach (var cell in grid)
+                    if (cell.HasValue) spent.Add(cell.Value);
 
                 bestGrid = grid;
                 bestSpent = spent;
@@ -98,14 +93,39 @@ namespace Yoegoe.Cooking
             Locked = new bool[GridSize, GridSize];
             SpentOnBoard.Clear();
             SpentOnBoard.AddRange(bestSpent);
+        }
 
-            // 인벤에서 차감 (최종 확정된 배치 1회만)
-            var eco = Yoegoe.Economy.GameEconomy.Instance;
-            if (eco != null)
+        /// <summary>
+        /// 판 배치 (19장): 재료(최대 20) + 빈칸 5를 <b>맨 아래 줄부터</b> 채운다. 재료가 모자라면 위쪽은 비고,
+        /// 빈칸 5개는 채운 영역 안에서 랜덤. y=0이 맨 위, y=GridSize−1이 맨 아래.
+        /// pool은 이미 섞인 순서대로 쓴다. randRange(min, maxExclusive).
+        /// </summary>
+        public static CookingIngredientId?[,] LayoutBoard(IReadOnlyList<CookingIngredientId> pool,
+            Func<int, int, int> randRange)
+        {
+            var grid = new CookingIngredientId?[GridSize, GridSize];
+            int materials = Math.Min(pool != null ? pool.Count : 0, FullBoardMaterials);
+            if (materials == 0) return grid;
+            int used = materials + EmptyCellCount;
+
+            // 아래 줄부터 채울 칸 순서
+            var cells = new List<(int x, int y)>(used);
+            for (int y = GridSize - 1; y >= 0 && cells.Count < used; y--)
+            for (int x = 0; x < GridSize && cells.Count < used; x++)
+                cells.Add((x, y));
+
+            var empties = new HashSet<int>();
+            while (empties.Count < EmptyCellCount)
+                empties.Add(randRange(0, used));
+
+            int pi = 0;
+            for (int i = 0; i < used; i++)
             {
-                foreach (var id in SpentOnBoard)
-                    eco.TrySpendMaterial(id, 1);
+                if (empties.Contains(i)) continue;
+                var (x, y) = cells[i];
+                grid[x, y] = pool[pi++];
             }
+            return grid;
         }
 
         List<CookingIngredientId> BuildMaterialPool()
@@ -121,13 +141,6 @@ namespace Yoegoe.Cooking
                     for (int k = 0; k < n; k++) list.Add(id);
                 }
             }
-            // 테스트 폴백: 인벤 비면 랜덤 풀
-            if (list.Count < 20)
-            {
-                while (list.Count < 40)
-                    list.Add((CookingIngredientId)UnityEngine.Random.Range(0, (int)CookingIngredientId.Count));
-            }
-
             for (int i = list.Count - 1; i > 0; i--)
             {
                 int j = UnityEngine.Random.Range(0, i + 1);
@@ -136,9 +149,21 @@ namespace Yoegoe.Cooking
             return list;
         }
 
-        public void StartRound()
+        /// <summary>판 시작 — 판에 올라간 재료를 이때 인벤에서 뺀다. 인벤이 그사이 줄어 모자라면 false(아무것도 안 뺌).</summary>
+        public bool StartRound()
         {
-            if (Finished || Running) return;
+            if (!CanStart) return false;
+            var eco = Yoegoe.Economy.GameEconomy.Instance;
+            if (eco != null)
+            {
+                var need = new Dictionary<CookingIngredientId, int>();
+                foreach (var id in SpentOnBoard)
+                    need[id] = need.TryGetValue(id, out int n) ? n + 1 : 1;
+                foreach (var kv in need)
+                    if (eco.GetMaterialCount(kv.Key) < kv.Value) return false;
+                foreach (var kv in need)
+                    eco.TrySpendMaterial(kv.Key, kv.Value);
+            }
             Running = true;
             if (PreCharm == CookingCharmType.Clairvoyance)
             {
@@ -146,6 +171,7 @@ namespace Yoegoe.Cooking
                 ClairvoyanceLeft = 1f;
             }
             Changed?.Invoke();
+            return true;
         }
 
         public void Tick(float dt)

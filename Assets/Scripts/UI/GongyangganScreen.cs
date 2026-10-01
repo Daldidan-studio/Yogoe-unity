@@ -178,25 +178,58 @@ public class GongyangganScreen : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 시작 버튼. 재료가 20개 미만이면 "재료가 모자라는데도 요리할까요?" 확인 (19장).
+    /// 보이는 판(미리보기)을 그대로 시작하고, 재료·부적은 이때 처음 차감된다.
+    /// </summary>
     void OnStart()
     {
-        if (session == null) return;
-        // 시작 전 선택 부적으로 재딜 — 보유 부적만 소모
-        if (!session.Running)
+        if (session == null || session.Running || session.Finished) return;
+        if (session.MaterialsOnBoard < CookingSession.MinMaterialsToCook)
         {
-            if (selectedCharm != CookingCharmType.None)
-            {
-                if (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendCharm(selectedCharm))
-                    selectedCharm = CookingCharmType.None;
-            }
+            if (statusText != null) statusText.text = "재료가 모자라 요리할 수 없어요";
+            return;
+        }
+        if (session.IsShortBoard)
+            ConfirmPopup.Show("재료가 모자라는데도 요리할까요?", BeginRound);
+        else
+            BeginRound();
+    }
+
+    void BeginRound()
+    {
+        if (session == null || session.Running || session.Finished) return;
+        if (selectedCharm != CookingCharmType.None
+            && (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendCharm(selectedCharm)))
+        {
+            // 부적이 그사이 없어졌으면 부적 없는 판으로 다시 깐다
+            selectedCharm = CookingCharmType.None;
+            RebuildSession();
+            return;
+        }
+        if (!session.StartRound())
+        {
+            // 판에 깔린 재료가 인벤에 더는 없음 — 부적은 돌려주고 판을 다시 깐다
+            if (selectedCharm != CookingCharmType.None && GameEconomy.Instance != null)
+                GameEconomy.Instance.AddCharm(selectedCharm, 1);
+            RebuildSession();
+            return;
+        }
+        RefreshView();
+    }
+
+    /// <summary>선택한 부적으로 판(미리보기)을 새로 깐다. 재료는 차감하지 않는다.</summary>
+    void RebuildSession()
+    {
+        if (session != null)
+        {
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
-            session = new CookingSession();
-            session.Changed += RefreshView;
-            session.RoundEnded += OnRoundEnded;
-            session.Prepare(selectedCharm);
         }
-        session.StartRound();
+        session = new CookingSession();
+        session.Changed += RefreshView;
+        session.RoundEnded += OnRoundEnded;
+        session.Prepare(selectedCharm);
         RefreshView();
     }
 
@@ -209,16 +242,7 @@ public class GongyangganScreen : MonoBehaviour
             if (held <= 0 && selectedCharm != charm) return;
         }
         selectedCharm = selectedCharm == charm ? CookingCharmType.None : charm;
-        if (session != null)
-        {
-            session.Changed -= RefreshView;
-            session.RoundEnded -= OnRoundEnded;
-        }
-        session = new CookingSession();
-        session.Changed += RefreshView;
-        session.RoundEnded += OnRoundEnded;
-        session.Prepare(selectedCharm);
-        RefreshView();
+        RebuildSession();
     }
 
     void OnRoundEnded()
@@ -253,14 +277,16 @@ public class GongyangganScreen : MonoBehaviour
             string charm = selectedCharm == CookingCharmType.None
                 ? "부적 없음"
                 : $"{CharmLabel(selectedCharm)} (보유 {(GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(selectedCharm) : 0)})";
-            statusText.text = session.Running ? $"요리 중 · {charm}" : $"준비 · {charm}";
+            statusText.text = session.Running ? $"요리 중 · {charm}"
+                : session.Finished ? $"끝 · {charm}"
+                : $"준비 · 재료 {session.MaterialsOnBoard}개 · {charm}";
         }
         if (nagariButton != null)
             nagariButton.gameObject.SetActive(session.ShowNagari);
         if (extendButton != null)
             extendButton.gameObject.SetActive(session.AllowAdExtend && (session.Running || session.Finished));
         if (startButton != null)
-            startButton.interactable = !session.Running;
+            startButton.interactable = !session.Running && !session.Finished;
 
         for (int y = 0; y < CookingSession.GridSize; y++)
         for (int x = 0; x < CookingSession.GridSize; x++)
