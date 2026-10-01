@@ -1,4 +1,5 @@
 using UnityEngine;
+using Yoegoe.Cooking;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.UI;
@@ -77,7 +78,7 @@ namespace Yoegoe.Characters
             if (!CanSpawnOfferingRequest() || HasOfferingRequest) return;
             if (!InLowStaminaBand()) return;
 
-            var offering = PickFoodRequest();
+            var offering = PickFoodRequest(GameEconomy.Instance);
             if (offering == null) return;
 
             OfferingRequest = offering;
@@ -146,48 +147,47 @@ namespace Yoegoe.Characters
             return true;
         }
 
-        OfferingData PickFoodRequest()
+        /// <summary>
+        /// 요구할 음식 (Docs/00 10-2) — 음식만, 공양물은 요구하지 않는다.
+        /// ① 보유 음식 → ② 보유 재료로 만들 수 있는 음식(공양간 재료 기준) → ③ 전체 음식 중 랜덤.
+        /// 각 단계 안에서는 균등 랜덤.
+        /// </summary>
+        public static OfferingData PickFoodRequest(GameEconomy eco)
         {
-            var ownedFood = new System.Collections.Generic.List<OfferingData>();
-            var ownedAny = new System.Collections.Generic.List<OfferingData>();
-            var eco = GameEconomy.Instance;
+            var candidates = new System.Collections.Generic.List<OfferingData>();
+
+            // ① 보유 음식
             if (eco != null)
             {
                 var snap = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>();
                 eco.CaptureOfferingCounts(snap);
                 for (int i = 0; i < snap.Count; i++)
-                {
-                    var o = CharacterCatalog.FindOffering(snap[i].Key);
-                    if (o == null || o.kind == OfferingKind.PurifiedWater) continue;
-                    ownedAny.Add(o);
-                    if (o.kind == OfferingKind.Food) ownedFood.Add(o);
-                }
+                    AddIfFood(candidates, OfferingCatalog.Find(snap[i].Key));
+                if (candidates.Count > 0) return candidates[Random.Range(0, candidates.Count)];
             }
-            if (ownedFood.Count > 0) return ownedFood[Random.Range(0, ownedFood.Count)];
-            if (ownedAny.Count > 0) return ownedAny[Random.Range(0, ownedAny.Count)];
 
-            if (owner?.Data == null) return null;
-
-            if (owner.Data.preferredOfferings != null && owner.Data.preferredOfferings.Length > 0)
+            // ② 보유 재료로 만들 수 있는 음식
+            if (eco != null)
             {
-                var list = new System.Collections.Generic.List<OfferingData>();
-                foreach (var o in owner.Data.preferredOfferings)
-                    if (o != null && o.kind != OfferingKind.PurifiedWater) list.Add(o);
-                if (list.Count > 0) return list[Random.Range(0, list.Count)];
+                foreach (var r in CookingRecipeCatalog.Recipes)
+                {
+                    if (r.Kind != CookingResultKind.Food) continue;
+                    if (!CookingRecipeCatalog.CanMakeWith(r, eco.GetMaterialCount)) continue;
+                    AddIfFood(candidates, OfferingCatalog.Find(r.Id));
+                }
+                if (candidates.Count > 0) return candidates[Random.Range(0, candidates.Count)];
             }
 
-            if (CharacterCatalog.TryGet(owner.Data.id, out var entry) && entry?.preferredOfferings != null)
-            {
-                var list = new System.Collections.Generic.List<OfferingData>();
-                foreach (var p in entry.preferredOfferings)
-                {
-                    if (p == null || string.IsNullOrEmpty(p.id)) continue;
-                    var found = CharacterCatalog.FindOffering(p.id);
-                    if (found != null) list.Add(found);
-                }
-                if (list.Count > 0) return list[Random.Range(0, list.Count)];
-            }
-            return null;
+            // ③ 랜덤 음식
+            var all = OfferingCatalog.All;
+            for (int i = 0; i < all.Count; i++)
+                AddIfFood(candidates, all[i]);
+            return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : null;
+        }
+
+        static void AddIfFood(System.Collections.Generic.List<OfferingData> into, OfferingData o)
+        {
+            if (o != null && o.kind == OfferingKind.Food && !into.Contains(o)) into.Add(o);
         }
 
         void EnsureOfferingIcon()

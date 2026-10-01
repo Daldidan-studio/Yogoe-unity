@@ -132,6 +132,21 @@ namespace Yoegoe.Cooking
             return ByKey.TryGetValue(KeyOf(arr), out recipe);
         }
 
+        /// <summary>재료 개수(count)만으로 이 레시피를 만들 수 있는지 — 같은 재료 2개(곶감 등)는 2개 필요.</summary>
+        public static bool CanMakeWith(in CookingRecipe recipe, Func<CookingIngredientId, int> count)
+        {
+            if (recipe.Ingredients == null || recipe.Ingredients.Length == 0 || count == null) return false;
+            var ings = recipe.Ingredients; // 정렬돼 있어 같은 재료가 붙어 있다
+            for (int i = 0; i < ings.Length;)
+            {
+                int j = i;
+                while (j < ings.Length && ings[j] == ings[i]) j++;
+                if (count(ings[i]) < j - i) return false;
+                i = j;
+            }
+            return true;
+        }
+
         /// <summary>현재 남은 칸으로 완성 가능한 레시피가 하나라도 있으면 true.</summary>
         public static bool AnyCompletable(CookingIngredientId?[,] grid, bool diagonal)
         {
