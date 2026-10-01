@@ -7,6 +7,7 @@
   character_lines        character_id, type, text_ko, note              (한 줄 = 대사 1개)
                          type: monologue(혼잣말) · request_thanks(음식 요구 완료) · request_gift(선물꾸러미 줄 때)
                                · golden_find(황금 재료 수거 — {item} 자리에 황금쌀/황금꿀)
+                               · greeting(앱을 켜거나 오래 비웠다 돌아왔을 때, 놀고 있던 요괴의 인사)
 
 사용법:
   python3 Tools/export_characters.py              # 시트 → characters.json   (npm run characters)
@@ -53,6 +54,7 @@ LINE_TYPES = {
     "request_thanks": "requestThanksLines",
     "request_gift": "requestGiftLines",
     "golden_find": "goldenFindLines",
+    "greeting": "greetingLines",
 }
 
 

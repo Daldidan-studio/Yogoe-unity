@@ -32,6 +32,7 @@ namespace Yoegoe.Bootstrap
         {
             lastActiveUtc = TrustedTime.UtcNow;
             worldReady = true;
+            Greeting.Request(); // 앱을 켜면 놀던 요괴들이 인사 (출석 윷점 대사 뒤)
         }
 
         public void Tick()
@@ -49,6 +50,9 @@ namespace Yoegoe.Bootstrap
                 float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
                 CharacterAgent.CatchUpAll(seconds);
             }
+            if (gap >= Greeting.AwaySecondsForGreeting) Greeting.Request();
+
+            Greeting.Tick(AttendanceScreen.IsOpen);
         }
 
         public void OnPause(bool pause)
@@ -106,6 +110,7 @@ namespace Yoegoe.Bootstrap
 
             float seconds = (float)Math.Min(gap, OfflineSimulator.MaxOfflineSeconds);
             CharacterAgent.CatchUpAll(seconds);
+            if (gap >= Greeting.AwaySecondsForGreeting) Greeting.Request();
         }
 
 #if UNITY_WEBGL && !UNITY_EDITOR

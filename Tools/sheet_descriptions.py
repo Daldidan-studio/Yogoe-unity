@@ -43,6 +43,7 @@ _LINES: dict[str, list[str]] = {
         "    request_thanks = 음식 요구 완료",
         "    request_gift = 선물꾸러미 줄 때",
         "    golden_find = 황금 재료 수거 ({item} 자리에 황금쌀/황금꿀)",
+        "    greeting = 접속 인사 (앱을 켜거나 5분 넘게 비웠다 돌아왔을 때, 놀고 있던 요괴)",
         "- 수정 후: npm run characters",
     ],
     "props": [

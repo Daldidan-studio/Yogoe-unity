@@ -21,6 +21,10 @@
       ],
       "goldenFindLines": [
         "내가 {item}을 발견했어!"
+      ],
+      "greetingLines": [
+        "어서 오세요, 손님!",
+        "기다리고 있었어요~"
       ]
     },
     {
@@ -57,6 +61,10 @@
       ],
       "goldenFindLines": [
         "흠, 내가 {item}을 찾아냈다."
+      ],
+      "greetingLines": [
+        "흠, 이제야 왔군.",
+        "늦었구나. 기다렸다."
       ]
     },
     {
@@ -93,6 +101,10 @@
       ],
       "goldenFindLines": [
         "어머, 내가 {item}을 발견했어~"
+      ],
+      "greetingLines": [
+        "...왔어? 딱히 기다린 건 아니야.",
+        "흥, 늦었잖아."
       ]
     },
     {
@@ -123,6 +135,10 @@
       ],
       "goldenFindLines": [
         "내, 내가 {item}을 발견했어!"
+      ],
+      "greetingLines": [
+        "어, 어서 와! 기다렸어!",
+        "와, 와, 왔구나!"
       ]
     }
   ]

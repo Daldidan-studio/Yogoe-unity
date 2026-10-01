@@ -35,6 +35,8 @@ namespace Yoegoe.Data
             public string[] requestGiftLines;
             /// <summary>황금 재료 수거 시 대사. {item} = 황금쌀/황금꿀. 비면 기본 대사.</summary>
             public string[] goldenFindLines;
+            /// <summary>접속 인사 — 앱을 켜거나 오래 비웠다 돌아왔을 때 놀고 있던 요괴. 비면 기본 대사.</summary>
+            public string[] greetingLines;
 
             public bool TryParseId(out CharacterId characterId)
                 => Enum.TryParse(id, ignoreCase: true, out characterId);

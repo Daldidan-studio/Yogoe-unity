@@ -159,6 +159,20 @@ namespace Yoegoe.Characters
         public void HideMonologueForRequest() => HideMonologue();
 
         /// <summary>요구 완료 등 짧은 대사.</summary>
+        /// <summary>delay초 뒤 한 줄 말한다 (접속 인사 등 여러 요괴가 순서대로 말할 때).</summary>
+        public void SayAfter(float delay, string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            if (delay <= 0f) { ShowTempSpeech(line); return; }
+            StartCoroutine(SayAfterRoutine(delay, line));
+        }
+
+        IEnumerator SayAfterRoutine(float delay, string line)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            ShowTempSpeech(line);
+        }
+
         public void ShowTempSpeech(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
