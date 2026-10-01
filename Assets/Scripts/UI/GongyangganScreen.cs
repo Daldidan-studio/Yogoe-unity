@@ -341,6 +341,27 @@ public class GongyangganScreen : MonoBehaviour
                 ? $"· <color=#FFD54A>황금 {recipe.DisplayName}</color> x{count}"
                 : $"· {recipe.DisplayName} x{count}");
 
+        var guest = s.GuestOrder;
+        if (guest != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine("주문 요괴");
+            if (guest.Fulfilled)
+            {
+                string how = guest.Perfect ? "완벽하게 " : "";
+                sb.AppendLine($"· {guest.DisplayName}에게 {guest.OfferingName}을(를) {how}대접했어요");
+                sb.AppendLine($"· 기력 +{guest.StaminaGain} · 친밀도 +{guest.IntimacyGain:0.#}");
+            }
+            else if (guest.Failed)
+                sb.AppendLine($"· {guest.DisplayName}이(가) 아쉬워하며 돌아갔어요 — 실망…");
+        }
+
+        if (s.PerfectCollectCount > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"김 오를 때 꺼낸 요리 {s.PerfectCollectCount}번");
+        }
+
         if (s.NewlyDiscovered.Count > 0)
         {
             sb.AppendLine();
@@ -395,10 +416,23 @@ public class GongyangganScreen : MonoBehaviour
             string charm = selectedCharm == CookingCharmType.None
                 ? "부적 없음"
                 : $"{CharmLabel(selectedCharm)} (보유 {(GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(selectedCharm) : 0)})";
-            statusText.text = session.Running ? $"요리 중 · {charm}"
-                : session.Finished ? $"끝 · {charm}"
-                : $"준비 · 재료 {session.MaterialsOnBoard}개 · {charm}";
+            string guest = GuestStatusLine(session);
+            if (session.Running)
+            {
+                statusText.text = string.IsNullOrEmpty(guest)
+                    ? $"요리 중 · {charm}"
+                    : guest;
+            }
+            else if (session.Finished)
+                statusText.text = string.IsNullOrEmpty(guest) ? $"끝 · {charm}" : guest;
+            else
+                statusText.text = $"준비 · 재료 {session.MaterialsOnBoard}개 · {charm}";
         }
+        if (titleText != null && session.Running && session.GuestOrder != null
+            && !session.GuestOrder.Fulfilled && !session.GuestOrder.Failed)
+            titleText.text = "공양간 · " + session.GuestOrder.DisplayName;
+        else if (titleText != null)
+            titleText.text = "공양간";
         if (makeableText != null || codexButtonLabel != null) RefreshMakeable();
         if (nagariButton != null)
             nagariButton.gameObject.SetActive(session.ShowNagari);
@@ -422,8 +456,27 @@ public class GongyangganScreen : MonoBehaviour
 
             if (session.Locked[x, y] || !session.Grid[x, y].HasValue)
             {
-                img.color = new Color(0.15f, 0.12f, 0.1f, 0.55f);
-                if (label != null) label.text = "";
+                var cook = session.CookAt(x, y);
+                if (cook != null)
+                {
+                    img.color = cook.Phase == CookingCookPhase.Steam
+                        ? new Color(0.95f, 0.85f, 0.45f, 1f)
+                        : cook.Phase == CookingCookPhase.Cool
+                            ? new Color(0.75f, 0.35f, 0.28f, 1f)
+                            : new Color(0.55f, 0.32f, 0.18f, 1f);
+                    if (label != null)
+                    {
+                        string tag = cook.Phase == CookingCookPhase.Steam ? "김!"
+                            : cook.Phase == CookingCookPhase.Cool ? "식음"
+                            : "익는중";
+                        label.text = cook.Recipe.DisplayName + "\n" + tag;
+                    }
+                }
+                else
+                {
+                    img.color = new Color(0.15f, 0.12f, 0.1f, 0.55f);
+                    if (label != null) label.text = "";
+                }
             }
             else
             {
@@ -525,8 +578,37 @@ public class GongyangganScreen : MonoBehaviour
 
     public void OnCellDown(int x, int y)
     {
+        if (session != null && session.CookAt(x, y) != null)
+        {
+            bool guestWasDone = session.GuestOrder != null && session.GuestOrder.Fulfilled;
+            if (!session.TryCollectCook(x, y) && statusText != null)
+            {
+                var job = session.CookAt(x, y);
+                if (job != null && job.Phase == CookingCookPhase.Cooking)
+                    statusText.text = "아직 익는 중";
+            }
+            else
+            {
+                var g = session.GuestOrder;
+                if (g != null && g.Fulfilled && !guestWasDone && g.IntimacyGain > 0f)
+                    IntimacyHeartFx.PlayFromAgent(g.Yokai, g.IntimacyGain);
+            }
+            return;
+        }
         pointerDown = true;
         session?.TryBeginPath(x, y);
+    }
+
+    static string GuestStatusLine(CookingSession s)
+    {
+        var g = s?.GuestOrder;
+        if (g == null) return "";
+        if (g.Failed) return $"{g.DisplayName}: 실망…";
+        if (g.Fulfilled)
+            return g.Perfect
+                ? $"{g.DisplayName}: 최고야! 친밀도·기력 ×{CookingGuestOrder.PerfectStaminaMul}"
+                : $"{g.DisplayName}: 고마워! 친밀도 ×{CookingGuestOrder.CoolIntimacyMul} · 기력 ×{CookingGuestOrder.CoolStaminaMul}";
+        return $"{g.DisplayName}: {g.WaitLine} ({g.OfferingName})";
     }
 
     public void OnCellEnter(int x, int y)

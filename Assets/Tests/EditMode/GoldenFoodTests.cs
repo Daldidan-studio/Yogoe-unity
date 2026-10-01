@@ -113,9 +113,11 @@ namespace Yoegoe.Tests.EditMode
             Assert.IsTrue(session.TryBeginPath(rice.Value.x, rice.Value.y));
             Assert.IsTrue(session.TryExtendPath(bean.Value.x, bean.Value.y));
             session.EndPath();
+            Assert.IsTrue(CodexTests.CollectAllPerfect(session));
 
-            Assert.IsTrue(session.Finished, "더 만들 게 없으면 바로 정산");
-            Assert.AreEqual(1, eco.GetOfferingCount(OfferingCatalog.GoldenIdOf("patteok")));
+            Assert.IsTrue(session.Finished, "더 만들 게 없으면 꺼낸 뒤 정산");
+            // 김 오를 때 꺼내면 ×2
+            Assert.AreEqual(2, eco.GetOfferingCount(OfferingCatalog.GoldenIdOf("patteok")));
             Assert.AreEqual(0, eco.GetOfferingCount("patteok"));
         }
 

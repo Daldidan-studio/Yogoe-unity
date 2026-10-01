@@ -46,8 +46,18 @@ namespace Yoegoe.Cooking
         /// <summary>판이 끝날 때 판에 남은 재료 — 결과창 '스러진 재료'(회수 부적이면 '회수한 재료').</summary>
         public readonly List<BoardItem> Leftover = new List<BoardItem>();
 
+        /// <summary>선호 공양물 조합이 가능할 때 나타나는 주문 요괴. 없으면 null.</summary>
+        public CookingGuestOrder GuestOrder { get; private set; }
+        /// <summary>제자리 조리 중(익는 중·김·식음).</summary>
+        public IReadOnlyList<CookingCookJob> ActiveCooks => cooks;
+        public int PerfectCollectCount { get; private set; }
+
         /// <summary>판에 올라간 황금쌀·황금꿀 개수 (SpentOnBoard의 쌀·꿀 중 이만큼은 특수 수집품에서 뺀다).</summary>
         readonly Dictionary<SpecialItemId, int> goldenOnBoard = new Dictionary<SpecialItemId, int>();
+        readonly List<CookingCookJob> cooks = new List<CookingCookJob>();
+        readonly Dictionary<(int x, int y), int> cookAt = new Dictionary<(int, int), int>();
+        int cookSeq;
+        bool pendingDead;
 
         /// <summary>판 칸 하나 — 황금쌀이면 (Rice, golden).</summary>
         public readonly struct BoardItem
@@ -91,6 +101,10 @@ namespace Yoegoe.Cooking
             Leftover.Clear();
             path.Clear();
             ClairvoyanceActive = false;
+            GuestOrder = null;
+            PerfectCollectCount = 0;
+            ClearCooks();
+            pendingDead = false;
             TimeLeft = ResolveLimit(charm);
             DealBoard();
             Changed?.Invoke();
@@ -248,6 +262,10 @@ namespace Yoegoe.Cooking
                     eco.AddSpecialItem(kv.Key, -kv.Value);
             }
             Running = true;
+            pendingDead = false;
+            PerfectCollectCount = 0;
+            ClearCooks();
+            GuestOrder = CookingGuestOrder.TryCreate(MakeableNow(), UnityEngine.Random.Range);
             if (PreCharm == CookingCharmType.Clairvoyance)
             {
                 ClairvoyanceActive = true;
@@ -259,18 +277,24 @@ namespace Yoegoe.Cooking
 
         public void Tick(float dt)
         {
-            if (!Running || Finished) return;
+            if (Finished) return;
+            // 연장 대기 중엔 화로(조리)도 멈춤
+            if (AwaitingExtend) return;
+            if (!Running) return;
             if (ClairvoyanceActive)
             {
                 ClairvoyanceLeft -= dt;
                 if (ClairvoyanceLeft <= 0f) ClairvoyanceActive = false;
             }
+            TickCooks(dt);
             TimeLeft -= dt;
             if (TimeLeft <= 0f)
             {
                 TimeLeft = 0f;
-                // 회수·몰빵 판, 더 만들 게 없는 판은 바로 정산
-                if (AllowAdExtend && CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal))
+                // 회수·몰빵 판, 더 만들 게·꺼낼 요리 없는 판은 바로 정산
+                bool canExtend = AllowAdExtend
+                    && (cooks.Count > 0 || CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal));
+                if (canExtend)
                 {
                     Running = false;
                     AwaitingExtend = true;
@@ -285,6 +309,34 @@ namespace Yoegoe.Cooking
             Changed?.Invoke();
         }
 
+        void TickCooks(float dt)
+        {
+            if (cooks.Count == 0) return;
+            for (int i = 0; i < cooks.Count; i++)
+                cooks[i].Tick(dt);
+        }
+
+        /// <summary>칸에 익는/식은 요리가 있으면 그 job.</summary>
+        public CookingCookJob CookAt(int x, int y) =>
+            cookAt.TryGetValue((x, y), out int id) ? FindCook(id) : null;
+
+        CookingCookJob FindCook(int id)
+        {
+            for (int i = 0; i < cooks.Count; i++)
+                if (cooks[i].Id == id) return cooks[i];
+            return null;
+        }
+
+        /// <summary>김(퍼펙트)·식음 요리를 꺼낸다. 익는 중·연장 대기·종료 후면 false.</summary>
+        public bool TryCollectCook(int x, int y)
+        {
+            if (!Running || Finished) return false;
+            var job = CookAt(x, y);
+            if (job == null || !job.CanCollect) return false;
+            ResolveCook(job, job.IsPerfectWindow);
+            return true;
+        }
+
         /// <summary>시간 종료 후 광고 보고 +15초 — 횟수 제한 없음. 연장 중에도 나가리 가능.</summary>
         public bool ExtendByAd()
         {
@@ -292,6 +344,7 @@ namespace Yoegoe.Cooking
             AwaitingExtend = false;
             TimeLeft = AdExtendSeconds;
             Running = true;
+            pendingDead = !CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal);
             Changed?.Invoke();
             return true;
         }
@@ -316,6 +369,7 @@ namespace Yoegoe.Cooking
         {
             if (!Running || Finished) return false;
             if (!InBounds(x, y) || Locked[x, y] || !Grid[x, y].HasValue) return false;
+            if (cookAt.ContainsKey((x, y))) return false;
             path.Clear();
             path.Add((x, y));
             Changed?.Invoke();
@@ -326,6 +380,7 @@ namespace Yoegoe.Cooking
         {
             if (!Running || Finished || path.Count == 0) return false;
             if (!InBounds(x, y) || Locked[x, y] || !Grid[x, y].HasValue) return false;
+            if (cookAt.ContainsKey((x, y))) return false;
             for (int i = 0; i < path.Count; i++)
                 if (path[i].x == x && path[i].y == y) return false;
             var last = path[path.Count - 1];
@@ -357,28 +412,83 @@ namespace Yoegoe.Cooking
 
             if (CookingRecipeCatalog.TryMatch(ings, out var recipe))
             {
-                int mult = PreCharm == CookingCharmType.Double ? 2 : 1;
+                var cells = path.ToArray();
                 // 황금쌀·황금꿀이 들어간 음식 = 황금음식 (공양물은 황금 버전 없음 — 일반으로)
-                AddResult(recipe, mult, anyGolden && recipe.Kind == CookingResultKind.Food);
-                if (CookingCodex.Discover(recipe.Id)) NewlyDiscovered.Add(recipe.Id);
-                for (int i = 0; i < path.Count; i++)
-                {
-                    var (px, py) = path[i];
-                    Grid[px, py] = null;
-                    Golden[px, py] = false;
-                    Locked[px, py] = true;
-                }
-                BoardVersion++;
+                bool golden = anyGolden && recipe.Kind == CookingResultKind.Food;
+                StartCook(recipe, cells, golden);
                 path.Clear();
                 if (!CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal))
-                    EndRound(timeUp: false);
-                else
-                    Changed?.Invoke();
+                    pendingDead = true;
+                Changed?.Invoke();
                 return;
             }
 
             path.Clear();
             Changed?.Invoke();
+        }
+
+        void StartCook(CookingRecipe recipe, (int x, int y)[] cells, bool golden)
+        {
+            var job = new CookingCookJob(++cookSeq, recipe, cells, golden);
+            cooks.Add(job);
+            for (int i = 0; i < cells.Length; i++)
+            {
+                var (px, py) = cells[i];
+                Grid[px, py] = null;
+                Golden[px, py] = false;
+                Locked[px, py] = true;
+                cookAt[(px, py)] = job.Id;
+            }
+            BoardVersion++;
+        }
+
+        void ResolveCook(CookingCookJob job, bool perfect)
+        {
+            if (job == null || job.Phase == CookingCookPhase.Done) return;
+            job.MarkDone();
+            cooks.Remove(job);
+            for (int i = 0; i < job.Cells.Length; i++)
+                cookAt.Remove(job.Cells[i]);
+
+            var recipe = job.Recipe;
+            if (perfect) PerfectCollectCount++;
+
+            bool deliveredToGuest = GuestOrder != null
+                && !GuestOrder.Fulfilled && !GuestOrder.Failed
+                && GuestOrder.Matches(recipe);
+
+            if (deliveredToGuest)
+            {
+                // 주문 배달: 인벤 미지급(퍼펙트여도 음식 ×2 없음). 친밀도·기력만 배율 적용.
+                GuestOrder.Deliver(perfect);
+            }
+            else
+            {
+                int baseQty = PreCharm == CookingCharmType.Double ? 2 : 1;
+                int qty = baseQty * (perfect ? 2 : 1);
+                AddResult(recipe, qty, job.Golden);
+            }
+
+            if (CookingCodex.Discover(recipe.Id) && !NewlyDiscovered.Contains(recipe.Id))
+                NewlyDiscovered.Add(recipe.Id);
+
+            Changed?.Invoke();
+            AfterCookResolved();
+        }
+
+        void AfterCookResolved()
+        {
+            if (cooks.Count > 0) return;
+            if (!Running || Finished) return;
+            if (pendingDead || !CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal))
+                EndRound(timeUp: false);
+        }
+
+        void ClearCooks()
+        {
+            cooks.Clear();
+            cookAt.Clear();
+            cookSeq = 0;
         }
 
         bool PathCanStillComplete()
@@ -456,6 +566,8 @@ namespace Yoegoe.Cooking
             if (!ShowNagari || Finished) return;
             // 결과 취소 + 재료 전량 반환
             Results.Clear();
+            ClearCooks();
+            GuestOrder = null;
             var eco = Yoegoe.Economy.GameEconomy.Instance;
             if (eco != null)
             {
@@ -481,8 +593,15 @@ namespace Yoegoe.Cooking
             if (Finished) return;
             Running = false;
             Finished = true;
+            AwaitingExtend = false;
             path.Clear();
             BoardVersion++;
+            pendingDead = false;
+
+            // 못 꺼낸 요리는 받지 못함. 주문 미제공이면 실망.
+            if (!nagari && GuestOrder != null && !GuestOrder.Fulfilled)
+                GuestOrder.MarkFailed();
+            ClearCooks();
 
             var eco = Yoegoe.Economy.GameEconomy.Instance;
             Leftover.Clear();

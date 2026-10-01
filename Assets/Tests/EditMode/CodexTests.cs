@@ -126,7 +126,26 @@ namespace Yoegoe.Tests.EditMode
             session.TryBeginPath(rice.Value.x, rice.Value.y);
             session.TryExtendPath(bean.Value.x, bean.Value.y);
             session.EndPath();
-            return true;
+            return CollectAllPerfect(session);
+        }
+
+        /// <summary>화로가 김 단계가 되는 즉시 퍼펙트로 꺼낸다.</summary>
+        public static bool CollectAllPerfect(CookingSession session)
+        {
+            float t = 0f;
+            while (session.ActiveCooks.Count > 0 && t < 8f)
+            {
+                session.Tick(0.05f);
+                t += 0.05f;
+                for (int y = 0; y < CookingSession.GridSize; y++)
+                for (int x = 0; x < CookingSession.GridSize; x++)
+                {
+                    var job = session.CookAt(x, y);
+                    if (job != null && job.IsPerfectWindow)
+                        session.TryCollectCook(x, y);
+                }
+            }
+            return session.ActiveCooks.Count == 0;
         }
 
         [Test]
@@ -157,7 +176,7 @@ namespace Yoegoe.Tests.EditMode
                 session.TryBeginPath(x, y);
                 session.TryExtendPath(x + 1, y);
                 session.EndPath();
-                made = true;
+                made = CollectAllPerfect(session);
             }
             Assert.IsTrue(made, "과실 12개가 아래 세 줄에 깔리면 가로로 붙은 쌍이 반드시 있다");
             Assert.IsTrue(CookingCodex.IsDiscovered("gotgam"));
