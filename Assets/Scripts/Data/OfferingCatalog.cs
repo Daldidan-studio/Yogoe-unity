@@ -54,9 +54,36 @@ namespace Yoegoe.Data
                 }
                 if (r.Kind == CookingResultKind.Offering && !pool.Contains(o))
                     pool.Add(o);
+                if (r.Kind == CookingResultKind.Food) AddGoldenVariant(o);
             }
 
             return all.ToArray();
+        }
+
+        public const string GoldenSuffix = "_golden";
+
+        /// <summary>음식 id → 황금음식 id ("bap" → "bap_golden").</summary>
+        public static string GoldenIdOf(string foodId) => foodId + GoldenSuffix;
+
+        public static OfferingData FindGolden(string foodId) =>
+            string.IsNullOrEmpty(foodId) ? null : Find(GoldenIdOf(foodId));
+
+        static void AddGoldenVariant(OfferingData food)
+        {
+            string id = GoldenIdOf(food.offeringId);
+            if (byId.ContainsKey(id)) return;
+            var g = ScriptableObject.CreateInstance<OfferingData>();
+            g.name = "Runtime_" + id;
+            g.hideFlags = HideFlags.DontSave;
+            g.offeringId = id;
+            g.displayName = "황금 " + food.displayName;
+            g.kind = OfferingKind.Food;
+            g.icon = food.icon;
+            g.staminaGain = food.staminaGain;
+            g.golden = true;
+            g.baseOfferingId = food.offeringId;
+            byId[id] = g;
+            all.Add(g);
         }
 
         public static OfferingData Find(string offeringId)

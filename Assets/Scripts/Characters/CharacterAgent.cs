@@ -136,6 +136,7 @@ namespace Yoegoe.Characters
         {
             float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
             Requests.Tick(dt);
+            UpdateGoldenTint();
 
             // 소환 연출 중 맵 AI 정지
             if (CeremonyGate.BlocksWorldInput)

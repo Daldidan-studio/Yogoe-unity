@@ -28,11 +28,15 @@ namespace Yoegoe.Characters
         public readonly bool RequestFulfilled;
         /// <summary>이번 공양으로 선호가 처음 공개됐는지.</summary>
         public readonly bool PreferenceRevealed;
+        /// <summary>황금음식이라 5분 황금 버프가 걸렸는지.</summary>
+        public readonly bool GoldenBuff;
 
         public bool Success => Block == FeedBlock.None;
 
-        public FeedResult(FeedBlock block, int stamina = 0, float intimacy = 0f, bool request = false, bool revealed = false)
+        public FeedResult(FeedBlock block, int stamina = 0, float intimacy = 0f, bool request = false, bool revealed = false,
+            bool golden = false)
         {
+            GoldenBuff = golden;
             Block = block;
             StaminaGain = stamina;
             IntimacyGain = intimacy;
@@ -87,6 +91,7 @@ namespace Yoegoe.Characters
         /// - 기력 가득: 친밀도가 오를 때만 허용(음식·친밀도 100이면 막힘). 음식 요구가 떠 있으면 허용
         /// - 요구한 음식이면 +12·친밀도 0 (요구 완료)
         /// - 선호 공양물은 성공하면 영구 공개
+        /// - 황금음식: 효과는 같은 음식과 같고 + 5분 황금 버프. 버프가 목적이라 기력이 가득이어도 먹일 수 있다
         /// </summary>
         public FeedResult TryFeed(OfferingData offering, GameEconomy economy = null)
         {
@@ -100,7 +105,7 @@ namespace Yoegoe.Characters
             int staminaGain = offering.ResolveStaminaGain(preferred);
             float intimacyGain = offering.ResolveIntimacyGain(preferred);
 
-            if (IsStaminaFull && !Requests.HasOfferingRequest)
+            if (IsStaminaFull && !Requests.HasOfferingRequest && !offering.golden)
             {
                 if (intimacyGain <= 0.0001f) return new FeedResult(FeedBlock.StaminaFull);
                 if (Stats.Intimacy >= 100f - 0.001f) return new FeedResult(FeedBlock.StaminaAndIntimacyFull);
@@ -120,7 +125,8 @@ namespace Yoegoe.Characters
             ReceiveOffering(staminaGain, intimacyGain, kind);
             // 선호 공양물은 실제로 먹여야 영구 공개(상세 표기·인벤 금테)
             bool revealed = preferred && Stats.RevealPreference(offering.offeringId);
-            return new FeedResult(FeedBlock.None, staminaGain, intimacyGain, fulfilled, revealed);
+            if (offering.golden) ApplyGoldenBuff();
+            return new FeedResult(FeedBlock.None, staminaGain, intimacyGain, fulfilled, revealed, offering.golden);
         }
     }
 }

@@ -19,6 +19,8 @@ namespace Yoegoe.Cooking
         public const int MinMaterialsToCook = 2;
 
         public CookingIngredientId?[,] Grid { get; private set; }
+        /// <summary>황금쌀·황금꿀 칸 (Grid에는 쌀·꿀로 들어간다). 이 칸이 들어간 음식은 황금음식으로 완성.</summary>
+        public bool[,] Golden { get; private set; }
         public bool[,] Locked { get; private set; }
         public float TimeLeft { get; private set; }
         public bool Running { get; private set; }
@@ -33,9 +35,31 @@ namespace Yoegoe.Cooking
         public bool ClairvoyanceActive { get; private set; }
         public float ClairvoyanceLeft { get; private set; }
 
-        public readonly List<(CookingRecipe recipe, int count)> Results = new List<(CookingRecipe, int)>();
-        /// <summary>판에 올라간 재료. 시작(<see cref="StartRound"/>) 때 인벤에서 차감된다 — 미리보기 중엔 차감 전.</summary>
+        /// <summary>이번 판 완성품. golden = 황금쌀·황금꿀이 들어간 음식(황금음식).</summary>
+        public readonly List<(CookingRecipe recipe, int count, bool golden)> Results = new List<(CookingRecipe, int, bool)>();
+        /// <summary>판에 올라간 재료(황금 칸은 쌀·꿀로). 시작(<see cref="StartRound"/>) 때 인벤에서 차감된다 — 미리보기 중엔 차감 전.</summary>
         public readonly List<CookingIngredientId> SpentOnBoard = new List<CookingIngredientId>();
+        /// <summary>판에 올라간 황금쌀·황금꿀 개수 (SpentOnBoard의 쌀·꿀 중 이만큼은 특수 수집품에서 뺀다).</summary>
+        readonly Dictionary<SpecialItemId, int> goldenOnBoard = new Dictionary<SpecialItemId, int>();
+
+        /// <summary>판 칸 하나 — 황금쌀이면 (Rice, golden).</summary>
+        public readonly struct BoardItem
+        {
+            public readonly CookingIngredientId Id;
+            public readonly bool Golden;
+            public BoardItem(CookingIngredientId id, bool golden) { Id = id; Golden = golden; }
+        }
+
+        /// <summary>판에서 쌀·꿀 칸으로 쓰이는 황금 수집품.</summary>
+        public static bool TryGoldenOf(CookingIngredientId id, out SpecialItemId golden)
+        {
+            switch (id)
+            {
+                case CookingIngredientId.Rice: golden = SpecialItemId.GoldenRice; return true;
+                case CookingIngredientId.Honey: golden = SpecialItemId.GoldenHoney; return true;
+                default: golden = default; return false;
+            }
+        }
         public int MaterialsOnBoard => SpentOnBoard.Count;
         public bool IsShortBoard => MaterialsOnBoard < FullBoardMaterials;
         public bool CanStart => !Running && !Finished && MaterialsOnBoard >= MinMaterialsToCook;
@@ -55,6 +79,7 @@ namespace Yoegoe.Cooking
             Running = false;
             Results.Clear();
             SpentOnBoard.Clear();
+            goldenOnBoard.Clear();
             path.Clear();
             ClairvoyanceActive = false;
             TimeLeft = ResolveLimit(charm);
@@ -76,27 +101,39 @@ namespace Yoegoe.Cooking
 
         void DealBoard()
         {
-            CookingIngredientId?[,] bestGrid = null;
-            List<CookingIngredientId> bestSpent = null;
+            CookingIngredientId?[,] grid = null;
+            bool[,] golden = null;
 
             for (int attempt = 0; attempt < DealBoardMaxAttempts; attempt++)
             {
                 var pool = BuildMaterialPool();
-                var grid = LayoutBoard(pool, UnityEngine.Random.Range);
-                var spent = new List<CookingIngredientId>();
-                foreach (var cell in grid)
-                    if (cell.HasValue) spent.Add(cell.Value);
-
-                bestGrid = grid;
-                bestSpent = spent;
+                var idx = LayoutIndices(pool.Count, UnityEngine.Random.Range);
+                grid = new CookingIngredientId?[GridSize, GridSize];
+                golden = new bool[GridSize, GridSize];
+                for (int y = 0; y < GridSize; y++)
+                for (int x = 0; x < GridSize; x++)
+                {
+                    if (idx[x, y] < 0) continue;
+                    grid[x, y] = pool[idx[x, y]].Id;
+                    golden[x, y] = pool[idx[x, y]].Golden;
+                }
                 if (CookingRecipeCatalog.AnyCompletable(grid, AllowDiagonal)) break;
                 // 재료가 워낙 부족/편중돼 있으면 끝까지 안 풀릴 수 있음 — 그때는 마지막 시도 그대로 사용.
             }
 
-            Grid = bestGrid;
+            Grid = grid;
+            Golden = golden;
             Locked = new bool[GridSize, GridSize];
             SpentOnBoard.Clear();
-            SpentOnBoard.AddRange(bestSpent);
+            goldenOnBoard.Clear();
+            for (int y = 0; y < GridSize; y++)
+            for (int x = 0; x < GridSize; x++)
+            {
+                if (!Grid[x, y].HasValue) continue;
+                SpentOnBoard.Add(Grid[x, y].Value);
+                if (Golden[x, y] && TryGoldenOf(Grid[x, y].Value, out var g))
+                    goldenOnBoard[g] = goldenOnBoard.TryGetValue(g, out int n) ? n + 1 : 1;
+            }
         }
 
         /// <summary>
@@ -108,7 +145,21 @@ namespace Yoegoe.Cooking
             Func<int, int, int> randRange)
         {
             var grid = new CookingIngredientId?[GridSize, GridSize];
-            int materials = Math.Min(pool != null ? pool.Count : 0, FullBoardMaterials);
+            var idx = LayoutIndices(pool != null ? pool.Count : 0, randRange);
+            for (int y = 0; y < GridSize; y++)
+            for (int x = 0; x < GridSize; x++)
+                if (idx[x, y] >= 0) grid[x, y] = pool[idx[x, y]];
+            return grid;
+        }
+
+        /// <summary><see cref="LayoutBoard"/>의 배치 — 칸마다 pool 인덱스(빈칸·안 쓰는 칸 = −1).</summary>
+        public static int[,] LayoutIndices(int poolCount, Func<int, int, int> randRange)
+        {
+            var grid = new int[GridSize, GridSize];
+            for (int y = 0; y < GridSize; y++)
+            for (int x = 0; x < GridSize; x++)
+                grid[x, y] = -1;
+            int materials = Math.Min(poolCount, FullBoardMaterials);
             if (materials == 0) return grid;
             int used = materials + EmptyCellCount;
 
@@ -127,14 +178,15 @@ namespace Yoegoe.Cooking
             {
                 if (empties.Contains(i)) continue;
                 var (x, y) = cells[i];
-                grid[x, y] = pool[pi++];
+                grid[x, y] = pi++;
             }
             return grid;
         }
 
-        List<CookingIngredientId> BuildMaterialPool()
+        /// <summary>보유 재료 + 황금쌀·황금꿀(쌀·꿀 칸, 황금 표시)을 섞은 풀.</summary>
+        List<BoardItem> BuildMaterialPool()
         {
-            var list = new List<CookingIngredientId>();
+            var list = new List<BoardItem>();
             var eco = Yoegoe.Economy.GameEconomy.Instance;
             if (eco != null)
             {
@@ -142,7 +194,12 @@ namespace Yoegoe.Cooking
                 {
                     var id = (CookingIngredientId)i;
                     int n = eco.GetMaterialCount(id);
-                    for (int k = 0; k < n; k++) list.Add(id);
+                    for (int k = 0; k < n; k++) list.Add(new BoardItem(id, false));
+                    if (TryGoldenOf(id, out var golden))
+                    {
+                        int g = eco.GetSpecialItemCount(golden);
+                        for (int k = 0; k < g; k++) list.Add(new BoardItem(id, true));
+                    }
                 }
             }
             for (int i = list.Count - 1; i > 0; i--)
@@ -163,10 +220,18 @@ namespace Yoegoe.Cooking
                 var need = new Dictionary<CookingIngredientId, int>();
                 foreach (var id in SpentOnBoard)
                     need[id] = need.TryGetValue(id, out int n) ? n + 1 : 1;
+                foreach (var kv in goldenOnBoard)
+                {
+                    if (eco.GetSpecialItemCount(kv.Key) < kv.Value) return false;
+                    var baseId = kv.Key == SpecialItemId.GoldenRice ? CookingIngredientId.Rice : CookingIngredientId.Honey;
+                    need[baseId] -= kv.Value;
+                }
                 foreach (var kv in need)
                     if (eco.GetMaterialCount(kv.Key) < kv.Value) return false;
                 foreach (var kv in need)
-                    eco.TrySpendMaterial(kv.Key, kv.Value);
+                    if (kv.Value > 0) eco.TrySpendMaterial(kv.Key, kv.Value);
+                foreach (var kv in goldenOnBoard)
+                    eco.AddSpecialItem(kv.Key, -kv.Value);
             }
             Running = true;
             if (PreCharm == CookingCharmType.Clairvoyance)
@@ -268,20 +333,24 @@ namespace Yoegoe.Cooking
         {
             if (!Running || path.Count == 0) return;
             var ings = new List<CookingIngredientId>(path.Count);
+            bool anyGolden = false;
             for (int i = 0; i < path.Count; i++)
             {
                 var (px, py) = path[i];
                 if (Grid[px, py].HasValue) ings.Add(Grid[px, py].Value);
+                if (Golden[px, py]) anyGolden = true;
             }
 
             if (CookingRecipeCatalog.TryMatch(ings, out var recipe))
             {
                 int mult = PreCharm == CookingCharmType.Double ? 2 : 1;
-                AddResult(recipe, mult);
+                // 황금쌀·황금꿀이 들어간 음식 = 황금음식 (공양물은 황금 버전 없음 — 일반으로)
+                AddResult(recipe, mult, anyGolden && recipe.Kind == CookingResultKind.Food);
                 for (int i = 0; i < path.Count; i++)
                 {
                     var (px, py) = path[i];
                     Grid[px, py] = null;
+                    Golden[px, py] = false;
                     Locked[px, py] = true;
                 }
                 path.Clear();
@@ -346,17 +415,24 @@ namespace Yoegoe.Cooking
             return false;
         }
 
-        void AddResult(CookingRecipe recipe, int count)
+        void AddResult(CookingRecipe recipe, int count, bool golden)
         {
             for (int i = 0; i < Results.Count; i++)
             {
-                if (Results[i].recipe.Id == recipe.Id)
+                if (Results[i].recipe.Id == recipe.Id && Results[i].golden == golden)
                 {
-                    Results[i] = (recipe, Results[i].count + count);
+                    Results[i] = (recipe, Results[i].count + count, golden);
                     return;
                 }
             }
-            Results.Add((recipe, count));
+            Results.Add((recipe, count, golden));
+        }
+
+        /// <summary>판의 재료 하나를 인벤으로 되돌린다 (황금 칸이면 황금쌀·황금꿀로).</summary>
+        static void ReturnToInventory(Yoegoe.Economy.GameEconomy eco, CookingIngredientId id, bool golden)
+        {
+            if (golden && TryGoldenOf(id, out var g)) eco.AddSpecialItem(g, 1);
+            else eco.AddMaterial(id, 1);
         }
 
         public void CancelNagari()
@@ -367,10 +443,16 @@ namespace Yoegoe.Cooking
             var eco = Yoegoe.Economy.GameEconomy.Instance;
             if (eco != null)
             {
+                var golden = new Dictionary<SpecialItemId, int>(goldenOnBoard);
                 foreach (var id in SpentOnBoard)
-                    eco.AddMaterial(id, 1);
+                {
+                    bool g = TryGoldenOf(id, out var gid) && golden.TryGetValue(gid, out int left) && left > 0;
+                    if (g) golden[gid] = left - 1;
+                    ReturnToInventory(eco, id, g);
+                }
             }
             SpentOnBoard.Clear();
+            goldenOnBoard.Clear();
             EndRound(timeUp: false, nagari: true);
         }
 
@@ -391,14 +473,20 @@ namespace Yoegoe.Cooking
                     for (int x = 0; x < GridSize; x++)
                     {
                         if (Grid[x, y].HasValue)
-                            eco.AddMaterial(Grid[x, y].Value, 1);
+                            ReturnToInventory(eco, Grid[x, y].Value, Golden[x, y]);
                     }
                 }
                 // 완성품 → 인벤 (음식/공양물 id)
                 if (eco != null)
                 {
-                    foreach (var (recipe, count) in Results)
-                        eco.AddCookingProduct(recipe.Id, recipe.DisplayName, recipe.Kind, count);
+                    foreach (var (recipe, count, golden) in Results)
+                    {
+                        if (golden)
+                            eco.AddCookingProduct(Yoegoe.Data.OfferingCatalog.GoldenIdOf(recipe.Id),
+                                "황금 " + recipe.DisplayName, recipe.Kind, count);
+                        else
+                            eco.AddCookingProduct(recipe.Id, recipe.DisplayName, recipe.Kind, count);
+                    }
                 }
             }
 

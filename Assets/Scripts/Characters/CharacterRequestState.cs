@@ -107,7 +107,7 @@ namespace Yoegoe.Characters
                 return false;
 
             bool matches = offering != null && OfferingRequest != null
-                && string.Equals(offering.offeringId, OfferingRequest.offeringId,
+                && string.Equals(offering.BaseId, OfferingRequest.offeringId,
                     System.StringComparison.OrdinalIgnoreCase);
 
             if (matches)
@@ -172,7 +172,7 @@ namespace Yoegoe.Characters
                 foreach (var r in CookingRecipeCatalog.Recipes)
                 {
                     if (r.Kind != CookingResultKind.Food) continue;
-                    if (!CookingRecipeCatalog.CanMakeWith(r, eco.GetMaterialCount)) continue;
+                    if (!CookingRecipeCatalog.CanMakeWith(r, eco.GetBoardMaterialCount)) continue;
                     AddIfFood(candidates, OfferingCatalog.Find(r.Id));
                 }
                 if (candidates.Count > 0) return candidates[Random.Range(0, candidates.Count)];
@@ -185,8 +185,10 @@ namespace Yoegoe.Characters
             return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : null;
         }
 
+        /// <summary>요구는 일반 음식으로만 — 황금음식은 원래 음식으로 바꿔 담는다(황금음식을 주면 그대로 요구 완료).</summary>
         static void AddIfFood(System.Collections.Generic.List<OfferingData> into, OfferingData o)
         {
+            if (o != null && o.golden) o = OfferingCatalog.Find(o.BaseId);
             if (o != null && o.kind == OfferingKind.Food && !into.Contains(o)) into.Add(o);
         }
 

@@ -85,7 +85,7 @@ namespace Yoegoe.Characters
                 }
 
                 transform.position = MapBounds.MoveClamped(
-                    transform.position, wanderTarget.Value, moveSpeed * dt, out bool blocked);
+                    transform.position, wanderTarget.Value, MoveSpeed * dt, out bool blocked);
                 ResolveSeparation(dt);
                 if (blocked) OnBoundaryBlocked(dt, excludeProp: null);
                 else boundaryStuckTimer = 0f;
@@ -100,7 +100,7 @@ namespace Yoegoe.Characters
                 targetPos = MapBounds.Clamp(targetPos);
 
             transform.position = MapBounds.MoveClamped(
-                transform.position, targetPos, moveSpeed * dt, out bool blockedTowardProp);
+                transform.position, targetPos, MoveSpeed * dt, out bool blockedTowardProp);
             ResolveSeparation(dt);
 
             if (blockedTowardProp)
@@ -179,7 +179,7 @@ namespace Yoegoe.Characters
             if (push == Vector3.zero) return;
 
             // 한 프레임 밀림 상한 — moveSpeed 대비 과도하면 전진이 상쇄되어 끊겨 보인다.
-            float maxPush = moveSpeed * 0.55f * dt;
+            float maxPush = MoveSpeed * 0.55f * dt;
             Vector3 step = push * SeparationSpeed * dt;
             if (step.sqrMagnitude > maxPush * maxPush)
                 step = step.normalized * maxPush;
@@ -229,7 +229,7 @@ namespace Yoegoe.Characters
 
             // 기물이 만창에 닿으면 그 시점까지만 일한 것으로 친다
             float worked = currentProp != null
-                ? currentProp.ProduceWhileStaying(slice, Stats.Intimacy, currentProp.IsOwnerOnEndingProp(this))
+                ? currentProp.ProduceWhileStaying(slice, Stats.Intimacy, currentProp.IsOwnerOnEndingProp(this), SpeedMultiplier)
                 : slice;
             if (worked <= 0f && currentProp != null && currentProp.IsStorageHalted)
                 return 0.0001f; // 다음 구간에서 정지 분기로
@@ -319,7 +319,7 @@ namespace Yoegoe.Characters
                 wanderTarget = MapBounds.RandomPoint(transform.position.z);
 
             transform.position = MapBounds.Clamp(
-                Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
+                Vector3.MoveTowards(transform.position, wanderTarget.Value, MoveSpeed * dt));
             ResolveSeparation(dt);
         }
 

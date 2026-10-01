@@ -164,6 +164,8 @@ namespace Yoegoe.Save
         public string occupiedPropId;
         /// <summary>먹여서 공개된 선호 공양물 offeringId. 구세이브엔 없음 → 빈 배열(전부 비공개).</summary>
         public string[] revealedPreferredOfferingIds = Array.Empty<string>();
+        /// <summary>황금음식 버프 끝나는 UTC ticks (0 = 없음).</summary>
+        public long goldenBuffEndsUtcTicks;
     }
 
     [Serializable]

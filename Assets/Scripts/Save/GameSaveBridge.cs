@@ -142,7 +142,8 @@ namespace Yoegoe.Save
                     posX = a.transform.position.x,
                     posY = a.transform.position.y,
                     occupiedPropId = propId,
-                    revealedPreferredOfferingIds = a.Stats.RevealedPreferredOfferingIds.ToArray()
+                    revealedPreferredOfferingIds = a.Stats.RevealedPreferredOfferingIds.ToArray(),
+                    goldenBuffEndsUtcTicks = a.Stats.GoldenBuffEndsUtcTicks
                 };
             }
 
@@ -214,6 +215,7 @@ namespace Yoegoe.Save
                             new Vector3(ags.posX, ags.posY, a.transform.position.z),
                             occupy);
                         a.Stats.SetRevealedPreferences(ags.revealedPreferredOfferingIds);
+                        a.Stats.GoldenBuffEndsUtcTicks = ags.goldenBuffEndsUtcTicks;
                         break;
                     }
                 }

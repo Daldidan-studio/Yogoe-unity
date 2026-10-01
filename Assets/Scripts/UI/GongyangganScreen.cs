@@ -275,8 +275,10 @@ public class GongyangganScreen : MonoBehaviour
         else
         {
             sb.AppendLine("획득:");
-            foreach (var (recipe, count) in session.Results)
-                sb.AppendLine($"· {recipe.DisplayName} x{count}");
+            foreach (var (recipe, count, golden) in session.Results)
+                sb.AppendLine(golden
+                    ? $"· <color=#FFD54A>황금 {recipe.DisplayName}</color> x{count}"
+                    : $"· {recipe.DisplayName} x{count}");
         }
         resultBody.text = sb.ToString();
         resultPopup.SetActive(true);
@@ -329,11 +331,16 @@ public class GongyangganScreen : MonoBehaviour
             }
             else
             {
+                bool golden = session.Golden != null && session.Golden[x, y];
                 img.color = onPath
                     ? new Color(0.95f, 0.75f, 0.35f, 1f)
-                    : new Color(0.35f, 0.28f, 0.22f, 1f);
+                    : golden
+                        ? GoldenSparkle.Pulse(new Color(0.55f, 0.42f, 0.12f, 1f), new Color(0.85f, 0.68f, 0.2f, 1f))
+                        : new Color(0.35f, 0.28f, 0.22f, 1f);
                 if (label != null)
-                    label.text = CookingRecipeCatalog.DisplayName(session.Grid[x, y].Value);
+                    label.text = golden
+                        ? "황금" + CookingRecipeCatalog.DisplayName(session.Grid[x, y].Value)
+                        : CookingRecipeCatalog.DisplayName(session.Grid[x, y].Value);
             }
         }
 

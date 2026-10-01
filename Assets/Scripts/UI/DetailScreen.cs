@@ -687,6 +687,9 @@ namespace Yoegoe.UI
             iconImg.color = icon != null ? Color.white : new Color(0.7f, 0.7f, 0.75f, 1f);
             iconImg.raycastTarget = false;
 
+            if (feedTarget != null && feedTarget.golden)
+                GoldenSparkle.Attach(circleImg); // 황금음식 — 금빛 반짝임
+
             if (feedTarget != null)
             {
                 var drag = circleGO.AddComponent<OfferingDragItem>();

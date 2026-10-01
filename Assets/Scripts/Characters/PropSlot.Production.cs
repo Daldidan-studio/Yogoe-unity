@@ -40,18 +40,21 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 앉은 요괴가 dt초 머무는 동안의 생산 (규칙은 <see cref="PropProduction.Produce"/> — 오프라인과 동일).
         /// 반환 = 실제로 일한 초(이만큼만 기력이 닳는다). 만창이면 0.
+        /// speed = 생산 속도 배율(황금음식 버프 2) — 같은 시간에 speed배 생산하고, 기력은 실제 시간만큼만 닳는다.
         /// </summary>
-        public float ProduceWhileStaying(float dt, float intimacy, bool ownerOnEndingProp)
+        public float ProduceWhileStaying(float dt, float intimacy, bool ownerOnEndingProp, float speed = 1f)
         {
             if (!IsBuilt || data == null || dt <= 0f) return dt;
-            float worked = PropProduction.Produce(ProductionConfig, level, intimacy, ownerOnEndingProp,
-                PendingMerit.ToDouble(), ref storage, dt, () => UnityEngine.Random.value,
+            if (speed <= 0f) speed = 1f;
+            float producedSeconds = PropProduction.Produce(ProductionConfig, level, intimacy, ownerOnEndingProp,
+                PendingMerit.ToDouble(), ref storage, dt * speed, () => UnityEngine.Random.value,
                 code =>
                 {
                     pendingIngredients.Add(code);
                     if (PropCatalog.IsSpecialCode(code) && Occupant != null) goldenFinder = Occupant;
                 },
                 out double meritAdded);
+            float worked = producedSeconds / speed;
 
             if (meritAdded > 0)
             {

@@ -15,6 +15,8 @@ namespace Yoegoe.Characters
         public float Stamina;    // 0~(25+친밀도)
         public ActionState State = ActionState.Walking;
         public float StateTimer; // 놀기 5분 / 기력0 놀기 18시간→기절
+        /// <summary>황금음식 버프가 끝나는 실제 시각(UTC ticks, TrustedTime). 0 = 버프 없음.</summary>
+        public long GoldenBuffEndsUtcTicks;
 
         /// <summary>선호 공양물 중 실제로 먹여서 공개된 offeringId들. 한 번 공개되면 영구(세이브에 유지).</summary>
         public List<string> RevealedPreferredOfferingIds = new List<string>();

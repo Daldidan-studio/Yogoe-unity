@@ -21,6 +21,14 @@ namespace Yoegoe.Economy
             return MaterialCounts.TryGetValue((int)id, out int n) ? n : 0;
         }
 
+        /// <summary>요리판에 올릴 수 있는 개수 — 쌀·꿀은 황금쌀·황금꿀까지 포함(판에선 쌀·꿀 칸으로 쓰인다).</summary>
+        public int GetBoardMaterialCount(Yoegoe.Cooking.CookingIngredientId id)
+        {
+            int n = GetMaterialCount(id);
+            if (Yoegoe.Cooking.CookingSession.TryGoldenOf(id, out var golden)) n += GetSpecialItemCount(golden);
+            return n;
+        }
+
         public void AddMaterial(Yoegoe.Cooking.CookingIngredientId id, int amount)
         {
             if (amount == 0) return;
