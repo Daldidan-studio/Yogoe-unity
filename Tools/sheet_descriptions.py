@@ -20,6 +20,14 @@ from pathlib import Path
 MARK = "※"
 
 _LINES: dict[str, list[str]] = {
+    "codex": [
+        "※ 요리책(도감) 설명",
+        "- 한 줄 = 도감 칸 1개 (재료 15 · 음식 36 · 공양물 24)",
+        "- 게임에 들어가는 건 description 뿐 — 칸을 눌렀을 때 상세 팝업에 나옴",
+        "- id·name·combo 는 코드의 레시피에서 만든 참고용 (id 는 바꾸지 마세요)",
+        "- description 이 비어 있으면 효과(기력 +8 등)만 나옴",
+        "- 수정 후: npm run codex",
+    ],
     "characters": [
         "※ 캐릭터 기본 정보",
         "- 한 줄 = 요괴 1명",

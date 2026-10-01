@@ -157,6 +157,33 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
+        public void Descriptions_LoadById()
+        {
+            CodexDescriptions.LoadFromJson("{\"entries\":[{\"id\":\"bap\",\"description\":\"갓 지은 밥.\"}]}");
+            Assert.AreEqual("갓 지은 밥.", CodexDescriptions.Get("bap"));
+            Assert.AreEqual("", CodexDescriptions.Get("kimchi"));
+            CodexDescriptions.LoadFromJson(Resources.Load<TextAsset>("codex")?.text);
+        }
+
+        [Test]
+        public void SheetCsv_HasEveryCodexCell()
+        {
+            // Tools/sheets/codex.csv = 시트 codex 탭 사본 (npm run codex:push 로 생성) — 레시피가 바뀌면 다시 push
+            var lines = System.IO.File.ReadAllLines("Tools/sheets/codex.csv");
+            var ids = new System.Collections.Generic.HashSet<string>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                var cols = lines[i].Split(',');
+                if (cols.Length > 1) ids.Add(cols[1]);
+            }
+            foreach (var id in CookingCodex.ProductIds)
+                Assert.IsTrue(ids.Contains(id), "시트에 없는 요리: " + id);
+            for (int i = 0; i < (int)CookingIngredientId.Count; i++)
+                Assert.IsTrue(ids.Contains(((CookingIngredientId)i).ToString()));
+            Assert.AreEqual(CookingCodex.Total + (int)CookingIngredientId.Count + 2, ids.Count);
+        }
+
+        [Test]
         public void Prefabs_AreWired()
         {
             const string codexPath = "Assets/Prefabs/UI/CodexScreen.prefab";

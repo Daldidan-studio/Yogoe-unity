@@ -87,15 +87,17 @@ namespace Yoegoe.UI
                 var id = (CookingIngredientId)i;
                 string name = CookingRecipeCatalog.DisplayName(id);
                 int n = eco != null ? eco.GetMaterialCount(id) : 0;
-                AddCell(ingredients, name, n, known: true, () => ShowDetail(name, "요리 재료", ""));
+                string ingId = id.ToString();
+                AddCell(ingredients, name, n, known: true, () => ShowDetail(name, "요리 재료", CodexDescriptions.Get(ingId)));
             }
             foreach (var special in new[] { SpecialItemId.GoldenRice, SpecialItemId.GoldenHoney })
             {
                 string name = special == SpecialItemId.GoldenRice ? "황금쌀" : "황금꿀";
                 int n = eco != null ? eco.GetSpecialItemCount(special) : 0;
+                string specialId = special.ToString();
                 AddCell(ingredients, name, n, known: true,
                     () => ShowDetail(name, "요리판에서 " + (special == SpecialItemId.GoldenRice ? "쌀" : "꿀") + " 칸으로 쓰여요",
-                        "이게 들어간 음식은 황금음식이 돼요."));
+                        JoinDesc(CodexDescriptions.Get(specialId), "이게 들어간 음식은 황금음식이 돼요.")));
             }
 
             var foods = Section("음식");
@@ -191,8 +193,13 @@ namespace Yoegoe.UI
             string effect = recipe.Kind == CookingResultKind.Food
                 ? "음식 · 기력 +8\n황금쌀·황금꿀이 들어가면 황금음식(5분간 이동·생산 2배)"
                 : "공양물 · 기력 +3 · 친밀도 +2 (선호하는 요괴는 +5)";
-            ShowDetail(recipe.DisplayName, "조합: " + CookingCodex.ComboText(productId), effect);
+            ShowDetail(recipe.DisplayName, "조합: " + CookingCodex.ComboText(productId),
+                JoinDesc(CodexDescriptions.Get(recipe.Id), effect));
         }
+
+        /// <summary>시트 설명(있으면) + 빈 줄 + 효과.</summary>
+        static string JoinDesc(string description, string effect) =>
+            string.IsNullOrEmpty(description) ? effect : description + "\n\n" + effect;
 
         void ShowDetail(string name, string combo, string desc)
         {
