@@ -446,7 +446,8 @@ namespace Yoegoe.Cooking
                 var golden = new Dictionary<SpecialItemId, int>(goldenOnBoard);
                 foreach (var id in SpentOnBoard)
                 {
-                    bool g = TryGoldenOf(id, out var gid) && golden.TryGetValue(gid, out int left) && left > 0;
+                    int left = 0;
+                    bool g = TryGoldenOf(id, out var gid) && golden.TryGetValue(gid, out left) && left > 0;
                     if (g) golden[gid] = left - 1;
                     ReturnToInventory(eco, id, g);
                 }
