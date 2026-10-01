@@ -16,7 +16,7 @@ namespace Yoegoe.Characters
         public ActionState State = ActionState.Walking;
         public float StateTimer; // 놀기 5분 / 기력0 놀기 18시간→기절
 
-        /// <summary>선호 공양물 중 실제로 먹여서 공개된 offeringId들. 한 번 공개되면 영구(진화·리셋에도 유지).</summary>
+        /// <summary>선호 공양물 중 실제로 먹여서 공개된 offeringId들. 한 번 공개되면 영구(세이브에 유지).</summary>
         public List<string> RevealedPreferredOfferingIds = new List<string>();
 
         public bool IsPreferenceRevealed(string offeringId)

@@ -237,7 +237,7 @@ namespace Yoegoe.UI
             action?.Invoke();
         }
 
-        /// <summary>범용 확인 팝업(소환하기/진화하기 등) — BuildRevivePanel과 구조는 같지만
+        /// <summary>범용 확인 팝업(QA용) — BuildRevivePanel과 구조는 같지만
         /// 버튼 라벨을 ShowConfirm이 호출될 때마다 바꿀 수 있다.</summary>
         void BuildConfirmPanel(Transform parent)
         {

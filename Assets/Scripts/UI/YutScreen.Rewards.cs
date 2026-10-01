@@ -32,7 +32,7 @@ namespace Yoegoe.UI
             }
             if (team.Count == 0)
             {
-                // 세이브 복원만 된 경우 teamById가 비어 있을 수 있음 — 맵의 혼으로 대체
+                // 세이브 복원만 된 경우 teamById가 비어 있을 수 있음 — 맵의 요괴로 대체
                 for (int i = 0; i < CharacterAgent.All.Count; i++)
                 {
                     var a = CharacterAgent.All[i];

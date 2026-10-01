@@ -109,11 +109,6 @@ Docs/
 
 `write_token`은 선택. 쓸 때만 Apps Script 스크립트 속성 `WRITE_TOKEN`과 같은 임의 비밀을 넣습니다 (배포 URL의 `AKfycb…`가 아님).
 
-## 레거시 도구
-
-`npm run dialogue` / `Tools/export_dialogue.py` / `Tools/DialogueSheetsExport.gs`는
-이전 비주얼노벨 대사 시트용이었고 현재 설계에서는 쓰지 않습니다.
-
 ## 라이선스
 
 프로토타입 / 비공개 개발용. (추후 명시)
