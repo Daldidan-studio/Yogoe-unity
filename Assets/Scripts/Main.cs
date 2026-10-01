@@ -111,7 +111,7 @@ namespace Yoegoe
         {
             yield return null;
             UiAssembler.ForceCloseOverlayScreens();
-            GameSaveBridge.TryLoadSimulateAndApply();
+            GameSaveBridge.TryLoadSimulateAndApply(hudFont);
             session.MarkReady();
             session.TryOpenAttendanceIfDue();
             session.HideWebGlLoadingOverlay();

@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Yoegoe.Cooking;
 using Yoegoe.Economy;
+using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
@@ -132,6 +133,7 @@ public class GongyangganScreen : MonoBehaviour
             ConfirmPopup.Dismiss();
             session.RoundEnded -= OnRoundEnded;
             session.FinishNow();
+            GameSaveBridge.RequestSave();
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
             session.TimeUp -= OnTimeUp;
@@ -238,6 +240,7 @@ public class GongyangganScreen : MonoBehaviour
             RebuildSession();
             return;
         }
+        GameSaveBridge.RequestSave(); // 재료·부적 차감
         RefreshView();
     }
 
@@ -283,6 +286,24 @@ public class GongyangganScreen : MonoBehaviour
     }
 
     /// <summary>결과창 (19장): 이번에 만든 요리 · 새로 얻은 레시피(금색) · 스러진 재료(회수 부적이면 회수한 재료).</summary>
+    // '만들 수 있는 요리' 계산은 판의 2~3칸 조합을 전부 보므로 무겁다 — 판·도감이 바뀔 때만 다시 계산 (타이머 갱신은 매 프레임)
+    CookingSession makeableSession;
+    int makeableBoardVersion = -1;
+    int makeableDiscovered = -1;
+
+    void RefreshMakeable()
+    {
+        int discovered = CookingCodex.DiscoveredCount;
+        if (makeableSession == session && makeableBoardVersion == session.BoardVersion
+            && makeableDiscovered == discovered)
+            return;
+        makeableSession = session;
+        makeableBoardVersion = session.BoardVersion;
+        makeableDiscovered = discovered;
+        if (makeableText != null) makeableText.text = MakeableLine(session);
+        if (codexButtonLabel != null) codexButtonLabel.text = "요리책 " + CodexScreen.RateShort;
+    }
+
     /// <summary>상태 줄 '지금 만들 수 있는 요리' — 발견한 요리는 이름, 아직 못 본 건 '?' (19장).</summary>
     public static string MakeableLine(CookingSession s)
     {
@@ -305,6 +326,7 @@ public class GongyangganScreen : MonoBehaviour
         if (resultPopup == null || resultBody == null || session == null) return;
         resultBody.text = BuildResultText(session);
         resultPopup.SetActive(true);
+        GameSaveBridge.RequestSave(); // 완성품·도감·회수 재료
         RefreshView();
     }
 
@@ -377,8 +399,7 @@ public class GongyangganScreen : MonoBehaviour
                 : session.Finished ? $"끝 · {charm}"
                 : $"준비 · 재료 {session.MaterialsOnBoard}개 · {charm}";
         }
-        if (codexButtonLabel != null) codexButtonLabel.text = "요리책 " + CodexScreen.RateShort;
-        if (makeableText != null) makeableText.text = MakeableLine(session);
+        if (makeableText != null || codexButtonLabel != null) RefreshMakeable();
         if (nagariButton != null)
             nagariButton.gameObject.SetActive(session.ShowNagari);
         if (extendButton != null)

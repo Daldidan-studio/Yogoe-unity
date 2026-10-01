@@ -17,6 +17,12 @@ namespace Yoegoe.Bootstrap
     {
         /// <summary>이보다 긴 벽시계 공백이면 캐릭터 정산을 돌린다 (WebGL 탭 숨김 등).</summary>
         const float WallClockCatchUpThresholdSeconds = 1f;
+        /// <summary>자동 저장 간격 — 웹은 새로고침·탭 닫기에서 종료 이벤트가 안 올 수 있어 주기적으로 저장한다.</summary>
+        const float AutoSaveSeconds = 30f;
+        /// <summary>RequestSave 후 이만큼 모아서 한 번 저장 (연속 탭마다 저장하지 않게).</summary>
+        const float RequestedSaveDelaySeconds = 2f;
+
+        float lastSaveAt;
 
         DateTime lastActiveUtc;
         bool worldReady;
@@ -32,6 +38,7 @@ namespace Yoegoe.Bootstrap
         {
             lastActiveUtc = TrustedTime.UtcNow;
             worldReady = true;
+            lastSaveAt = Time.unscaledTime;
             Greeting.Request(); // 앱을 켜면 놀던 요괴들이 인사 (출석 윷점 대사 뒤)
         }
 
@@ -53,6 +60,17 @@ namespace Yoegoe.Bootstrap
             if (gap >= Greeting.AwaySecondsForGreeting) Greeting.Request();
 
             Greeting.Tick(AttendanceScreen.IsOpen);
+            TickAutoSave();
+        }
+
+        void TickAutoSave()
+        {
+            float since = Time.unscaledTime - lastSaveAt;
+            bool due = since >= AutoSaveSeconds
+                       || (GameSaveBridge.SaveRequested && since >= RequestedSaveDelaySeconds);
+            if (!due) return;
+            GameSaveBridge.SaveFromWorld();
+            lastSaveAt = Time.unscaledTime;
         }
 
         public void OnPause(bool pause)

@@ -292,7 +292,9 @@ namespace Yoegoe.Characters
 
                     case PressTarget.GongyangganProp:
                     case PressTarget.Prop:
-                        // 움직이면 지도 패닝, 가만히 길게 누르면 개별 업그레이드 팝업(화덕은 업그레이드 없음)
+                        // 움직이면 지도 패닝, 가만히 길게 누르면 개별 업그레이드 팝업(화덕은 업그레이드 없음).
+                        // 팝업을 이미 띄웠으면 이 누름은 끝 — 손을 움직여도 팝업 뒤 지도가 움직이지 않게.
+                        if (pressConsumed) return;
                         if (moved > dragThresholdPixels)
                         {
                             phase = Phase.MapDrag;
@@ -383,12 +385,14 @@ namespace Yoegoe.Characters
                     case PressTarget.Prop:
                         // 기물 본체·보관 라벨 탭 → 쌓인 자원 수거
                         CancelPendingMonologueTap();
-                        if (pressProp.HasPendingCollectible) pressProp.TryCollect();
+                        if (pressProp.HasPendingCollectible && pressProp.TryCollect())
+                            Yoegoe.Save.GameSaveBridge.RequestSave();
                         break;
 
                     case PressTarget.Willow:
                         CancelPendingMonologueTap();
                         MeritWillow.Instance?.OnTapped();
+                        Yoegoe.Save.GameSaveBridge.RequestSave();
                         break;
 
                     case PressTarget.Character:

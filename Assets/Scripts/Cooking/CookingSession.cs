@@ -19,6 +19,8 @@ namespace Yoegoe.Cooking
         public const int MinMaterialsToCook = 2;
 
         public CookingIngredientId?[,] Grid { get; private set; }
+        /// <summary>판 칸이 바뀔 때마다 +1 (새로 깔기·요리 완성·정산) — 무거운 판 계산을 캐시할 때 쓴다.</summary>
+        public int BoardVersion { get; private set; }
         /// <summary>황금쌀·황금꿀 칸 (Grid에는 쌀·꿀로 들어간다). 이 칸이 들어간 음식은 황금음식으로 완성.</summary>
         public bool[,] Golden { get; private set; }
         public bool[,] Locked { get; private set; }
@@ -130,6 +132,7 @@ namespace Yoegoe.Cooking
 
             Grid = grid;
             Golden = golden;
+            BoardVersion++;
             Locked = new bool[GridSize, GridSize];
             SpentOnBoard.Clear();
             goldenOnBoard.Clear();
@@ -365,6 +368,7 @@ namespace Yoegoe.Cooking
                     Golden[px, py] = false;
                     Locked[px, py] = true;
                 }
+                BoardVersion++;
                 path.Clear();
                 if (!CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal))
                     EndRound(timeUp: false);
@@ -478,6 +482,7 @@ namespace Yoegoe.Cooking
             Running = false;
             Finished = true;
             path.Clear();
+            BoardVersion++;
 
             var eco = Yoegoe.Economy.GameEconomy.Instance;
             Leftover.Clear();

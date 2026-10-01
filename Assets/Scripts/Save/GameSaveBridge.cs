@@ -20,7 +20,8 @@ namespace Yoegoe.Save
         /// 세이브 있으면 로드 → 오프라인 시뮬 → 월드 반영.
         /// 없으면 false (기존 StartingState 유지).
         /// </summary>
-        public static bool TryLoadSimulateAndApply()
+        /// <param name="bubbleFont">세이브에만 있어 새로 스폰하는 요괴(고라니·구미호)의 말풍선 폰트 — 없으면 한글이 깨진다.</param>
+        public static bool TryLoadSimulateAndApply(Font bubbleFont = null)
         {
             if (!GameSaveService.TryLoad(out var data)) return false;
 
@@ -33,7 +34,7 @@ namespace Yoegoe.Save
                           $"(실제 경과 {sim.ElapsedSeconds:F0}s, 상한 {OfflineSimulator.MaxOfflineSeconds:F0}s)");
             }
 
-            ApplyToWorld(data);
+            ApplyToWorld(data, bubbleFont);
             // 공덕 더미는 기물에 남겨 두고 버드나무에서 수거한다 (7-4). 예전의 콜드스타트 일괄 스윕은 폐지.
             RefreshAllPropPileLabels();
             return true;
@@ -56,8 +57,15 @@ namespace Yoegoe.Save
                 p?.ForceRefreshPileLabel();
         }
 
+        /// <summary>저장이 필요함만 표시 (수거·요리처럼 자주 일어나는 변경). AppSession이 곧 한 번 몰아서 저장한다.</summary>
+        public static void RequestSave() => SaveRequested = true;
+
+        /// <summary><see cref="RequestSave"/> 이후 아직 저장 안 됨.</summary>
+        public static bool SaveRequested { get; private set; }
+
         public static void SaveFromWorld()
         {
+            SaveRequested = false;
             // Play 중이 아니거나 Economy 부팅 전이면 OnApplicationQuit 등에서 NRE 남
             if (GameEconomy.Instance == null) return;
             var data = CaptureFromWorld();
@@ -154,7 +162,7 @@ namespace Yoegoe.Save
             return data;
         }
 
-        public static void ApplyToWorld(GameSaveData data)
+        public static void ApplyToWorld(GameSaveData data, Font bubbleFont = null)
         {
             if (data == null) return;
 
@@ -184,7 +192,7 @@ namespace Yoegoe.Save
             }
 
             // Agents — 세이브에만 있는 고라니 등 먼저 스폰
-            EnsureMissingAgentsFromSave(data.agents);
+            EnsureMissingAgentsFromSave(data.agents, bubbleFont);
 
             // Agents + 기물 점유 복원
             if (data.agents != null)
@@ -227,9 +235,8 @@ namespace Yoegoe.Save
                 YutScreen.Instance.ApplyFromSave(data.yutMatch);
         }
 
-        /// <summary>콜드스타트 시 세이브에 고라니가 있으면 월드에 스폰 (향 소모 없음).</summary>
         /// <summary>콜드스타트 시 세이브에 있는 소환 요괴(고라니·구미호)를 월드에 스폰 (향 소모 없음).</summary>
-        private static void EnsureMissingAgentsFromSave(AgentSave[] agents)
+        private static void EnsureMissingAgentsFromSave(AgentSave[] agents, Font bubbleFont)
         {
             if (agents == null) return;
             foreach (var ags in agents)
@@ -240,7 +247,7 @@ namespace Yoegoe.Save
                 else if (ags.characterId == nameof(CharacterId.Gumiho) || ags.characterId == "구미호") id = CharacterId.Gumiho;
                 else continue;
                 if (CharacterSummon.IsPresent(id)) continue;
-                CharacterSummon.SpawnForSaveRestore(id, null, new Vector3(ags.posX, ags.posY, 0f));
+                CharacterSummon.SpawnForSaveRestore(id, bubbleFont, new Vector3(ags.posX, ags.posY, 0f));
             }
         }
 
