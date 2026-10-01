@@ -190,30 +190,34 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void Descriptions_LoadById()
+        public void Descriptions_FromRecipesAndIngredients()
         {
-            CodexDescriptions.LoadFromJson("{\"entries\":[{\"id\":\"bap\",\"description\":\"갓 지은 밥.\"}]}");
-            Assert.AreEqual("갓 지은 밥.", CodexDescriptions.Get("bap"));
-            Assert.AreEqual("", CodexDescriptions.Get("kimchi"));
-            CodexDescriptions.LoadFromJson(Resources.Load<TextAsset>("codex")?.text);
+            try
+            {
+                CookingRecipeCatalog.LoadFromJson(
+                    "{\"recipes\":[{\"id\":\"bap\",\"name\":\"밥\",\"kind\":\"Food\",\"ingredients\":[\"Water\",\"Rice\"],\"description\":\"갓 지은 밥.\"}]}");
+                CodexDescriptions.LoadIngredientsFromJson("{\"ingredients\":[{\"id\":\"Rice\",\"description\":\"약초밭에서 나요.\"}]}");
+                Assert.AreEqual("갓 지은 밥.", CodexDescriptions.Get("bap"));
+                Assert.AreEqual("약초밭에서 나요.", CodexDescriptions.Get("Rice"));
+                Assert.AreEqual("", CodexDescriptions.Get("kimchi"));
+            }
+            finally
+            {
+                CookingRecipeCatalog.LoadFromJson(Resources.Load<TextAsset>(CookingRecipeCatalog.ResourcePath).text);
+                CodexDescriptions.LoadIngredientsFromJson(Resources.Load<TextAsset>(CodexDescriptions.IngredientsResourcePath)?.text);
+            }
         }
 
         [Test]
-        public void SheetCsv_HasEveryCodexCell()
+        public void IngredientsJson_HasEveryIngredientCell()
         {
-            // Tools/sheets/codex.csv = 시트 codex 탭 사본 (npm run codex:push 로 생성) — 레시피가 바뀌면 다시 push
-            var lines = System.IO.File.ReadAllLines("Tools/sheets/codex.csv");
-            var ids = new System.Collections.Generic.HashSet<string>();
-            for (int i = 1; i < lines.Length; i++)
-            {
-                var cols = lines[i].Split(',');
-                if (cols.Length > 1) ids.Add(cols[1]);
-            }
-            foreach (var id in CookingCodex.ProductIds)
-                Assert.IsTrue(ids.Contains(id), "시트에 없는 요리: " + id);
+            // Resources/ingredients.json = 시트 ingredients 탭 (재료 13 + 황금쌀·황금꿀)
+            var text = Resources.Load<TextAsset>(CodexDescriptions.IngredientsResourcePath)?.text;
+            Assert.IsNotNull(text);
             for (int i = 0; i < (int)CookingIngredientId.Count; i++)
-                Assert.IsTrue(ids.Contains(((CookingIngredientId)i).ToString()));
-            Assert.AreEqual(CookingCodex.Total + (int)CookingIngredientId.Count + 2, ids.Count);
+                StringAssert.Contains("\"" + (CookingIngredientId)i + "\"", text);
+            StringAssert.Contains("\"GoldenRice\"", text);
+            StringAssert.Contains("\"GoldenHoney\"", text);
         }
 
         [Test]

@@ -2,9 +2,10 @@
 """공양간 레시피: 구글 시트 탭 recipes ⇄ Assets/Resources/recipes.json (게임이 읽는 정본)
 
 시트 = 윷 말풍선 시트(Tools/yut_bubbles_sheets.config.json 의 sheet_id)의 탭 1개:
-  recipes  kind, id, name, ingredient_1, ingredient_2, ingredient_3, note
+  recipes  kind, id, name, ingredient_1, ingredient_2, ingredient_3, description, note
            한 줄 = 조합 1개. 같은 id 를 여러 줄 쓰면 같은 요리의 다른 조합 (예: 고기죽 = 쌀+새고기 / 쌀+멧돼지고기)
            kind: 음식(재료 2) / 공양물(재료 3) · 재료는 한글 이름(쌀, 팥, 물 …)
+           description: 요리책 상세 설명 — 요리마다 한 줄에만 (같은 id 의 다른 줄은 비워 둠)
 
 사용법:
   python3 Tools/export_recipes.py            # 시트 → recipes.json   (npm run recipes)
@@ -12,7 +13,7 @@
   python3 Tools/export_recipes.py --to-csv   # recipes.json → Tools/sheets/recipes.csv
   python3 Tools/export_recipes.py --push     # recipes.json → CSV + 시트 탭 덮어쓰기 (npm run recipes:push)
 
-레시피를 바꾼 뒤에는 도감 설명 탭도 맞춰 주세요: npm run codex:push (설명은 유지됨)
+재료 설명은 별도 탭 ingredients (Tools/export_ingredients.py).
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from recipes_data import (ING_KO, ING_ORDER, KIND_INGREDIENTS, KIND_KO, KO_TO_IN
 
 TAB = "recipes"
 ING_COLS = ["ingredient_1", "ingredient_2", "ingredient_3"]
-HEADERS = ["kind", "id", "name"] + ING_COLS + ["note"]
+HEADERS = ["kind", "id", "name"] + ING_COLS + ["description", "note"]
 CSV_PATH = ROOT / "Tools" / "sheets" / "recipes.csv"
 
 
@@ -48,6 +49,7 @@ def rows_to_json(rows: list[dict]) -> tuple[dict, list[str]]:
     recipes = []
     by_id: dict[str, tuple[str, str]] = {}
     by_combo: dict[tuple, str] = {}
+    desc_by_id: dict[str, str] = {}
     for r in rows:
         where = f"[{TAB}] {r['_row']}행"
         rid, name = r.get("id", ""), r.get("name", "")
@@ -87,16 +89,28 @@ def rows_to_json(rows: list[dict]) -> tuple[dict, list[str]]:
             errors.append(f"{where}: 같은 조합이 이미 있음 ({' + '.join(ING_KO[i] for i in key)} → {by_combo[key]})")
             continue
         by_combo[key] = rid
+        desc = r.get("description", "")
+        if desc:
+            if rid in desc_by_id and desc_by_id[rid] != desc:
+                errors.append(f"{where}: {rid} 설명이 두 줄에 다르게 있음 — 한 줄에만 쓰세요")
+                continue
+            desc_by_id[rid] = desc
         recipes.append({"id": rid, "name": name, "kind": kind, "ingredients": ings})
     if not recipes:
         errors.append(f"[{TAB}] 레시피가 하나도 없음")
+    # 설명은 그 요리의 첫 줄에만 둔다
+    placed = set()
+    for rec in recipes:
+        if rec["id"] in desc_by_id and rec["id"] not in placed:
+            rec["description"] = desc_by_id[rec["id"]]
+            placed.add(rec["id"])
     return {"recipes": recipes}, errors
 
 
 def json_to_rows() -> list[dict]:
     rows = []
     for r in load_recipes():
-        row = {"kind": KIND_KO[r["kind"]], "id": r["id"], "name": r["name"]}
+        row = {"kind": KIND_KO[r["kind"]], "id": r["id"], "name": r["name"], "description": r.get("description", "")}
         for c, ing in zip(ING_COLS, r["ingredients"]):
             row[c] = ING_KO[ing]
         rows.append(row)
@@ -139,7 +153,6 @@ def main() -> int:
     RECIPES_JSON.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     ids = {r["id"] for r in data["recipes"]}
     print(f"Wrote {RECIPES_JSON.relative_to(ROOT)} (조합 {len(data['recipes'])}, 요리 {len(ids)})")
-    print("도감 설명 탭도 맞추려면: npm run codex:push")
     return 0
 
 

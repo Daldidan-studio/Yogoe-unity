@@ -1,6 +1,6 @@
 """공양간 레시피 공용 데이터 — Assets/Resources/recipes.json (정본: 시트 recipes 탭, npm run recipes).
 
-다른 도구(export_characters 선호 검증, export_codex 도감 칸)는 여기서 레시피를 읽는다.
+다른 도구(export_characters 선호 검증 등)는 여기서 레시피를 읽는다.
 """
 
 from __future__ import annotations

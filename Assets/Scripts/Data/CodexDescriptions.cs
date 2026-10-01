@@ -1,41 +1,46 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Yoegoe.Cooking;
 
 namespace Yoegoe.Data
 {
     /// <summary>
-    /// 요리책 칸 설명 — 시트 codex 탭(Resources/codex.json, npm run codex). 기획자가 채운다.
-    /// id = 재료(Water·Rice… GoldenRice·GoldenHoney) 또는 레시피 결과물 id(bap, yukjeon…).
+    /// 요리책 칸 설명. 요리 = 시트 recipes 탭 description(recipes.json), 재료 = 시트 ingredients 탭(ingredients.json).
+    /// id = 레시피 결과물 id(bap, yukjeon…) 또는 재료 id(Water·Rice… GoldenRice·GoldenHoney).
     /// </summary>
     public static class CodexDescriptions
     {
-        [Serializable] class Entry { public string id; public string description; }
-        [Serializable] class Root { public Entry[] entries; }
+        [Serializable] class Ingredient { public string id; public string description; }
+        [Serializable] class IngredientFile { public Ingredient[] ingredients; }
 
-        static Dictionary<string, string> map;
+        public const string IngredientsResourcePath = "ingredients";
+        static Dictionary<string, string> ingredients;
 
         public static string Get(string id)
         {
-            Ensure();
-            return !string.IsNullOrEmpty(id) && map.TryGetValue(id, out var d) ? d : "";
+            if (string.IsNullOrEmpty(id)) return "";
+            string recipe = CookingRecipeCatalog.Description(id);
+            if (!string.IsNullOrEmpty(recipe)) return recipe;
+            EnsureIngredients();
+            return ingredients.TryGetValue(id, out var d) ? d : "";
         }
 
-        /// <summary>테스트·핫리로드용.</summary>
-        public static void LoadFromJson(string json)
+        /// <summary>재료 설명 다시 읽기 (테스트·핫리로드).</summary>
+        public static void LoadIngredientsFromJson(string json)
         {
-            map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            ingredients = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrEmpty(json)) return;
-            var root = JsonUtility.FromJson<Root>(json);
-            if (root?.entries == null) return;
-            foreach (var e in root.entries)
-                if (e != null && !string.IsNullOrEmpty(e.id)) map[e.id] = e.description ?? "";
+            var file = JsonUtility.FromJson<IngredientFile>(json);
+            if (file?.ingredients == null) return;
+            foreach (var e in file.ingredients)
+                if (e != null && !string.IsNullOrEmpty(e.id)) ingredients[e.id] = e.description ?? "";
         }
 
-        static void Ensure()
+        static void EnsureIngredients()
         {
-            if (map != null) return;
-            LoadFromJson(Resources.Load<TextAsset>("codex")?.text);
+            if (ingredients != null) return;
+            LoadIngredientsFromJson(Resources.Load<TextAsset>(IngredientsResourcePath)?.text);
         }
     }
 }

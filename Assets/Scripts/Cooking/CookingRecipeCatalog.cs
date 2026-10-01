@@ -25,7 +25,16 @@ namespace Yoegoe.Cooking
             get { Ensure(); return All; }
         }
 
-        [Serializable] class RecipeRow { public string id; public string name; public string kind; public string[] ingredients; }
+        [Serializable] class RecipeRow { public string id; public string name; public string kind; public string[] ingredients; public string description; }
+
+        static readonly Dictionary<string, string> Descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>요리책 상세 설명 (시트 recipes 탭 description). 없으면 빈 문자열.</summary>
+        public static string Description(string productId)
+        {
+            Ensure();
+            return !string.IsNullOrEmpty(productId) && Descriptions.TryGetValue(productId, out var d) ? d : "";
+        }
         [Serializable] class RecipeFile { public RecipeRow[] recipes; }
 
         public static void Ensure()
@@ -48,6 +57,7 @@ namespace Yoegoe.Cooking
             Version++;
             All.Clear();
             ByKey.Clear();
+            Descriptions.Clear();
             var file = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<RecipeFile>(json);
             if (file?.recipes == null) return;
             foreach (var row in file.recipes)
@@ -68,6 +78,8 @@ namespace Yoegoe.Cooking
                     continue;
                 }
                 Add(new CookingRecipe(row.id, string.IsNullOrEmpty(row.name) ? row.id : row.name, kind, ings));
+                if (!string.IsNullOrEmpty(row.description) && !Descriptions.ContainsKey(row.id))
+                    Descriptions[row.id] = row.description;
             }
         }
 

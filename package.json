@@ -21,9 +21,9 @@
     "recipes": "python3 Tools/export_recipes.py",
     "recipes:csv": "python3 Tools/export_recipes.py --csv",
     "recipes:push": "python3 Tools/export_recipes.py --push",
-    "codex": "python3 Tools/export_codex.py",
-    "codex:csv": "python3 Tools/export_codex.py --csv",
-    "codex:push": "python3 Tools/export_codex.py --push",
+    "ingredients": "python3 Tools/export_ingredients.py",
+    "ingredients:csv": "python3 Tools/export_ingredients.py --csv",
+    "ingredients:push": "python3 Tools/export_ingredients.py --push",
     "sheets:describe": "python3 Tools/sheet_descriptions.py --apply"
   }
 }
