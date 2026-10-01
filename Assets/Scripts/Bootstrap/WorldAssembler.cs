@@ -237,6 +237,8 @@ namespace Yoegoe.Bootstrap
 
             var router = cam.GetComponent<MapPointerRouter>();
             if (router != null) router.mapDrag = drag;
+
+            MapIntro.PrepareAfterMapWire();
         }
 
         static Collider2D BuildPlayfieldWalkCollider(GameObject fieldGO, Sprite sprite)

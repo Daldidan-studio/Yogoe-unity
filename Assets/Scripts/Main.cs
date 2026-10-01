@@ -6,6 +6,7 @@ using Yoegoe.Core;
 using Yoegoe.Data;
 using Yoegoe.Economy;
 using Yoegoe.Save;
+using Yoegoe.UI;
 
 namespace Yoegoe
 {
@@ -105,6 +106,10 @@ namespace Yoegoe
                 offerings = offerings,
                 goraniData = goraniData,
             });
+
+            // 인트로 중 HUD가 하늘을 가리지 않게
+            if (MapIntro.Instance != null && MapIntro.Instance.IsPrepared && GameHud.Instance != null)
+                GameHud.Instance.gameObject.SetActive(false);
         }
 
         IEnumerator Start()
@@ -112,9 +117,14 @@ namespace Yoegoe
             yield return null;
             UiAssembler.ForceCloseOverlayScreens();
             GameSaveBridge.TryLoadSimulateAndApply(hudFont);
+
+            // 로딩 오버레이를 걷히며 Overview 하늘 → 아래로 팬
+            session.HideWebGlLoadingOverlay();
+            if (MapIntro.Instance != null && MapIntro.Instance.IsPrepared)
+                yield return MapIntro.Instance.PlayReveal();
+
             session.MarkReady();
             session.TryOpenAttendanceIfDue();
-            session.HideWebGlLoadingOverlay();
         }
 
         void Update() => session?.Tick();
