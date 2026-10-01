@@ -68,6 +68,16 @@ namespace Yoegoe.UI
             p.panel.SetActive(true);
         }
 
+        /// <summary>답 없이 닫기 (화면이 먼저 닫힐 때) — 콜백은 부르지 않는다.</summary>
+        public static void Dismiss()
+        {
+            var p = Instance;
+            if (p == null) return;
+            p.onYes = null;
+            p.onNo = null;
+            if (p.panel != null) p.panel.SetActive(false);
+        }
+
         void Answer(bool yes)
         {
             var action = yes ? onYes : onNo;

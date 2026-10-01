@@ -112,6 +112,48 @@ namespace Yoegoe.Tests.EditMode
             Assert.AreEqual(2, eco.GetMaterialCount(CookingIngredientId.Rice));
         }
 
+        CookingSession StartedFruitBoard(CookingCharmType charm)
+        {
+            eco.AddMaterial(CookingIngredientId.Fruit, 20); // 곶감 = 과실 2 → 이웃한 과실만 있으면 계속 만들 수 있는 판
+            var session = new CookingSession();
+            session.Prepare(charm);
+            Assert.IsTrue(session.StartRound());
+            return session;
+        }
+
+        [Test]
+        public void TimeUp_AsksExtend_UnlimitedTimes_ThenFinishes()
+        {
+            var session = StartedFruitBoard(CookingCharmType.None);
+            int timeUps = 0;
+            session.TimeUp += () => timeUps++;
+
+            for (int k = 1; k <= 3; k++)
+            {
+                session.Tick(CookingSession.BaseSeconds + 1f);
+                Assert.IsTrue(session.AwaitingExtend);
+                Assert.IsFalse(session.Finished, "연장을 묻는 동안은 정산 전");
+                Assert.AreEqual(k, timeUps);
+                Assert.IsTrue(session.ExtendByAd());
+                Assert.IsTrue(session.Running);
+                Assert.AreEqual(CookingSession.AdExtendSeconds, session.TimeLeft, 0.001f);
+            }
+
+            session.Tick(CookingSession.AdExtendSeconds + 1f);
+            session.FinishAfterTimeUp();
+            Assert.IsTrue(session.Finished);
+            Assert.IsFalse(session.ExtendByAd());
+        }
+
+        [Test]
+        public void TimeUp_RecycleCharm_FinishesWithoutAsking()
+        {
+            var session = StartedFruitBoard(CookingCharmType.Recycle);
+            session.Tick(CookingSession.BaseSeconds + 1f);
+            Assert.IsFalse(session.AwaitingExtend);
+            Assert.IsTrue(session.Finished);
+        }
+
         [Test]
         public void ConfirmPrefab_HasAllReferencesWired_AndIsInMainScene()
         {

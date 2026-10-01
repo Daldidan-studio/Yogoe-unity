@@ -28,6 +28,8 @@ namespace Yoegoe.Cooking
         public bool AllowAdExtend =>
             PreCharm != CookingCharmType.Recycle && PreCharm != CookingCharmType.Double;
         public bool ShowNagari => Running && PreCharm == CookingCharmType.None;
+        /// <summary>시간이 다 됐고 광고 연장을 물어보는 중 (19장: 종료 후 광고 보고 +15초, 무제한). 판은 아직 정산 전.</summary>
+        public bool AwaitingExtend { get; private set; }
         public bool ClairvoyanceActive { get; private set; }
         public float ClairvoyanceLeft { get; private set; }
 
@@ -43,6 +45,8 @@ namespace Yoegoe.Cooking
 
         public event Action Changed;
         public event Action RoundEnded;
+        /// <summary>시간 종료 — 연장 가능한 판이면 정산 대신 이걸 알린다. UI가 <see cref="ExtendByAd"/> 또는 <see cref="FinishAfterTimeUp"/>.</summary>
+        public event Action TimeUp;
 
         public void Prepare(CookingCharmType charm)
         {
@@ -186,20 +190,47 @@ namespace Yoegoe.Cooking
             if (TimeLeft <= 0f)
             {
                 TimeLeft = 0f;
+                // 회수·몰빵 판, 더 만들 게 없는 판은 바로 정산
+                if (AllowAdExtend && CookingRecipeCatalog.AnyCompletable(Grid, AllowDiagonal))
+                {
+                    Running = false;
+                    AwaitingExtend = true;
+                    path.Clear();
+                    Changed?.Invoke();
+                    TimeUp?.Invoke();
+                    return;
+                }
                 EndRound(timeUp: true);
                 return;
             }
             Changed?.Invoke();
         }
 
-        public void ExtendByAd()
+        /// <summary>시간 종료 후 광고 보고 +15초 — 횟수 제한 없음. 연장 중에도 나가리 가능.</summary>
+        public bool ExtendByAd()
         {
-            if (!AllowAdExtend || Finished) return;
-            if (!Running && TimeLeft <= 0f) return;
-            TimeLeft += AdExtendSeconds;
-            if (!Running) Running = true;
-            Finished = false;
+            if (!AwaitingExtend || Finished) return false;
+            AwaitingExtend = false;
+            TimeLeft = AdExtendSeconds;
+            Running = true;
             Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>시간 종료 후 연장 안 함 → 정산.</summary>
+        public void FinishAfterTimeUp()
+        {
+            if (!AwaitingExtend) return;
+            AwaitingExtend = false;
+            EndRound(timeUp: true);
+        }
+
+        /// <summary>화면을 닫을 때 — 진행 중이거나 연장을 묻는 중이면 지금까지 만든 걸로 정산(만든 요리를 잃지 않게).</summary>
+        public void FinishNow()
+        {
+            if (Finished || (!Running && !AwaitingExtend)) return;
+            AwaitingExtend = false;
+            EndRound(timeUp: false);
         }
 
         public bool TryBeginPath(int x, int y)

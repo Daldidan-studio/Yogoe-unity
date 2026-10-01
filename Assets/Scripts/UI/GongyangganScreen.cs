@@ -88,6 +88,7 @@ public class GongyangganScreen : MonoBehaviour
         {
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
+            session.TimeUp -= OnTimeUp;
         }
     }
 
@@ -107,6 +108,7 @@ public class GongyangganScreen : MonoBehaviour
         session = new CookingSession();
         session.Changed += RefreshView;
         session.RoundEnded += OnRoundEnded;
+        session.TimeUp += OnTimeUp;
         session.Prepare(CookingCharmType.None);
         if (resultPopup != null) resultPopup.SetActive(false);
         root.SetActive(true);
@@ -120,8 +122,13 @@ public class GongyangganScreen : MonoBehaviour
         IsOpen = false;
         if (session != null)
         {
+            // 요리 중·연장 대기 중에 닫으면 만든 것까지 정산 (결과 팝업 없이)
+            ConfirmPopup.Dismiss();
+            session.RoundEnded -= OnRoundEnded;
+            session.FinishNow();
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
+            session.TimeUp -= OnTimeUp;
             session = null;
         }
     }
@@ -155,7 +162,7 @@ public class GongyangganScreen : MonoBehaviour
         if (extendButton != null)
         {
             extendButton.onClick.RemoveAllListeners();
-            extendButton.onClick.AddListener(() => session?.ExtendByAd());
+            extendButton.onClick.AddListener(OnTimeUp);
         }
         if (closeButton != null)
         {
@@ -225,10 +232,12 @@ public class GongyangganScreen : MonoBehaviour
         {
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
+            session.TimeUp -= OnTimeUp;
         }
         session = new CookingSession();
         session.Changed += RefreshView;
         session.RoundEnded += OnRoundEnded;
+        session.TimeUp += OnTimeUp;
         session.Prepare(selectedCharm);
         RefreshView();
     }
@@ -243,6 +252,18 @@ public class GongyangganScreen : MonoBehaviour
         }
         selectedCharm = selectedCharm == charm ? CookingCharmType.None : charm;
         RebuildSession();
+    }
+
+    /// <summary>시간 종료 → "광고 보고 15초 더?" (19장, 무제한). 아니오·바깥 탭 = 그만하고 정산.
+    /// 광고 SDK 미연동 — 예를 누르면 바로 연장(스텁).</summary>
+    void OnTimeUp()
+    {
+        if (session == null || !session.AwaitingExtend) return;
+        var s = session;
+        ConfirmPopup.Show("시간이 다 됐어요!\n광고 보고 15초 더 할까요?",
+            () => { if (session == s) s.ExtendByAd(); },
+            () => { if (session == s) s.FinishAfterTimeUp(); },
+            yes: "광고 보고 +15초", no: "그만하기");
     }
 
     void OnRoundEnded()
@@ -284,7 +305,7 @@ public class GongyangganScreen : MonoBehaviour
         if (nagariButton != null)
             nagariButton.gameObject.SetActive(session.ShowNagari);
         if (extendButton != null)
-            extendButton.gameObject.SetActive(session.AllowAdExtend && (session.Running || session.Finished));
+            extendButton.gameObject.SetActive(session.AwaitingExtend);
         if (startButton != null)
             startButton.interactable = !session.Running && !session.Finished;
 
