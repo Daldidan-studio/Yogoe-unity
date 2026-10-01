@@ -211,8 +211,15 @@ namespace Yoegoe.Characters
         /// </summary>
         public static event System.Action<Vector3> MeritCollectedAtWorld;
 
+        /// <summary>
+        /// 요괴가 앉아 일할 수 있는 기물인지.
+        /// 화덕(opensGongyanggan)은 탭→요리만 — 착석·자동 이동 후보에서 제외.
+        /// </summary>
+        public bool AcceptsWorkers => data == null || !data.opensGongyanggan;
+
         /// <summary>드래그 중인 요괴가 지금 바로 앉을 수 있는 기물인지 (금색 ▼ 마커).</summary>
-        public bool CanSitNow(CharacterAgent agent) => IsBuilt && !IsOccupied && CanBeUsedBy(agent);
+        public bool CanSitNow(CharacterAgent agent) =>
+            IsBuilt && !IsOccupied && AcceptsWorkers && CanBeUsedBy(agent);
 
         public bool CanBeUsedBy(CharacterAgent agent)
         {

@@ -356,7 +356,7 @@ namespace Yoegoe.Characters
             isWandering = false;
             wanderTarget = null;
 
-            if (!prop.CanBeUsedBy(this)) return false;
+            if (!prop.AcceptsWorkers || !prop.CanBeUsedBy(this)) return false;
             if (!prop.TryOccupy(this)) return false;
 
             currentProp = prop;

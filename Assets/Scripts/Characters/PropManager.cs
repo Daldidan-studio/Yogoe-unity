@@ -46,6 +46,7 @@ namespace Yoegoe.Characters
                 if (p.IsReserved) continue;
                 if (p == exclude) continue;
                 if (p.IsStorageHalted) continue; // 가도 일을 못 함
+                if (!p.AcceptsWorkers) continue; // 화덕 등 — 요리 전용, 일할 곳 아님
                 if (!p.CanBeUsedBy(requester)) continue;
                 candidates.Add(p);
             }
