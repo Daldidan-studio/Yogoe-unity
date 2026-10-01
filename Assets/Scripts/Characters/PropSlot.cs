@@ -213,9 +213,17 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 요괴가 앉아 일할 수 있는 기물인지.
-        /// 화덕(opensGongyanggan)은 탭→요리만 — 착석·자동 이동 후보에서 제외.
+        /// 화덕은 탭→요리만 — 착석·드래그 ▼·자동 이동 후보에서 제외
+        /// (opensGongyanggan 또는 산출 없음).
         /// </summary>
-        public bool AcceptsWorkers => data == null || !data.opensGongyanggan;
+        public bool AcceptsWorkers
+        {
+            get
+            {
+                if (data != null && data.opensGongyanggan) return false;
+                return ResourceType != PropResourceType.None;
+            }
+        }
 
         /// <summary>드래그 중인 요괴가 지금 바로 앉을 수 있는 기물인지 (금색 ▼ 마커).</summary>
         public bool CanSitNow(CharacterAgent agent) =>

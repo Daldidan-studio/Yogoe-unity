@@ -205,6 +205,17 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
+        public void NoProductionProp_DoesNotAcceptWorkers_EvenWithoutGongyangganFlag()
+        {
+            data.opensGongyanggan = false;
+            data.resourceType = PropResourceType.None;
+            data.propId = "화덕";
+            prop.ConfigureBuiltState(true);
+            Assert.IsFalse(prop.AcceptsWorkers);
+            Assert.IsFalse(prop.CanSitNow(agent));
+        }
+
+        [Test]
         public void CanBeUsedBy_EndingProp_OnlyOwnerAllowed()
         {
             data.isEndingProp = true;
