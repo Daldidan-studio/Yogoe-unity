@@ -23,6 +23,9 @@ namespace Yoegoe.Characters
         private Vector3? wanderTarget; // isWandering 중 실제로 걸어갈 맵 안의 임시 목적지
         private float boundaryStuckTimer;
         private const float BoundaryStuckSeconds = 0.35f;
+        /// <summary>만창으로 멈춰 있을 때 다른 기물을 찾아보는 간격.</summary>
+        private const float HaltedRecheckSeconds = 2f;
+        private float haltedRecheckTimer;
 
         /// <summary>
         /// 복귀 catch-up 중 Walking이면 목적지만 보장한다.
@@ -212,9 +215,17 @@ namespace Yoegoe.Characters
         {
             if (currentProp != null && currentProp.IsStorageHalted)
             {
+                // 7장: 만창인데 기력이 남았으면 일할 수 있는 다른 기물로 간다. 없으면 그대로 앉아 대기(수거되면 재개).
+                haltedRecheckTimer += dt;
+                if (haltedRecheckTimer >= HaltedRecheckSeconds)
+                {
+                    haltedRecheckTimer = 0f;
+                    if (TryLeaveHaltedProp()) return dt;
+                }
                 Stats.StateTimer += dt;
                 return dt;
             }
+            haltedRecheckTimer = 0f;
 
             float drain = StaminaDrainPerSecond;
             float timeToZero = Stats.Stamina > 0f ? Stats.Stamina / drain : 0f;
@@ -275,6 +286,16 @@ namespace Yoegoe.Characters
                 currentProp = null;
             }
             SetSpriteVisible(true);
+        }
+
+        /// <summary>만창 기물에서 일어나 다른 빈 기물로 걸어간다. 갈 곳이 없거나 기력이 없으면 false(그대로 앉아 있음).</summary>
+        private bool TryLeaveHaltedProp()
+        {
+            if (Stats.Stamina <= 0f || PropManager.Instance == null || currentProp == null) return false;
+            if (PropManager.Instance.GetRandomAvailableProp(this, currentProp) == null) return false;
+            LeaveCurrentProp();   // previousProp = 만창 기물 → 걷기 목적지에서 빠진다
+            EnterWalking();
+            return true;
         }
 
         // ---------------- Playing (놀기 / 기력0 쉬기) ----------------

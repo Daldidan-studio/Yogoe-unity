@@ -31,7 +31,7 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 6-2 걷기 목적지 후보 선정.
         /// 룰 기준: Docs/06_행동룰.md
-        /// 비어있고, 직전 기물이 아니고, 다른 요괴의 엔딩 기물이 아닌 것 중 랜덤.
+        /// 비어있고, 직전 기물이 아니고, 다른 요괴의 엔딩 기물이 아니고, 만창이 아닌(가서 일할 수 있는) 것 중 랜덤.
         /// 후보가 없으면 null (호출측에서 30초 방황 후 재추첨).
         /// </summary>
         public PropSlot GetRandomAvailableProp(CharacterAgent requester, PropSlot exclude)
@@ -45,6 +45,7 @@ namespace Yoegoe.Characters
                 if (p.IsOccupied) continue;
                 if (p.IsReserved) continue;
                 if (p == exclude) continue;
+                if (p.IsStorageHalted) continue; // 가도 일을 못 함
                 if (!p.CanBeUsedBy(requester)) continue;
                 candidates.Add(p);
             }
