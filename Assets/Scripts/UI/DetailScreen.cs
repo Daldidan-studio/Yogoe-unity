@@ -296,6 +296,32 @@ namespace Yoegoe.UI
             RefreshIdentity();
             RefreshPortrait();
             RefreshItemCounts();
+            RefreshWaterFaintFrame();
+        }
+
+        /// <summary>기절한 요괴는 물로만 깨어난다 → 물 칸에 금빛 테두리가 반짝인다 (5장).</summary>
+        Outline waterFaintFrame;
+
+        void RefreshWaterFaintFrame()
+        {
+            bool fainted = currentAgent != null && currentAgent.Stats.State == ActionState.Fainted;
+            if (waterFaintFrame == null)
+            {
+                if (!fainted || root == null) return;
+                var chip = root.transform.Find("Dialog/BottomBar/Action_물");
+                if (chip == null) return;
+                var box = chip.Find("IconBox");
+                Graphic target = box != null ? box.GetComponent<Graphic>() : null;
+                if (target == null) target = chip.GetComponentInChildren<Image>(true);
+                if (target == null) return;
+                waterFaintFrame = target.gameObject.AddComponent<Outline>();
+                waterFaintFrame.effectDistance = new Vector2(5f, -5f);
+                waterFaintFrame.useGraphicAlpha = false;
+            }
+            waterFaintFrame.enabled = fainted;
+            if (fainted)
+                waterFaintFrame.effectColor = GoldenSparkle.Pulse(
+                    new Color(1f, 0.86f, 0.35f, 0.15f), new Color(1f, 0.95f, 0.6f, 1f));
         }
 
         private void RefreshItemCounts()
