@@ -63,15 +63,22 @@ namespace Yoegoe.Tests.EditMode
         public void GiftBundle_Grant_AddsMaterials()
         {
             var go = new GameObject("Eco");
-            var eco = go.AddComponent<GameEconomy>();
-            eco.BecomeInstance();
-            int before = eco.GetMaterialCount(CookingIngredientId.Honey);
+            try
+            {
+                var eco = go.AddComponent<GameEconomy>();
+                eco.BecomeInstance();
+                int before = eco.GetMaterialCount(CookingIngredientId.Honey);
 
-            GiftBundle.Grant(new[] { CookingIngredientId.Honey, CookingIngredientId.Honey, CookingIngredientId.Oil }, out string name);
+                GiftBundle.Grant(new[] { CookingIngredientId.Honey, CookingIngredientId.Honey, CookingIngredientId.Oil }, out string name);
 
-            Assert.AreEqual(before + 2, eco.GetMaterialCount(CookingIngredientId.Honey));
-            Assert.AreEqual("꿀 ×2, 기름", name);
-            Object.DestroyImmediate(go);
+                Assert.AreEqual(before + 2, eco.GetMaterialCount(CookingIngredientId.Honey));
+                Assert.AreEqual("꿀 ×2, 기름", name);
+            }
+            finally
+            {
+                // Assert 실패 시에도 Instance를 비워야 뒤 테스트가 싱글턴 가드에 안 걸린다.
+                Object.DestroyImmediate(go);
+            }
         }
     }
 }

@@ -59,49 +59,55 @@ namespace Yoegoe.Tests.EditMode
         public void Collect_SteamIsPerfect_CoolIsNot_GuestSkipsInventory()
         {
             // 쌀+쌀+물 = 백설기 — 인벤에만 넣고 판 시작
+            // Assume/Assert 실패 시에도 Instance를 비워야 뒤 테스트가 싱글턴 가드에 안 걸린다.
             var ecoGO = new UnityEngine.GameObject("Eco");
-            var eco = ecoGO.AddComponent<Yoegoe.Economy.GameEconomy>();
-            eco.BecomeInstance();
-            eco.ApplyStartingState(UnityEngine.ScriptableObject.CreateInstance<StartingStateSettings>());
-            for (int i = 0; i < (int)CookingIngredientId.Count; i++)
-                eco.TrySpendMaterial((CookingIngredientId)i, eco.GetMaterialCount((CookingIngredientId)i));
-
-            eco.AddMaterial(CookingIngredientId.Rice, 2);
-            eco.AddMaterial(CookingIngredientId.Water, 1);
-            var session = new CookingSession();
-            session.Prepare(CookingCharmType.None);
-            Assert.IsTrue(session.StartRound());
-
-            // 세 칸이 연결돼 있으면 잇기
-            bool linked = TryLinkBaekseolgi(session);
-            Assume.That(linked, "백설기 재료가 인접하게 깔려야 함");
-
-            Assert.AreEqual(1, session.ActiveCooks.Count);
-            Assert.AreEqual(0, session.Results.Count);
-
-            // 김 단계까지 — 음식/공양물 중 긴 쪽
-            float t = 0f;
-            bool collected = false;
-            while (t < 5f && !collected)
+            try
             {
-                session.Tick(0.05f);
-                t += 0.05f;
-                for (int y = 0; y < CookingSession.GridSize && !collected; y++)
-                for (int x = 0; x < CookingSession.GridSize && !collected; x++)
-                {
-                    var job = session.CookAt(x, y);
-                    if (job == null || !job.IsPerfectWindow) continue;
-                    Assert.IsTrue(session.TryCollectCook(x, y));
-                    collected = true;
-                }
-            }
-            Assert.IsTrue(collected);
-            // 주문 요괴가 없어도(에이전트 없음) 일반 퍼펙트 → 인벤 ×2
-            // 에이전트 없으면 GuestOrder null → Results에 ×2
-            if (session.GuestOrder == null || !session.GuestOrder.Fulfilled)
-                Assert.GreaterOrEqual(CountResult(session, "baekseolgi"), 1);
+                var eco = ecoGO.AddComponent<Yoegoe.Economy.GameEconomy>();
+                eco.BecomeInstance();
+                eco.ApplyStartingState(UnityEngine.ScriptableObject.CreateInstance<StartingStateSettings>());
+                for (int i = 0; i < (int)CookingIngredientId.Count; i++)
+                    eco.TrySpendMaterial((CookingIngredientId)i, eco.GetMaterialCount((CookingIngredientId)i));
 
-            UnityEngine.Object.DestroyImmediate(ecoGO);
+                eco.AddMaterial(CookingIngredientId.Rice, 2);
+                eco.AddMaterial(CookingIngredientId.Water, 1);
+                var session = new CookingSession();
+                session.Prepare(CookingCharmType.None);
+                Assert.IsTrue(session.StartRound());
+
+                // 세 칸이 연결돼 있으면 잇기
+                bool linked = TryLinkBaekseolgi(session);
+                Assume.That(linked, "백설기 재료가 인접하게 깔려야 함");
+
+                Assert.AreEqual(1, session.ActiveCooks.Count);
+                Assert.AreEqual(0, session.Results.Count);
+
+                // 김 단계까지 — 음식/공양물 중 긴 쪽
+                float t = 0f;
+                bool collected = false;
+                while (t < 5f && !collected)
+                {
+                    session.Tick(0.05f);
+                    t += 0.05f;
+                    for (int y = 0; y < CookingSession.GridSize && !collected; y++)
+                    for (int x = 0; x < CookingSession.GridSize && !collected; x++)
+                    {
+                        var job = session.CookAt(x, y);
+                        if (job == null || !job.IsPerfectWindow) continue;
+                        Assert.IsTrue(session.TryCollectCook(x, y));
+                        collected = true;
+                    }
+                }
+                Assert.IsTrue(collected);
+                // 주문 요괴가 없어도(에이전트 없음) 일반 퍼펙트 → 인벤 ×2
+                // 에이전트 없으면 GuestOrder null → Results에 ×2
+                if (session.GuestOrder == null || !session.GuestOrder.Fulfilled)
+                    Assert.GreaterOrEqual(CountResult(session, "baekseolgi"), 1);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(ecoGO);
+            }
         }
 
         static int CountResult(CookingSession s, string id)
