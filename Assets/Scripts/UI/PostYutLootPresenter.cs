@@ -181,6 +181,20 @@ namespace Yoegoe.UI
             return pos + Vector3.up * (top + IconHeight * 0.5f);
         }
 
+        /// <summary>이 요괴가 머리 위에 든 획득품 아이콘을 눌렀는지.</summary>
+        public bool HitHeldIcon(CharacterAgent agent, Vector3 world, float pad)
+        {
+            for (int i = 0; i < held.Count; i++)
+            {
+                var h = held[i];
+                if (h.Owner != agent || h.Sr == null || !h.Sr.gameObject.activeInHierarchy) continue;
+                var b = h.Sr.bounds;
+                b.Expand(new Vector3(pad * 2f, pad * 2f, 0f));
+                if (world.x >= b.min.x && world.x <= b.max.x && world.y >= b.min.y && world.y <= b.max.y) return true;
+            }
+            return false;
+        }
+
         /// <summary>캐릭터 탭 — 들고 있으면 전원 수거 연출. true면 탭 소비.</summary>
         public bool TryHandleCharacterTap(CharacterAgent agent)
         {

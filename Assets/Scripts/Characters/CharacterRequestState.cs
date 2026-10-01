@@ -95,6 +95,15 @@ namespace Yoegoe.Characters
 
         public void ClearAll() => ClearOfferingRequest();
 
+        /// <summary>머리 위 음식 요구 아이콘의 월드 범위 (떠 있을 때만).</summary>
+        public bool TryGetIconBounds(out Bounds bounds)
+        {
+            bounds = default;
+            if (!HasOfferingRequest || offeringIcon == null || !offeringIcon.gameObject.activeInHierarchy) return false;
+            bounds = offeringIcon.bounds;
+            return true;
+        }
+
         /// <summary>상세에서 급여. true면 처리 완료(호출측에서 인벤 차감·리프레시).</summary>
         public bool TryHandleFeed(OfferingData offering, bool isWater, bool isPreferred,
             out int staminaGain, out float intimacyGain, out bool fulfilledRequest)

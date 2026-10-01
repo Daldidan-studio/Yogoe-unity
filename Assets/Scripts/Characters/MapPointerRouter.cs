@@ -539,6 +539,8 @@ namespace Yoegoe.Characters
         private bool TryGetCharacterHitScore(CharacterAgent agent, Vector3 world, out float score)
         {
             score = 0f;
+            // 머리 위 말풍선·요구 아이콘·획득품 = 몸 탭과 동일 (Docs/07). 겹치면 그 요괴가 우선.
+            if (agent.HitOverhead(world, characterHitPadding * 0.5f)) return true;
             var sr = agent.GetComponentInChildren<SpriteRenderer>();
             if (sr != null && sr.sprite != null)
             {
