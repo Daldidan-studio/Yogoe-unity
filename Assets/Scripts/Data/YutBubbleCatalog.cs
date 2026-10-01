@@ -91,14 +91,6 @@ namespace Yoegoe.Data
             }
         }
 
-        /// <summary>테스트/에디터용 — 캐시 비우기.</summary>
-        public static void ResetForTests()
-        {
-            _byId = null;
-            _loadedLocale = null;
-            _loggedMissing = false;
-        }
-
         public static string Get(string id)
         {
             if (string.IsNullOrEmpty(id)) return "";

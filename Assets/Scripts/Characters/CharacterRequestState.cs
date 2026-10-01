@@ -6,7 +6,7 @@ using Yoegoe.UI;
 
 namespace Yoegoe.Characters
 {
-    /// <summary>10장 음식 요구. CharacterAgent가 소유. (기물 요구 삭제)</summary>
+    /// <summary>10장 음식 요구. CharacterAgent가 소유.</summary>
     public class CharacterRequestState
     {
         public const float OfferingDurationSeconds = 60f;

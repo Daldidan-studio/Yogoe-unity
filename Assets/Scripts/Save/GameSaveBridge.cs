@@ -40,16 +40,6 @@ namespace Yoegoe.Save
             return true;
         }
 
-        /// <summary>모든 기물 PendingMerit를 일괄 수거 대기분으로 옮긴다.</summary>
-        public static void SweepPropPilesIntoBatch()
-        {
-            foreach (var p in UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None))
-            {
-                if (p == null || !p.HasPendingMerit) continue;
-                GameEconomy.Instance.AddPendingBatchMerit(p.TakePendingMerit());
-            }
-        }
-
         /// <summary>기물 더미 표시를 즉시 맞춘다 (일괄 수거·로드 직후).</summary>
         public static void RefreshAllPropPileLabels()
         {

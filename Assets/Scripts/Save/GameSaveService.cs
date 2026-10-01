@@ -16,16 +16,6 @@ namespace Yoegoe.Save
 
         public static string FilePath =>
             Path.Combine(Application.persistentDataPath, FileName);
-
-        public static bool HasSave()
-        {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            return PlayerPrefs.HasKey(PrefsKey);
-#else
-            return PlayerPrefs.HasKey(PrefsKey) || File.Exists(FilePath);
-#endif
-        }
-
         public static void Save(GameSaveData data)
         {
             if (data == null) return;

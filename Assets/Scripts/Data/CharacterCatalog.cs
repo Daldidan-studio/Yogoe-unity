@@ -40,23 +40,6 @@ namespace Yoegoe.Data
 
             public bool TryParseId(out CharacterId characterId)
                 => Enum.TryParse(id, ignoreCase: true, out characterId);
-
-            public string FormatPreferredNames()
-            {
-                if (preferredOfferings == null || preferredOfferings.Length == 0)
-                    return "";
-                var sb = new StringBuilder();
-                for (int i = 0; i < preferredOfferings.Length; i++)
-                {
-                    var p = preferredOfferings[i];
-                    if (p == null) continue;
-                    string label = !string.IsNullOrEmpty(p.name) ? p.name : p.id;
-                    if (string.IsNullOrEmpty(label)) continue;
-                    if (sb.Length > 0) sb.Append(", ");
-                    sb.Append(label);
-                }
-                return sb.ToString();
-            }
         }
 
         [Serializable]

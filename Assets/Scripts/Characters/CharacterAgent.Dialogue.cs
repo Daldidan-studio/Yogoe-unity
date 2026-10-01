@@ -63,7 +63,7 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            // 자동 팝업은 걷기/놀기/머물기에서만 (주저앉기는 탭만)
+            // 자동 팝업은 걷기/놀기/머물기에서만 (기절은 "..." 말풍선)
             if (!CanShowMonologue) return;
 
             monologueTimer -= dt;

@@ -266,40 +266,6 @@ namespace Yoegoe.UI
         /// <summary>구 공양물 칸 배정 — 재료보따리로 바뀐 뒤엔 비운다.</summary>
         void AssignSpecialOfferings() => specialOfferingByNode.Clear();
 
-        /// <summary>pool에서 count개를 뽑되, 가능하면 offeringId가 겹치지 않게 한다.</summary>
-        static List<OfferingData> PickDistinctOfferings(IReadOnlyList<OfferingData> pool, int count)
-        {
-            var result = new List<OfferingData>(count);
-            if (pool == null || pool.Count == 0 || count <= 0) return result;
-
-            var remaining = new List<OfferingData>(pool.Count);
-            for (int i = 0; i < pool.Count; i++)
-                if (pool[i] != null) remaining.Add(pool[i]);
-
-            for (int n = 0; n < count; n++)
-            {
-                if (remaining.Count == 0)
-                {
-                    // 종류가 칸 수보다 적으면 전체 풀에서 다시 채워 중복 허용.
-                    for (int i = 0; i < pool.Count; i++)
-                        if (pool[i] != null) remaining.Add(pool[i]);
-                    if (remaining.Count == 0) break;
-                }
-
-                int pick = UnityEngine.Random.Range(0, remaining.Count);
-                result.Add(remaining[pick]);
-                string takenId = remaining[pick].offeringId;
-                // 같은 id는 더 이상 후보에 두지 않는다.
-                for (int i = remaining.Count - 1; i >= 0; i--)
-                {
-                    if (string.Equals(remaining[i].offeringId, takenId, StringComparison.OrdinalIgnoreCase))
-                        remaining.RemoveAt(i);
-                }
-            }
-
-            return result;
-        }
-
         /// <summary>
         /// 말이 특수 칸에 도착했을 때 — 칸 종류에 맞는 보상 팝업은 Presenter가 띄운다.
         /// </summary>

@@ -40,7 +40,7 @@ namespace Yoegoe.Characters
         public void ForceRefreshPileLabel() => RefreshPileLabel();
 
         /// <summary>
-        /// TEMP: 공덕 수거 히트 = 더미(***·숫자) 라벨만. 기물 본체는 포함하지 않는다.
+        /// 보관 라벨(***·숫자) 히트 — 라벨이 기물 bounds 밖으로 나와 있어도 그 기물 탭으로 (본체 탭은 MapPointerRouter).
         /// </summary>
         public bool TryGetPileLabelHitScore(Vector3 world, float padding, out float score)
         {

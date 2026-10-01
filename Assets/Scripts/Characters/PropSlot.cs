@@ -157,12 +157,6 @@ namespace Yoegoe.Characters
             return true;
         }
 
-        /// <summary>예약만 강제 해제 (드롭 착석용).</summary>
-        public void ClearReservation()
-        {
-            ReservedBy = null;
-        }
-
         /// <summary>점유 해제. 기절 중에는 호출하지 않는다. 더미는 기물에 남는다.</summary>
         public void Vacate(CharacterAgent agent)
         {

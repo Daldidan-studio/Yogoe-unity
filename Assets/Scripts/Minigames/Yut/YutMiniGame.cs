@@ -314,7 +314,7 @@ namespace Yoegoe.Minigames.Yut
         {
             if (_heartIcons != null) return;
 
-            const int heartCount = 5 /* 구 KSpirits.Core.GameConstants.HeartMax, 새 설계에 맞게 나중에 재조정 */;
+            const int heartCount = 5;
             _heartIcons = new Image[heartCount];
             bool foundAll = true;
             for (int i = 0; i < heartCount; i++)

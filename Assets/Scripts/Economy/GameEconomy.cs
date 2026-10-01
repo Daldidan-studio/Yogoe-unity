@@ -41,7 +41,7 @@ namespace Yoegoe.Economy
         public event Action<BigNumber> OnMeritChanged;
 
         /// <summary>
-        /// 앱 재시작 일괄 수거 대기분 (7-2). 콜드스타트 시 기물 더미를 여기로 모은다.
+        /// 일괄 수거 대기분 — 예전 세이브에 남아 있던 분만 (지금 공덕은 버드나무에서 수거, 7-4).
         /// 백그라운드 복귀만으로는 채우지 않는다.
         /// </summary>
         public BigNumber PendingBatchMerit { get; private set; } = BigNumber.Zero;
@@ -78,13 +78,6 @@ namespace Yoegoe.Economy
             PropsPurchasedCount = Math.Max(0, count);
             OnPropsPurchasedCountChanged?.Invoke();
         }
-
-        public void SetPendingBatchMerit(BigNumber amount)
-        {
-            PendingBatchMerit = amount;
-            OnBatchMeritChanged?.Invoke();
-        }
-
         public void AddPendingBatchMerit(BigNumber amount)
         {
             if (amount.Mantissa == 0) return;
@@ -283,7 +276,7 @@ namespace Yoegoe.Economy
             return !string.IsNullOrEmpty(offering.offeringId) ? offering.offeringId : offering.name;
         }
 
-        // ---------------- 특수 수집품 (황금쌀·황금꿀 — 지금은 쌓기만) ----------------
+        // ---------------- 특수 수집품 (황금쌀·황금꿀 — 요리판에서 쌀·꿀 칸으로 쓰여 황금음식이 된다) ----------------
         readonly Dictionary<int, int> SpecialItemCounts = new Dictionary<int, int>();
         public event Action OnSpecialItemsChanged;
 
@@ -384,11 +377,6 @@ namespace Yoegoe.Economy
             OnHyangChanged?.Invoke(Hyang);
             OnWaterChanged?.Invoke(Water);
             OnYutTokenChanged?.Invoke(YutToken);
-        }
-
-        public void ResetForTesting()
-        {
-            ApplyStartingState(StartingStateSettings.Get());
         }
     }
 }

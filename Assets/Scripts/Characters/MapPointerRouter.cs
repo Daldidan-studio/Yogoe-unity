@@ -430,7 +430,7 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 더블탭이면 상세화면. 아니면 창이 끝날 때까지 기다렸다가 혼잣말
         /// (상세 진입 시 말풍선이 뜨지 않도록 단일탭을 즉시 처리하지 않음).
-        /// 기물 요구 ? : 단일탭 무반응, 더블탭은 상세 (Docs/07 5행).
+        /// 음식 요구가 떠 있으면 단일탭도 즉시 상세 (Docs/07).
         /// </summary>
         void HandleCharacterTap(CharacterAgent agent)
         {
@@ -444,7 +444,7 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            // 더블탭은 기물 요구 중에도 상세
+            // 더블탭 = 상세
             if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
             {
                 CancelPendingMonologueTap();

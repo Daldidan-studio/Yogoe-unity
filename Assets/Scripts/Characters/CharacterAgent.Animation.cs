@@ -30,7 +30,7 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 이번 프레임 이동·상태로 스프라이트를 재생한다.
         /// 걷기/놀기 이동: 시트 1~4행(walkDown/Left/Right/Up).
-        /// 놀기 정지: idle. 머물기/주저앉기/기절: stay/slumped/fainted.
+        /// 놀기 정지: idle. 머물기/기절: stay/fainted. (slumped = 구세이브 주저앉기 호환, 로드 즉시 놀기로 바뀜)
         /// </summary>
         private void UpdateWalkAnimation(float dt)
         {
