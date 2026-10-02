@@ -134,6 +134,7 @@ namespace Yoegoe.Tests.EditMode
             var session = new CookingSession();
             session.Prepare(CookingCharmType.None);
             Assert.IsTrue(session.StartRound());
+            eco.AddCharm(CookingCharmType.Cancel, 1); // 나가리는 소모품
             session.CancelNagari();
             Assert.AreEqual(1, eco.GetSpecialItemCount(SpecialItemId.GoldenRice));
             Assert.AreEqual(0, eco.GetMaterialCount(CookingIngredientId.Rice));

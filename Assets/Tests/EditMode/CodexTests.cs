@@ -187,6 +187,7 @@ namespace Yoegoe.Tests.EditMode
             Assert.IsTrue(CookingCodex.IsDiscovered("gotgam"));
             Assert.IsFalse(session.Finished);
 
+            eco.AddCharm(CookingCharmType.Cancel, 1); // 나가리는 소모품
             session.CancelNagari();
             Assert.IsFalse(CookingCodex.IsDiscovered("gotgam"), "이번 판 발견은 다시 잠김");
             Assert.IsTrue(CookingCodex.IsDiscovered("kimchi"), "예전 발견은 유지");

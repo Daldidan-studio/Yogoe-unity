@@ -1,0 +1,89 @@
+using NUnit.Framework;
+using UnityEngine;
+using Yoegoe.Cooking;
+using Yoegoe.Data;
+using Yoegoe.Economy;
+
+namespace Yoegoe.Tests.EditMode
+{
+    /// <summary>부적 6종 모두 윷 완주로 얻는 소모품 — 나가리도 가진 개수만큼만. 완주 확률은 시트 charms 가중치.</summary>
+    public class CharmRulesTests
+    {
+        GameObject ecoGO;
+        GameEconomy eco;
+
+        [SetUp]
+        public void SetUp()
+        {
+            ecoGO = new GameObject("Eco");
+            eco = ecoGO.AddComponent<GameEconomy>();
+            eco.BecomeInstance();
+            eco.ApplyStartingState(ScriptableObject.CreateInstance<StartingStateSettings>());
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            CharmDropRates.LoadFromJson(Resources.Load<TextAsset>(CharmDropRates.ResourcePath)?.text);
+            Object.DestroyImmediate(ecoGO);
+        }
+
+        CookingSession StartedBoard()
+        {
+            eco.AddMaterial(CookingIngredientId.Fruit, 12);
+            var s = new CookingSession();
+            s.Prepare(CookingCharmType.None);
+            Assert.IsTrue(s.StartRound());
+            return s;
+        }
+
+        [Test]
+        public void Nagari_HiddenWithoutCharm_AndDoesNothing()
+        {
+            var s = StartedBoard();
+            Assert.AreEqual(0, eco.GetCharmCount(CookingCharmType.Cancel));
+            Assert.IsFalse(s.ShowNagari);
+            s.CancelNagari();
+            Assert.IsFalse(s.Finished, "나가리가 없으면 판이 그대로");
+        }
+
+        [Test]
+        public void Nagari_ConsumesOneCharm()
+        {
+            var s = StartedBoard();
+            eco.AddCharm(CookingCharmType.Cancel, 2);
+            Assert.IsTrue(s.ShowNagari);
+            s.CancelNagari();
+            Assert.IsTrue(s.Finished);
+            Assert.AreEqual(1, eco.GetCharmCount(CookingCharmType.Cancel));
+        }
+
+        [Test]
+        public void DropRates_FollowSheetWeights()
+        {
+            CharmDropRates.LoadFromJson("{\"charms\":[{\"id\":\"Cancel\",\"weight\":1},{\"id\":\"Double\",\"weight\":0}]}");
+            for (int i = 0; i < 20; i++)
+                Assert.AreEqual(CookingCharmType.Cancel, CharmDropRates.Roll(i / 20f));
+
+            CharmDropRates.LoadFromJson("{\"charms\":[{\"id\":\"PlusFive\",\"weight\":3},{\"id\":\"Cancel\",\"weight\":1}]}");
+            Assert.AreEqual(CookingCharmType.PlusFive, CharmDropRates.Roll(0.74f));
+            Assert.AreEqual(CookingCharmType.Cancel, CharmDropRates.Roll(0.76f));
+        }
+
+        [Test]
+        public void DropRates_EmptyFile_IsEvenOverSix()
+        {
+            CharmDropRates.LoadFromJson(null);
+            Assert.AreEqual(6, CharmDropRates.Table.Count);
+        }
+
+        [Test]
+        public void ResourceFile_Loads()
+        {
+            // Resources/charms.json = 시트 charms 탭 (weight 0 인 부적은 표에서 빠짐)
+            Assert.IsNotNull(Resources.Load<TextAsset>(CharmDropRates.ResourcePath));
+            CharmDropRates.LoadFromJson(Resources.Load<TextAsset>(CharmDropRates.ResourcePath).text);
+            Assert.Greater(CharmDropRates.Table.Count, 0);
+        }
+    }
+}

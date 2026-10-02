@@ -86,16 +86,12 @@ namespace Yoegoe.Economy
             OnMaterialsChanged?.Invoke();
         }
 
-        // ---------------- 요리 부적 (사전 장착 5종 — 나가리 제외) ----------------
+        // ---------------- 요리 부적 6종 (사전 장착 5종 + 나가리) — 전부 윷 완주로 얻는 소모품 ----------------
         readonly Dictionary<int, int> CharmCounts = new Dictionary<int, int>();
         public event Action OnCharmsChanged;
 
         public static bool IsInventoryCharm(Yoegoe.Cooking.CookingCharmType type) =>
-            type == Yoegoe.Cooking.CookingCharmType.PlusFive
-            || type == Yoegoe.Cooking.CookingCharmType.Diagonal
-            || type == Yoegoe.Cooking.CookingCharmType.Clairvoyance
-            || type == Yoegoe.Cooking.CookingCharmType.Recycle
-            || type == Yoegoe.Cooking.CookingCharmType.Double;
+            type != Yoegoe.Cooking.CookingCharmType.None;
 
         public int GetCharmCount(Yoegoe.Cooking.CookingCharmType type)
         {

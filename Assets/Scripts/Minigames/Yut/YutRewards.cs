@@ -63,18 +63,8 @@ namespace Yoegoe.Minigames.Yut
         /// <summary>미잡힘 전원 완주 과제에 필요한 최소 말 수(“넷 다”).</summary>
         public const int ChallengeFinishAllPieceCount = 4;
 
-        /// <summary>완주 시 인벤에 쌓이는 사전 부적(나가리 제외). 종류별 확률은 플레이테스트 후 조정 — 균등.</summary>
-        static readonly CookingCharmType[] FinishCharmPool =
-        {
-            CookingCharmType.PlusFive,
-            CookingCharmType.Diagonal,
-            CookingCharmType.Clairvoyance,
-            CookingCharmType.Recycle,
-            CookingCharmType.Double,
-        };
-
-        public static CookingCharmType RollFinishCharm() =>
-            FinishCharmPool[UnityEngine.Random.Range(0, FinishCharmPool.Length)];
+        /// <summary>말 완주 보상 부적 1개 — 6종(나가리 포함) 중 시트 charms 탭 가중치대로.</summary>
+        public static CookingCharmType RollFinishCharm() => CharmDropRates.Roll(UnityEngine.Random.value);
 
         /// <summary>재료보따리 — 선물꾸러미와 같은 추첨(채집/사냥 50% → 7-3 확률표). IngredientDraw 참고.</summary>
         public static CookingIngredientId[] RollIngredientBundle(int count = IngredientBundleCount) =>

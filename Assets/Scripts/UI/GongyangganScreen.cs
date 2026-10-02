@@ -435,7 +435,16 @@ public class GongyangganScreen : MonoBehaviour
             titleText.text = "공양간";
         if (makeableText != null || codexButtonLabel != null) RefreshMakeable();
         if (nagariButton != null)
-            nagariButton.gameObject.SetActive(session.ShowNagari);
+        {
+            bool showNagari = session.ShowNagari;
+            nagariButton.gameObject.SetActive(showNagari);
+            if (showNagari)
+            {
+                var label = nagariButton.GetComponentInChildren<Text>(true);
+                int held = GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(CookingCharmType.Cancel) : 0;
+                if (label != null) label.text = $"나가리 ×{held}";
+            }
+        }
         if (extendButton != null)
             extendButton.gameObject.SetActive(session.AwaitingExtend);
         if (startButton != null)
@@ -531,6 +540,7 @@ public class GongyangganScreen : MonoBehaviour
         CookingCharmType.Clairvoyance => "천리안",
         CookingCharmType.Recycle => "회수",
         CookingCharmType.Double => "몰빵",
+        CookingCharmType.Cancel => "나가리",
         _ => ""
     };
 

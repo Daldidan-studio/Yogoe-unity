@@ -31,7 +31,11 @@ namespace Yoegoe.Cooking
         public bool AllowDiagonal => PreCharm == CookingCharmType.Diagonal;
         public bool AllowAdExtend =>
             PreCharm != CookingCharmType.Recycle && PreCharm != CookingCharmType.Double;
-        public bool ShowNagari => Running && PreCharm == CookingCharmType.None;
+        /// <summary>나가리 버튼: 사전 부적 없이 시작한 판 + 나가리 부적을 가지고 있을 때만 (쓰면 1개 소모).</summary>
+        public bool ShowNagari => Running && PreCharm == CookingCharmType.None && HasNagariCharm;
+        static bool HasNagariCharm =>
+            Yoegoe.Economy.GameEconomy.Instance != null
+            && Yoegoe.Economy.GameEconomy.Instance.GetCharmCount(CookingCharmType.Cancel) > 0;
         /// <summary>시간이 다 됐고 광고 연장을 물어보는 중 (19장: 종료 후 광고 보고 +15초, 무제한). 판은 아직 정산 전.</summary>
         public bool AwaitingExtend { get; private set; }
         public bool ClairvoyanceActive { get; private set; }
@@ -564,6 +568,7 @@ namespace Yoegoe.Cooking
         public void CancelNagari()
         {
             if (!ShowNagari || Finished) return;
+            if (!Yoegoe.Economy.GameEconomy.Instance.TrySpendCharm(CookingCharmType.Cancel)) return;
             // 결과 취소 + 재료 전량 반환
             Results.Clear();
             ClearCooks();

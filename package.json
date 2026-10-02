@@ -24,6 +24,9 @@
     "ingredients": "python3 Tools/export_ingredients.py",
     "ingredients:csv": "python3 Tools/export_ingredients.py --csv",
     "ingredients:push": "python3 Tools/export_ingredients.py --push",
+    "charms": "python3 Tools/export_charms.py",
+    "charms:csv": "python3 Tools/export_charms.py --csv",
+    "charms:push": "python3 Tools/export_charms.py --push",
     "sheets": "python3 Tools/pull_all_sheets.py",
     "sheets:describe": "python3 Tools/sheet_descriptions.py --apply"
   }
