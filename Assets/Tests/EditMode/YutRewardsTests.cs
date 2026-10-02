@@ -57,13 +57,13 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void RollFinishCharm_IsInventoryCharm()
         {
+            // 완주 보상 6종 — 나가리도 소모품이라 나올 수 있다 (시트 charms 가중치)
             Random.InitState(1);
             for (int i = 0; i < 40; i++)
             {
                 var c = YutRewards.RollFinishCharm();
                 Assert.IsTrue(GameEconomy.IsInventoryCharm(c));
                 Assert.AreNotEqual(CookingCharmType.None, c);
-                Assert.AreNotEqual(CookingCharmType.Cancel, c);
             }
         }
     }
