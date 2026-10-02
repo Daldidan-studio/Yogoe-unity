@@ -616,31 +616,36 @@ namespace Yoegoe.UI
             PruneDeadCountBadges();
             if (offerings == null) return;
 
-            // 요구 공양을 앞으로(강조 슬롯)
-            if (!string.IsNullOrEmpty(highlightOfferingId))
-            {
-                foreach (var offering in offerings)
-                {
-                    if (offering == null || IsWaterOffering(offering)) continue;
-                    if (!string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: true,
-                        goldFrame: IsRevealedPreferred(offering));
-                }
-            }
+            // 요구한 음식을 앞으로(강조 슬롯) — 10-2: 가진 것만, 없으면 강조 없음
+            var highlighted = FindOwnedRequestTarget(highlightOfferingId);
+            if (highlighted != null)
+                CreatePreferredChip(inventoryRow, highlighted.displayName, highlighted.icon, highlighted, highlight: true,
+                    goldFrame: IsRevealedPreferred(highlighted));
 
-            // 음식 36·공양물 24 + 에셋 — 가진 것만 나열
+            // 음식·공양물·황금음식 — 가진 것만 나열
             foreach (var offering in offerings)
             {
-                if (offering == null) continue;
+                if (offering == null || offering == highlighted) continue;
                 if (IsWaterOffering(offering)) continue;
                 if (GameEconomy.Instance == null || GameEconomy.Instance.GetOfferingCount(offering) <= 0) continue;
-                if (!string.IsNullOrEmpty(highlightOfferingId)
-                    && string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
-                    continue;
                 CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: false,
                     goldFrame: IsRevealedPreferred(offering));
             }
+        }
+
+        /// <summary>
+        /// 요구 강조 대상: 요구한 음식을 가졌으면 그것, 없고 그 음식의 황금 버전을 가졌으면 황금 버전
+        /// (황금음식을 줘도 요구가 채워진다). 둘 다 없으면 null — 강조 칸을 만들지 않는다.
+        /// </summary>
+        public static OfferingData FindOwnedRequestTarget(string requestedId)
+        {
+            var eco = GameEconomy.Instance;
+            if (string.IsNullOrEmpty(requestedId) || eco == null) return null;
+            var food = OfferingCatalog.Find(requestedId) ?? CharacterCatalog.FindOffering(requestedId);
+            if (food != null && eco.GetOfferingCount(food) > 0) return food;
+            var golden = OfferingCatalog.FindGolden(requestedId);
+            if (golden != null && eco.GetOfferingCount(golden) > 0) return golden;
+            return null;
         }
 
         void PruneDeadCountBadges()
