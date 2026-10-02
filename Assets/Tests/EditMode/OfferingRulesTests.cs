@@ -100,21 +100,37 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
-        public void Catalog_AssetWinsOverRuntimeEntry()
+        public void Catalog_AssetGivesIconOnly_RecipeGivesNameAndKind()
         {
+            var recipe = System.Linq.Enumerable.First(Yoegoe.Cooking.CookingRecipeCatalog.Recipes,
+                r => r.Kind == Yoegoe.Cooking.CookingResultKind.Offering);
+            var tex = new Texture2D(2, 2);
+            var icon = Sprite.Create(tex, new Rect(0, 0, 2, 2), Vector2.zero);
             var asset = ScriptableObject.CreateInstance<OfferingData>();
-            asset.offeringId = "yakgwa";
-            asset.displayName = "약과(에셋)";
-            asset.kind = OfferingKind.General;
+            asset.offeringId = recipe.Id;
+            asset.displayName = "옛 에셋 이름";
+            asset.kind = OfferingKind.Food; // 일부러 틀린 종류 — 레시피가 이겨야 함
+            asset.icon = icon;
+            var orphan = ScriptableObject.CreateInstance<OfferingData>();
+            orphan.offeringId = "not_a_recipe";
+            orphan.kind = OfferingKind.General;
             try
             {
-                OfferingCatalog.Build(new[] { asset });
-                Assert.AreSame(asset, OfferingCatalog.Find("yakgwa"));
-                CollectionAssert.Contains(new System.Collections.Generic.List<OfferingData>(OfferingCatalog.RandomPool), asset);
+                OfferingCatalog.Build(new[] { asset, orphan });
+                var o = OfferingCatalog.Find(recipe.Id);
+                Assert.AreNotSame(asset, o, "에셋을 그대로 쓰지 않는다");
+                Assert.AreEqual(recipe.DisplayName, o.displayName);
+                Assert.AreEqual(OfferingKind.General, o.kind);
+                Assert.AreSame(icon, o.icon, "그림은 에셋에서");
+                Assert.IsNull(OfferingCatalog.Find("not_a_recipe"), "레시피에 없는 옛 에셋은 안 넣음");
             }
             finally
             {
                 Object.DestroyImmediate(asset);
+                Object.DestroyImmediate(orphan);
+                Object.DestroyImmediate(icon);
+                Object.DestroyImmediate(tex);
+                OfferingCatalog.Build(null);
             }
         }
     }
