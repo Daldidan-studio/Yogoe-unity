@@ -16,6 +16,11 @@ namespace Yoegoe.Tests.EditMode
         GameEconomy eco;
         CharacterAgent agent;
 
+        /// <summary>레시피 표의 첫 음식 — 시트에서 레시피가 바뀌어도 테스트가 특정 요리 id에 묶이지 않게.</summary>
+        static Yoegoe.Cooking.CookingRecipe AnyFood => System.Linq.Enumerable.First(
+            Yoegoe.Cooking.CookingRecipeCatalog.Recipes, r => r.Kind == Yoegoe.Cooking.CookingResultKind.Food);
+        static string FoodId => AnyFood.Id;
+
         [SetUp]
         public void SetUp()
         {
@@ -50,19 +55,19 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void Catalog_HasGoldenVariantForFoodsOnly()
         {
-            var g = OfferingCatalog.FindGolden("bap");
+            var g = OfferingCatalog.FindGolden(FoodId);
             Assert.IsNotNull(g);
             Assert.IsTrue(g.golden);
             Assert.AreEqual(OfferingKind.Food, g.kind);
-            Assert.AreEqual("bap", g.BaseId);
-            Assert.AreEqual("황금 밥", g.displayName);
+            Assert.AreEqual(FoodId, g.BaseId);
+            Assert.AreEqual("황금 " + AnyFood.DisplayName, g.displayName);
             Assert.IsNull(OfferingCatalog.FindGolden("yukjeon"), "공양물은 황금 버전 없음");
         }
 
         [Test]
         public void FeedingGoldenFood_GivesFoodStamina_AndFiveMinuteBuff()
         {
-            var g = OfferingCatalog.FindGolden("bap");
+            var g = OfferingCatalog.FindGolden(FoodId);
             eco.AddOffering(g, 1);
             Assert.IsFalse(agent.IsGolden);
             Assert.AreEqual(1f, agent.SpeedMultiplier);
@@ -80,7 +85,7 @@ namespace Yoegoe.Tests.EditMode
         public void GoldenFood_CanBeFedEvenWithFullStamina()
         {
             agent.Stats.Stamina = agent.MaxStamina;
-            var g = OfferingCatalog.FindGolden("bap");
+            var g = OfferingCatalog.FindGolden(FoodId);
             eco.AddOffering(g, 1);
             Assert.IsTrue(agent.TryFeed(g, eco).Success);
             Assert.IsTrue(agent.IsGolden);

@@ -1,15 +1,6 @@
 {
   "recipes": [
     {
-      "id": "bap",
-      "name": "밥",
-      "kind": "Food",
-      "ingredients": [
-        "Water",
-        "Rice"
-      ]
-    },
-    {
       "id": "kimchi",
       "name": "김치",
       "kind": "Food",
@@ -101,7 +92,7 @@
     },
     {
       "id": "namulbap",
-      "name": "나물밥",
+      "name": "연잎밥",
       "kind": "Food",
       "ingredients": [
         "Rice",
@@ -137,7 +128,7 @@
     },
     {
       "id": "juak",
-      "name": "주악",
+      "name": "누룽지",
       "kind": "Food",
       "ingredients": [
         "Rice",
@@ -219,7 +210,7 @@
     },
     {
       "id": "dalgyalmar",
-      "name": "달걀말이",
+      "name": "달걀지짐",
       "kind": "Food",
       "ingredients": [
         "Egg",
@@ -300,7 +291,7 @@
     },
     {
       "id": "gwasilcha",
-      "name": "과실차",
+      "name": "화채",
       "kind": "Food",
       "ingredients": [
         "Water",
@@ -318,7 +309,7 @@
     },
     {
       "id": "gyeranjjim",
-      "name": "계란찜",
+      "name": "달걀찜",
       "kind": "Food",
       "ingredients": [
         "Egg",
@@ -375,12 +366,12 @@
     },
     {
       "id": "sinseollo",
-      "name": "신선로",
+      "name": "잡채",
       "kind": "Offering",
       "ingredients": [
         "Boar",
         "Namul",
-        "Water"
+        "Oil"
       ]
     },
     {
@@ -396,8 +387,9 @@
     {
       "id": "saenggogi",
       "name": "생고기",
-      "kind": "Food",
+      "kind": "Offering",
       "ingredients": [
+        "Boar",
         "Boar",
         "Boar"
       ]
@@ -405,17 +397,29 @@
     {
       "id": "saenggogi",
       "name": "생고기",
-      "kind": "Food",
+      "kind": "Offering",
       "ingredients": [
         "Boar",
+        "Bird",
+        "Boar"
+      ]
+    },
+    {
+      "id": "saenggogi",
+      "name": "생고기",
+      "kind": "Offering",
+      "ingredients": [
+        "Boar",
+        "Bird",
         "Bird"
       ]
     },
     {
       "id": "saenggogi",
       "name": "생고기",
-      "kind": "Food",
+      "kind": "Offering",
       "ingredients": [
+        "Bird",
         "Bird",
         "Bird"
       ]
@@ -442,12 +446,11 @@
     },
     {
       "id": "kkotmakgeolli",
-      "name": "꽃막걸리",
-      "kind": "Offering",
+      "name": "막걸리",
+      "kind": "Food",
       "ingredients": [
         "Rice",
-        "Water",
-        "Namul"
+        "Water"
       ]
     },
     {
@@ -532,7 +535,7 @@
     },
     {
       "id": "hwachae",
-      "name": "화채",
+      "name": "화채 빙수",
       "kind": "Offering",
       "ingredients": [
         "Fruit",
@@ -607,6 +610,15 @@
       "ingredients": [
         "Rice",
         "Chili"
+      ]
+    },
+    {
+      "id": "yaknamul",
+      "name": "약나물",
+      "kind": "Food",
+      "ingredients": [
+        "Herb",
+        "Namul"
       ]
     }
   ]

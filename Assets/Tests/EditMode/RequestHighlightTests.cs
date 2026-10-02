@@ -12,6 +12,11 @@ namespace Yoegoe.Tests.EditMode
         GameObject ecoGO;
         GameEconomy eco;
 
+        /// <summary>레시피 표의 첫 음식 — 시트에서 레시피가 바뀌어도 테스트가 특정 요리 id에 묶이지 않게.</summary>
+        static Yoegoe.Cooking.CookingRecipe AnyFood => System.Linq.Enumerable.First(
+            Yoegoe.Cooking.CookingRecipeCatalog.Recipes, r => r.Kind == Yoegoe.Cooking.CookingResultKind.Food);
+        static string FoodId => AnyFood.Id;
+
         [SetUp]
         public void SetUp()
         {
@@ -28,21 +33,21 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void NotOwned_NoHighlight()
         {
-            Assert.IsNull(DetailScreen.FindOwnedRequestTarget("bap"));
+            Assert.IsNull(DetailScreen.FindOwnedRequestTarget(FoodId));
         }
 
         [Test]
         public void Owned_HighlightsIt()
         {
-            eco.AddOffering(OfferingCatalog.Find("bap"), 1);
-            Assert.AreEqual("bap", DetailScreen.FindOwnedRequestTarget("bap").offeringId);
+            eco.AddOffering(OfferingCatalog.Find(FoodId), 1);
+            Assert.AreEqual(FoodId, DetailScreen.FindOwnedRequestTarget(FoodId).offeringId);
         }
 
         [Test]
         public void OnlyGoldenOwned_HighlightsGolden()
         {
-            eco.AddOffering(OfferingCatalog.FindGolden("bap"), 1);
-            Assert.AreEqual(OfferingCatalog.GoldenIdOf("bap"), DetailScreen.FindOwnedRequestTarget("bap").offeringId);
+            eco.AddOffering(OfferingCatalog.FindGolden(FoodId), 1);
+            Assert.AreEqual(OfferingCatalog.GoldenIdOf(FoodId), DetailScreen.FindOwnedRequestTarget(FoodId).offeringId);
         }
     }
 }

@@ -16,6 +16,11 @@ namespace Yoegoe.Tests.EditMode
         GameObject ecoGO;
         GameEconomy eco;
 
+        /// <summary>레시피 표의 첫 음식 — 시트에서 레시피가 바뀌어도 테스트가 특정 요리 id에 묶이지 않게.</summary>
+        static Yoegoe.Cooking.CookingRecipe AnyFood => System.Linq.Enumerable.First(
+            Yoegoe.Cooking.CookingRecipeCatalog.Recipes, r => r.Kind == Yoegoe.Cooking.CookingResultKind.Food);
+        static string FoodId => AnyFood.Id;
+
         [SetUp]
         public void SetUp()
         {
@@ -84,9 +89,9 @@ namespace Yoegoe.Tests.EditMode
         [Test]
         public void Discover_GoldenCountsAsBase_AndSaveRoundTrips()
         {
-            Assert.IsTrue(CookingCodex.Discover(OfferingCatalog.GoldenIdOf("bap")));
-            Assert.IsTrue(CookingCodex.IsDiscovered("bap"));
-            Assert.IsFalse(CookingCodex.Discover("bap"), "이미 발견");
+            Assert.IsTrue(CookingCodex.Discover(OfferingCatalog.GoldenIdOf(FoodId)));
+            Assert.IsTrue(CookingCodex.IsDiscovered(FoodId));
+            Assert.IsFalse(CookingCodex.Discover(FoodId), "이미 발견");
             Assert.IsFalse(CookingCodex.Discover("not_a_recipe"));
 
             var saved = CookingCodex.CaptureToSave();

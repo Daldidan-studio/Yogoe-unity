@@ -15,6 +15,11 @@ namespace Yoegoe.Tests.EditMode
         GameObject go;
         CharacterAgent agent;
 
+        /// <summary>레시피 표의 첫 음식 — 시트에서 레시피가 바뀌어도 테스트가 특정 요리 id에 묶이지 않게.</summary>
+        static Yoegoe.Cooking.CookingRecipe AnyFood => System.Linq.Enumerable.First(
+            Yoegoe.Cooking.CookingRecipeCatalog.Recipes, r => r.Kind == Yoegoe.Cooking.CookingResultKind.Food);
+        static string FoodId => AnyFood.Id;
+
         [SetUp]
         public void SetUp()
         {
@@ -91,7 +96,7 @@ namespace Yoegoe.Tests.EditMode
             foreach (var o in OfferingCatalog.RandomPool)
                 Assert.AreEqual(OfferingKind.General, o.kind, o.offeringId);
             Assert.IsNotNull(OfferingCatalog.Find("sinseollo"));
-            Assert.AreEqual(OfferingKind.Food, OfferingCatalog.Find("bap").kind);
+            Assert.AreEqual(OfferingKind.Food, OfferingCatalog.Find(FoodId).kind);
         }
 
         [Test]
