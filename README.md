@@ -32,7 +32,7 @@
 
 `main` push 시 WebGL 자동 빌드·배포.
 
-**플레이:** https://daldidan-studio.github.io/Yogoe-unity/
+**플레이:** https://sapsar-games.github.io/Yogoe-unity/
 
 최초 1회 [CI Secrets·Pages 설정](Docs/04_CI_배포.md) 필요. (기존 설계에서 이미
 설정을 마쳤고 이번 교체로 영향받지 않으므로 재설정 불필요.)
