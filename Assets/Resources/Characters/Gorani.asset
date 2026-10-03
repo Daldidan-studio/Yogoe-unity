@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "고라니"
   preferredOfferings: []
   endingProp: {fileID: 0}
-  detailDescription: "소환된 넋. 정화수로 기력을 채워 혼으로 진화한다."
+  detailDescription: "태초에 몸을 잘못 골랐다고 믿는 고라니들의 왕. 겁이 많은데 허세는 크다. 물가 풀숲을 좋아한다."
   startingIntimacy: 0
   startingStamina: 0
   monologueLines: []

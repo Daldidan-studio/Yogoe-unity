@@ -1,10 +1,8 @@
 {
   "name": "yogoe-unity-tools",
   "private": true,
-  "description": "Local tooling for Yogoe Unity (yut bubble / character sheets, legacy dialogue export)",
+  "description": "Local tooling for Yogoe Unity (yut bubble / character sheets)",
   "scripts": {
-    "dialogue": "python3 Tools/export_dialogue.py",
-    "dialogue:csv": "python3 Tools/export_dialogue.py --csv Tools/sheets/okto.csv --character okto",
     "yut-bubbles": "python3 Tools/export_yut_bubbles.py",
     "yut-bubbles:csv": "python3 Tools/export_yut_bubbles.py --csv Tools/sheets/yut_bubbles.csv",
     "yut-bubbles:to-csv": "python3 Tools/import_yut_bubbles_csv.py",
@@ -20,6 +18,16 @@
     "attendance": "python3 Tools/export_attendance.py",
     "attendance:csv": "python3 Tools/export_attendance.py --csv",
     "attendance:push": "python3 Tools/export_attendance.py --push",
+    "recipes": "python3 Tools/export_recipes.py",
+    "recipes:csv": "python3 Tools/export_recipes.py --csv",
+    "recipes:push": "python3 Tools/export_recipes.py --push",
+    "ingredients": "python3 Tools/export_ingredients.py",
+    "ingredients:csv": "python3 Tools/export_ingredients.py --csv",
+    "ingredients:push": "python3 Tools/export_ingredients.py --push",
+    "charms": "python3 Tools/export_charms.py",
+    "charms:csv": "python3 Tools/export_charms.py --csv",
+    "charms:push": "python3 Tools/export_charms.py --push",
+    "sheets": "python3 Tools/pull_all_sheets.py",
     "sheets:describe": "python3 Tools/sheet_descriptions.py --apply"
   }
 }

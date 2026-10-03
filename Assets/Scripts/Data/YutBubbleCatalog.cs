@@ -20,9 +20,10 @@ namespace Yoegoe.Data
             public const string RabbitCheer = "rabbit.cheer";
             public const string RabbitUrgeFinish = "rabbit.urge_finish";
             public const string CandidateTreasure = "candidate.treasure";
-            public const string CandidateOffering = "candidate.offering";
+            public const string CandidateOffering = "candidate.offering"; // 구 공양물 칸
+            public const string CandidateIngredientBag = "candidate.ingredient_bag";
             public const string CandidateCoin = "candidate.coin";
-            public const string CandidatePurifiedWater = "candidate.purified_water";
+            public const string CandidateWater = "candidate.water";
             public const string CandidateCapture = "candidate.capture";
             public const string CandidateStack = "candidate.stack";
             public const string CandidateFinish = "candidate.finish";
@@ -90,14 +91,6 @@ namespace Yoegoe.Data
             }
         }
 
-        /// <summary>테스트/에디터용 — 캐시 비우기.</summary>
-        public static void ResetForTests()
-        {
-            _byId = null;
-            _loadedLocale = null;
-            _loggedMissing = false;
-        }
-
         public static string Get(string id)
         {
             if (string.IsNullOrEmpty(id)) return "";
@@ -131,8 +124,9 @@ namespace Yoegoe.Data
             Ids.RabbitUrgeFinish => "저 친구, 완주할 수 있어요!",
             Ids.CandidateTreasure => "보물상자로 갈 수 있어.",
             Ids.CandidateOffering => "공양물을 얻을 수 있어.",
+            Ids.CandidateIngredientBag => "재료보따리로 갈 수 있어.",
             Ids.CandidateCoin => "엽전을 얻을 수 있어.",
-            Ids.CandidatePurifiedWater => "정화수를 얻을 수 있어.",
+            Ids.CandidateWater => "물을 얻을 수 있어.",
             Ids.CandidateCapture => "이무기 님을 잡을 수 있어.",
             Ids.CandidateStack => "{ally}와 업을 수 있어.",
             Ids.CandidateFinish => "완주할 수 있어.",

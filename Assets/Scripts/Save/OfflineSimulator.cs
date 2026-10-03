@@ -46,8 +46,6 @@ namespace Yoegoe.Save
                 foreach (var agent in data.agents)
                 {
                     if (agent == null) continue;
-                    if (agent.state == ActionState.Slumped)
-                        MigrateSlumped(agent);
                     SimulateAgent(agent, data, elapsed);
                 }
             }
@@ -67,10 +65,6 @@ namespace Yoegoe.Save
                 {
                     case ActionState.Staying:
                         used = SimulateStaying(agent, data, remaining);
-                        break;
-                    case ActionState.Slumped:
-                        MigrateSlumped(agent);
-                        used = SimulatePlaying(agent, remaining);
                         break;
                     case ActionState.Fainted:
                         return;
@@ -154,42 +148,9 @@ namespace Yoegoe.Save
             return prop != null && prop.isBuilt ? prop : null;
         }
 
-        /// <summary>시트(props.json) 설정. 없으면 구세이브 호환: 분당 산출이 있으면 공덕 기물.</summary>
-        static PropCatalog.Entry ConfigFor(PropSave prop)
-        {
-            if (PropCatalog.TryGet(prop.propId, out var e)) return e;
-            return new PropCatalog.Entry
-            {
-                propId = prop.propId,
-                resourceType = prop.baseProductionPerMinute > 0 ? "Merit" : "None",
-                meritPerMinute = prop.baseProductionPerMinute,
-                levelGrowth = ProductionFormula.LevelGrowth,
-                intimacyBonus = true,
-                ownerMultiplier = 2.0
-            };
-        }
-
-        static bool IsResource(PropResourceType t) =>
-            t == PropResourceType.PurifiedWater || t == PropResourceType.Yeopjeon
-            || t == PropResourceType.Hunt || t == PropResourceType.Gather;
-
-        static bool IsHalted(PropSave prop)
-        {
-            var cfg = ConfigFor(prop);
-            var type = cfg.ResourceType;
-            int level = Math.Max(1, prop.level);
-            if (IsResource(type))
-            {
-                var st = ToState(prop);
-                return PropStorage.IsHalted(st, PropStorage.Capacity(cfg.baseCapacity, level));
-            }
-            if (type == PropResourceType.Merit)
-            {
-                double cap = ProductionFormula.MeritCapacity(cfg.meritPerMinute, level, cfg.levelGrowth, cfg.meritCapacityMinutes);
-                return !double.IsInfinity(cap) && prop.pendingMerit.ToBigNumber().ToDouble() >= cap - 0.0001;
-            }
-            return false;
-        }
+        /// <summary>시트(props.json) 설정 — 시트가 정본. 시트에 없는 기물은 생산 없음.</summary>
+        static PropProduction.Config ConfigFor(PropSave prop) =>
+            PropCatalog.TryGet(prop.propId, out var e) ? PropProduction.Config.From(e) : default;
 
         static PropStorage.State ToState(PropSave prop) => new PropStorage.State
         {
@@ -198,54 +159,30 @@ namespace Yoegoe.Save
             OverflowJudged = prop.overflowJudged
         };
 
-        /// <summary>온라인 PropSlot.ProduceWhileStaying와 같은 규칙. 반환 = 일한 초.</summary>
+        static bool IsHalted(PropSave prop) =>
+            PropProduction.IsHalted(ConfigFor(prop), Math.Max(1, prop.level),
+                prop.pendingMerit.ToBigNumber().ToDouble(), ToState(prop));
+
+        static bool IsOwnerOnEndingProp(AgentSave agent, PropSave prop) =>
+            prop.isEndingProp && !string.IsNullOrEmpty(prop.ownerCharacterId)
+            && prop.ownerCharacterId == agent.characterId;
+
+        /// <summary>온라인과 같은 규칙(<see cref="PropProduction.Produce"/>)으로 DTO에 생산. 반환 = 일한 초.</summary>
         private static float Produce(AgentSave agent, PropSave prop, float dt)
         {
-            var cfg = ConfigFor(prop);
-            var type = cfg.ResourceType;
-            int level = Math.Max(1, prop.level);
+            var st = ToState(prop);
+            var ingredients = new System.Collections.Generic.List<int>(prop.pendingIngredients ?? Array.Empty<int>());
+            float worked = PropProduction.Produce(ConfigFor(prop), prop.level, agent.intimacy,
+                IsOwnerOnEndingProp(agent, prop), prop.pendingMerit.ToBigNumber().ToDouble(), ref st, dt,
+                () => UnityEngine.Random.value, ingredients.Add, out double meritAdded);
 
-            if (type == PropResourceType.Merit)
-            {
-                bool sameOwner = !string.IsNullOrEmpty(prop.ownerCharacterId)
-                                 && prop.ownerCharacterId == agent.characterId;
-                double perMinute = ProductionFormula.PerMinute(
-                    cfg.meritPerMinute, level, agent.intimacy, prop.isEndingProp, sameOwner,
-                    cfg.levelGrowth > 0 ? cfg.levelGrowth : ProductionFormula.LevelGrowth,
-                    cfg.intimacyBonus, cfg.ownerMultiplier > 0 ? cfg.ownerMultiplier : 1.0);
-                if (perMinute <= 0) return dt;
-
-                double cap = ProductionFormula.MeritCapacity(cfg.meritPerMinute, level, cfg.levelGrowth, cfg.meritCapacityMinutes);
-                double pile = prop.pendingMerit.ToBigNumber().ToDouble();
-                double room = double.IsInfinity(cap) ? double.MaxValue : cap - pile;
-                if (room <= 0.0001) return 0f;
-                float worked = (float)Math.Min(dt, room / perMinute * 60.0);
-                var cur = prop.pendingMerit.ToBigNumber() + (BigNumber)(perMinute / 60.0 * worked);
-                prop.pendingMerit = BigNumberSave.From(cur);
-                return worked;
-            }
-
-            if (IsResource(type))
-            {
-                var st = ToState(prop);
-                var ingredients = new System.Collections.Generic.List<int>(prop.pendingIngredients ?? Array.Empty<int>());
-                // 오프라인 오버플로우 판정도 온라인과 동일하게 적용 (Docs/05 7항 미확정 — 바뀌면 여기만)
-                float worked = PropStorage.Advance(ref st, cfg.cycleMinutes * 60f,
-                    PropStorage.Capacity(cfg.baseCapacity, level), PropStorage.OverflowChance(level), dt,
-                    () => UnityEngine.Random.value,
-                    () =>
-                    {
-                        if (type == PropResourceType.Hunt || type == PropResourceType.Gather)
-                            ingredients.Add(PropCatalog.RollDrop(type, UnityEngine.Random.value));
-                    });
-                prop.storedResources = st.Stored;
-                prop.cycleProgressSeconds = st.CycleProgressSeconds;
-                prop.overflowJudged = st.OverflowJudged;
-                prop.pendingIngredients = ingredients.ToArray();
-                return worked;
-            }
-
-            return dt; // 화덕 등 산출 없음
+            if (meritAdded > 0)
+                prop.pendingMerit = BigNumberSave.From(prop.pendingMerit.ToBigNumber() + (BigNumber)meritAdded);
+            prop.storedResources = st.Stored;
+            prop.cycleProgressSeconds = st.CycleProgressSeconds;
+            prop.overflowJudged = st.OverflowJudged;
+            prop.pendingIngredients = ingredients.ToArray();
+            return worked;
         }
 
         private static PropSave FindProp(GameSaveData data, string propId)
@@ -255,14 +192,6 @@ namespace Yoegoe.Save
                 if (p != null && p.propId == propId) return p;
             }
             return null;
-        }
-
-        private static void MigrateSlumped(AgentSave agent)
-        {
-            agent.state = ActionState.Playing;
-            agent.stamina = 0f;
-            agent.occupiedPropId = "";
-            // stateTimer 유지 → 기절까지 이어짐
         }
 
         private static void EnterPlayingExhausted(AgentSave agent)

@@ -194,6 +194,28 @@ namespace Yoegoe.Tests.EditMode
         }
 
         [Test]
+        public void GongyangganProp_DoesNotAcceptWorkers()
+        {
+            data.opensGongyanggan = true;
+            prop.ConfigureBuiltState(true);
+            Assert.IsFalse(prop.AcceptsWorkers);
+            Assert.IsFalse(prop.CanSitNow(agent));
+            // 소유 조건과는 별개 — CanBeUsedBy는 true여도 착석 불가
+            Assert.IsTrue(prop.CanBeUsedBy(agent));
+        }
+
+        [Test]
+        public void NoProductionProp_DoesNotAcceptWorkers_EvenWithoutGongyangganFlag()
+        {
+            data.opensGongyanggan = false;
+            data.resourceType = PropResourceType.None;
+            data.propId = "화덕";
+            prop.ConfigureBuiltState(true);
+            Assert.IsFalse(prop.AcceptsWorkers);
+            Assert.IsFalse(prop.CanSitNow(agent));
+        }
+
+        [Test]
         public void CanBeUsedBy_EndingProp_OnlyOwnerAllowed()
         {
             data.isEndingProp = true;

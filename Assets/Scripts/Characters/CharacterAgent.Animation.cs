@@ -30,7 +30,7 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 이번 프레임 이동·상태로 스프라이트를 재생한다.
         /// 걷기/놀기 이동: 시트 1~4행(walkDown/Left/Right/Up).
-        /// 놀기 정지: idle. 머물기/주저앉기/기절: stay/slumped/fainted.
+        /// 놀기 정지: idle. 머물기/기절: stay/fainted.
         /// </summary>
         private void UpdateWalkAnimation(float dt)
         {
@@ -52,8 +52,7 @@ namespace Yoegoe.Characters
 
             bool advanceFrames = wantsWalkCycle || Stats.State == ActionState.Staying
                 || Stats.State == ActionState.Fainted
-                || Stats.State == ActionState.Playing
-                || Stats.State == ActionState.Slumped;
+                || Stats.State == ActionState.Playing;
 
             Sprite[] frames = ResolveAnimationFrames(wantsWalkCycle, out bool flipX);
             if (frames == null || frames.Length == 0) return;
@@ -116,7 +115,6 @@ namespace Yoegoe.Characters
                     if (HasFrames(Data.stay)) return Data.stay;
                     break;
                 case ActionState.Playing:
-                case ActionState.Slumped: // 구세이브 호환 → idle
                     if (HasFrames(Data.idle)) return Data.idle;
                     break;
                 case ActionState.Fainted:

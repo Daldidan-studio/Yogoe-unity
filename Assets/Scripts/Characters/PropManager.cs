@@ -16,6 +16,9 @@ namespace Yoegoe.Characters
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            // 씬에 미리 배치된 기물은 PropManager보다 먼저 OnEnable될 수 있어 여기서 재등록한다.
+            foreach (var slot in FindObjectsByType<PropSlot>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                Register(slot);
         }
 
         public void Register(PropSlot slot)
@@ -28,7 +31,7 @@ namespace Yoegoe.Characters
         /// <summary>
         /// 6-2 걷기 목적지 후보 선정.
         /// 룰 기준: Docs/06_행동룰.md
-        /// 비어있고, 직전 기물이 아니고, 다른 요괴의 엔딩 기물이 아닌 것 중 랜덤.
+        /// 비어있고, 직전 기물이 아니고, 다른 요괴의 엔딩 기물이 아니고, 만창이 아닌(가서 일할 수 있는) 것 중 랜덤.
         /// 후보가 없으면 null (호출측에서 30초 방황 후 재추첨).
         /// </summary>
         public PropSlot GetRandomAvailableProp(CharacterAgent requester, PropSlot exclude)
@@ -42,6 +45,8 @@ namespace Yoegoe.Characters
                 if (p.IsOccupied) continue;
                 if (p.IsReserved) continue;
                 if (p == exclude) continue;
+                if (p.IsStorageHalted) continue; // 가도 일을 못 함
+                if (!p.AcceptsWorkers) continue; // 화덕 등 — 요리 전용, 일할 곳 아님
                 if (!p.CanBeUsedBy(requester)) continue;
                 candidates.Add(p);
             }
@@ -125,10 +130,6 @@ namespace Yoegoe.Characters
             }
             return best;
         }
-
-        public float DistanceToProp(PropSlot prop, Vector3 worldPos) =>
-            prop == null ? float.MaxValue : DistanceToPropSurface(prop, worldPos);
-
         /// <summary>bounds 표면까지 거리(안이면 0). 큰 기물 가장자리 드롭도 잡힘.</summary>
         private static float DistanceToPropSurface(PropSlot prop, Vector3 worldPos)
         {

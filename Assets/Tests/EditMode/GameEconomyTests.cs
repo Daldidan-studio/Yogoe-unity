@@ -21,11 +21,10 @@ namespace Yoegoe.Tests.EditMode
 
             settings = ScriptableObject.CreateInstance<StartingStateSettings>();
             settings.startingIntimacy = 50f;
-            settings.startingStamina = 100f;
             settings.startingMerit = 1000;
             settings.startingYeopjeon = 0;
             settings.startingHyang = 3;
-            settings.startingPurifiedWater = 10;
+            settings.startingWater = 10;
             settings.startingYutToken = 5;
             settings.yutTokenMax = 5;
             settings.startingOfferings = null;
@@ -47,7 +46,7 @@ namespace Yoegoe.Tests.EditMode
             Assert.AreEqual(1000, economy.MeritPile.ToDouble(), 0.01);
             Assert.AreEqual(0, economy.Yeopjeon);
             Assert.AreEqual(3, economy.Hyang);
-            Assert.AreEqual(10, economy.PurifiedWater);
+            Assert.AreEqual(10, economy.Water);
             Assert.AreEqual(5, economy.YutToken);
             Assert.AreEqual(5, economy.YutTokenMax);
             Assert.AreEqual(0, economy.PropsPurchasedCount);

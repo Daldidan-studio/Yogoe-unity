@@ -6,7 +6,7 @@ namespace Yoegoe.UI.EditorTools
 {
     /// <summary>
     /// Main 씬에 부트스트랩(<see cref="Yoegoe.Main"/>)이 없으면 만든다.
-    /// Bake가 OpenScene으로 씬을 다시 열 때 손수 만든 Main이 날아가는 문제를 막는다.
+    /// Prefab을 씬에 넣을 때 OpenScene으로 다시 열면 손수 만든 Main이 날아가는 문제를 막는다.
     /// </summary>
     public static class MainSceneBootstrap
     {

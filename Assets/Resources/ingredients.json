@@ -1,0 +1,79 @@
+{
+  "ingredients": [
+    {
+      "id": "Water",
+      "name": "물",
+      "description": ""
+    },
+    {
+      "id": "Chili",
+      "name": "고추",
+      "description": ""
+    },
+    {
+      "id": "Rice",
+      "name": "쌀",
+      "description": ""
+    },
+    {
+      "id": "RedBean",
+      "name": "팥",
+      "description": ""
+    },
+    {
+      "id": "Fruit",
+      "name": "과실",
+      "description": ""
+    },
+    {
+      "id": "Namul",
+      "name": "산나물",
+      "description": ""
+    },
+    {
+      "id": "Herb",
+      "name": "약재",
+      "description": ""
+    },
+    {
+      "id": "Honey",
+      "name": "꿀",
+      "description": ""
+    },
+    {
+      "id": "Boar",
+      "name": "멧돼지고기",
+      "description": ""
+    },
+    {
+      "id": "Bird",
+      "name": "새고기",
+      "description": ""
+    },
+    {
+      "id": "Fish",
+      "name": "물고기",
+      "description": ""
+    },
+    {
+      "id": "Egg",
+      "name": "새알",
+      "description": ""
+    },
+    {
+      "id": "Oil",
+      "name": "기름",
+      "description": ""
+    },
+    {
+      "id": "GoldenRice",
+      "name": "황금쌀",
+      "description": ""
+    },
+    {
+      "id": "GoldenHoney",
+      "name": "황금꿀",
+      "description": ""
+    }
+  ]
+}

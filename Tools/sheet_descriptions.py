@@ -20,6 +20,31 @@ from pathlib import Path
 MARK = "※"
 
 _LINES: dict[str, list[str]] = {
+    "charms": [
+        "※ 윷 말 완주 보상 부적 확률",
+        "- 한 줄 = 부적 1종. 말 1개가 완주할 때 weight 비율로 1개가 나옴 (전부 1이면 6종 균등, 0 = 안 나옴)",
+        "- 예: 몰빵 weight 0.5, 나머지 1 → 몰빵 9%, 나머지 각 18%",
+        "- 나가리도 소모품 — 가진 개수만큼만 요리 중 쓸 수 있음",
+        "- id 는 코드와 연결되니 바꾸지 마세요",
+        "- 수정 후: npm run charms (또는 npm run sheets)",
+    ],
+    "recipes": [
+        "※ 공양간 레시피 (요리판에서 실제로 쓰는 조합)",
+        "- 한 줄 = 조합 1개. 같은 id 를 여러 줄 쓰면 같은 요리의 다른 조합 (예: 고기죽 = 쌀+새고기 / 쌀+멧돼지고기)",
+        "- kind: 음식(재료 2개) / 공양물(재료 3개)",
+        "- 재료는 한글 이름: 물 고추 쌀 팥 과실 산나물 약재 꿀 멧돼지고기 새고기 물고기 새알 기름 (순서 상관없음, 같은 재료 2번 가능)",
+        "- id 는 영문 — 이미 있는 요리의 id 를 바꾸면 그 요리 인벤·도감 기록이 사라짐",
+        "- 같은 재료 조합이 두 요리에 있으면 오류",
+        "- description = 요리책 상세 설명. 요리마다 한 줄에만 쓰고 같은 id 의 다른 줄은 비워 두세요 (비면 효과만 나옴)",
+        "- 수정 후: npm run recipes",
+    ],
+    "ingredients": [
+        "※ 요리책 재료 칸 설명",
+        "- 한 줄 = 재료 1개 (재료 13 + 황금쌀·황금꿀)",
+        "- 게임에 들어가는 건 description 뿐 — 요리책에서 재료 칸을 눌렀을 때 상세 팝업에 나옴",
+        "- id·name 은 코드와 연결된 참고용 (바꾸지 마세요). 요리 설명은 recipes 탭 description",
+        "- 수정 후: npm run ingredients",
+    ],
     "characters": [
         "※ 캐릭터 기본 정보",
         "- 한 줄 = 요괴 1명",
@@ -43,11 +68,12 @@ _LINES: dict[str, list[str]] = {
         "    request_thanks = 음식 요구 완료",
         "    request_gift = 선물꾸러미 줄 때",
         "    golden_find = 황금 재료 수거 ({item} 자리에 황금쌀/황금꿀)",
+        "    greeting = 접속 인사 (앱을 켜거나 5분 넘게 비웠다 돌아왔을 때, 놀고 있던 요괴)",
         "- 수정 후: npm run characters",
     ],
     "props": [
         "※ 기물별 산출",
-        "- resourceType: Merit(공덕) / PurifiedWater(물) / Yeopjeon(엽전) / Hunt(사냥 재료) / Gather(채집 재료) / None(없음)",
+        "- resourceType: Merit(공덕) / Water(물) / Yeopjeon(엽전) / Hunt(사냥 재료) / Gather(채집 재료) / None(없음)",
         "- 자원 기물: cycleMinutes = 1개 만드는 주기(분, 레벨 무관) / baseCapacity = Lv1 보관 (10레벨마다 +1)",
         "- 공덕 기물: 분당 meritPerMinute × levelGrowth^(레벨−1) / meritCapacityMinutes분치 쌓이면 만창",
         "- intimacyBonus(친밀도 보정), upgradable(레벨업 가능) = TRUE / FALSE",

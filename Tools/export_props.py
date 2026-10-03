@@ -5,7 +5,7 @@
   props             propId, displayName, resourceType, cycleMinutes, baseCapacity, meritPerMinute, levelGrowth,
                     meritCapacityMinutes, intimacyBonus, ownerMultiplier, upgradable, upgradeBaseCost,
                     upgradeCostMultiplier, note
-                    resourceType: Merit(공덕) · PurifiedWater(물) · Yeopjeon(엽전) · Hunt(사냥 재료) · Gather(채집 재료) · None
+                    resourceType: Merit(공덕) · Water(물) · Yeopjeon(엽전) · Hunt(사냥 재료) · Gather(채집 재료) · None
   prop_drop_tables  table, ingredient, name, weight, note     (table: Hunt / Gather, weight: 확률 %,
                     ingredient: 요리 재료 이름 또는 GoldenRice / GoldenHoney)
   prop_settings     key, value, note                         (purchaseBaseCost, purchaseCostGrowth)
@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 JSON_PATH = ROOT / "Assets" / "Resources" / "props.json"
 SHEETS_DIR = ROOT / "Tools" / "sheets"
 PROP_ASSETS = ROOT / "Assets" / "Data" / "Props"
-ECONOMY_CS = ROOT / "Assets" / "Scripts" / "Economy" / "GameEconomy.cs"
+ECONOMY_CS = ROOT / "Assets" / "Scripts" / "Cooking" / "CookingTypes.cs"  # CookingIngredientId
 ENUMS_CS = ROOT / "Assets" / "Scripts" / "Data" / "Enums.cs"
 
 TAB_PROPS = "props"
@@ -46,7 +46,7 @@ PROP_HEADERS = ["propId", "displayName", "resourceType", "cycleMinutes", "baseCa
 DROP_HEADERS = ["table", "ingredient", "name", "weight", "note"]
 SETTING_HEADERS = ["key", "value", "note"]
 
-RESOURCE_TYPES = ["Merit", "PurifiedWater", "Yeopjeon", "Hunt", "Gather", "None"]
+RESOURCE_TYPES = ["Merit", "Water", "Yeopjeon", "Hunt", "Gather", "None"]
 DROP_TABLES = ["Hunt", "Gather"]
 SETTING_KEYS = {"purchaseBaseCost": 300.0, "purchaseCostGrowth": 1.35}
 FLOAT_COLS = ["cycleMinutes", "meritPerMinute", "levelGrowth", "meritCapacityMinutes", "ownerMultiplier",
@@ -130,7 +130,7 @@ def rows_to_json(props: list[dict], drops: list[dict], settings: list[dict]) -> 
                 errors.append(f"{where}: {col} 는 TRUE/FALSE ('{r.get(col)}')")
                 b = False
             entry[col] = b
-        if rtype in ("PurifiedWater", "Yeopjeon", "Hunt", "Gather"):
+        if rtype in ("Water", "Yeopjeon", "Hunt", "Gather"):
             if entry["cycleMinutes"] <= 0:
                 errors.append(f"{where}: 자원 기물은 cycleMinutes > 0 필요")
             if entry["baseCapacity"] <= 0:

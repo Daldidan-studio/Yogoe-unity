@@ -1148,7 +1148,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yoegoe.Runtime::Yoegoe.UI.OfferingDragItem
   screen: {fileID: 8152856328742818326}
   offering: {fileID: 0}
-  isPurifiedWater: 1
+  isWater: 1
   dragIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
 --- !u!1 &2075648702413045988
 GameObject:
@@ -1893,7 +1893,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uC815\uD654\uC218\xB7\uACF5\uC591\uBB3C\uC744 \uB4DC\uB798\uADF8\uD574
+  m_Text: "\uBB3C\xB7\uACF5\uC591\uBB3C\uC744 \uB4DC\uB798\uADF8\uD574
     \uCE90\uB9AD\uD130\uC5D0\uAC8C \uBA39\uC774\uC138\uC694"
 --- !u!1 &3312510964810726800
 GameObject:
@@ -2693,7 +2693,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uC815\uD654\uC218"
+  m_Text: "\uBB3C"
 --- !u!1 &5281153465306559483
 GameObject:
   m_ObjectHideFlags: 0
@@ -2741,7 +2741,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yoegoe.Runtime::Yoegoe.UI.DetailScreen
   font: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
   offerings: []
-  purifiedWaterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
+  waterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
   root: {fileID: 5598410016800837643}
   rootCanvas: {fileID: 3651418267666063958}
   portraitImage: {fileID: 2592276697643879457}
@@ -2765,8 +2765,8 @@ MonoBehaviour:
   inventoryPanel: {fileID: 6599498703347033900}
   inventoryRow: {fileID: 7964996035728381562}
   feedHintText: {fileID: 5493995814678825675}
-  purifiedCountText: {fileID: 6228389337322758058}
-  purifiedDragGroup: {fileID: 2968828155303287447}
+  waterCountText: {fileID: 6228389337322758058}
+  waterDragGroup: {fileID: 2968828155303287447}
   dimCloseButton: {fileID: 735521280683339708}
   closeButton: {fileID: 2980788801645563142}
   inventoryButton: {fileID: 5855901110718323321}
@@ -4140,7 +4140,7 @@ GameObject:
   - component: {fileID: 1495641893609482573}
   - component: {fileID: 8206575550052053810}
   m_Layer: 0
-  m_Name: "Action_\uC815\uD654\uC218"
+  m_Name: "Action_\uBB3C"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

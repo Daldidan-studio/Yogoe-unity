@@ -67,6 +67,11 @@ namespace Yoegoe.Debugging
             cam.transform.position = ClampCenter(pos);
         }
 
+        public bool BoundsReady => boundsSet;
+        public Vector2 ContentCenter => panCenter;
+        public Vector2 MinPanCenter => minCenter;
+        public Vector2 MaxPanCenter => maxCenter;
+
         /// <summary>맵 콘텐츠 반폭·반높이(월드)와 중심. 줌에 따라 패닝 한도를 다시 계산한다.</summary>
         public void SetContentRect(Vector2 center, float halfWidth, float halfHeight)
         {
@@ -76,20 +81,6 @@ namespace Yoegoe.Debugging
             boundsSet = true;
             RefreshPanLimits();
             cam.transform.position = ClampCenter(cam.transform.position);
-        }
-
-        /// <summary>구 API 호환 — 현재 ortho 기준 min/max 중심을 콘텐츠로 역산하지 않고 그대로 쓴다.</summary>
-        public void SetBounds(Vector2 min, Vector2 max)
-        {
-            panCenter = (min + max) * 0.5f;
-            // 현재 뷰를 고려해 대략적인 콘텐츠 반경 복원
-            if (cam == null) cam = GetComponent<Camera>();
-            float camH = cam != null ? cam.orthographicSize * 2f : 10f;
-            float camW = cam != null ? camH * cam.aspect : 10f;
-            contentHalfW = (max.x - min.x) * 0.5f + camW * 0.5f;
-            contentHalfH = (max.y - min.y) * 0.5f + camH * 0.5f;
-            boundsSet = true;
-            RefreshPanLimits();
         }
 
         public void SetOrthoLimits(float min, float max)
@@ -102,7 +93,8 @@ namespace Yoegoe.Debugging
             RefreshPanLimits();
         }
 
-        void RefreshPanLimits()
+        /// <summary>ortho 변경 후 패닝 한도 재계산 (인트로 등).</summary>
+        public void RefreshPanLimits()
         {
             if (!boundsSet || cam == null) return;
             float camH = cam.orthographicSize * 2f;
@@ -113,7 +105,7 @@ namespace Yoegoe.Debugging
             maxCenter = new Vector2(panCenter.x + halfExtraW, panCenter.y + halfExtraH);
         }
 
-        Vector3 ClampCenter(Vector3 pos)
+        public Vector3 ClampCenter(Vector3 pos)
         {
             if (!boundsSet) return pos;
             pos.x = Mathf.Clamp(pos.x, minCenter.x, maxCenter.x);

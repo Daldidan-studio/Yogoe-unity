@@ -13,18 +13,17 @@ using Yoegoe.Cooking;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 정화수·선호공양·인벤토리.
-    /// Prefab/씬에 셸이 있으면 그대로 쓰고, 없으면 Play 때 코드로 조립한다.
-    /// 선호·인벤토리 칩은 항상 코드로 갱신. 정화수·공양물은 드래그해서 본문에 놓아 먹인다.
+    /// 캐릭터 상세 다이얼로그(화면 중앙). 좌 초상 / 우 이름·스탯·설명 / 하단 물·선호공양·인벤토리.
+    /// 레이아웃은 Prefab만 사용. 선호·인벤토리 칩은 항상 코드로 갱신. 물·공양물은 드래그해서 본문에 놓아 먹인다.
     /// </summary>
     public class DetailScreen : MonoBehaviour
     {
         [Header("주입 (Main)")]
         public Font font;
         public OfferingData[] offerings;
-        public Sprite purifiedWaterIcon;
+        public Sprite waterIcon;
 
-        [Header("셸 (Prefab/씬 — 비어 있으면 Play 시 코드 조립)")]
+        [Header("셸 (Prefab — 필수)")]
         [SerializeField] GameObject root;
         [SerializeField] Canvas rootCanvas;
         [SerializeField] Image portraitImage;
@@ -49,8 +48,8 @@ namespace Yoegoe.UI
         [SerializeField] GameObject inventoryPanel;
         [SerializeField] RectTransform inventoryRow;
         [SerializeField] Text feedHintText;
-        [SerializeField] Text purifiedCountText;
-        [SerializeField] CanvasGroup purifiedDragGroup;
+        [SerializeField] Text waterCountText;
+        [SerializeField] CanvasGroup waterDragGroup;
         [SerializeField] Button dimCloseButton;
         [SerializeField] Button closeButton;
         [SerializeField] Button inventoryButton;
@@ -67,14 +66,14 @@ namespace Yoegoe.UI
         private bool feedDropHoverLatched;
         /// <summary>드래그 중인 공양물 — 초상 위에서 선호 여부 말풍선(♥/💢) 힌트용.</summary>
         private OfferingData draggedOffering;
-        private bool draggedPurified;
+        private bool draggedWater;
         private EmoteBubble emoteBubble;
 
         struct CountBadge
         {
             public Text Label;
             public OfferingData Offering;
-            public bool PurifiedWater;
+            public bool Water;
         }
 
         // 색·글자 크기: Resources/UiStyleSettings.asset
@@ -98,12 +97,11 @@ namespace Yoegoe.UI
         public void Open(CharacterAgent agent, string highlightOfferingId = null)
         {
             EnsureBuilt();
+            if (!HasPrefabShell || root == null) return;
             currentAgent = agent;
             root.SetActive(true);
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
-            if (agent.Data != null)
-                CharacterCatalog.ApplyTo(agent.Data);
 
             ApplyLayout();
             RefreshDescription();
@@ -126,7 +124,7 @@ namespace Yoegoe.UI
             if (intimacyColGO != null)
             {
                 intimacyColGO.SetActive(true);
-                // 예전 Bake본에 남은 반투명 CanvasGroup 복구
+                // 예전 Prefab에 남은 반투명 CanvasGroup 복구
                 var cg = intimacyColGO.GetComponent<CanvasGroup>();
                 if (cg != null)
                 {
@@ -136,11 +134,11 @@ namespace Yoegoe.UI
                 }
             }
 
-            if (purifiedDragGroup != null)
+            if (waterDragGroup != null)
             {
-                purifiedDragGroup.alpha = 1f;
-                purifiedDragGroup.blocksRaycasts = true;
-                purifiedDragGroup.interactable = true;
+                waterDragGroup.alpha = 1f;
+                waterDragGroup.blocksRaycasts = true;
+                waterDragGroup.interactable = true;
             }
 
             if (feedHintText != null)
@@ -172,27 +170,18 @@ namespace Yoegoe.UI
             currentAgent = null;
         }
 
-        /// <summary>Prefab 셸이 있으면 유지, 없으면 코드로 조립. 에디터 Bake도 이 경로를 쓴다.</summary>
+        /// <summary>Prefab 셸만 사용. 없으면 에러 (런타임 생성 없음).</summary>
         public void EnsureBuilt()
         {
             if (HasPrefabShell)
             {
                 if (portraitRt != null) portraitBaseScale = portraitRt.localScale;
-                EnsurePurifiedCountBadgeRegistered();
+                EnsureWaterCountBadgeRegistered();
                 return;
             }
 
-            if (root != null) return;
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Build();
-        }
-
-        /// <summary>에디터 Bake용. Prefab에서 레이아웃을 볼 수 있게 루트를 켠다.</summary>
-        public void EnsureBuiltForBake()
-        {
-            EnsureBuilt();
-            if (root != null) root.SetActive(true);
+            Debug.LogError(
+                "[DetailScreen] Prefab 셸이 없습니다. Main 씬에 DetailScreen Prefab 인스턴스를 배치하세요.");
         }
 
         /// <summary>
@@ -225,46 +214,46 @@ namespace Yoegoe.UI
                 inventoryButton.onClick.AddListener(ToggleInventory);
             }
 
-            RebindPurifiedDragItem();
-            EnsurePurifiedCountBadgeRegistered();
+            RebindWaterDragItem();
+            EnsureWaterCountBadgeRegistered();
         }
 
-        void RebindPurifiedDragItem()
+        void RebindWaterDragItem()
         {
             if (root == null) return;
-            var chip = root.transform.Find("Dialog/BottomBar/Action_정화수");
+            var chip = root.transform.Find("Dialog/BottomBar/Action_물");
             if (chip == null) return;
 
             var drag = chip.GetComponentInChildren<OfferingDragItem>(true);
             if (drag == null) return;
 
-            var pw = FindPurifiedWater();
-            Sprite icon = purifiedWaterIcon;
+            var pw = FindWater();
+            Sprite icon = waterIcon;
             if (icon == null && pw != null) icon = pw.icon;
-            drag.Configure(this, pw, purified: true, icon);
+            drag.Configure(this, pw, isWater: true, icon);
         }
 
-        void EnsurePurifiedCountBadgeRegistered()
+        void EnsureWaterCountBadgeRegistered()
         {
-            if (purifiedCountText == null && root != null)
+            if (waterCountText == null && root != null)
             {
-                var badge = root.transform.Find("Dialog/BottomBar/Action_정화수/IconBox/CountBadge");
+                var badge = root.transform.Find("Dialog/BottomBar/Action_물/IconBox/CountBadge");
                 if (badge != null)
-                    purifiedCountText = badge.GetComponentInChildren<Text>(true);
+                    waterCountText = badge.GetComponentInChildren<Text>(true);
             }
 
-            if (purifiedCountText == null) return;
+            if (waterCountText == null) return;
             for (int i = 0; i < offeringCountBadges.Count; i++)
             {
-                if (offeringCountBadges[i].PurifiedWater && offeringCountBadges[i].Label == purifiedCountText)
+                if (offeringCountBadges[i].Water && offeringCountBadges[i].Label == waterCountText)
                     return;
             }
 
             offeringCountBadges.Add(new CountBadge
             {
-                Label = purifiedCountText,
+                Label = waterCountText,
                 Offering = null,
-                PurifiedWater = true
+                Water = true
             });
         }
 
@@ -307,19 +296,45 @@ namespace Yoegoe.UI
             RefreshIdentity();
             RefreshPortrait();
             RefreshItemCounts();
+            RefreshWaterFaintFrame();
+        }
+
+        /// <summary>기절한 요괴는 물로만 깨어난다 → 물 칸에 금빛 테두리가 반짝인다 (5장).</summary>
+        Outline waterFaintFrame;
+
+        void RefreshWaterFaintFrame()
+        {
+            bool fainted = currentAgent != null && currentAgent.Stats.State == ActionState.Fainted;
+            if (waterFaintFrame == null)
+            {
+                if (!fainted || root == null) return;
+                var chip = root.transform.Find("Dialog/BottomBar/Action_물");
+                if (chip == null) return;
+                var box = chip.Find("IconBox");
+                Graphic target = box != null ? box.GetComponent<Graphic>() : null;
+                if (target == null) target = chip.GetComponentInChildren<Image>(true);
+                if (target == null) return;
+                waterFaintFrame = target.gameObject.AddComponent<Outline>();
+                waterFaintFrame.effectDistance = new Vector2(5f, -5f);
+                waterFaintFrame.useGraphicAlpha = false;
+            }
+            waterFaintFrame.enabled = fainted;
+            if (fainted)
+                waterFaintFrame.effectColor = GoldenSparkle.Pulse(
+                    new Color(1f, 0.86f, 0.35f, 0.15f), new Color(1f, 0.95f, 0.6f, 1f));
         }
 
         private void RefreshItemCounts()
         {
-            if (purifiedCountText != null)
-                purifiedCountText.text = "x" + GameEconomy.Instance.PurifiedWater;
+            if (waterCountText != null)
+                waterCountText.text = "x" + GameEconomy.Instance.Water;
 
             for (int i = 0; i < offeringCountBadges.Count; i++)
             {
                 var b = offeringCountBadges[i];
                 if (b.Label == null) continue;
-                int n = b.PurifiedWater
-                    ? GameEconomy.Instance.PurifiedWater
+                int n = b.Water
+                    ? GameEconomy.Instance.Water
                     : GameEconomy.Instance.GetOfferingCount(b.Offering);
                 b.Label.text = "x" + n;
             }
@@ -351,12 +366,12 @@ namespace Yoegoe.UI
 
         // ---------------- feed / drag ----------------
 
-        public void NotifyOfferingDragBegan(OfferingData offering, bool purified)
+        public void NotifyOfferingDragBegan(OfferingData offering, bool isWater)
         {
             offeringDragActive = true;
             feedDropHoverLatched = false;
             draggedOffering = offering;
-            draggedPurified = purified;
+            draggedWater = isWater;
             if (feedHintText != null)
                 feedHintText.text = "캐릭터 위에 놓아 공양하세요";
             SetPortraitDropHighlight(false);
@@ -372,7 +387,7 @@ namespace Yoegoe.UI
 
         /// <summary>
         /// 초상 위로 공양물을 끌고 오면 표정 힌트: 선호면 ♥, 아니면 💢.
-        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 정화수는 힌트 없음.
+        /// 공개 여부와 무관하게 보여 준다(비공개 선호를 찾는 힌트). 물은 힌트 없음.
         /// </summary>
         void UpdateEmoteHint(bool over)
         {
@@ -380,8 +395,8 @@ namespace Yoegoe.UI
                 && offeringDragActive
                 && currentAgent != null
                 && draggedOffering != null
-                && !draggedPurified
-                && !IsPurified(draggedOffering);
+                && !draggedWater
+                && !IsWaterOffering(draggedOffering);
             if (!show)
             {
                 if (emoteBubble != null) emoteBubble.Hide();
@@ -400,7 +415,7 @@ namespace Yoegoe.UI
             offeringDragActive = false;
             feedDropHoverLatched = false;
             draggedOffering = null;
-            draggedPurified = false;
+            draggedWater = false;
             if (emoteBubble != null) emoteBubble.Hide();
             SetPortraitDropHighlight(false);
             if (feedHintText == null) return;
@@ -422,9 +437,9 @@ namespace Yoegoe.UI
                 feedHintText.text = reason;
         }
 
-        static string DefaultFeedHint() => "정화수·공양물을 드래그해 캐릭터에게 먹이세요";
+        static string DefaultFeedHint() => "물·공양물을 드래그해 캐릭터에게 먹이세요";
 
-        public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool purifiedWater)
+        public bool TryAcceptOfferingDrop(Vector2 screenPos, OfferingData offering, bool water)
         {
             bool overNow = IsOverFeedTarget(screenPos);
             if (!overNow && !feedDropHoverLatched)
@@ -439,8 +454,8 @@ namespace Yoegoe.UI
                 return false;
             }
 
-            if (purifiedWater || (offering != null && IsPurified(offering)))
-                return OnFeedPurifiedWater();
+            if (water || (offering != null && IsWaterOffering(offering)))
+                return OnFeedWater();
             if (offering == null) return false;
             return OnFeed(offering);
         }
@@ -471,144 +486,68 @@ namespace Yoegoe.UI
             portraitPanelHighlight.color = on ? C.portraitHighlight : C.portraitBg;
         }
 
-        private bool OnFeedPurifiedWater()
-        {
-            if (currentAgent == null) return false;
+        private bool OnFeedWater() => ApplyFeedResult(currentAgent?.TryFeedWater(FindWater()), null);
 
-            if (GameEconomy.Instance == null || GameEconomy.Instance.PurifiedWater < 1)
-            {
-                NotifyFeedBlocked("정화수가 없어요");
-                return false;
-            }
-
-            // 기력 풀이면 소모만 되고 변화가 없어 "안 먹힌다"로 보임 → 낭비 방지
-            if (currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f)
-            {
-                NotifyFeedBlocked("기력이 가득 찼어요");
-                return false;
-            }
-
-            if (!GameEconomy.Instance.TrySpendPurifiedWater(1))
-            {
-                NotifyFeedBlocked("정화수가 없어요");
-                return false;
-            }
-
-            var pw = FindPurifiedWater();
-            int gain = pw != null ? pw.ResolveStaminaGain(false) : 3;
-            // 기절 상태는 정화수 1개당 기력 1만 회복 (완전 회복 방지, 여러 번 먹여야 깨어남)
-            if (currentAgent.Stats.State == ActionState.Fainted) gain = 1;
-            currentAgent.ReceiveOffering(gain, 0f, OfferingKind.PurifiedWater);
-            PlayGainPopup(gain, 0f);
-            RefreshStats();
-            RefreshItemCounts();
-            GameSaveBridge.SaveFromWorld();
-            return true;
-        }
-
+        /// <summary>공양 규칙은 CharacterAgent.TryFeed — 여기선 결과 문구·연출·갱신만.</summary>
         private bool OnFeed(OfferingData offering)
         {
             if (currentAgent == null || offering == null) return false;
+            return ApplyFeedResult(currentAgent.TryFeed(offering), offering);
+        }
 
-            if (IsPurified(offering))
-                return OnFeedPurifiedWater();
-
-            // 기절은 상세에서 정화수로만 깨어난다(0→1)
-            if (currentAgent.Stats.State == ActionState.Fainted)
+        bool ApplyFeedResult(FeedResult? maybe, OfferingData offering)
+        {
+            if (currentAgent == null || maybe == null) return false;
+            var r = maybe.Value;
+            if (!r.Success)
             {
-                NotifyFeedBlocked("기절한 요괴는 정화수로만 깨어나요");
+                NotifyFeedBlocked(FeedBlockMessage(r.Block, offering));
                 return false;
             }
 
-            bool preferred = IsPreferred(offering);
-            var kind = preferred ? OfferingKind.Preferred : OfferingKind.General;
-            int staminaGain = offering.ResolveStaminaGain(preferred);
-            float intimacyGain = offering.ResolveIntimacyGain(preferred);
-
-            bool hasRequest = currentAgent.Requests != null && currentAgent.Requests.HasOfferingRequest;
-            bool staminaFull = currentAgent.Stats.Stamina >= currentAgent.MaxStamina - 0.001f;
-
-            // 기력 풀: 기력은 최대에서 멈추고 친밀도만 오른다 — 횟수 제한 없음(수급이 제한).
-            // 음식(친밀도 0)이나 친밀도 100이면 아무것도 안 오르니 소모만 막는다.
-            if (staminaFull && !hasRequest
-                && (intimacyGain <= 0.0001f || currentAgent.Stats.Intimacy >= 100f - 0.001f))
-            {
-                NotifyFeedBlocked(intimacyGain <= 0.0001f ? "기력이 가득 찼어요" : "기력·친밀도가 모두 가득 찼어요");
-                return false;
-            }
-
-            if (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendOffering(offering, 1))
-            {
-                NotifyFeedBlocked("공양물이 없어요");
-                return false;
-            }
-
-            bool clearedOfferingRequest = false;
-            if (currentAgent.Requests != null
-                && currentAgent.Requests.TryHandleFeed(offering, false, preferred,
-                    out int reqStamina, out float reqIntimacy, out _))
-            {
-                staminaGain = reqStamina;
-                intimacyGain = reqIntimacy;
-                if (intimacyGain > 0f) kind = OfferingKind.Preferred;
-                clearedOfferingRequest = true;
-            }
-
-            currentAgent.ReceiveOffering(staminaGain, intimacyGain, kind);
-            // 선호 공양물은 실제로 먹여야 영구 공개(상세 표기·인벤 금테)
-            bool revealed = preferred && currentAgent.Stats.RevealPreference(offering.offeringId);
-            PlayGainPopup(staminaGain, intimacyGain);
+            PlayGainPopup(r.StaminaGain, r.IntimacyGain);
             RefreshStats();
             RefreshItemCounts();
-            if (revealed)
+            if (r.PreferenceRevealed)
                 RebuildPreferredRow();
-            bool ranOut = GameEconomy.Instance.GetOfferingCount(offering) <= 0;
-            if (clearedOfferingRequest || revealed || ranOut)
+            bool ranOut = offering != null && GameEconomy.Instance != null
+                          && GameEconomy.Instance.GetOfferingCount(offering) <= 0;
+            if (r.RequestFulfilled || r.PreferenceRevealed || ranOut)
                 RebuildInventoryRow();
             GameSaveBridge.SaveFromWorld();
             return true;
         }
 
+        static string FeedBlockMessage(FeedBlock block, OfferingData offering) => block switch
+        {
+            FeedBlock.NoItem => offering == null || offering.IsWater ? "물이 없어요" : "공양물이 없어요",
+            FeedBlock.StaminaFull => "기력이 가득 찼어요",
+            FeedBlock.StaminaAndIntimacyFull => "기력·친밀도가 모두 가득 찼어요",
+            FeedBlock.FaintedNeedsWater => "기절한 요괴는 물로만 깨어나요",
+            _ => "",
+        };
+
         void PlayGainPopup(int staminaGain, float intimacyGain)
         {
             if (rootCanvas == null || portraitDropRt == null) return;
             OfferingGainPopup.Play(rootCanvas.transform, portraitDropRt, font, staminaGain, intimacyGain);
+            IntimacyHeartFx.PlayUi(rootCanvas.transform, portraitDropRt, intimacyGain);
         }
 
-        static bool IsPurified(OfferingData offering)
-        {
-            if (offering == null) return false;
-            return offering.kind == OfferingKind.PurifiedWater
-                || string.Equals(offering.offeringId, "purifiedwater", System.StringComparison.OrdinalIgnoreCase);
-        }
+        static bool IsWaterOffering(OfferingData offering) => offering != null && offering.IsWater;
 
-        private bool IsPreferred(OfferingData offering)
-        {
-            if (offering == null || currentAgent?.Data == null) return false;
-            if (CharacterCatalog.TryGet(currentAgent.Data.id, out var entry) && entry?.preferredOfferings != null)
-            {
-                foreach (var p in entry.preferredOfferings)
-                {
-                    if (p != null && string.Equals(p.id, offering.offeringId, System.StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-            }
-            var prefs = currentAgent.Data.preferredOfferings;
-            if (prefs == null) return false;
-            foreach (var p in prefs)
-                if (p == offering) return true;
-            return false;
-        }
+        private bool IsPreferred(OfferingData offering) =>
+            currentAgent != null && currentAgent.IsPreferredOffering(offering);
 
-        private OfferingData FindPurifiedWater()
+        private OfferingData FindWater()
         {
             if (offerings == null) return null;
             foreach (var o in offerings)
             {
                 if (o == null) continue;
-                if (IsPurified(o)) return o;
+                if (IsWaterOffering(o)) return o;
             }
-            return CharacterCatalog.FindOffering("purifiedwater");
+            return CharacterCatalog.FindOffering("water");
         }
 
         private void ToggleInventory()
@@ -677,31 +616,36 @@ namespace Yoegoe.UI
             PruneDeadCountBadges();
             if (offerings == null) return;
 
-            // 요구 공양을 앞으로(강조 슬롯)
-            if (!string.IsNullOrEmpty(highlightOfferingId))
-            {
-                foreach (var offering in offerings)
-                {
-                    if (offering == null || IsPurified(offering)) continue;
-                    if (!string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: true,
-                        goldFrame: IsRevealedPreferred(offering));
-                }
-            }
+            // 요구한 음식을 앞으로(강조 슬롯) — 10-2: 가진 것만, 없으면 강조 없음
+            var highlighted = FindOwnedRequestTarget(highlightOfferingId);
+            if (highlighted != null)
+                CreatePreferredChip(inventoryRow, highlighted.displayName, highlighted.icon, highlighted, highlight: true,
+                    goldFrame: IsRevealedPreferred(highlighted));
 
-            // 음식 36·공양물 24 + 에셋 — 가진 것만 나열
+            // 음식·공양물·황금음식 — 가진 것만 나열
             foreach (var offering in offerings)
             {
-                if (offering == null) continue;
-                if (IsPurified(offering)) continue;
+                if (offering == null || offering == highlighted) continue;
+                if (IsWaterOffering(offering)) continue;
                 if (GameEconomy.Instance == null || GameEconomy.Instance.GetOfferingCount(offering) <= 0) continue;
-                if (!string.IsNullOrEmpty(highlightOfferingId)
-                    && string.Equals(offering.offeringId, highlightOfferingId, System.StringComparison.OrdinalIgnoreCase))
-                    continue;
                 CreatePreferredChip(inventoryRow, offering.displayName, offering.icon, offering, highlight: false,
                     goldFrame: IsRevealedPreferred(offering));
             }
+        }
+
+        /// <summary>
+        /// 요구 강조 대상: 요구한 음식을 가졌으면 그것, 없고 그 음식의 황금 버전을 가졌으면 황금 버전
+        /// (황금음식을 줘도 요구가 채워진다). 둘 다 없으면 null — 강조 칸을 만들지 않는다.
+        /// </summary>
+        public static OfferingData FindOwnedRequestTarget(string requestedId)
+        {
+            var eco = GameEconomy.Instance;
+            if (string.IsNullOrEmpty(requestedId) || eco == null) return null;
+            var food = OfferingCatalog.Find(requestedId) ?? CharacterCatalog.FindOffering(requestedId);
+            if (food != null && eco.GetOfferingCount(food) > 0) return food;
+            var golden = OfferingCatalog.FindGolden(requestedId);
+            if (golden != null && eco.GetOfferingCount(golden) > 0) return golden;
+            return null;
         }
 
         void PruneDeadCountBadges()
@@ -774,11 +718,14 @@ namespace Yoegoe.UI
             iconImg.color = icon != null ? Color.white : new Color(0.7f, 0.7f, 0.75f, 1f);
             iconImg.raycastTarget = false;
 
+            if (feedTarget != null && feedTarget.golden)
+                GoldenSparkle.Attach(circleImg); // 황금음식 — 금빛 반짝임
+
             if (feedTarget != null)
             {
                 var drag = circleGO.AddComponent<OfferingDragItem>();
-                drag.Configure(this, feedTarget, IsPurified(feedTarget), icon != null ? icon : feedTarget.icon);
-                AttachCountBadge(circleGO.transform, feedTarget, purified: false);
+                drag.Configure(this, feedTarget, IsWaterOffering(feedTarget), icon != null ? icon : feedTarget.icon);
+                AttachCountBadge(circleGO.transform, feedTarget, isWater: false);
             }
 
             var tagGO = new GameObject("Tag");
@@ -794,7 +741,7 @@ namespace Yoegoe.UI
                 Vector2.zero, Vector2.zero);
         }
 
-        Text AttachCountBadge(Transform iconParent, OfferingData offering, bool purified)
+        Text AttachCountBadge(Transform iconParent, OfferingData offering, bool isWater)
         {
             var badgeGO = new GameObject("CountBadge");
             SetupRect(badgeGO, iconParent, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
@@ -805,8 +752,8 @@ namespace Yoegoe.UI
             int n = 0;
             if (GameEconomy.Instance != null)
             {
-                n = purified
-                    ? GameEconomy.Instance.PurifiedWater
+                n = isWater
+                    ? GameEconomy.Instance.Water
                     : GameEconomy.Instance.GetOfferingCount(offering);
             }
             var text = CreateText(badgeGO.transform, "x" + n, F.caption, TextAnchor.MiddleCenter);
@@ -817,7 +764,7 @@ namespace Yoegoe.UI
             {
                 Label = text,
                 Offering = offering,
-                PurifiedWater = purified
+                Water = isWater
             });
             return text;
         }
@@ -836,430 +783,6 @@ namespace Yoegoe.UI
             if (data.walkRight != null) foreach (var s in data.walkRight) if (s != null) return s;
             if (data.walkUp != null) foreach (var s in data.walkUp) if (s != null) return s;
             return null;
-        }
-
-        // ---------------- build ----------------
-
-        private void Build()
-        {
-            var canvasGO = new GameObject("Canvas_Detail");
-            canvasGO.transform.SetParent(transform, false);
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 600;
-            rootCanvas = canvas;
-
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            // 전체 딤 — 바깥 탭으로 닫기 (맵 입력도 차단)
-            root = new GameObject("Root");
-            var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var dim = root.AddComponent<Image>();
-            dim.color = C.dim;
-            dimCloseButton = root.AddComponent<Button>();
-            dimCloseButton.targetGraphic = dim;
-            dimCloseButton.onClick.AddListener(Close);
-
-            // 화면 중앙 다이얼로그
-            var dialog = new GameObject("Dialog");
-            var dialogRt = SetupRect(dialog, rootRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1480f));
-            var dialogBg = dialog.AddComponent<Image>();
-            dialogBg.color = C.detailBg;
-            // 다이얼로그 클릭이 딤 닫기를 치지 않게
-            var dialogBlock = dialog.AddComponent<Button>();
-            dialogBlock.targetGraphic = dialogBg;
-            dialogBlock.transition = Selectable.Transition.None;
-
-            // 닫기
-            var closeGO = new GameObject("CloseButton");
-            SetupRect(closeGO, dialogRt, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-16f, -16f), new Vector2(56f, 56f));
-            var closeImg = closeGO.AddComponent<Image>();
-            closeImg.color = C.border;
-            closeButton = closeGO.AddComponent<Button>();
-            closeButton.targetGraphic = closeImg;
-            closeButton.onClick.AddListener(Close);
-            CreateCloseBar(closeGO.transform, 45f);
-            CreateCloseBar(closeGO.transform, -45f);
-
-            // 본문: 하단 바 위 (급여 드롭 존)
-            var body = new GameObject("Body");
-            var bodyRt = SetupRect(body, dialogRt, new Vector2(0f, 0.22f), new Vector2(1f, 1f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            feedDropRt = bodyRt;
-            // top padding for close
-            var bodyPad = new GameObject("BodyInner");
-            var bodyInner = SetupRect(bodyPad, bodyRt, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.90f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-
-            // 좌: 초상 (드롭 타겟)
-            var portraitPanel = CreateBorderedPanel(bodyInner, "PortraitPanel", C.portraitBg);
-            portraitDropRt = portraitPanel.GetComponent<RectTransform>();
-            SetupRect(portraitPanel, bodyInner, new Vector2(0f, 0f), new Vector2(0.42f, 1f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var portraitInner = FindInner(portraitPanel);
-            portraitPanelHighlight = portraitInner.GetComponent<Image>();
-            var portraitGO = new GameObject("Portrait");
-            SetupRect(portraitGO, portraitInner, new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            portraitImage = portraitGO.AddComponent<Image>();
-            portraitImage.preserveAspect = true;
-            portraitImage.raycastTarget = false;
-            portraitRt = portraitGO.GetComponent<RectTransform>();
-            portraitBaseScale = portraitRt.localScale;
-
-            // 우: 정보 스택
-            var infoCol = new GameObject("InfoColumn");
-            var infoRt = SetupRect(infoCol, bodyInner, new Vector2(0.45f, 0f), new Vector2(1f, 1f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var infoLayout = infoCol.AddComponent<VerticalLayoutGroup>();
-            infoLayout.spacing = 16;
-            infoLayout.padding = new RectOffset(0, 0, 0, 0);
-            infoLayout.childAlignment = TextAnchor.UpperCenter;
-            infoLayout.childControlHeight = true;
-            infoLayout.childControlWidth = true;
-            infoLayout.childForceExpandHeight = false;
-            infoLayout.childForceExpandWidth = true;
-
-            // 이름 패널
-            var namePanel = CreateBorderedPanel(infoRt, "NamePanel", C.panel);
-            namePanel.AddComponent<LayoutElement>().preferredHeight = 120;
-            var nameInner = FindInner(namePanel);
-            var nameLabel = CreateText(nameInner, "이름", F.label, TextAnchor.UpperLeft);
-            nameLabel.color = C.textDark;
-            nameLabel.fontStyle = FontStyle.Bold;
-            SetupRect(nameLabel.gameObject, nameInner, new Vector2(0.05f, 0.55f), new Vector2(0.95f, 0.95f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-            nameValueText = CreateText(nameInner, "", F.title, TextAnchor.MiddleLeft);
-            nameValueText.color = C.textDark;
-            SetupRect(nameValueText.gameObject, nameInner, new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.58f),
-                new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
-            statusText = CreateText(nameInner, "", F.small, TextAnchor.LowerRight);
-            statusText.color = C.mutedLabel;
-            SetupRect(statusText.gameObject, nameInner, new Vector2(0.4f, 0.02f), new Vector2(0.95f, 0.28f),
-                new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
-
-            // 스탯 패널 (친밀도 | 기력)
-            var statsPanel = CreateBorderedPanel(infoRt, "StatsPanel", C.panel);
-            statsPanel.AddComponent<LayoutElement>().preferredHeight = 160;
-            var statsInner = FindInner(statsPanel);
-
-            var intCol = new GameObject("IntimacyCol");
-            intimacyColGO = intCol;
-            SetupRect(intCol, statsInner, new Vector2(0.03f, 0.08f), new Vector2(0.48f, 0.92f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            BuildStatColumn(intCol.transform, "친밀도", out intimacyLevelText, out intimacyFill, out intimacyFillRt, C.intimacyPink, true);
-
-            var staCol = new GameObject("StaminaCol");
-            SetupRect(staCol, statsInner, new Vector2(0.52f, 0.08f), new Vector2(0.97f, 0.92f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            BuildStatColumn(staCol.transform, "기력", out staminaValueText, out staminaFill, out staminaFillRt, C.staminaGreen, false);
-
-            // 설명 패널
-            var descPanel = CreateBorderedPanel(infoRt, "DescPanel", C.panel);
-            var descLe = descPanel.AddComponent<LayoutElement>();
-            descLe.preferredHeight = 280;
-            descLe.flexibleHeight = 1f;
-            var descInner = FindInner(descPanel);
-            var descLabel = CreateText(descInner, "캐릭터 설명", F.label, TextAnchor.UpperLeft);
-            descLabel.color = C.textDark;
-            descLabel.fontStyle = FontStyle.Bold;
-            SetupRect(descLabel.gameObject, descInner, new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            var scrollGO = new GameObject("DescScroll");
-            SetupRect(scrollGO, descInner, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.78f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var scroll = scrollGO.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-
-            var viewport = new GameObject("Viewport");
-            var vpRt = SetupRect(viewport, scrollGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            viewport.AddComponent<RectMask2D>();
-            var vpImg = viewport.AddComponent<Image>();
-            vpImg.color = new Color(1, 1, 1, 0.01f);
-
-            var content = new GameObject("Content");
-            var contentRt = SetupRect(content, vpRt, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
-                Vector2.zero, new Vector2(0f, 200f));
-            descriptionText = CreateText(contentRt, "", F.body, TextAnchor.UpperLeft);
-            descriptionText.color = C.textDark;
-            descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
-            var descTextRt = SetupRect(descriptionText.gameObject, contentRt, new Vector2(0f, 0f), new Vector2(1f, 1f),
-                new Vector2(0.5f, 1f), Vector2.zero, Vector2.zero);
-            var fitter = descriptionText.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            descriptionText.gameObject.AddComponent<LayoutElement>();
-
-            scroll.viewport = vpRt;
-            scroll.content = contentRt;
-
-            // 하단 바
-            var bottom = new GameObject("BottomBar");
-            var bottomRt = SetupRect(bottom, dialogRt, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.20f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var bottomLayout = bottom.AddComponent<HorizontalLayoutGroup>();
-            bottomLayout.spacing = 16;
-            bottomLayout.childAlignment = TextAnchor.MiddleCenter;
-            bottomLayout.childForceExpandWidth = false;
-            bottomLayout.childForceExpandHeight = true;
-            bottomLayout.childControlWidth = true;
-            bottomLayout.childControlHeight = true;
-            bottomLayout.padding = new RectOffset(8, 8, 8, 8);
-
-            CreatePurifiedWaterDragChip(bottomRt);
-
-            preferredHostGO = new GameObject("PreferredHost");
-            preferredRow = preferredHostGO.AddComponent<RectTransform>();
-            preferredRow.SetParent(bottomRt, false);
-            var prefHostLe = preferredHostGO.AddComponent<LayoutElement>();
-            // preferred=0 + flexible=1 → 칩 개수와 무관하게 정화수|…|인벤 사이 남은 폭만 사용
-            prefHostLe.minWidth = 0f;
-            prefHostLe.preferredWidth = 0f;
-            prefHostLe.flexibleWidth = 1f;
-            prefHostLe.preferredHeight = 140;
-            preferredHostGO.AddComponent<RectMask2D>();
-            var prefLayout = preferredHostGO.AddComponent<HorizontalLayoutGroup>();
-            prefLayout.spacing = 12;
-            prefLayout.childAlignment = TextAnchor.MiddleCenter;
-            prefLayout.childForceExpandWidth = false;
-            prefLayout.childForceExpandHeight = false;
-
-            inventoryButtonGO = CreateSideActionButton(bottomRt, "인벤토리", null, ToggleInventory);
-            inventoryButton = inventoryButtonGO != null
-                ? inventoryButtonGO.transform.Find("IconBox")?.GetComponent<Button>()
-                : null;
-
-            feedHintText = CreateText(dialogRt, "정화수·공양물을 드래그해 캐릭터에게 먹이세요", F.hint, TextAnchor.MiddleCenter);
-            feedHintText.color = C.feedHint;
-            SetupRect(feedHintText.gameObject, dialogRt, new Vector2(0.5f, 0.205f), new Vector2(0.5f, 0.205f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880, 28));
-
-            // 인벤토리 오버레이 (하단 바 위)
-            inventoryPanel = CreateBorderedPanel(dialogRt, "InventoryPanel", C.panel);
-            SetupRect(inventoryPanel, dialogRt, new Vector2(0.06f, 0.22f), new Vector2(0.94f, 0.42f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            inventoryPanel.SetActive(false);
-            var invInner = FindInner(inventoryPanel);
-            var invTitle = CreateText(invInner, "인벤토리", F.label, TextAnchor.UpperLeft);
-            invTitle.color = C.textDark;
-            invTitle.fontStyle = FontStyle.Bold;
-            SetupRect(invTitle.gameObject, invInner, new Vector2(0.04f, 0.75f), new Vector2(0.5f, 0.95f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            var invRowGO = new GameObject("InventoryRow");
-            inventoryRow = SetupRect(invRowGO, invInner, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.72f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var invLayout = invRowGO.AddComponent<HorizontalLayoutGroup>();
-            invLayout.spacing = 10;
-            invLayout.childAlignment = TextAnchor.MiddleLeft;
-            invLayout.childForceExpandWidth = false;
-        }
-
-        private void BuildStatColumn(Transform parent, string title, out Text valueText, out Image fill,
-            out RectTransform fillRt, Color fillColor, bool showHeart)
-        {
-            var titleT = CreateText(parent, title, F.label, TextAnchor.UpperLeft);
-            titleT.color = C.textDark;
-            titleT.fontStyle = FontStyle.Bold;
-            SetupRect(titleT.gameObject, parent, new Vector2(0f, 0.7f), new Vector2(0.55f, 1f),
-                new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            valueText = CreateText(parent, "", F.label, TextAnchor.UpperRight);
-            valueText.color = C.textDark;
-            SetupRect(valueText.gameObject, parent, new Vector2(0.4f, 0.7f), new Vector2(1f, 1f),
-                new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
-
-            if (showHeart)
-            {
-                var heart = CreateText(parent, "♥", F.label, TextAnchor.MiddleLeft);
-                heart.color = C.intimacyPink;
-                SetupRect(heart.gameObject, parent, new Vector2(0f, 0.15f), new Vector2(0.15f, 0.55f),
-                    new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
-            }
-
-            float barLeft = showHeart ? 0.18f : 0f;
-            var barBgGO = new GameObject("BarBg");
-            SetupRect(barBgGO, parent, new Vector2(barLeft, 0.22f), new Vector2(1f, 0.48f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var barBg = barBgGO.AddComponent<Image>();
-            barBg.color = C.barTrack;
-
-            var fillGO = new GameObject("BarFill");
-            fillRt = SetupRect(fillGO, barBgGO.transform, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            fill = fillGO.AddComponent<Image>();
-            fill.color = fillColor;
-            fill.raycastTarget = false;
-        }
-
-        private void CreatePurifiedWaterDragChip(Transform parent)
-        {
-            var go = new GameObject("Action_정화수");
-            go.transform.SetParent(parent, false);
-            purifiedDragGroup = go.AddComponent<CanvasGroup>();
-            var le = go.AddComponent<LayoutElement>();
-            le.minWidth = 120;
-            le.preferredWidth = 120;
-            le.flexibleWidth = 0f;
-            le.preferredHeight = 140;
-            le.layoutPriority = 2;
-
-            var v = go.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 6;
-            v.childAlignment = TextAnchor.MiddleCenter;
-            v.childForceExpandHeight = false;
-            v.childForceExpandWidth = true;
-            v.childControlHeight = true;
-            v.childControlWidth = true;
-
-            var iconBox = new GameObject("IconBox");
-            iconBox.transform.SetParent(go.transform, false);
-            iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
-            var iconBg = iconBox.AddComponent<Image>();
-            iconBg.color = C.accentBlue;
-
-            Sprite icon = purifiedWaterIcon;
-            var pw = FindPurifiedWater();
-            if (icon == null && pw != null) icon = pw.icon;
-
-            if (icon != null)
-            {
-                var iconGO = new GameObject("Icon");
-                SetupRect(iconGO, iconBox.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48, 48));
-                var img = iconGO.AddComponent<Image>();
-                img.sprite = icon;
-                img.preserveAspect = true;
-                img.raycastTarget = false;
-            }
-            else
-            {
-                var placeholder = CreateText(iconBox.transform, "정", F.title, TextAnchor.MiddleCenter);
-                placeholder.color = Color.white;
-                SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
-                    new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            }
-
-            var drag = iconBox.AddComponent<OfferingDragItem>();
-            drag.Configure(this, pw, purified: true, icon);
-            purifiedCountText = AttachCountBadge(iconBox.transform, pw, purified: true);
-
-            var tag = new GameObject("Label");
-            tag.transform.SetParent(go.transform, false);
-            tag.AddComponent<LayoutElement>().preferredHeight = 28;
-            var tagBg = tag.AddComponent<Image>();
-            tagBg.color = C.accentBlue;
-            tagBg.raycastTarget = false;
-            var t = CreateText(tag.transform, "정화수", F.small, TextAnchor.MiddleCenter);
-            t.color = Color.white;
-            SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-        }
-
-        private GameObject CreateSideActionButton(Transform parent, string label, Sprite icon, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject("Action_" + label);
-            go.transform.SetParent(parent, false);
-            var le = go.AddComponent<LayoutElement>();
-            le.minWidth = 120;
-            le.preferredWidth = 120;
-            le.flexibleWidth = 0f;
-            le.preferredHeight = 140;
-            le.layoutPriority = 2;
-
-            var v = go.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 6;
-            v.childAlignment = TextAnchor.MiddleCenter;
-            v.childForceExpandHeight = false;
-            v.childForceExpandWidth = true;
-            v.childControlHeight = true;
-            v.childControlWidth = true;
-
-            var iconBox = new GameObject("IconBox");
-            iconBox.transform.SetParent(go.transform, false);
-            iconBox.AddComponent<LayoutElement>().preferredHeight = 72;
-            var iconBg = iconBox.AddComponent<Image>();
-            iconBg.color = C.accentBlue;
-            var btn = iconBox.AddComponent<Button>();
-            btn.targetGraphic = iconBg;
-            btn.onClick.AddListener(onClick);
-
-            if (icon != null)
-            {
-                var iconGO = new GameObject("Icon");
-                SetupRect(iconGO, iconBox.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48, 48));
-                var img = iconGO.AddComponent<Image>();
-                img.sprite = icon;
-                img.preserveAspect = true;
-                img.raycastTarget = false;
-            }
-            else
-            {
-                var placeholder = CreateText(iconBox.transform, label.Length > 0 ? label.Substring(0, 1) : "?",
-                    F.title, TextAnchor.MiddleCenter);
-                placeholder.color = Color.white;
-                SetupRect(placeholder.gameObject, iconBox.transform, Vector2.zero, Vector2.one,
-                    new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-                placeholder.raycastTarget = false;
-            }
-
-            var tag = new GameObject("Label");
-            tag.transform.SetParent(go.transform, false);
-            tag.AddComponent<LayoutElement>().preferredHeight = 28;
-            var tagBg = tag.AddComponent<Image>();
-            tagBg.color = C.accentBlue;
-            var t = CreateText(tag.transform, label, F.small, TextAnchor.MiddleCenter);
-            t.color = Color.white;
-            SetupRect(t.gameObject, tag.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            return go;
-        }
-
-        private GameObject CreateBorderedPanel(Transform parent, string name, Color fill)
-        {
-            var outer = new GameObject(name);
-            outer.transform.SetParent(parent, false);
-            var outerImg = outer.AddComponent<Image>();
-            outerImg.color = C.border;
-
-            var inner = new GameObject("Inner");
-            SetupRect(inner, outer.transform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var innerRt = inner.GetComponent<RectTransform>();
-            innerRt.offsetMin = new Vector2(3f, 3f);
-            innerRt.offsetMax = new Vector2(-3f, -3f);
-            var innerImg = inner.AddComponent<Image>();
-            innerImg.color = fill;
-            return outer;
-        }
-
-        static Transform FindInner(GameObject borderedPanel)
-        {
-            var t = borderedPanel.transform.Find("Inner");
-            return t != null ? t : borderedPanel.transform;
-        }
-
-        private static void CreateCloseBar(Transform parent, float zAngle)
-        {
-            var barGO = new GameObject("XBar");
-            var rt = SetupRect(barGO, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(32, 4));
-            rt.localRotation = Quaternion.Euler(0f, 0f, zAngle);
-            var img = barGO.AddComponent<Image>();
-            img.color = Color.white;
-            img.raycastTarget = false;
         }
 
         private Text CreateText(Transform parent, string initial, int fontSize, TextAnchor alignment)

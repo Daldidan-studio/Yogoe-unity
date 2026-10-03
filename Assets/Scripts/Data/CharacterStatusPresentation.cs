@@ -28,7 +28,6 @@ namespace Yoegoe.Data
             ActionState.Staying => new SlotBadge(true, "일하는", new Color(0.2f, 0.45f, 0.85f, 0.95f)),
             ActionState.Fainted => new SlotBadge(true, "기절", new Color(0.55f, 0.2f, 0.2f, 0.95f)),
             ActionState.Playing => new SlotBadge(true, "놀기", new Color(0.85f, 0.35f, 0.75f, 0.95f)),
-            ActionState.Slumped => new SlotBadge(true, "놀기", new Color(0.85f, 0.35f, 0.75f, 0.95f)), // 구세이브
             _ => SlotBadge.Hidden
         };
 
@@ -38,7 +37,6 @@ namespace Yoegoe.Data
             ActionState.Staying => "기물에서 일하는 중",
             ActionState.Fainted => "기절했다",
             ActionState.Playing => "놀고 있는 중",
-            ActionState.Slumped => "놀고 있는 중",
             _ => ""
         };
 

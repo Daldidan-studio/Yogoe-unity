@@ -1,8 +1,9 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Yoegoe.Cooking;
+using Yoegoe.Economy;
+using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
@@ -27,6 +28,11 @@ public class GongyangganScreen : MonoBehaviour
     [SerializeField] Button closeButton;
     [SerializeField] GameObject resultPopup;
     [SerializeField] Text resultBody;
+    // 요리책(19장) — Prefab 이름으로 바인딩
+    [SerializeField] Button codexButton;
+    [SerializeField] Text codexButtonLabel;
+    [SerializeField] Text makeableText;
+    [SerializeField] Button rekindleButton;
 
     readonly Image[,] cellImages = new Image[CookingSession.GridSize, CookingSession.GridSize];
     readonly Text[,] cellLabels = new Text[CookingSession.GridSize, CookingSession.GridSize];
@@ -88,12 +94,14 @@ public class GongyangganScreen : MonoBehaviour
         {
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
+            session.TimeUp -= OnTimeUp;
         }
     }
 
     void Update()
     {
-        if (session != null && root != null && root.activeInHierarchy)
+        // 요리책을 여는 동안 타이머는 멈춘다 (19장)
+        if (session != null && root != null && root.activeInHierarchy && !CodexScreen.IsShowing)
             session.Tick(Time.unscaledDeltaTime);
     }
 
@@ -107,6 +115,7 @@ public class GongyangganScreen : MonoBehaviour
         session = new CookingSession();
         session.Changed += RefreshView;
         session.RoundEnded += OnRoundEnded;
+        session.TimeUp += OnTimeUp;
         session.Prepare(CookingCharmType.None);
         if (resultPopup != null) resultPopup.SetActive(false);
         root.SetActive(true);
@@ -120,8 +129,14 @@ public class GongyangganScreen : MonoBehaviour
         IsOpen = false;
         if (session != null)
         {
+            // 요리 중·연장 대기 중에 닫으면 만든 것까지 정산 (결과 팝업 없이)
+            ConfirmPopup.Dismiss();
+            session.RoundEnded -= OnRoundEnded;
+            session.FinishNow();
+            GameSaveBridge.RequestSave();
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
+            session.TimeUp -= OnTimeUp;
             session = null;
         }
     }
@@ -130,36 +145,9 @@ public class GongyangganScreen : MonoBehaviour
     {
         BindMissingRefsFromHierarchy();
         if (root != null) return true;
-
-        // Prefab 참조가 깨진 인스턴스 복구 (한 번만 셸 재생성)
-        Debug.LogWarning(
-            "[GongyangganScreen] Prefab 셸 참조가 비어 있어 복구합니다. " +
-            "가능하면 Yoegoe → Bake GongyangganScreen Prefab 을 다시 실행하세요.");
-        if (font == null)
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        Build();
-        BindMissingRefsFromHierarchy();
-        if (root != null) return true;
-
         Debug.LogError(
-            "[GongyangganScreen] Prefab 셸이 없습니다. Yoegoe → Bake GongyangganScreen Prefab 을 실행하세요.");
+            "[GongyangganScreen] Prefab 셸이 없습니다. Main 씬에 GongyangganScreen Prefab 인스턴스를 배치하세요.");
         return false;
-    }
-
-    public void EnsureBuiltForBake()
-    {
-#if UNITY_EDITOR
-        if (root == null)
-        {
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Build();
-        }
-        WireRuntimeListeners();
-        if (root != null) root.SetActive(true);
-#else
-        EnsureShell();
-#endif
     }
 
     void WireRuntimeListeners()
@@ -182,12 +170,22 @@ public class GongyangganScreen : MonoBehaviour
         if (extendButton != null)
         {
             extendButton.onClick.RemoveAllListeners();
-            extendButton.onClick.AddListener(() => session?.ExtendByAd());
+            extendButton.onClick.AddListener(OnTimeUp);
         }
         if (closeButton != null)
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(Close);
+        }
+        if (codexButton != null)
+        {
+            codexButton.onClick.RemoveAllListeners();
+            codexButton.onClick.AddListener(() => CodexScreen.Instance?.Open());
+        }
+        if (rekindleButton != null)
+        {
+            rekindleButton.onClick.RemoveAllListeners();
+            rekindleButton.onClick.AddListener(OnRekindle);
         }
         if (resultPopup != null)
         {
@@ -205,54 +203,202 @@ public class GongyangganScreen : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 시작 버튼. 재료가 20개 미만이면 "재료가 모자라는데도 요리할까요?" 확인 (19장).
+    /// 보이는 판(미리보기)을 그대로 시작하고, 재료·부적은 이때 처음 차감된다.
+    /// </summary>
     void OnStart()
     {
-        if (session == null) return;
-        // 시작 전 선택 부적으로 재딜
-        if (!session.Running)
+        if (session == null || session.Running || session.Finished) return;
+        if (session.MaterialsOnBoard < CookingSession.MinMaterialsToCook)
+        {
+            if (statusText != null) statusText.text = "재료가 모자라 요리할 수 없어요";
+            return;
+        }
+        if (session.IsShortBoard)
+            ConfirmPopup.Show("재료가 모자라는데도 요리할까요?", BeginRound);
+        else
+            BeginRound();
+    }
+
+    void BeginRound()
+    {
+        if (session == null || session.Running || session.Finished) return;
+        if (selectedCharm != CookingCharmType.None
+            && (GameEconomy.Instance == null || !GameEconomy.Instance.TrySpendCharm(selectedCharm)))
+        {
+            // 부적이 그사이 없어졌으면 부적 없는 판으로 다시 깐다
+            selectedCharm = CookingCharmType.None;
+            RebuildSession();
+            return;
+        }
+        if (!session.StartRound())
+        {
+            // 판에 깔린 재료가 인벤에 더는 없음 — 부적은 돌려주고 판을 다시 깐다
+            if (selectedCharm != CookingCharmType.None && GameEconomy.Instance != null)
+                GameEconomy.Instance.AddCharm(selectedCharm, 1);
+            RebuildSession();
+            return;
+        }
+        GameSaveBridge.RequestSave(); // 재료·부적 차감
+        RefreshView();
+    }
+
+    /// <summary>선택한 부적으로 판(미리보기)을 새로 깐다. 재료는 차감하지 않는다.</summary>
+    void RebuildSession()
+    {
+        if (session != null)
         {
             session.Changed -= RefreshView;
             session.RoundEnded -= OnRoundEnded;
-            session = new CookingSession();
-            session.Changed += RefreshView;
-            session.RoundEnded += OnRoundEnded;
-            session.Prepare(selectedCharm);
+            session.TimeUp -= OnTimeUp;
         }
-        session.StartRound();
+        session = new CookingSession();
+        session.Changed += RefreshView;
+        session.RoundEnded += OnRoundEnded;
+        session.TimeUp += OnTimeUp;
+        session.Prepare(selectedCharm);
         RefreshView();
     }
 
     void SelectCharm(CookingCharmType charm)
     {
         if (session != null && session.Running) return;
-        selectedCharm = selectedCharm == charm ? CookingCharmType.None : charm;
-        if (session != null)
+        if (charm != CookingCharmType.None)
         {
-            session.Changed -= RefreshView;
-            session.RoundEnded -= OnRoundEnded;
+            int held = GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(charm) : 0;
+            if (held <= 0 && selectedCharm != charm) return;
         }
-        session = new CookingSession();
-        session.Changed += RefreshView;
-        session.RoundEnded += OnRoundEnded;
-        session.Prepare(selectedCharm);
-        RefreshView();
+        selectedCharm = selectedCharm == charm ? CookingCharmType.None : charm;
+        RebuildSession();
+    }
+
+    /// <summary>시간 종료 → "광고 보고 15초 더?" (19장, 무제한). 아니오·바깥 탭 = 그만하고 정산.
+    /// 광고 SDK 미연동 — 예를 누르면 바로 연장(스텁).</summary>
+    void OnTimeUp()
+    {
+        if (session == null || !session.AwaitingExtend) return;
+        var s = session;
+        ConfirmPopup.Show("시간이 다 됐어요!\n광고 보고 15초 더 할까요?",
+            () => { if (session == s) s.ExtendByAd(); },
+            () => { if (session == s) s.FinishAfterTimeUp(); },
+            yes: "광고 보고 +15초", no: "그만하기");
+    }
+
+    /// <summary>결과창 (19장): 이번에 만든 요리 · 새로 얻은 레시피(금색) · 스러진 재료(회수 부적이면 회수한 재료).</summary>
+    // '만들 수 있는 요리' 계산은 판의 2~3칸 조합을 전부 보므로 무겁다 — 판·도감이 바뀔 때만 다시 계산 (타이머 갱신은 매 프레임)
+    CookingSession makeableSession;
+    int makeableBoardVersion = -1;
+    int makeableDiscovered = -1;
+
+    void RefreshMakeable()
+    {
+        int discovered = CookingCodex.DiscoveredCount;
+        if (makeableSession == session && makeableBoardVersion == session.BoardVersion
+            && makeableDiscovered == discovered)
+            return;
+        makeableSession = session;
+        makeableBoardVersion = session.BoardVersion;
+        makeableDiscovered = discovered;
+        if (makeableText != null) makeableText.text = MakeableLine(session);
+        if (codexButtonLabel != null) codexButtonLabel.text = "요리책 " + CodexScreen.RateShort;
+    }
+
+    /// <summary>상태 줄 '지금 만들 수 있는 요리' — 발견한 요리는 이름, 아직 못 본 건 '?' (19장).</summary>
+    public static string MakeableLine(CookingSession s)
+    {
+        if (s == null || s.Finished) return "";
+        var list = s.MakeableNow();
+        if (list.Count == 0) return "만들 수 있는 요리 없음";
+        var names = new System.Collections.Generic.List<string>();
+        int unknown = 0;
+        foreach (var r in list)
+        {
+            if (CookingCodex.IsDiscovered(r.Id)) names.Add(r.DisplayName);
+            else unknown++;
+        }
+        for (int i = 0; i < unknown; i++) names.Add("?");
+        return "만들 수 있는 요리: " + string.Join(" · ", names);
     }
 
     void OnRoundEnded()
     {
         if (resultPopup == null || resultBody == null || session == null) return;
-        var sb = new System.Text.StringBuilder();
-        if (session.Results.Count == 0)
-            sb.Append("이번 판 획득 없음");
-        else
-        {
-            sb.AppendLine("획득:");
-            foreach (var (recipe, count) in session.Results)
-                sb.AppendLine($"· {recipe.DisplayName} x{count}");
-        }
-        resultBody.text = sb.ToString();
+        resultBody.text = BuildResultText(session);
         resultPopup.SetActive(true);
+        GameSaveBridge.RequestSave(); // 완성품·도감·회수 재료
         RefreshView();
+    }
+
+    public static string BuildResultText(CookingSession s)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("이번에 만든 요리");
+        if (s.Results.Count == 0)
+            sb.AppendLine("· 없음");
+        foreach (var (recipe, count, golden) in s.Results)
+            sb.AppendLine(golden
+                ? $"· <color=#FFD54A>황금 {recipe.DisplayName}</color> x{count}"
+                : $"· {recipe.DisplayName} x{count}");
+
+        var guest = s.GuestOrder;
+        if (guest != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine("주문 요괴");
+            if (guest.Fulfilled)
+            {
+                string how = guest.Perfect ? "완벽하게 " : "";
+                sb.AppendLine($"· {guest.DisplayName}에게 {guest.OfferingName}을(를) {how}대접했어요");
+                sb.AppendLine($"· 기력 +{guest.StaminaGain} · 친밀도 +{guest.IntimacyGain:0.#}");
+            }
+            else if (guest.Failed)
+                sb.AppendLine($"· {guest.DisplayName}이(가) 아쉬워하며 돌아갔어요 — 실망…");
+        }
+
+        if (s.PerfectCollectCount > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"김 오를 때 꺼낸 요리 {s.PerfectCollectCount}번");
+        }
+
+        if (s.NewlyDiscovered.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("새로 얻은 레시피");
+            foreach (var id in s.NewlyDiscovered)
+                if (CookingCodex.TryGetRecipe(id, out var r))
+                    sb.AppendLine($"<color=#FFD54A>· {r.DisplayName}</color>");
+        }
+
+        if (s.Leftover.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine(s.PreCharm == CookingCharmType.Recycle ? "회수한 재료" : "스러진 재료");
+            var counts = new System.Collections.Generic.Dictionary<string, int>();
+            var order = new System.Collections.Generic.List<string>();
+            foreach (var item in s.Leftover)
+            {
+                string name = (item.Golden ? "황금" : "") + CookingRecipeCatalog.DisplayName(item.Id);
+                if (!counts.ContainsKey(name)) { counts[name] = 0; order.Add(name); }
+                counts[name]++;
+            }
+            var parts = new System.Collections.Generic.List<string>();
+            foreach (var name in order) parts.Add($"{name} {counts[name]}");
+            sb.AppendLine(string.Join(" · ", parts));
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>'다시 지피다' — 같은 부적(남아 있으면)으로 새 판을 깔고 바로 시작 절차(재료 부족 확인 포함).</summary>
+    void OnRekindle()
+    {
+        if (resultPopup != null) resultPopup.SetActive(false);
+        if (selectedCharm != CookingCharmType.None
+            && (GameEconomy.Instance == null || GameEconomy.Instance.GetCharmCount(selectedCharm) <= 0))
+            selectedCharm = CookingCharmType.None;
+        RebuildSession();
+        OnStart();
     }
 
     void RefreshView()
@@ -267,15 +413,42 @@ public class GongyangganScreen : MonoBehaviour
         }
         if (statusText != null)
         {
-            string charm = selectedCharm == CookingCharmType.None ? "부적 없음" : CharmLabel(selectedCharm);
-            statusText.text = session.Running ? $"요리 중 · {charm}" : $"준비 · {charm}";
+            string charm = selectedCharm == CookingCharmType.None
+                ? "부적 없음"
+                : $"{CharmLabel(selectedCharm)} (보유 {(GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(selectedCharm) : 0)})";
+            string guest = GuestStatusLine(session);
+            if (session.Running)
+            {
+                statusText.text = string.IsNullOrEmpty(guest)
+                    ? $"요리 중 · {charm}"
+                    : guest;
+            }
+            else if (session.Finished)
+                statusText.text = string.IsNullOrEmpty(guest) ? $"끝 · {charm}" : guest;
+            else
+                statusText.text = $"준비 · 재료 {session.MaterialsOnBoard}개 · {charm}";
         }
+        if (titleText != null && session.Running && session.GuestOrder != null
+            && !session.GuestOrder.Fulfilled && !session.GuestOrder.Failed)
+            titleText.text = "공양간 · " + session.GuestOrder.DisplayName;
+        else if (titleText != null)
+            titleText.text = "공양간";
+        if (makeableText != null || codexButtonLabel != null) RefreshMakeable();
         if (nagariButton != null)
-            nagariButton.gameObject.SetActive(session.ShowNagari);
+        {
+            bool showNagari = session.ShowNagari;
+            nagariButton.gameObject.SetActive(showNagari);
+            if (showNagari)
+            {
+                var label = nagariButton.GetComponentInChildren<Text>(true);
+                int held = GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(CookingCharmType.Cancel) : 0;
+                if (label != null) label.text = $"나가리 ×{held}";
+            }
+        }
         if (extendButton != null)
-            extendButton.gameObject.SetActive(session.AllowAdExtend && (session.Running || session.Finished));
+            extendButton.gameObject.SetActive(session.AwaitingExtend);
         if (startButton != null)
-            startButton.interactable = !session.Running;
+            startButton.interactable = !session.Running && !session.Finished;
 
         for (int y = 0; y < CookingSession.GridSize; y++)
         for (int x = 0; x < CookingSession.GridSize; x++)
@@ -292,16 +465,40 @@ public class GongyangganScreen : MonoBehaviour
 
             if (session.Locked[x, y] || !session.Grid[x, y].HasValue)
             {
-                img.color = new Color(0.15f, 0.12f, 0.1f, 0.55f);
-                if (label != null) label.text = "";
+                var cook = session.CookAt(x, y);
+                if (cook != null)
+                {
+                    img.color = cook.Phase == CookingCookPhase.Steam
+                        ? new Color(0.95f, 0.85f, 0.45f, 1f)
+                        : cook.Phase == CookingCookPhase.Cool
+                            ? new Color(0.75f, 0.35f, 0.28f, 1f)
+                            : new Color(0.55f, 0.32f, 0.18f, 1f);
+                    if (label != null)
+                    {
+                        string tag = cook.Phase == CookingCookPhase.Steam ? "김!"
+                            : cook.Phase == CookingCookPhase.Cool ? "식음"
+                            : "익는중";
+                        label.text = cook.Recipe.DisplayName + "\n" + tag;
+                    }
+                }
+                else
+                {
+                    img.color = new Color(0.15f, 0.12f, 0.1f, 0.55f);
+                    if (label != null) label.text = "";
+                }
             }
             else
             {
+                bool golden = session.Golden != null && session.Golden[x, y];
                 img.color = onPath
                     ? new Color(0.95f, 0.75f, 0.35f, 1f)
-                    : new Color(0.35f, 0.28f, 0.22f, 1f);
+                    : golden
+                        ? GoldenSparkle.Pulse(new Color(0.55f, 0.42f, 0.12f, 1f), new Color(0.85f, 0.68f, 0.2f, 1f))
+                        : new Color(0.35f, 0.28f, 0.22f, 1f);
                 if (label != null)
-                    label.text = CookingRecipeCatalog.DisplayName(session.Grid[x, y].Value);
+                    label.text = golden
+                        ? "황금" + CookingRecipeCatalog.DisplayName(session.Grid[x, y].Value)
+                        : CookingRecipeCatalog.DisplayName(session.Grid[x, y].Value);
             }
         }
 
@@ -310,9 +507,19 @@ public class GongyangganScreen : MonoBehaviour
             if (charmButtons[i] == null) continue;
             var img = charmButtons[i].GetComponent<Image>();
             var t = CharmAt(i);
+            int held = GameEconomy.Instance != null ? GameEconomy.Instance.GetCharmCount(t) : 0;
             bool sel = selectedCharm == t;
+            bool canUse = held > 0;
             if (img != null)
-                img.color = sel ? new Color(0.85f, 0.65f, 0.3f) : new Color(0.4f, 0.35f, 0.3f);
+            {
+                if (sel) img.color = new Color(0.85f, 0.65f, 0.3f);
+                else if (canUse) img.color = new Color(0.4f, 0.35f, 0.3f);
+                else img.color = new Color(0.22f, 0.2f, 0.18f, 0.7f);
+            }
+            charmButtons[i].interactable = canUse || sel;
+            var label = charmButtons[i].GetComponentInChildren<Text>(true);
+            if (label != null)
+                label.text = $"{CharmLabel(t)}\n×{held}";
         }
     }
 
@@ -333,6 +540,7 @@ public class GongyangganScreen : MonoBehaviour
         CookingCharmType.Clairvoyance => "천리안",
         CookingCharmType.Recycle => "회수",
         CookingCharmType.Double => "몰빵",
+        CookingCharmType.Cancel => "나가리",
         _ => ""
     };
 
@@ -345,7 +553,11 @@ public class GongyangganScreen : MonoBehaviour
             var cell = gridHost.Find($"Cell_{x}_{y}");
             if (cell == null) continue;
             cellImages[x, y] = cell.GetComponent<Image>();
-            cellLabels[x, y] = cell.Find("Text")?.GetComponent<Text>();
+            // Bake 구조: Cell/Text(래퍼)/Text(실제 UI.Text) — 래퍼에는 Text가 없음
+            var labelHost = cell.Find("Text");
+            cellLabels[x, y] = labelHost != null
+                ? labelHost.GetComponentInChildren<Text>(true)
+                : null;
             EnsureCellPointer(cell.gameObject, x, y);
         }
     }
@@ -376,8 +588,37 @@ public class GongyangganScreen : MonoBehaviour
 
     public void OnCellDown(int x, int y)
     {
+        if (session != null && session.CookAt(x, y) != null)
+        {
+            bool guestWasDone = session.GuestOrder != null && session.GuestOrder.Fulfilled;
+            if (!session.TryCollectCook(x, y) && statusText != null)
+            {
+                var job = session.CookAt(x, y);
+                if (job != null && job.Phase == CookingCookPhase.Cooking)
+                    statusText.text = "아직 익는 중";
+            }
+            else
+            {
+                var g = session.GuestOrder;
+                if (g != null && g.Fulfilled && !guestWasDone && g.IntimacyGain > 0f)
+                    IntimacyHeartFx.PlayFromAgent(g.Yokai, g.IntimacyGain);
+            }
+            return;
+        }
         pointerDown = true;
         session?.TryBeginPath(x, y);
+    }
+
+    static string GuestStatusLine(CookingSession s)
+    {
+        var g = s?.GuestOrder;
+        if (g == null) return "";
+        if (g.Failed) return $"{g.DisplayName}: 실망…";
+        if (g.Fulfilled)
+            return g.Perfect
+                ? $"{g.DisplayName}: 최고야! 친밀도·기력 ×{CookingGuestOrder.PerfectStaminaMul}"
+                : $"{g.DisplayName}: 고마워! 친밀도 ×{CookingGuestOrder.CoolIntimacyMul} · 기력 ×{CookingGuestOrder.CoolStaminaMul}";
+        return $"{g.DisplayName}: {g.WaitLine} ({g.OfferingName})";
     }
 
     public void OnCellEnter(int x, int y)
@@ -417,9 +658,9 @@ public class GongyangganScreen : MonoBehaviour
         }
         if (root == null) return;
         var rt = root.transform;
-        if (titleText == null) titleText = rt.Find("Title/Text")?.GetComponent<Text>();
-        if (timerText == null) timerText = rt.Find("Timer/Text")?.GetComponent<Text>();
-        if (statusText == null) statusText = rt.Find("Status/Text")?.GetComponent<Text>();
+        if (titleText == null) titleText = FindUiText(rt, "Title/Text");
+        if (timerText == null) timerText = FindUiText(rt, "Timer/Text");
+        if (statusText == null) statusText = FindUiText(rt, "Status/Text");
         if (gridHost == null) gridHost = rt.Find("Grid");
         if (charmRail == null) charmRail = rt.Find("CharmRail");
         if (startButton == null) startButton = rt.Find("Start")?.GetComponent<Button>();
@@ -428,130 +669,19 @@ public class GongyangganScreen : MonoBehaviour
         if (closeButton == null) closeButton = rt.Find("Close")?.GetComponent<Button>();
         if (resultPopup == null) resultPopup = rt.Find("ResultPopup")?.gameObject;
         if (resultPopup != null && resultBody == null)
-            resultBody = resultPopup.transform.Find("Box/Body/Text")?.GetComponent<Text>();
+            resultBody = FindUiText(resultPopup.transform, "Box/Body/Text");
+        if (codexButton == null) codexButton = rt.Find("CodexButton")?.GetComponent<Button>();
+        if (codexButtonLabel == null) codexButtonLabel = FindUiText(rt, "CodexButton/Label");
+        if (makeableText == null) makeableText = FindUiText(rt, "Makeable");
+        if (resultPopup != null && rekindleButton == null)
+            rekindleButton = resultPopup.transform.Find("Box/Rekindle")?.GetComponent<Button>();
     }
 
-    void Build()
+    static Text FindUiText(Transform root, string path)
     {
-        var canvasGO = new GameObject("Canvas_Gongyanggan", typeof(RectTransform));
-        canvasGO.transform.SetParent(transform, false);
-        var canvas = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 850;
-        var scaler = canvasGO.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1080, 1920);
-        scaler.matchWidthOrHeight = 1f;
-        canvasGO.AddComponent<GraphicRaycaster>();
-
-        root = new GameObject("Root", typeof(RectTransform));
-        var rootRt = Stretch(root, canvasGO.transform);
-        var bg = root.AddComponent<Image>();
-        bg.color = new Color(0.12f, 0.1f, 0.08f, 0.96f);
-
-        titleText = MakeLabel(rootRt, "Title", "공양간", 64, new Vector2(0.5f, 0.93f), new Vector2(600, 80));
-        timerText = MakeLabel(rootRt, "Timer", "15.0s", 48, new Vector2(0.85f, 0.93f), new Vector2(200, 60));
-        statusText = MakeLabel(rootRt, "Status", "준비", 32, new Vector2(0.5f, 0.87f), new Vector2(800, 50));
-
-        var railGO = new GameObject("CharmRail", typeof(RectTransform));
-        Place(railGO, rootRt, new Vector2(0.08f, 0.55f), new Vector2(0.5f, 0.5f), new Vector2(120, 520));
-        charmRail = railGO.transform;
-        string[] charmNames = { "+5초", "대각", "천리안", "회수", "몰빵" };
-        for (int i = 0; i < 5; i++)
-        {
-            var c = new GameObject("Charm_" + i, typeof(RectTransform));
-            Place(c, charmRail, new Vector2(0.5f, 1f - (i + 0.5f) / 5f), new Vector2(0.5f, 0.5f), new Vector2(100, 90));
-            var img = c.AddComponent<Image>();
-            img.color = new Color(0.4f, 0.35f, 0.3f);
-            c.AddComponent<Button>();
-            MakeLabel(c.transform, "Text", charmNames[i], 28, new Vector2(0.5f, 0.5f), new Vector2(100, 40));
-        }
-
-        var gridGO = new GameObject("Grid", typeof(RectTransform));
-        Place(gridGO, rootRt, new Vector2(0.58f, 0.52f), new Vector2(0.5f, 0.5f), new Vector2(720, 720));
-        gridHost = gridGO.transform;
-        float cell = 130f;
-        float gap = 8f;
-        float origin = -2f * (cell + gap);
-        for (int y = 0; y < CookingSession.GridSize; y++)
-        for (int x = 0; x < CookingSession.GridSize; x++)
-        {
-            var cellGO = new GameObject($"Cell_{x}_{y}", typeof(RectTransform));
-            var crt = cellGO.GetComponent<RectTransform>();
-            crt.SetParent(gridHost, false);
-            crt.sizeDelta = new Vector2(cell, cell);
-            crt.anchoredPosition = new Vector2(origin + x * (cell + gap), -origin - y * (cell + gap));
-            var img = cellGO.AddComponent<Image>();
-            img.color = new Color(0.35f, 0.28f, 0.22f);
-            MakeLabel(crt, "Text", "", 22, new Vector2(0.5f, 0.5f), new Vector2(120, 60));
-        }
-
-        startButton = MakeButton(rootRt, "Start", "불 지피기", new Vector2(0.5f, 0.14f), new Vector2(280, 80));
-        nagariButton = MakeButton(rootRt, "Nagari", "나가리", new Vector2(0.22f, 0.14f), new Vector2(180, 70));
-        extendButton = MakeButton(rootRt, "Extend", "광고 +15초", new Vector2(0.78f, 0.14f), new Vector2(220, 70));
-        closeButton = MakeButton(rootRt, "Close", "닫기", new Vector2(0.08f, 0.93f), new Vector2(120, 60));
-
-        resultPopup = new GameObject("ResultPopup", typeof(RectTransform));
-        Stretch(resultPopup, rootRt);
-        var dim = resultPopup.AddComponent<Image>();
-        dim.color = new Color(0, 0, 0, 0.55f);
-        var box = new GameObject("Box", typeof(RectTransform));
-        Place(box, resultPopup.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(700, 500));
-        box.AddComponent<Image>().color = new Color(0.2f, 0.16f, 0.12f, 1f);
-        MakeLabel(box.transform, "Body", "결과", 36, new Vector2(0.5f, 0.55f), new Vector2(620, 320));
-        resultBody = box.transform.Find("Body/Text")?.GetComponent<Text>();
-        MakeButton(box.transform, "Close", "확인", new Vector2(0.5f, 0.12f), new Vector2(200, 70));
-        resultPopup.SetActive(false);
-    }
-
-    Button MakeButton(Transform parent, string name, string label, Vector2 anchor, Vector2 size)
-    {
-        var go = new GameObject(name, typeof(RectTransform));
-        Place(go, parent, anchor, new Vector2(0.5f, 0.5f), size);
-        var img = go.AddComponent<Image>();
-        img.color = new Color(0.55f, 0.4f, 0.25f);
-        var btn = go.AddComponent<Button>();
-        MakeLabel(go.transform, "Text", label, 32, new Vector2(0.5f, 0.5f), size);
-        return btn;
-    }
-
-    Text MakeLabel(Transform parent, string name, string text, int size, Vector2 anchor, Vector2 sizeDelta)
-    {
-        var go = new GameObject(name, typeof(RectTransform));
-        Place(go, parent, anchor, new Vector2(0.5f, 0.5f), sizeDelta);
-        var tgo = new GameObject("Text", typeof(RectTransform));
-        Stretch(tgo, go.transform);
-        var t = tgo.AddComponent<Text>();
-        t.font = font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        t.text = text;
-        t.fontSize = size;
-        t.alignment = TextAnchor.MiddleCenter;
-        t.color = Color.white;
-        t.horizontalOverflow = HorizontalWrapMode.Wrap;
-        t.verticalOverflow = VerticalWrapMode.Overflow;
-        return t;
-    }
-
-    static RectTransform Stretch(GameObject go, Transform parent)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        rt.SetParent(parent, false);
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-        return rt;
-    }
-
-    static RectTransform Place(GameObject go, Transform parent, Vector2 anchor, Vector2 pivot, Vector2 size)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        rt.SetParent(parent, false);
-        rt.anchorMin = rt.anchorMax = anchor;
-        rt.pivot = pivot;
-        rt.sizeDelta = size;
-        rt.anchoredPosition = Vector2.zero;
-        return rt;
+        var t = root.Find(path);
+        if (t == null) return null;
+        return t.GetComponent<Text>() ?? t.GetComponentInChildren<Text>(true);
     }
 }
 

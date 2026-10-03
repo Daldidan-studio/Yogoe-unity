@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace Yoegoe.Data
 {
-    /// <summary>기물(맵 오브젝트) 정의 (기획서 7,8장). Assets/Data/Props/*.asset. 배치는 PropLayoutSettings.</summary>
+        /// <summary>기물(맵 오브젝트) 정의 (기획서 7,8장). Assets/Data/Props/*.asset.
+        /// 맵 비주얼·배치는 Prefabs/Props + Main 씬.</summary>
     [CreateAssetMenu(fileName = "PropData", menuName = "Yoegoe/Prop Data")]
     public class PropData : ScriptableObject
     {

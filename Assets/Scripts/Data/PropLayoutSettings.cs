@@ -1,11 +1,13 @@
 using System;
 using UnityEngine;
+using Yoegoe.Characters;
 
 namespace Yoegoe.Data
 {
     /// <summary>
-    /// 맵 기물 배치 (좌표·폴백 색). 밸런스·스프라이트는 각 PropData 에셋.
-    /// Assets/Resources/PropLayoutSettings.asset 하나만 바꾸면 된다.
+    /// 기물 카탈로그·Prefab 참조. 맵 위 좌표는 Main 씬 Transform이 소스.
+    /// FindByPropId·에디터 초기 배치(Yoegoe/Place Map & Props In Main Scene)에 사용.
+    /// Assets/Resources/PropLayoutSettings.asset
     /// </summary>
     [CreateAssetMenu(fileName = "PropLayoutSettings", menuName = "Yoegoe/Prop Layout Settings")]
     public class PropLayoutSettings : ScriptableObject
@@ -14,14 +16,15 @@ namespace Yoegoe.Data
         public class Placement
         {
             public PropData data;
+            [Tooltip("Assets/Prefabs/Props 기물 Prefab.")]
+            public PropSlot prefab;
+            [Tooltip("에디터 초기 배치용 맵 로컬 좌표 (mapScale=1 기준). 씬 배치 후엔 씬 Transform 우선.")]
             public Vector3 position;
-            [Tooltip("스프라이트 없을 때 쓰는 큐브 색.")]
-            public Color fallbackColor = new Color(0.5f, 0.5f, 0.5f, 1f);
         }
 
         public Placement[] placements;
 
-        [Tooltip("공덕 버드나무 위치 (7-4). 공덕은 여기 모이고 탭해서 수거.")]
+        [Tooltip("공덕 버드나무 초기 배치 좌표 (mapScale=1 기준).")]
         public Vector3 willowPosition = new Vector3(0f, -1.35f, 0f);
 
         public static PropLayoutSettings Get()

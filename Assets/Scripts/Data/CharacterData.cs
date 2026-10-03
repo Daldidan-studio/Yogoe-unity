@@ -44,8 +44,6 @@ namespace Yoegoe.Data
         [Header("상태 애니메이션 스프라이트 (각 4프레임)")]
         [Tooltip("기물에 앉아 머물기(생산) — 스프라이트 시트 5행")]
         public Sprite[] stay = new Sprite[4];
-        [Tooltip("기력 0 주저앉기")]
-        public Sprite[] slumped = new Sprite[4];
         [Tooltip("기절(누워 있음)")]
         public Sprite[] fainted = new Sprite[4];
         [Tooltip("놀기·대기 등 서 있는 아이들 (없으면 walkDown 사용)")]

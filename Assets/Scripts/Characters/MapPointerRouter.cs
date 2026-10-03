@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Yoegoe.Core;
 using Yoegoe.Debugging;
+using Yoegoe.Economy;
 using Yoegoe.UI;
 
 namespace Yoegoe.Characters
@@ -14,6 +15,7 @@ namespace Yoegoe.Characters
     /// 캐릭터: 길게 누르기(또는 임계 이동) → 들어올림 드래그.
     /// 맵: 임계 이동 후 패닝. 두 손가락 핀치·마우스 휠 → 줌.
     /// 캐릭터 탭: 더블탭이면 상세, 단일탭(더블탭 창 만료 후)이면 혼잣말.
+    /// 기물: 탭 → 수거, 길게 누르기 → 개별 업그레이드 팝업. 기물 위에 앉은 요괴는 요괴가 우선.
     ///
     /// 설계 원칙(반복된 회귀 버그를 겪고 정리함): "무엇을 눌렀는지"는 press 시점에 딱 한 번만
     /// 정한다(<see cref="PressTarget"/>). Hold·Release는 그 판정을 다시 계산하지 않고 그대로
@@ -32,9 +34,12 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 잠긴 기물 탭·자물쇠 위 앉히기 시도 → 구매 팝업 요청.
-        /// 두 번째 인자는 건설 후 앉힐 요괴(탭이면 null). UI(PropPurchasePopup)가 구독한다.
+        /// 두 번째 인자는 건설 후 앉힐 요괴(탭이면 null). UI(PropPurchasePopup→ConfirmPopup)가 구독한다.
         /// </summary>
         public static event System.Action<PropSlot, CharacterAgent> PropPurchaseRequested;
+
+        /// <summary>건립된 기물 길게 누르기 → 개별 업그레이드 팝업 요청. UI(PropUpgradePopup)가 구독한다.</summary>
+        public static event System.Action<PropSlot> PropUpgradeRequested;
 
         public Camera targetCamera;
         public MapCameraDrag mapDrag;
@@ -57,10 +62,10 @@ namespace Yoegoe.Characters
         [Tooltip("드롭 시 기물 스프라이트 bounds 바깥으로 허용할 여유(월드). 0이면 PNG 박스 안만.")]
         public float propDropRadius = 0.15f;
 
-        [Tooltip("기물 탭(공덕 수거) 시 스프라이트 bounds 바깥 여유(월드). TEMP: 본체 수거 비활성 — 자물쇠/드롭용 FindNearestProp에만 사용.")]
+        [Tooltip("기물 본체 탭(수거·길게 누르기 업그레이드) 시 스프라이트 bounds 바깥 여유(월드).")]
         public float propTapRadius = 0.12f;
 
-        [Tooltip("TEMP: 공덕 수거는 더미(***·숫자) 라벨만. 라벨 bounds 바깥 여유(월드).")]
+        [Tooltip("보관 라벨(***·숫자) 탭 여유(월드). 라벨 탭도 본체 탭과 같은 수거.")]
         public float pileLabelTapPadding = 0.18f;
 
         [Tooltip("자물쇠(미건립) 탭 여유. 0이면 bounds 안만 — 초가집처럼 작고 캐릭터와 겹치면 구매가 잘 안 됨.")]
@@ -69,7 +74,10 @@ namespace Yoegoe.Characters
         private enum Phase { Idle, Pending, MapDrag, CharacterDrag, PinchZoom }
 
         /// <summary>press 시점에 딱 한 번 정해지는 "무엇을 눌렀는지". Hold/Release는 이 값만 본다.</summary>
-        private enum PressTarget { Empty, LockedProp, CollectibleProp, Character, GongyangganProp, Willow }
+        public enum PressTarget { Empty, LockedProp, Prop, Character, GongyangganProp, Willow }
+
+        /// <summary>길게 누르기로 이미 처리(업그레이드 팝업)한 press — release에서 탭으로 다시 처리하지 않는다.</summary>
+        private bool pressConsumed;
 
         private Phase phase = Phase.Idle;
         private PressTarget pressTarget = PressTarget.Empty;
@@ -228,7 +236,6 @@ namespace Yoegoe.Characters
         {
             if (IsBlockingUi(screenPos))
             {
-                Debug.Log("[DEBUG-LOCK] OnPress: UI가 막아서 무시됨 at " + screenPos);
                 phase = Phase.Idle;
                 return;
             }
@@ -237,42 +244,34 @@ namespace Yoegoe.Characters
             lastScreen = screenPos;
             pressUnscaledTime = Time.unscaledTime;
             pressCharacter = FindNearestCharacter(screenPos);
-            pressProp = FindNearestProp(screenPos);
-            // TEMP: 수거는 더미 라벨 전용 — 기물 본체 히트와 분리
-            var pileProp = FindNearestPileLabel(screenPos);
-            if (pileProp != null) pressProp = pileProp;
+            pressProp = FindNearestPileLabel(screenPos);
+            if (pressProp == null) pressProp = FindNearestProp(screenPos);
             dragCharacter = null;
-            pressTarget = ClassifyPressTarget(pileProp);
-            // 공덕 버드나무: 요괴·기물·라벨이 아닌 곳에서만 (드래그 방해 안 하게)
+            pressConsumed = false;
+            pressTarget = ClassifyPress(pressCharacter != null, pressProp != null,
+                pressProp != null && pressProp.IsBuilt,
+                pressProp != null && pressProp.data != null && pressProp.data.opensGongyanggan);
+            // 공덕 버드나무: 요괴·기물이 아닌 곳에서만 (드래그 방해 안 하게)
             if (pressTarget == PressTarget.Empty && IsOverWillow(screenPos))
                 pressTarget = PressTarget.Willow;
             phase = Phase.Pending;
-            Debug.Log("[DEBUG-LOCK] OnPress: pressProp=" + (pressProp != null ? pressProp.name + " IsBuilt=" + pressProp.IsBuilt : "null")
-                + " pressCharacter=" + (pressCharacter != null ? pressCharacter.name : "null")
-                + " pile=" + (pileProp != null)
-                + " => pressTarget=" + pressTarget);
         }
 
         /// <summary>
-        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다.
-        /// TEMP 우선순위: 잠긴 기물 > 더미(*** ) 라벨 수거 > 캐릭터 > 빈 맵.
-        /// 기물 본체 탭으로는 수거하지 않는다. Hold/Release는 이 결과만 본다.
+        /// "무엇을 눌렀는지"를 press 시점에 딱 한 번 정한다. Hold/Release는 이 결과만 본다.
+        /// 우선순위(Docs/07): 요괴 몸 > 자물쇠 > 화덕 > 기물(본체·보관 라벨) > 버드나무 > 빈 맵.
+        /// 기물 위에 앉은 요괴를 누르면 기물이 아니라 요괴가 반응해야 한다.
         /// </summary>
-        PressTarget ClassifyPressTarget(PropSlot pileProp)
+        public static PressTarget ClassifyPress(bool characterHit, bool propHit, bool propBuilt, bool propOpensGongyanggan)
         {
-            if (pressProp != null && !pressProp.IsBuilt) return PressTarget.LockedProp;
-            // 화덕(공양간): 기물 본체 탭
-            if (pressProp != null && pressProp.IsBuilt
-                && pressProp.data != null && pressProp.data.opensGongyanggan
-                && pileProp == null)
-                return PressTarget.GongyangganProp;
-            // TEMP: 더미 라벨이 요괴보다 위 — 라벨 탭은 수거 우선
-            if (pileProp != null) return PressTarget.CollectibleProp;
             // 기절 등으로 드래그 불가한 캐릭터도 탭(상세화면 진입)은 가능해야 한다 —
             // "기절한 요괴는 상세 화면 공양으로만 깨어난다" — 그래서 CanBeDraggedByPlayer로
             // 걸러내지 않는다. 드래그 가능 여부는 Hold에서 따로 본다.
-            if (pressCharacter != null) return PressTarget.Character;
-            return PressTarget.Empty;
+            if (characterHit) return PressTarget.Character;
+            if (!propHit) return PressTarget.Empty;
+            if (!propBuilt) return PressTarget.LockedProp;
+            if (propOpensGongyanggan) return PressTarget.GongyangganProp;
+            return PressTarget.Prop;
         }
 
         private void OnHold(Vector2 screenPos)
@@ -292,16 +291,24 @@ namespace Yoegoe.Characters
                         return;
 
                     case PressTarget.GongyangganProp:
-                        return;
-
-                    case PressTarget.CollectibleProp:
-                        // 공덕 더미가 있는 기물 위엔 보통 생산 중인 요괴가 앉아있다. 가만히 오래
-                        // 누르는 것만으로는 드래그로 넘어가지 않게 해서 수거 탭이 채이지 않게 하되,
-                        // 손가락이 실제로 움직이면(진짜 드래그 의도) 정상적으로 드래그로 전환한다.
-                        if (pressCharacter != null
-                            && pressCharacter.CanBeDraggedByPlayer
-                            && moved > dragThresholdPixels)
-                            BeginCharacterDrag(screenPos);
+                    case PressTarget.Prop:
+                        // 움직이면 지도 패닝, 가만히 길게 누르면 개별 업그레이드 팝업(화덕은 업그레이드 없음).
+                        // 팝업을 이미 띄웠으면 이 누름은 끝 — 손을 움직여도 팝업 뒤 지도가 움직이지 않게.
+                        if (pressConsumed) return;
+                        if (moved > dragThresholdPixels)
+                        {
+                            phase = Phase.MapDrag;
+                            ResolveMapDrag();
+                            if (mapDrag != null) mapDrag.ApplyScreenDelta(screenPos - pressStartScreen);
+                            return;
+                        }
+                        if (!pressConsumed && held >= longPressSeconds
+                            && pressTarget == PressTarget.Prop && PropEconomy.CanUpgrade(pressProp))
+                        {
+                            pressConsumed = true;
+                            CancelPendingMonologueTap();
+                            PropUpgradeRequested?.Invoke(pressProp);
+                        }
                         return;
 
                     case PressTarget.Character:
@@ -350,9 +357,7 @@ namespace Yoegoe.Characters
 
         private void OnRelease(Vector2 screenPos)
         {
-            Debug.Log("[DEBUG-LOCK] OnRelease: phase=" + phase + " pressTarget=" + pressTarget
-                + " pressProp=" + (pressProp != null ? pressProp.name : "null"));
-            if (phase == Phase.Pending)
+            if (phase == Phase.Pending && !pressConsumed)
             {
                 // press 시점 판정(pressTarget)만 신뢰한다 — release 손 위치로 반경을 다시 재는
                 // 순간, 화면 픽셀 이동과 월드 반경 단위가 안 맞아(특히 줌아웃 상태) 손이 살짝만
@@ -361,8 +366,6 @@ namespace Yoegoe.Characters
                 {
                     case PressTarget.LockedProp:
                         CancelPendingMonologueTap();
-                        Debug.Log("[DEBUG-LOCK] OnRelease: PropPurchaseRequested 발행, 구독자 있음="
-                            + (PropPurchaseRequested != null));
                         PropPurchaseRequested?.Invoke(pressProp, null);
                         break;
 
@@ -375,18 +378,21 @@ namespace Yoegoe.Characters
                             else
                                 Debug.LogError(
                                     "[MapPointerRouter] GongyangganScreen을 찾을 수 없습니다. " +
-                                    "Hierarchy에 Prefab이 있는지 확인하거나 Yoegoe → Bake GongyangganScreen Prefab 을 실행하세요.");
+                                    "Main 씬 Hierarchy에 Prefab 인스턴스가 있는지 확인하세요.");
                         }
                         break;
 
-                    case PressTarget.CollectibleProp:
+                    case PressTarget.Prop:
+                        // 기물 본체·보관 라벨 탭 → 쌓인 자원 수거
                         CancelPendingMonologueTap();
-                        pressProp.TryCollect();
+                        if (pressProp.HasPendingCollectible && pressProp.TryCollect())
+                            Yoegoe.Save.GameSaveBridge.RequestSave();
                         break;
 
                     case PressTarget.Willow:
                         CancelPendingMonologueTap();
                         MeritWillow.Instance?.OnTapped();
+                        Yoegoe.Save.GameSaveBridge.RequestSave();
                         break;
 
                     case PressTarget.Character:
@@ -418,12 +424,13 @@ namespace Yoegoe.Characters
             pressCharacter = null;
             dragCharacter = null;
             pressProp = null;
+            pressConsumed = false;
         }
 
         /// <summary>
         /// 더블탭이면 상세화면. 아니면 창이 끝날 때까지 기다렸다가 혼잣말
         /// (상세 진입 시 말풍선이 뜨지 않도록 단일탭을 즉시 처리하지 않음).
-        /// 기물 요구 ? : 단일탭 무반응, 더블탭은 상세 (Docs/07 5행).
+        /// 음식 요구가 떠 있으면 단일탭도 즉시 상세 (Docs/07).
         /// </summary>
         void HandleCharacterTap(CharacterAgent agent)
         {
@@ -437,7 +444,7 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            // 더블탭은 기물 요구 중에도 상세
+            // 더블탭 = 상세
             if (pendingMonologueTap == agent && Time.unscaledTime <= pendingMonologueDeadline)
             {
                 CancelPendingMonologueTap();
@@ -536,6 +543,8 @@ namespace Yoegoe.Characters
         private bool TryGetCharacterHitScore(CharacterAgent agent, Vector3 world, out float score)
         {
             score = 0f;
+            // 머리 위 말풍선·요구 아이콘·획득품 = 몸 탭과 동일 (Docs/07). 겹치면 그 요괴가 우선.
+            if (agent.HitOverhead(world, characterHitPadding * 0.5f)) return true;
             var sr = agent.GetComponentInChildren<SpriteRenderer>();
             if (sr != null && sr.sprite != null)
             {
@@ -613,7 +622,7 @@ namespace Yoegoe.Characters
             return MeritWillow.Instance.HitTest(world, 0.05f);
         }
 
-        /// <summary>TEMP: 공덕 더미(***·숫자) TextMesh 라벨 히트만.</summary>
+        /// <summary>보관 라벨(***·숫자) TextMesh 히트 — 라벨이 기물 bounds 밖으로 나와 있어도 그 기물로.</summary>
         PropSlot FindNearestPileLabel(Vector2 screenPos)
         {
             if (targetCamera == null || PropManager.Instance == null) return null;

@@ -22,17 +22,30 @@ namespace Yoegoe.Data
         [Tooltip("엽전 가격. 물은 0.")]
         public int shopPriceYeopjeon = 10;
 
+        /// <summary>
+        /// 황금음식 (공양간 기획서): 황금쌀·황금꿀이 들어간 음식. 효과는 일반 음식과 같고, 먹으면
+        /// 5분간 요괴가 황금색 + 이동·생산 2배. 런타임 카탈로그가 음식마다 만든다(<see cref="OfferingCatalog"/>).
+        /// </summary>
+        [System.NonSerialized] public bool golden;
+        /// <summary>황금음식이면 원래 음식 id (요구 판정 등).</summary>
+        [System.NonSerialized] public string baseOfferingId;
+
+        /// <summary>요구·도감에서 같은 음식으로 볼 id — 황금음식이면 원래 음식 id.</summary>
+        public string BaseId => string.IsNullOrEmpty(baseOfferingId) ? offeringId : baseOfferingId;
+
+        public bool IsWater => kind == OfferingKind.Water;
+
         public int ResolveStaminaGain(bool isPreferred)
         {
             if (staminaGain > 0) return staminaGain;
-            if (kind == OfferingKind.PurifiedWater) return 3;
+            if (kind == OfferingKind.Water) return 3;
             if (kind == OfferingKind.Food) return 8;
             return 3; // 공양물·선호
         }
 
         public float ResolveIntimacyGain(bool isPreferred)
         {
-            if (kind == OfferingKind.PurifiedWater || kind == OfferingKind.Food) return 0f;
+            if (kind == OfferingKind.Water || kind == OfferingKind.Food) return 0f;
             if (isPreferred) return intimacyGain > 0f ? intimacyGain : 5f;
             return intimacyGain > 0f ? intimacyGain : 2f;
         }

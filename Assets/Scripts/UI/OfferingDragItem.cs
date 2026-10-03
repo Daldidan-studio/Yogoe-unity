@@ -7,13 +7,13 @@ using Yoegoe.Economy;
 namespace Yoegoe.UI
 {
     /// <summary>
-    /// 상세화면 공양물/정화수 드래그. 본문(초상·정보) 위에 놓으면 DetailScreen이 급여 처리.
+    /// 상세화면 공양물/물 드래그. 본문(초상·정보) 위에 놓으면 DetailScreen이 급여 처리.
     /// </summary>
     public class OfferingDragItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         public DetailScreen screen;
         public OfferingData offering;
-        public bool isPurifiedWater;
+        public bool isWater;
         public Sprite dragIcon;
 
         Canvas rootCanvas;
@@ -22,11 +22,11 @@ namespace Yoegoe.UI
         CanvasGroup sourceGroup;
         bool dragActive;
 
-        public void Configure(DetailScreen owner, OfferingData data, bool purified, Sprite icon)
+        public void Configure(DetailScreen owner, OfferingData data, bool isWater, Sprite icon)
         {
             screen = owner;
             offering = data;
-            isPurifiedWater = purified;
+            isWater = isWater;
             dragIcon = icon;
         }
 
@@ -34,13 +34,13 @@ namespace Yoegoe.UI
         {
             dragActive = false;
             if (screen == null) return;
-            if (!isPurifiedWater && offering == null) return;
+            if (!isWater && offering == null) return;
 
-            if (isPurifiedWater)
+            if (isWater)
             {
-                if (GameEconomy.Instance == null || GameEconomy.Instance.PurifiedWater < 1)
+                if (GameEconomy.Instance == null || GameEconomy.Instance.Water < 1)
                 {
-                    screen.NotifyFeedBlocked("정화수가 없어요");
+                    screen.NotifyFeedBlocked("물이 없어요");
                     return;
                 }
             }
@@ -76,7 +76,7 @@ namespace Yoegoe.UI
 
             ghostRt.position = eventData.position;
             dragActive = true;
-            screen.NotifyOfferingDragBegan(offering, isPurifiedWater);
+            screen.NotifyOfferingDragBegan(offering, isWater);
         }
 
         public void OnDrag(PointerEventData eventData)
@@ -96,7 +96,7 @@ namespace Yoegoe.UI
 
             bool dropped = false;
             if (dragActive && screen != null)
-                dropped = screen.TryAcceptOfferingDrop(eventData.position, offering, isPurifiedWater);
+                dropped = screen.TryAcceptOfferingDrop(eventData.position, offering, isWater);
 
             if (ghostRt != null)
                 Destroy(ghostRt.gameObject);

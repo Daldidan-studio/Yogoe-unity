@@ -7,6 +7,7 @@
   character_lines        character_id, type, text_ko, note              (한 줄 = 대사 1개)
                          type: monologue(혼잣말) · request_thanks(음식 요구 완료) · request_gift(선물꾸러미 줄 때)
                                · golden_find(황금 재료 수거 — {item} 자리에 황금쌀/황금꿀)
+                               · greeting(앱을 켜거나 오래 비웠다 돌아왔을 때, 놀고 있던 요괴의 인사)
 
 사용법:
   python3 Tools/export_characters.py              # 시트 → characters.json   (npm run characters)
@@ -36,7 +37,6 @@ JSON_PATH = ROOT / "Assets" / "Resources" / "characters.json"
 SHEETS_DIR = ROOT / "Tools" / "sheets"
 CONFIG_PATH = ROOT / "Tools" / "yut_bubbles_sheets.config.json"
 ENUMS_PATH = ROOT / "Assets" / "Scripts" / "Data" / "Enums.cs"
-RECIPES_PATH = ROOT / "Assets" / "Scripts" / "Economy" / "GameEconomy.cs"
 OFFERING_ASSETS = ROOT / "Assets" / "Data" / "Offerings"
 
 TAB_CHARACTERS = "characters"
@@ -53,6 +53,7 @@ LINE_TYPES = {
     "request_thanks": "requestThanksLines",
     "request_gift": "requestGiftLines",
     "golden_find": "goldenFindLines",
+    "greeting": "greetingLines",
 }
 
 
@@ -64,11 +65,11 @@ def known_character_ids() -> list[str]:
 
 
 def known_offering_ids() -> dict[str, str]:
-    """공양간 레시피(Food/Off) + 공양물 에셋 offeringId → 이름."""
+    """공양간 레시피(recipes.json) + 공양물 에셋 offeringId → 이름."""
+    from recipes_data import load_recipes
     ids: dict[str, str] = {}
-    src = RECIPES_PATH.read_text(encoding="utf-8")
-    for m in re.finditer(r'\b(?:Food|Off)\("([^"]+)",\s*"([^"]+)"', src):
-        ids[m.group(1)] = m.group(2)
+    for r in load_recipes():  # recipes.json (시트 recipes 탭)
+        ids.setdefault(r["id"], r["name"])
     for p in OFFERING_ASSETS.glob("*.asset"):
         text = p.read_text(encoding="utf-8")
         oid = re.search(r"\n\s*offeringId:\s*(\S+)", text)

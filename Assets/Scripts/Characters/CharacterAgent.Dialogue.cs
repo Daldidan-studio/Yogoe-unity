@@ -63,7 +63,7 @@ namespace Yoegoe.Characters
                 return;
             }
 
-            // 자동 팝업은 걷기/놀기/머물기에서만 (주저앉기는 탭만)
+            // 자동 팝업은 걷기/놀기/머물기에서만 (기절은 "..." 말풍선)
             if (!CanShowMonologue) return;
 
             monologueTimer -= dt;
@@ -92,7 +92,10 @@ namespace Yoegoe.Characters
             }
 
             if (!CanTapMonologue) return;
+            // 인사·요구 감사 같은 임시 대사 중엔 끝까지 보여 준다 (뒤에 선물꾸러미 등이 이어질 수 있음)
+            if (tempSpeechRoutine != null) return;
             if (Data == null || Data.monologueLines == null || Data.monologueLines.Length == 0) return;
+            // 떠 있으면 다음 대사로 바뀌고 10초 다시 (6-4)
             ShowMonologue();
         }
 
@@ -158,7 +161,42 @@ namespace Yoegoe.Characters
 
         public void HideMonologueForRequest() => HideMonologue();
 
+        /// <summary>
+        /// 머리 위 표시(혼잣말 말풍선·음식 요구 아이콘·윷 획득품)를 눌렀는지 — 7장 표 "말풍선/아이템 탭 = 몸 탭과 동일".
+        /// MapPointerRouter가 몸과 같은 요괴 탭으로 처리한다.
+        /// </summary>
+        public bool HitOverhead(Vector3 world, float pad)
+        {
+            if (bubbleBg != null && bubbleBg.gameObject.activeInHierarchy
+                && Contains2D(bubbleBg.bounds, world, pad))
+                return true;
+            if (Requests.TryGetIconBounds(out var icon) && Contains2D(icon, world, pad))
+                return true;
+            var loot = PostYutLootPresenter.Instance;
+            return loot != null && loot.HitHeldIcon(this, world, pad);
+        }
+
+        static bool Contains2D(Bounds b, Vector3 world, float pad)
+        {
+            b.Expand(new Vector3(pad * 2f, pad * 2f, 0f));
+            return world.x >= b.min.x && world.x <= b.max.x && world.y >= b.min.y && world.y <= b.max.y;
+        }
+
         /// <summary>요구 완료 등 짧은 대사.</summary>
+        /// <summary>delay초 뒤 한 줄 말한다 (접속 인사 등 여러 요괴가 순서대로 말할 때).</summary>
+        public void SayAfter(float delay, string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            if (delay <= 0f) { ShowTempSpeech(line); return; }
+            StartCoroutine(SayAfterRoutine(delay, line));
+        }
+
+        IEnumerator SayAfterRoutine(float delay, string line)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            ShowTempSpeech(line);
+        }
+
         public void ShowTempSpeech(string line)
         {
             if (string.IsNullOrEmpty(line)) return;

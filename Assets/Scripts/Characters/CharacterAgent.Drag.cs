@@ -51,9 +51,6 @@ namespace Yoegoe.Characters
             transform.localScale = dragScaleBefore.sqrMagnitude > 0.0001f ? dragScaleBefore : transform.localScale;
             lastPosition = transform.position;
 
-            if (Stats.State == ActionState.Slumped)
-                MigrateSlumpedToPlaying();
-
             if (dropProp != null && dropProp.CanSitNow(this) && TrySitOnProp(dropProp))
                 return;
 

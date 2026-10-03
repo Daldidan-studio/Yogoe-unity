@@ -53,7 +53,7 @@ namespace Yoegoe.Data
             [Header("재화 칩 액센트")]
             public Color currencyYeopjeon = new Color(0.85f, 0.72f, 0.25f, 1f);
             public Color currencyHyang = new Color(0.75f, 0.42f, 0.85f, 1f);
-            public Color currencyPurifiedWater = new Color(0.4f, 0.68f, 0.9f, 1f);
+            public Color currencyWater = new Color(0.4f, 0.68f, 0.9f, 1f);
             public Color currencyYutToken = new Color(0.55f, 0.75f, 0.35f, 1f);
 
             [Header("팝업 공통 (이후 화면 치환용)")]

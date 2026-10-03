@@ -20,7 +20,8 @@ namespace Yoegoe.Save
         /// 세이브 있으면 로드 → 오프라인 시뮬 → 월드 반영.
         /// 없으면 false (기존 StartingState 유지).
         /// </summary>
-        public static bool TryLoadSimulateAndApply()
+        /// <param name="bubbleFont">세이브에만 있어 새로 스폰하는 요괴(고라니·구미호)의 말풍선 폰트 — 없으면 한글이 깨진다.</param>
+        public static bool TryLoadSimulateAndApply(Font bubbleFont = null)
         {
             if (!GameSaveService.TryLoad(out var data)) return false;
 
@@ -33,20 +34,10 @@ namespace Yoegoe.Save
                           $"(실제 경과 {sim.ElapsedSeconds:F0}s, 상한 {OfflineSimulator.MaxOfflineSeconds:F0}s)");
             }
 
-            ApplyToWorld(data);
+            ApplyToWorld(data, bubbleFont);
             // 공덕 더미는 기물에 남겨 두고 버드나무에서 수거한다 (7-4). 예전의 콜드스타트 일괄 스윕은 폐지.
             RefreshAllPropPileLabels();
             return true;
-        }
-
-        /// <summary>모든 기물 PendingMerit를 일괄 수거 대기분으로 옮긴다.</summary>
-        public static void SweepPropPilesIntoBatch()
-        {
-            foreach (var p in UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None))
-            {
-                if (p == null || !p.HasPendingMerit) continue;
-                GameEconomy.Instance.AddPendingBatchMerit(p.TakePendingMerit());
-            }
         }
 
         /// <summary>기물 더미 표시를 즉시 맞춘다 (일괄 수거·로드 직후).</summary>
@@ -56,8 +47,15 @@ namespace Yoegoe.Save
                 p?.ForceRefreshPileLabel();
         }
 
+        /// <summary>저장이 필요함만 표시 (수거·요리처럼 자주 일어나는 변경). AppSession이 곧 한 번 몰아서 저장한다.</summary>
+        public static void RequestSave() => SaveRequested = true;
+
+        /// <summary><see cref="RequestSave"/> 이후 아직 저장 안 됨.</summary>
+        public static bool SaveRequested { get; private set; }
+
         public static void SaveFromWorld()
         {
+            SaveRequested = false;
             // Play 중이 아니거나 Economy 부팅 전이면 OnApplicationQuit 등에서 NRE 남
             if (GameEconomy.Instance == null) return;
             var data = CaptureFromWorld();
@@ -80,7 +78,7 @@ namespace Yoegoe.Save
                     pendingBatchMerit = BigNumberSave.From(GameEconomy.Instance.PendingBatchMerit),
                     yeopjeon = GameEconomy.Instance.Yeopjeon,
                     hyang = GameEconomy.Instance.Hyang,
-                    purifiedWater = GameEconomy.Instance.PurifiedWater,
+                    water = GameEconomy.Instance.Water,
                     yutToken = GameEconomy.Instance.YutToken,
                     yutTokenMax = GameEconomy.Instance.YutTokenMax,
                     yutTokenRegenNextUtcTicks = GameEconomy.Instance.YutTokenRegenNextUtcTicks,
@@ -95,7 +93,10 @@ namespace Yoegoe.Save
             data.economy.offerings = CaptureOfferings(GameEconomy.Instance);
             data.economy.materials = GameEconomy.Instance.CaptureMaterialCounts();
             data.economy.specialItems = GameEconomy.Instance.CaptureSpecialItemCounts();
+            data.economy.charms = GameEconomy.Instance.CaptureCharmCounts();
             Attendance.CaptureToSave(out data.economy.attendanceNextDayIndex, out data.economy.attendanceLastHandledDayKey);
+            data.economy.codexDiscovered = Yoegoe.Cooking.CookingCodex.CaptureToSave();
+            data.economy.lockedSlotUnlocked = CharacterSummon.LockedSlotUnlocked;
 
             // Props
             var props = UnityEngine.Object.FindObjectsByType<PropSlot>(FindObjectsSortMode.None);
@@ -115,7 +116,6 @@ namespace Yoegoe.Save
                     level = p.level,
                     isBuilt = p.IsBuilt,
                     pendingMerit = BigNumberSave.From(p.PendingMerit),
-                    baseProductionPerMinute = p.data != null ? p.data.baseProductionPerMinute : 100,
                     isEndingProp = p.data != null && p.data.isEndingProp,
                     ownerCharacterId = p.data != null ? p.data.owner.ToString() : ""
                 };
@@ -140,7 +140,8 @@ namespace Yoegoe.Save
                     posX = a.transform.position.x,
                     posY = a.transform.position.y,
                     occupiedPropId = propId,
-                    revealedPreferredOfferingIds = a.Stats.RevealedPreferredOfferingIds.ToArray()
+                    revealedPreferredOfferingIds = a.Stats.RevealedPreferredOfferingIds.ToArray(),
+                    goldenBuffEndsUtcTicks = a.Stats.GoldenBuffEndsUtcTicks
                 };
             }
 
@@ -150,7 +151,7 @@ namespace Yoegoe.Save
             return data;
         }
 
-        public static void ApplyToWorld(GameSaveData data)
+        public static void ApplyToWorld(GameSaveData data, Font bubbleFont = null)
         {
             if (data == null) return;
 
@@ -180,7 +181,7 @@ namespace Yoegoe.Save
             }
 
             // Agents — 세이브에만 있는 고라니 등 먼저 스폰
-            EnsureMissingAgentsFromSave(data.agents);
+            EnsureMissingAgentsFromSave(data.agents, bubbleFont);
 
             // Agents + 기물 점유 복원
             if (data.agents != null)
@@ -192,7 +193,7 @@ namespace Yoegoe.Save
                     {
                         if (a == null || a.Data == null) continue;
                         string cid = a.Data.id.ToString();
-                        if (cid != ags.characterId && a.Data.displayName != ags.characterId) continue;
+                        if (cid != ags.characterId) continue;
 
                         PropSlot occupy = null;
                         if (!string.IsNullOrEmpty(ags.occupiedPropId))
@@ -212,6 +213,7 @@ namespace Yoegoe.Save
                             new Vector3(ags.posX, ags.posY, a.transform.position.z),
                             occupy);
                         a.Stats.SetRevealedPreferences(ags.revealedPreferredOfferingIds);
+                        a.Stats.GoldenBuffEndsUtcTicks = ags.goldenBuffEndsUtcTicks;
                         break;
                     }
                 }
@@ -222,22 +224,19 @@ namespace Yoegoe.Save
                 YutScreen.Instance.ApplyFromSave(data.yutMatch);
         }
 
-        /// <summary>콜드스타트 시 세이브에 고라니가 있으면 월드에 스폰 (향 소모 없음).</summary>
-        private static void EnsureMissingAgentsFromSave(AgentSave[] agents)
+        /// <summary>콜드스타트 시 세이브에 있는 소환 요괴(고라니·구미호)를 월드에 스폰 (향 소모 없음).</summary>
+        private static void EnsureMissingAgentsFromSave(AgentSave[] agents, Font bubbleFont)
         {
             if (agents == null) return;
             foreach (var ags in agents)
             {
                 if (ags == null || string.IsNullOrEmpty(ags.characterId)) continue;
-                bool isGorani = ags.characterId == CharacterId.Gorani.ToString()
-                                || ags.characterId == "고라니";
-                if (!isGorani) continue;
-                if (CharacterSummon.IsPresent(CharacterId.Gorani)) continue;
-
-                CharacterSummon.SpawnGoraniForSaveRestore(
-                    null,
-                    null,
-                    new Vector3(ags.posX, ags.posY, 0f));
+                CharacterId id;
+                if (ags.characterId == nameof(CharacterId.Gorani)) id = CharacterId.Gorani;
+                else if (ags.characterId == nameof(CharacterId.Gumiho)) id = CharacterId.Gumiho;
+                else continue;
+                if (CharacterSummon.IsPresent(id)) continue;
+                CharacterSummon.SpawnForSaveRestore(id, bubbleFont, new Vector3(ags.posX, ags.posY, 0f));
             }
         }
 
@@ -249,21 +248,20 @@ namespace Yoegoe.Save
                 e.pendingBatchMerit != null ? e.pendingBatchMerit.ToBigNumber() : BigNumber.Zero,
                 e.yeopjeon,
                 e.hyang,
-                e.purifiedWater,
+                e.water,
                 e.yutToken,
                 e.yutTokenMax,
                 e.propsPurchasedCount,
                 e.yutTokenRegenNextUtcTicks);
-            // null = 구세이브(필드 없음) → StartingState 인벤 유지. 배열 있으면(빈 배열 포함) 통째 교체.
-            if (e.offerings != null)
-                ApplyOfferings(GameEconomy.Instance, e.offerings);
-            if (e.materials != null && e.materials.Length > 0)
-                GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
-            if (e.specialItems != null && e.specialItems.Length > 0)
-                GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
+            ApplyOfferings(GameEconomy.Instance, e.offerings);
+            GameEconomy.Instance.ReplaceMaterialCounts(e.materials);
+            GameEconomy.Instance.ReplaceSpecialItemCounts(e.specialItems);
+            GameEconomy.Instance.ReplaceCharmCounts(e.charms);
             GiftBundle.ResetFromSave(e.giftMissStreak, e.giftFirstGrantDone, e.adRewardTickets);
             ShopStock.ResetFromSave(e.shopLeftOfferingId, e.shopRightOfferingId, e.shopNextRefreshUtcTicks);
             Attendance.ResetFromSave(e.attendanceNextDayIndex, e.attendanceLastHandledDayKey);
+            CharacterSummon.ResetFromSave(e.lockedSlotUnlocked);
+            Yoegoe.Cooking.CookingCodex.ResetFromSave(e.codexDiscovered);
         }
 
         static OfferingCountSave[] CaptureOfferings(GameEconomy eco)
@@ -285,20 +283,11 @@ namespace Yoegoe.Save
 
         static void ApplyOfferings(GameEconomy eco, OfferingCountSave[] offerings)
         {
-            // 구세이브의 조합별 id(saenggogi_bbb 등)는 하나로 합친다
-            var merged = new Dictionary<string, int>();
-            var order = new List<string>(offerings.Length);
-            for (int i = 0; i < offerings.Length; i++)
-            {
-                var o = offerings[i];
-                if (o == null || string.IsNullOrEmpty(o.offeringId) || o.count <= 0) continue;
-                string id = Yoegoe.Cooking.CookingRecipeCatalog.CanonicalProductId(o.offeringId);
-                if (!merged.ContainsKey(id)) { merged[id] = 0; order.Add(id); }
-                merged[id] += o.count;
-            }
-            var buf = new List<KeyValuePair<string, int>>(order.Count);
-            foreach (var id in order)
-                buf.Add(new KeyValuePair<string, int>(id, merged[id]));
+            var buf = new List<KeyValuePair<string, int>>();
+            if (offerings != null)
+                foreach (var o in offerings)
+                    if (o != null && !string.IsNullOrEmpty(o.offeringId) && o.count > 0)
+                        buf.Add(new KeyValuePair<string, int>(o.offeringId, o.count));
             eco.ReplaceOfferingCounts(buf);
         }
 

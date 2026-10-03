@@ -14,7 +14,6 @@ namespace Yoegoe.UI
         public static GiftBundlePopup Instance { get; private set; }
 
         public Font font;
-        public OfferingData[] offerings;
         public Sprite closedChestSprite;
         public Sprite openChestSprite;
 
@@ -29,8 +28,8 @@ namespace Yoegoe.UI
         Action onClosed;
         bool bonusUsed;
         bool opening;
-        GiftBundle.ContentKind lastGrantedKind;
-        OfferingData lastGrantedOffering;
+        /// <summary>첫 개봉에 나온 재료 — "하나 더"는 같은 구성을 한 번 더.</summary>
+        Yoegoe.Cooking.CookingIngredientId[] lastGranted;
 
         void Awake() => Instance = this;
 
@@ -56,7 +55,7 @@ namespace Yoegoe.UI
             onClosed = closed;
             bonusUsed = false;
             opening = false;
-            lastGrantedOffering = null;
+            lastGranted = null;
             titleText.text = string.IsNullOrEmpty(messageBeforeOpen)
                 ? "선물꾸러미"
                 : messageBeforeOpen;
@@ -70,26 +69,17 @@ namespace Yoegoe.UI
         {
             if (opening) return;
             opening = true;
-            ShowReward(GiftBundle.RollContent(), firstOpen: true);
+            ShowReward(GiftBundle.RollContents(), firstOpen: true);
         }
 
-        void ShowReward(GiftBundle.ContentKind kind, bool firstOpen)
+        void ShowReward(Yoegoe.Cooking.CookingIngredientId[] ingredients, bool firstOpen)
         {
-            GiftBundle.Grant(kind, offerings, out string name, out Sprite icon, out var grantedOffering);
-            if (firstOpen)
-            {
-                lastGrantedKind = kind;
-                lastGrantedOffering = grantedOffering;
-            }
+            GiftBundle.Grant(ingredients, out string name);
+            if (firstOpen) lastGranted = ingredients;
             closedView.SetActive(false);
             openView.SetActive(true);
-            rewardText.text = firstOpen ? name : ("하나 더!\n" + name);
-            if (rewardIcon != null)
-            {
-                rewardIcon.sprite = icon;
-                rewardIcon.enabled = icon != null;
-                rewardIcon.color = icon != null ? Color.white : new Color(1f, 0.9f, 0.5f, 1f);
-            }
+            rewardText.text = (firstOpen ? "요리재료\n" : "하나 더!\n") + name;
+            SetBagIcon();
 
             RefreshMoreButton();
             opening = false;
@@ -130,22 +120,21 @@ namespace Yoegoe.UI
             bonusUsed = true;
             if (moreBtnGO != null) moreBtnGO.SetActive(false);
             // 첫 개봉과 동일 내용 1회 추가 지급
-            GiftBundle.Grant(
-                lastGrantedKind,
-                offerings,
-                out string name,
-                out Sprite icon,
-                out _,
-                lastGrantedOffering);
+            GiftBundle.Grant(lastGranted ?? GiftBundle.RollContents(), out string name);
             rewardText.text = "하나 더!\n" + name;
-            if (rewardIcon != null)
-            {
-                rewardIcon.sprite = icon;
-                rewardIcon.enabled = icon != null;
-                rewardIcon.color = icon != null ? Color.white : new Color(1f, 0.9f, 0.5f, 1f);
-            }
+            SetBagIcon();
             opening = false;
             Yoegoe.Save.GameSaveBridge.SaveFromWorld();
+        }
+
+        /// <summary>재료보따리 아이콘 (윷판 재료보따리 칸과 같은 그림).</summary>
+        void SetBagIcon()
+        {
+            if (rewardIcon == null) return;
+            var icon = Yoegoe.Minigames.Yut.YutMiniGame.IngredientBagIcon();
+            rewardIcon.sprite = icon;
+            rewardIcon.enabled = icon != null;
+            rewardIcon.color = Color.white;
         }
 
         void OnDismiss()

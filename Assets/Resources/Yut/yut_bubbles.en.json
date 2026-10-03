@@ -43,8 +43,8 @@
       "text": "I can get coins."
     },
     {
-      "id": "candidate.purified_water",
-      "text": "I can get purified water."
+      "id": "candidate.water",
+      "text": "I can get isWater water."
     },
     {
       "id": "candidate.capture",

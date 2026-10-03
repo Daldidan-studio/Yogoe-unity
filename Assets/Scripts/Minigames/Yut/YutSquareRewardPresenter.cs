@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Yoegoe.Cooking;
 using Yoegoe.Data;
 
 namespace Yoegoe.Minigames.Yut
@@ -13,7 +14,6 @@ namespace Yoegoe.Minigames.Yut
         void ShowNotice(string message, Action onOk);
         void ShowRewardChoice(string message, Action onPlain, Action onAd, Sprite icon = null);
         Coroutine StartRoutine(IEnumerator routine);
-        OfferingData TryGetOfferingForNode(int nodeId);
         IReadOnlyList<OfferingData> GetTreasureOfferingPool();
         string ApplySquareRewardToEconomy(YutSquareReward reward, int multiplier);
         void ClearConsumedSpecialSquareAt(int nodeId);
@@ -24,7 +24,7 @@ namespace Yoegoe.Minigames.Yut
     }
 
     /// <summary>
-    /// 특수 칸(엽전/공양물/보물상자/정화수) 발견 → 확인/2배 선택 → 지급·비행.
+    /// 특수 칸(엽전/재료보따리/보물상자/물) 발견 → 확인/2배 선택 → 지급·비행.
     /// 재화 적용·보드 칸 소모는 Host, 이 클래스는 대기 상태와 팝업 흐름만.
     /// </summary>
     public sealed class YutSquareRewardPresenter
@@ -60,12 +60,12 @@ namespace Yoegoe.Minigames.Yut
                     message = "엽전 칸 발견!\n엽전을 얻을 수 있어요.";
                     break;
 
-                case YutBoardLayout.SpecialSquareKind.Offering:
+                case YutBoardLayout.SpecialSquareKind.IngredientBag:
                     {
-                        var offering = host.TryGetOfferingForNode(nodeId);
-                        pendingReward = new YutSquareReward(YutSquareRewardKind.Offering, offering, 1);
-                        string offeringName = offering != null ? offering.displayName : "공양물";
-                        message = $"공양물 칸 발견!\n{offeringName}을(를) 얻을 수 있어요.";
+                        var ingredients = YutRewards.RollIngredientBundle();
+                        pendingReward = new YutSquareReward(
+                            YutSquareRewardKind.IngredientBundle, null, 1, ingredients);
+                        message = $"재료보따리 발견!\n{YutRewards.DescribeIngredients(ingredients)}";
                         break;
                     }
 
@@ -75,9 +75,9 @@ namespace Yoegoe.Minigames.Yut
                     ShowTreasureChoice(host);
                     return;
 
-                case YutBoardLayout.SpecialSquareKind.PurifiedWater:
-                    pendingReward = new YutSquareReward(YutSquareRewardKind.PurifiedWater, null, 1);
-                    message = "정화수 칸 발견!\n정화수를 얻을 수 있어요.";
+                case YutBoardLayout.SpecialSquareKind.Water:
+                    pendingReward = new YutSquareReward(YutSquareRewardKind.Water, null, 1);
+                    message = "물 칸 발견!\n물을 얻을 수 있어요.";
                     break;
 
                 default:
@@ -96,9 +96,7 @@ namespace Yoegoe.Minigames.Yut
         }
 
         /// <summary>보물상자는 안이 안 보이는 채로 고르는 게 아니라 바로 열어서 보여준다 — 뭐가
-        /// 나왔는지와 "그냥 받기/광고 보고 2배"를 한 팝업에 같이 띄운다(예전엔 확인 팝업으로
-        /// 먼저 보여주고 나서 똑같은 내용을 다시 선택 팝업에 띄웠는데, 어차피 ShowRewardChoice
-        /// 자체가 내용을 보여주므로 그 중간 확인 팝업은 그냥 중복이었다).</summary>
+        /// 나왔는지와 "그냥 받기/광고 보고 2배"를 한 팝업에 같이 띄운다.</summary>
         void ShowTreasureChoice(IYutSquareRewardHost host)
         {
             if (pendingReward == null)
@@ -177,10 +175,12 @@ namespace Yoegoe.Minigames.Yut
             {
                 case YutSquareRewardKind.Yeopjeon:
                     return YutMiniGame.YeopjeonIcon();
-                case YutSquareRewardKind.PurifiedWater:
-                    return YutMiniGame.PurifiedWaterIcon();
+                case YutSquareRewardKind.Water:
+                    return YutMiniGame.WaterIcon();
                 case YutSquareRewardKind.Offering:
                     return reward.Offering != null ? reward.Offering.icon : null;
+                case YutSquareRewardKind.IngredientBundle:
+                    return YutMiniGame.IngredientBagIcon();
                 default:
                     return null;
             }

@@ -101,7 +101,7 @@
       function hideLoadingOverlay() {
         if (!loadingBar || loadingBar.dataset.hiding === "1") return;
         loadingBar.dataset.hiding = "1";
-        // 검은 오버레이만 페이드아웃 → 아래 인게임이 자연스럽게 드러남
+        // 하늘·로고 오버레이 페이드 → 아래 인게임(하늘 출발)이 드러난 뒤 카메라가 내려감
         loadingBar.classList.add("hiding");
         setTimeout(function () {
           loadingBar.style.display = "none";

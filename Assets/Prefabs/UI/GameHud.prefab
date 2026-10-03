@@ -554,14 +554,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Yoegoe.Runtime::Yoegoe.UI.GameHud
   font: {fileID: 12800000, guid: 8e00f09198e0495f8df7aa7fe5acd23d, type: 3}
-  purifiedWaterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
+  waterIcon: {fileID: 21300000, guid: f245b0d861e8b4deca4320d79c23c5c1, type: 3}
   detailScreen: {fileID: 0}
   hudCanvas: {fileID: 3540767728660716158}
   meritText: {fileID: 8382255328596611988}
   meritTextRt: {fileID: 9165830004764020882}
   yeopjeonText: {fileID: 262438490789293289}
   hyangText: {fileID: 3027892921912698764}
-  purifiedWaterText: {fileID: 6757737602869525637}
+  waterText: {fileID: 6757737602869525637}
   yutTokenText: {fileID: 5779502491783616522}
   yutTokenPlusButton: {fileID: 7728146691550415960}
   tempResetButton: {fileID: 0}
@@ -1244,7 +1244,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uC815\uD654\uC218 0"
+  m_Text: "\uBB3C 0"
 --- !u!1 &2767111780481980741
 GameObject:
   m_ObjectHideFlags: 0

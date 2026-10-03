@@ -24,16 +24,15 @@ namespace Yoegoe.UI
             if (Instance == this) Instance = null;
         }
 
-        public bool TryPlay()
+        public bool TryPlay(CharacterId target = CharacterId.Gorani)
         {
-            if (CharacterSummon.IsPresent(CharacterId.Gorani)) return false;
-            if (!CharacterSummon.CanSummonGorani()) return false;
+            if (!CharacterSummon.CanSummon(target)) return false;
             if (!isActiveAndEnabled) return false;
-            StartCoroutine(PlayRoutine());
+            StartCoroutine(PlayRoutine(target));
             return true;
         }
 
-        IEnumerator PlayRoutine()
+        IEnumerator PlayRoutine(CharacterId target)
         {
             CeremonyGate.Begin();
 
@@ -61,23 +60,16 @@ namespace Yoegoe.UI
                 yield return null;
             }
 
-            if (!GameEconomy.Instance.TrySpendHyang(CharacterSummon.HyangCost))
-            {
-                DestroyOverlay(dim);
-                CeremonyGate.End();
-                yield break;
-            }
-
-            var agent = CharacterSummon.SpawnGorani(goraniData, font, start);
+            // 소환 절차(향·스폰·초기화·저장)는 CharacterSummon.TrySummon — 여기선 결과 요괴를 연출만
+            var agent = CharacterSummon.TrySummon(target, font,
+                target == CharacterId.Gorani ? goraniData : null, start);
             if (agent == null)
             {
-                GameEconomy.Instance.AddHyang(CharacterSummon.HyangCost);
                 DestroyOverlay(dim);
                 CeremonyGate.End();
                 yield break;
             }
 
-            agent.ApplyFreshSummon();
             // 연출 중(CeremonyGate) 맵 AI 정지
             Transform tr = agent.transform;
             Vector3 baseScale = tr.localScale;
@@ -131,7 +123,7 @@ namespace Yoegoe.UI
 
             var mr = agent.GetComponent<MeshRenderer>();
             if (mr == null || mr.material == null) return;
-            Color c = CharacterSummon.GoraniPlaceholderColor;
+            Color c = CharacterSummon.PlaceholderColor;
             if (bright) c = Color.Lerp(c, Color.white, 0.45f);
             if (mr.material.HasProperty("_BaseColor")) mr.material.SetColor("_BaseColor", c);
             if (mr.material.HasProperty("_Color")) mr.material.color = c;

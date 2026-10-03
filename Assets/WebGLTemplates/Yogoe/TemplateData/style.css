@@ -1,7 +1,7 @@
 body {
   padding: 0;
   margin: 0;
-  background: #000000;
+  background: #5ba8d8;
 }
 
 #unity-container {
@@ -21,7 +21,7 @@ body {
 }
 
 #unity-canvas {
-  background: #000000;
+  background: #5ba8d8;
 }
 
 .unity-mobile #unity-canvas {
@@ -29,13 +29,13 @@ body {
   height: 100%;
 }
 
-/* 로딩: 캔버스 위를 덮고, 준비되면 페이드로 걷혀 인게임이 드러남 */
+/* 로딩: Overview 하늘 위로 로고. 준비되면 페이드 → 인게임 하늘이 이어짐 */
 #unity-loading-bar {
   position: fixed;
   inset: 0;
   z-index: 15;
   display: none;
-  background: #000000;
+  background: #5ba8d8 url("loading_sky.png") center top / cover no-repeat;
   text-align: center;
   opacity: 1;
   transition: opacity 0.9s ease;
@@ -49,7 +49,7 @@ body {
 #unity-loading-bar .loading-inner {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 42%;
   transform: translate(-50%, -50%);
   width: 100%;
   transition: opacity 0.45s ease;
@@ -63,8 +63,8 @@ body {
   width: min(86vw, 420px);
   height: min(38vw, 180px);
   margin: 0 auto;
-  background: #000000 url("game_title.png") center / contain no-repeat;
-  opacity: 0.92;
+  background: url("game_title.png") center / contain no-repeat;
+  opacity: 0.96;
 }
 
 /* 진행률은 DOM에만 두고 화면에는 안 보임 (로드 콜백용) */
@@ -116,7 +116,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 20px;
-  background: #000000;
+  background: #5ba8d8 url("loading_sky.png") center top / cover no-repeat;
   color: #f5f0e8;
   font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
@@ -131,6 +131,7 @@ body {
   font-size: 18px;
   letter-spacing: 0.08em;
   opacity: 0.85;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   animation: start-pulse 1.6s ease-in-out infinite;
 }
 

@@ -40,13 +40,26 @@ namespace Yoegoe.Characters
             var go = new GameObject("MeritWillow");
             go.transform.position = position;
             var w = go.AddComponent<MeritWillow>();
-            w.body = go.AddComponent<SpriteRenderer>();
-            w.body.sprite = TreeSprite();
-            w.body.sortingOrder = sortingOrder;
+            if (w.body != null)
+                w.body.sortingOrder = sortingOrder;
             return w;
         }
 
-        void Awake() => Instance = this;
+        void Awake()
+        {
+            Instance = this;
+            EnsureBody();
+        }
+
+        void EnsureBody()
+        {
+            if (body == null)
+                body = GetComponent<SpriteRenderer>();
+            if (body == null)
+                body = gameObject.AddComponent<SpriteRenderer>();
+            if (body.sprite == null)
+                body.sprite = TreeSprite();
+        }
 
         void OnDestroy()
         {

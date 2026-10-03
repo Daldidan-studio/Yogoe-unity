@@ -4,7 +4,7 @@
 (기획문서 "한폭요괴 1.0" MVP 2차 기준)
 
 족자 위에서 요괴들이 스스로 돌아다니며 기물을 사용해 공덕을 생산하고,
-공양을 통해 친밀도·기력을 관리하며 성장(넋 → 혼)시킵니다.
+공양으로 친밀도·기력을 관리하는 육성 루프입니다.
 
 ## 현재 진행
 
@@ -17,7 +17,7 @@
 - [x] 윷놀이 보드 계산 · 확률표 · 화면(기존 프로젝트에서 재사용, 검증 완료)
 - [ ] 윷놀이 승패 판정 / 상대 AI / 잡기 / 보상 지급 (새로 설계·구현 필요)
 - [ ] 공양물 24종 에셋 채우기 (현재 일부만 StartingState에 연결)
-- [ ] 소환/진화, 요구와 보상상자, 상점/업적/저장 시스템
+- [ ] 소환, 요구와 보상상자, 상점/업적/저장 시스템
 
 자세한 현황은 [`Docs/02_개발진행.md`](Docs/02_개발진행.md), 기획 요약은
 [`Docs/00_기획정리.md`](Docs/00_기획정리.md), 미확정 설계 이슈는
@@ -32,7 +32,7 @@
 
 `main` push 시 WebGL 자동 빌드·배포.
 
-**플레이:** https://daldidan-studio.github.io/Yogoe-unity/
+**플레이:** https://sapsar-games.github.io/Yogoe-unity/
 
 최초 1회 [CI Secrets·Pages 설정](Docs/04_CI_배포.md) 필요. (기존 설계에서 이미
 설정을 마쳤고 이번 교체로 영향받지 않으므로 재설정 불필요.)
@@ -108,11 +108,6 @@ Docs/
 5. `npm run yut-bubbles:push`
 
 `write_token`은 선택. 쓸 때만 Apps Script 스크립트 속성 `WRITE_TOKEN`과 같은 임의 비밀을 넣습니다 (배포 URL의 `AKfycb…`가 아님).
-
-## 레거시 도구
-
-`npm run dialogue` / `Tools/export_dialogue.py` / `Tools/DialogueSheetsExport.gs`는
-이전 비주얼노벨 대사 시트용이었고 현재 설계에서는 쓰지 않습니다.
 
 ## 라이선스
 

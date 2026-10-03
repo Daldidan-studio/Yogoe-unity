@@ -1,41 +1,27 @@
 using UnityEngine;
-using UnityEngine.UI;
 using Yoegoe.Characters;
 using Yoegoe.Economy;
 using Yoegoe.Save;
 
 namespace Yoegoe.UI
 {
-    /// <summary>빈 자리(자물쇠) 탭 → 구매 확인 팝업 (기획 8장).</summary>
+    /// <summary>
+    /// 빈 자리(자물쇠) 탭 → 구매 확인. 셸은 <see cref="ConfirmPopup"/> Prefab.
+    /// </summary>
     public class PropPurchasePopup : MonoBehaviour
     {
         public static PropPurchasePopup Instance { get; private set; }
 
-        public Font font;
-
-        private GameObject root;
-        private Text titleText;
-        private Text costText;
-        private PropSlot target;
+        PropSlot target;
         /// <summary>자물쇠 위에 드롭해서 팝업을 열었을 때 — 건설 성공 후 앉힐 요괴.</summary>
         CharacterAgent sitAfterBuild;
 
-        private void Awake()
-        {
-            Instance = this;
-            // Build은 Start/Open에서 — Main이 font를 넣은 뒤에 그려야 한글이 보인다.
-        }
+        void Awake() => Instance = this;
 
-        private void OnEnable() => MapPointerRouter.PropPurchaseRequested += Open;
-        private void OnDisable() => MapPointerRouter.PropPurchaseRequested -= Open;
+        void OnEnable() => MapPointerRouter.PropPurchaseRequested += Open;
+        void OnDisable() => MapPointerRouter.PropPurchaseRequested -= Open;
 
-        private void Start()
-        {
-            EnsureBuilt();
-            root.SetActive(false);
-        }
-
-        private void OnDestroy()
+        void OnDestroy()
         {
             if (Instance == this) Instance = null;
         }
@@ -44,153 +30,54 @@ namespace Yoegoe.UI
 
         public void Open(PropSlot prop, CharacterAgent sitAfter)
         {
-            Debug.Log("[DEBUG-LOCK] PropPurchasePopup.Open 호출됨: prop="
-                + (prop != null ? prop.name + " IsBuilt=" + prop.IsBuilt : "null"));
             if (prop == null || prop.IsBuilt) return;
-            EnsureBuilt();
-            Debug.Log("[DEBUG-LOCK] PropPurchasePopup.Open: root.SetActive(true) 직전, root=" + (root != null));
             target = prop;
             sitAfterBuild = sitAfter;
             string name = prop.DisplayName;
-            titleText.text = name + "을(를) 그릴까요?";
-            costText.text = "비용 " + PropEconomy.GetNextPurchaseCost().ToDisplayString();
-            root.SetActive(true);
+            string cost = PropEconomy.GetNextPurchaseCost().ToDisplayString();
+            ConfirmPopup.Show(
+                name + "을(를) 그릴까요?\n비용 " + cost,
+                OnBuildConfirmed,
+                OnCancelled,
+                "건설",
+                "닫기");
         }
 
         public void Close()
         {
-            if (root != null) root.SetActive(false);
+            ConfirmPopup.Dismiss();
+            ClearState();
+        }
+
+        void OnCancelled() => ClearState();
+
+        void ClearState()
+        {
             target = null;
             sitAfterBuild = null;
         }
 
-        private void OnBuildClicked()
+        void OnBuildConfirmed()
         {
             if (target == null) return;
             var prop = target;
             var sitAgent = sitAfterBuild;
             if (!PropEconomy.TryPurchase(prop))
             {
-                costText.text = "공덕이 부족합니다\n(" + PropEconomy.GetNextPurchaseCost().ToDisplayString() + ")";
+                string cost = PropEconomy.GetNextPurchaseCost().ToDisplayString();
+                ConfirmPopup.Show(
+                    "공덕이 부족합니다\n(" + cost + ")",
+                    null,
+                    OnCancelled,
+                    "확인",
+                    "닫기");
                 return;
             }
-            Close();
+
+            ClearState();
             if (sitAgent != null)
                 sitAgent.TrySitOnProp(prop);
             GameSaveBridge.SaveFromWorld();
-        }
-
-        private void EnsureBuilt()
-        {
-            if (root != null) return;
-            if (font == null)
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Build();
-        }
-
-        private void Build()
-        {
-            var canvasGO = new GameObject("Canvas_PropPurchase");
-            canvasGO.transform.SetParent(transform, false);
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 800;
-
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            root = new GameObject("Panel");
-            var rootRt = SetupRect(root, canvasGO.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var dim = root.AddComponent<Image>();
-            dim.color = new Color(0f, 0f, 0f, 0.55f);
-            var dimBtn = root.AddComponent<Button>();
-            dimBtn.targetGraphic = dim;
-            dimBtn.onClick.AddListener(Close);
-
-            var box = new GameObject("Box");
-            SetupRect(box, rootRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(620, 360));
-            var boxBg = box.AddComponent<Image>();
-            boxBg.color = new Color(0.14f, 0.1f, 0.08f, 0.98f);
-            // 박스 클릭이 배경 닫기를 치지 않게
-            var boxBlock = box.AddComponent<Button>();
-            boxBlock.targetGraphic = boxBg;
-            boxBlock.transition = Selectable.Transition.None;
-
-            var titleGO = new GameObject("Title");
-            SetupRect(titleGO, box.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1),
-                new Vector2(0, -40), new Vector2(560, 80));
-            titleText = titleGO.AddComponent<Text>();
-            ApplyFont(titleText);
-            titleText.fontSize = UiFonts.Size(36);
-            titleText.alignment = TextAnchor.MiddleCenter;
-            titleText.color = new Color(1f, 0.95f, 0.85f);
-            titleText.raycastTarget = false;
-            titleText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            titleText.verticalOverflow = VerticalWrapMode.Overflow;
-
-            var costGO = new GameObject("Cost");
-            SetupRect(costGO, box.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0, 10), new Vector2(560, 70));
-            costText = costGO.AddComponent<Text>();
-            ApplyFont(costText);
-            costText.fontSize = UiFonts.Size(30);
-            costText.alignment = TextAnchor.MiddleCenter;
-            costText.color = new Color(1f, 0.85f, 0.45f);
-            costText.raycastTarget = false;
-            costText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            costText.verticalOverflow = VerticalWrapMode.Overflow;
-
-            CreateActionButton(box.transform, "건설", new Vector2(-130, -120), new Color(0.35f, 0.55f, 0.3f, 1f),
-                OnBuildClicked);
-            CreateActionButton(box.transform, "닫기", new Vector2(130, -120), new Color(0.4f, 0.3f, 0.28f, 1f),
-                Close);
-        }
-
-        private void ApplyFont(Text text)
-        {
-            if (text == null) return;
-            if (font != null) text.font = font;
-        }
-
-        private void CreateActionButton(Transform parent, string label, Vector2 pos, Color color, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject("Btn_" + label);
-            SetupRect(go, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                pos, new Vector2(200, 70));
-            var img = go.AddComponent<Image>();
-            img.color = color;
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(onClick);
-
-            var textGO = new GameObject("Label");
-            SetupRect(textGO, go.transform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-                Vector2.zero, Vector2.zero);
-            var text = textGO.AddComponent<Text>();
-            ApplyFont(text);
-            text.fontSize = UiFonts.Size(32);
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.text = label;
-            text.raycastTarget = false;
-        }
-
-        private static RectTransform SetupRect(GameObject go, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
-            Vector2 pivot, Vector2 anchoredPos, Vector2 sizeDelta)
-        {
-            var rt = go.AddComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = anchorMax;
-            rt.pivot = pivot;
-            rt.anchoredPosition = anchoredPos;
-            rt.sizeDelta = sizeDelta;
-            return rt;
         }
     }
 }

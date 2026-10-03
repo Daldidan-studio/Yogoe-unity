@@ -35,26 +35,11 @@ namespace Yoegoe.Data
             public string[] requestGiftLines;
             /// <summary>황금 재료 수거 시 대사. {item} = 황금쌀/황금꿀. 비면 기본 대사.</summary>
             public string[] goldenFindLines;
+            /// <summary>접속 인사 — 앱을 켜거나 오래 비웠다 돌아왔을 때 놀고 있던 요괴. 비면 기본 대사.</summary>
+            public string[] greetingLines;
 
             public bool TryParseId(out CharacterId characterId)
                 => Enum.TryParse(id, ignoreCase: true, out characterId);
-
-            public string FormatPreferredNames()
-            {
-                if (preferredOfferings == null || preferredOfferings.Length == 0)
-                    return "";
-                var sb = new StringBuilder();
-                for (int i = 0; i < preferredOfferings.Length; i++)
-                {
-                    var p = preferredOfferings[i];
-                    if (p == null) continue;
-                    string label = !string.IsNullOrEmpty(p.name) ? p.name : p.id;
-                    if (string.IsNullOrEmpty(label)) continue;
-                    if (sb.Length > 0) sb.Append(", ");
-                    sb.Append(label);
-                }
-                return sb.ToString();
-            }
         }
 
         [Serializable]
@@ -122,9 +107,28 @@ namespace Yoegoe.Data
             return entry;
         }
 
+        /// <summary>
+        /// 에셋을 복제해 시트 값(이름·선호·설명·대사·엔딩기물)을 입힌 런타임 사본을 돌려준다 (요괴 스폰 시).
+        /// 에셋 파일은 건드리지 않는다.
+        /// </summary>
+        public static CharacterData RuntimeCopy(CharacterData source)
+        {
+            if (source == null) return null;
+            var copy = UnityEngine.Object.Instantiate(source);
+            copy.name = source.name;
+            ApplyTo(copy);
+            return copy;
+        }
+
+        /// <summary>시트 값을 덮어쓴다 — 런타임 사본·코드로 만든 스텁에만 (에셋 원본이면 경고).</summary>
         public static void ApplyTo(CharacterData data)
         {
             if (data == null) return;
+#if UNITY_EDITOR
+            if (UnityEditor.AssetDatabase.Contains(data))
+                Debug.LogWarning($"[CharacterCatalog] 에셋 원본({data.name})에 시트 값을 덮어쓰려 했습니다 — RuntimeCopy를 쓰세요.");
+#endif
+
             EnsureLoaded();
             if (!TryGet(data.id, out var entry) || entry == null) return;
 

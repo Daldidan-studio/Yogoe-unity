@@ -136,6 +136,7 @@ namespace Yoegoe.Characters
         {
             float dt = Mathf.Min(Time.deltaTime, MaxContinuousMoveDelta);
             Requests.Tick(dt);
+            UpdateGoldenTint();
 
             // 소환 연출 중 맵 AI 정지
             if (CeremonyGate.BlocksWorldInput)
@@ -170,11 +171,6 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Walking: TickWalking(dt); break;
                 case ActionState.Staying: TickStaying(dt); break;
-                case ActionState.Slumped:
-                    // 구세이브 호환: 주저앉기 → 기력0 놀기로 즉시 이관
-                    MigrateSlumpedToPlaying();
-                    TickPlaying(dt);
-                    break;
                 case ActionState.Fainted: /* 외부(공양)에서만 깨어남 */ break;
                 case ActionState.Playing: TickPlaying(dt); break;
             }
@@ -210,10 +206,6 @@ namespace Yoegoe.Characters
                 {
                     case ActionState.Staying:
                         remaining -= TickStayingSlice(remaining);
-                        break;
-                    case ActionState.Slumped:
-                        MigrateSlumpedToPlaying();
-                        remaining -= TickPlayingSlice(remaining);
                         break;
                     case ActionState.Playing:
                         remaining -= TickPlayingSlice(remaining);
@@ -260,12 +252,6 @@ namespace Yoegoe.Characters
 
             Stats.Intimacy = intimacy;
             Stats.Stamina = stamina;
-            // 구세이브 Slumped → Playing(기력0 쉬기). 점유는 놀기 규칙상 해제.
-            if (state == ActionState.Slumped)
-            {
-                state = ActionState.Playing;
-                occupyProp = null;
-            }
             Stats.State = state;
             Stats.StateTimer = stateTimer;
             Stats.Stamina = Mathf.Min(Stats.Stamina, MaxStamina);
@@ -296,15 +282,12 @@ namespace Yoegoe.Characters
 
         /// <summary>
         /// 공양 처리 (5-3/5-4). 공양물 종류별 수치 계산은 공양 시스템 쪽에서 하고 여기엔 최종값만 넘긴다.
-        /// 기절 중엔 정화수만 받는다(깨어남). 기력은 최대에서 멈추고 친밀도는 계속 오른다.
+        /// 기절 중엔 물만 받는다(깨어남). 기력은 최대에서 멈추고 친밀도는 계속 오른다.
         /// </summary>
         public void ReceiveOffering(int staminaGain, float intimacyGain, OfferingKind kind = OfferingKind.General)
         {
-            if (Stats.State == ActionState.Fainted && kind != OfferingKind.PurifiedWater)
+            if (Stats.State == ActionState.Fainted && kind != OfferingKind.Water)
                 return;
-
-            if (Stats.State == ActionState.Slumped)
-                MigrateSlumpedToPlaying(preserveExhaustTimer: Stats.Stamina <= 0f);
 
             float max = MaxStamina;
             Stats.Stamina = Mathf.Min(max, Stats.Stamina + Mathf.Max(0, staminaGain));
@@ -321,19 +304,6 @@ namespace Yoegoe.Characters
                 // 기력0 놀기에서 회복되면 기절 타이머 리셋
                 Stats.StateTimer = 0f;
             }
-        }
-
-        /// <summary>구 주저앉기 → 놀기. 점유 해제. preserveExhaustTimer면 기절까지 경과 유지.</summary>
-        void MigrateSlumpedToPlaying(bool preserveExhaustTimer = true)
-        {
-            if (Stats.State != ActionState.Slumped) return;
-            float timer = Stats.StateTimer;
-            LeaveCurrentProp();
-            Stats.State = ActionState.Playing;
-            if (preserveExhaustTimer && Stats.Stamina <= 0f)
-                Stats.StateTimer = timer;
-            else
-                Stats.StateTimer = 0f;
         }
 
         public void BindSpriteRenderer(SpriteRenderer sr)
@@ -356,7 +326,6 @@ namespace Yoegoe.Characters
             {
                 case ActionState.Walking: c = Color.green; break;
                 case ActionState.Staying: c = Color.blue; break;
-                case ActionState.Slumped:
                 case ActionState.Playing: c = new Color(1f, 0.45f, 0.85f); break;
                 case ActionState.Fainted: c = Color.red; break;
                 default: c = Color.white; break;

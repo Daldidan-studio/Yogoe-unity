@@ -21,6 +21,11 @@ namespace Yoegoe.Characters
         private bool isWandering;
         private float wanderTimer;
         private Vector3? wanderTarget; // isWandering 중 실제로 걸어갈 맵 안의 임시 목적지
+        private float boundaryStuckTimer;
+        private const float BoundaryStuckSeconds = 0.35f;
+        /// <summary>만창으로 멈춰 있을 때 다른 기물을 찾아보는 간격.</summary>
+        private const float HaltedRecheckSeconds = 2f;
+        private float haltedRecheckTimer;
 
         /// <summary>
         /// 복귀 catch-up 중 Walking이면 목적지만 보장한다.
@@ -46,11 +51,16 @@ namespace Yoegoe.Characters
 
         private void PickDestination()
         {
+            PickDestinationExcluding(previousProp);
+        }
+
+        private void PickDestinationExcluding(PropSlot exclude)
+        {
             // 이전에 찜해둔 목적지가 있으면(도착 못 하고 재추첨하는 경우) 먼저 예약 해제.
             if (destination != null) destination.ReleaseReservation(this);
 
             destination = PropManager.Instance != null
-                ? PropManager.Instance.GetRandomAvailableProp(this, previousProp)
+                ? PropManager.Instance.GetRandomAvailableProp(this, exclude)
                 : null;
 
             // 고르는 즉시 찜해둬서, 같은 프레임에 다른 캐릭터가 고를 때 후보에서 빠지게 한다
@@ -60,6 +70,7 @@ namespace Yoegoe.Characters
             isWandering = destination == null;
             wanderTimer = 0f;
             wanderTarget = null;
+            boundaryStuckTimer = 0f;
         }
 
         private void TickWalking(float dt)
@@ -73,17 +84,35 @@ namespace Yoegoe.Characters
                 if (wanderTarget == null || Vector3.Distance(transform.position, wanderTarget.Value) < 0.05f)
                 {
                     wanderTarget = MapBounds.RandomPoint(transform.position.z);
+                    boundaryStuckTimer = 0f;
                 }
-                transform.position = MapBounds.Clamp(Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
+
+                transform.position = MapBounds.MoveClamped(
+                    transform.position, wanderTarget.Value, MoveSpeed * dt, out bool blocked);
                 ResolveSeparation(dt);
+                if (blocked) OnBoundaryBlocked(dt, excludeProp: null);
+                else boundaryStuckTimer = 0f;
                 return;
             }
 
             if (destination == null) { PickDestination(); return; }
 
             Vector3 targetPos = destination.transform.position;
-            transform.position = MapBounds.Clamp(Vector3.MoveTowards(transform.position, targetPos, moveSpeed * dt));
+            // 기물이 맵 밖이면 가장 가까운 가장 점까지만 가고, 막히면 다른 목적지로
+            if (!MapBounds.Contains(targetPos))
+                targetPos = MapBounds.Clamp(targetPos);
+
+            transform.position = MapBounds.MoveClamped(
+                transform.position, targetPos, MoveSpeed * dt, out bool blockedTowardProp);
             ResolveSeparation(dt);
+
+            if (blockedTowardProp)
+            {
+                OnBoundaryBlocked(dt, excludeProp: destination);
+                return;
+            }
+
+            boundaryStuckTimer = 0f;
 
             if (Vector3.Distance(transform.position, targetPos) < 0.05f)
             {
@@ -100,6 +129,33 @@ namespace Yoegoe.Characters
                     PickDestination();
                 }
             }
+        }
+
+        /// <summary>
+        /// 맵 경계(비직사각형 포함)에 막혀 목표로 못 나가면 방향을 바꾼다.
+        /// </summary>
+        private void OnBoundaryBlocked(float dt, PropSlot excludeProp)
+        {
+            boundaryStuckTimer += dt;
+            if (boundaryStuckTimer < BoundaryStuckSeconds) return;
+            boundaryStuckTimer = 0f;
+
+            if (excludeProp != null)
+            {
+                // 막힌 기물은 잠시 제외하고 다른 곳으로
+                PickDestinationExcluding(excludeProp);
+                if (destination != null) return;
+            }
+
+            // 방황 중이거나 대체 기물 없음 → 랜덤 방향
+            if (destination != null)
+            {
+                destination.ReleaseReservation(this);
+                destination = null;
+            }
+            isWandering = true;
+            wanderTarget = MapBounds.RandomPoint(transform.position.z);
+            wanderTimer = 0f;
         }
 
         /// <summary>
@@ -126,7 +182,7 @@ namespace Yoegoe.Characters
             if (push == Vector3.zero) return;
 
             // 한 프레임 밀림 상한 — moveSpeed 대비 과도하면 전진이 상쇄되어 끊겨 보인다.
-            float maxPush = moveSpeed * 0.55f * dt;
+            float maxPush = MoveSpeed * 0.55f * dt;
             Vector3 step = push * SeparationSpeed * dt;
             if (step.sqrMagnitude > maxPush * maxPush)
                 step = step.normalized * maxPush;
@@ -159,9 +215,17 @@ namespace Yoegoe.Characters
         {
             if (currentProp != null && currentProp.IsStorageHalted)
             {
+                // 7장: 만창인데 기력이 남았으면 일할 수 있는 다른 기물로 간다. 없으면 그대로 앉아 대기(수거되면 재개).
+                haltedRecheckTimer += dt;
+                if (haltedRecheckTimer >= HaltedRecheckSeconds)
+                {
+                    haltedRecheckTimer = 0f;
+                    if (TryLeaveHaltedProp()) return dt;
+                }
                 Stats.StateTimer += dt;
                 return dt;
             }
+            haltedRecheckTimer = 0f;
 
             float drain = StaminaDrainPerSecond;
             float timeToZero = Stats.Stamina > 0f ? Stats.Stamina / drain : 0f;
@@ -176,16 +240,14 @@ namespace Yoegoe.Characters
 
             // 기물이 만창에 닿으면 그 시점까지만 일한 것으로 친다
             float worked = currentProp != null
-                ? currentProp.ProduceWhileStaying(slice, GetProductionPerMinuteIfStaying())
+                ? currentProp.ProduceWhileStaying(slice, Stats.Intimacy, currentProp.IsOwnerOnEndingProp(this), SpeedMultiplier)
                 : slice;
             if (worked <= 0f && currentProp != null && currentProp.IsStorageHalted)
                 return 0.0001f; // 다음 구간에서 정지 분기로
 
-            float staminaBefore = Stats.Stamina;
             Stats.StateTimer += worked;
             Stats.Stamina -= worked * drain;
             if (Stats.Stamina < 0f) Stats.Stamina = 0f;
-            Requests.NotifyStaminaDrain(staminaBefore, Stats.Stamina);
             slice = worked > 0f ? worked : slice;
 
             if (Stats.Stamina <= 0f)
@@ -201,24 +263,7 @@ namespace Yoegoe.Characters
         public double GetProductionPerMinuteIfStaying()
         {
             if (Stats.State != ActionState.Staying || currentProp == null) return 0;
-            return currentProp.GetBaseProductionThisLevel()
-                   * GetIntimacyCorrection()
-                   * GetEndingPropCorrection();
-        }
-
-        /// <summary>7-1: 친밀도 보정. 온라인/오프라인 공통 공식은 <see cref="ProductionFormula"/> 참고.</summary>
-        private double GetIntimacyCorrection() =>
-            currentProp != null && currentProp.data != null && !currentProp.data.intimacyBonus
-                ? 1.0
-                : ProductionFormula.IntimacyMultiplier(Stats.Intimacy);
-
-        /// <summary>7-1: 엔딩 기물 보정 (MVP: 옥토끼–떡절구). 공식은 <see cref="ProductionFormula"/> 참고.</summary>
-        private double GetEndingPropCorrection()
-        {
-            if (currentProp == null || currentProp.data == null || Data == null) return 1.0;
-            bool sameOwner = currentProp.data.owner == Data.id;
-            return ProductionFormula.EndingMultiplier(currentProp.data.isEndingProp, sameOwner,
-                currentProp.data.ownerMultiplier);
+            return currentProp.MeritPerMinuteFor(this);
         }
 
         /// <summary>전용 점유 아트 표시 중에는 캐릭터 스프라이트를 숨긴다.</summary>
@@ -239,6 +284,16 @@ namespace Yoegoe.Characters
                 currentProp = null;
             }
             SetSpriteVisible(true);
+        }
+
+        /// <summary>만창 기물에서 일어나 다른 빈 기물로 걸어간다. 갈 곳이 없거나 기력이 없으면 false(그대로 앉아 있음).</summary>
+        private bool TryLeaveHaltedProp()
+        {
+            if (Stats.Stamina <= 0f || PropManager.Instance == null || currentProp == null) return false;
+            if (PropManager.Instance.GetRandomAvailableProp(this, currentProp) == null) return false;
+            LeaveCurrentProp();   // previousProp = 만창 기물 → 걷기 목적지에서 빠진다
+            EnterWalking();
+            return true;
         }
 
         // ---------------- Playing (놀기 / 기력0 쉬기) ----------------
@@ -283,7 +338,7 @@ namespace Yoegoe.Characters
                 wanderTarget = MapBounds.RandomPoint(transform.position.z);
 
             transform.position = MapBounds.Clamp(
-                Vector3.MoveTowards(transform.position, wanderTarget.Value, moveSpeed * dt));
+                Vector3.MoveTowards(transform.position, wanderTarget.Value, MoveSpeed * dt));
             ResolveSeparation(dt);
         }
 
@@ -301,7 +356,7 @@ namespace Yoegoe.Characters
             isWandering = false;
             wanderTarget = null;
 
-            if (!prop.CanBeUsedBy(this)) return false;
+            if (!prop.AcceptsWorkers || !prop.CanBeUsedBy(this)) return false;
             if (!prop.TryOccupy(this)) return false;
 
             currentProp = prop;
